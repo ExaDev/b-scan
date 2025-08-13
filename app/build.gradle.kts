@@ -23,13 +23,28 @@ android {
         }
     }
 
+    signingConfigs {
+        create("debug") {
+            // Use Android's default debug signing
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Sign with debug key for testing (no production signing)
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
