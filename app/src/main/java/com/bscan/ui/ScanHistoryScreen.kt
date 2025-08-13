@@ -264,7 +264,7 @@ fun ScanResultBadge(result: ScanResult) {
     val (color, icon, text) = when (result) {
         ScanResult.SUCCESS -> Triple(MaterialTheme.colorScheme.primary, Icons.Default.CheckCircle, "Success")
         ScanResult.AUTHENTICATION_FAILED -> Triple(MaterialTheme.colorScheme.error, Icons.Default.Lock, "Auth Failed")
-        ScanResult.INSUFFICIENT_DATA -> Triple(MaterialTheme.colorScheme.warning, Icons.Default.Warning, "No Data")
+        ScanResult.INSUFFICIENT_DATA -> Triple(MaterialTheme.colorScheme.secondary, Icons.Default.Warning, "No Data")
         ScanResult.PARSING_FAILED -> Triple(MaterialTheme.colorScheme.error, Icons.Default.Error, "Parse Error")
         ScanResult.NO_NFC_TAG -> Triple(MaterialTheme.colorScheme.outline, Icons.Default.Nfc, "No Tag")
         ScanResult.UNKNOWN_ERROR -> Triple(MaterialTheme.colorScheme.error, Icons.Default.Help, "Error")
@@ -363,7 +363,7 @@ fun DebugInfoSection(scan: ScanHistory) {
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold
             )
-            scan.debugInfo.blockData.take(6).forEach { (block, data) ->
+            scan.debugInfo.blockData.entries.take(6).forEach { (block, data) ->
                 Text(
                     text = "Block $block: $data",
                     style = MaterialTheme.typography.bodySmall,
