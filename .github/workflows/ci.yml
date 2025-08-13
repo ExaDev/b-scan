@@ -335,8 +335,8 @@ jobs:
         ✅ Unit tests
         ✅ Security scan
         ✅ Performance analysis" \
-          artifacts/*.apk \
-          artifacts/*.aab
+          artifacts/apk/release/*.apk \
+          artifacts/bundle/release/*.aab
 
   # Job 9: Notification (always runs, summarizes results)
   notify:
