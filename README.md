@@ -1,0 +1,98 @@
+# B-Scan - Bambu RFID Tag Reader
+
+A simple Android application for reading and displaying Bambu Lab 3D printer filament spool RFID tags. This app provides a clean, read-only interface to view filament information directly from NFC-enabled Bambu Lab spools.
+
+## Features
+
+- **NFC Tag Scanning**: Tap your Android device against Bambu Lab filament spools to read their RFID data
+- **Filament Information Display**: View detailed spool information including:
+  - Filament type (PLA, PETG, ABS, etc.)
+  - Color name and hex code with visual preview
+  - Material specifications (diameter, weight, length)  
+  - Temperature settings (hotend, bed, drying)
+  - Production date and tray UID
+- **Material 3 Design**: Clean, modern interface following Google's latest design guidelines
+- **Instant Results**: No internet connection required - all data comes directly from the tag
+
+## Requirements
+
+- Android device with NFC capability
+- Android 10 (API level 29) or higher
+- Bambu Lab filament spools with RFID tags
+
+## Installation
+
+1. Download the latest APK from the [releases page](../../releases)
+2. Enable "Install from unknown sources" in your Android settings
+3. Install the APK file
+4. Grant NFC permissions when prompted
+
+## Usage
+
+1. **Launch the app** and ensure NFC is enabled on your device
+2. **Hold your phone** near the RFID tag on a Bambu Lab filament spool
+3. **Wait 2-3 seconds** for the tag to be read completely
+4. **View the results** displaying all filament specifications and properties
+
+The app will automatically decode the RFID data and present it in an easy-to-read format with colour visualisation and technical specifications.
+
+### Supported Tags
+
+- Bambu Lab PLA (Basic, Matte, Silk, Galaxy, Sparkle)
+- Bambu Lab PETG Basic
+- Bambu Lab ABS
+- Bambu Lab Support materials
+- Other Bambu Lab proprietary filament types
+
+## Technical Details
+
+- **Platform**: Android (Kotlin)
+- **UI Framework**: Jetpack Compose
+- **Target SDK**: Android 14 (API 34)
+- **Minimum SDK**: Android 10 (API 29)
+- **NFC Protocol**: ISO 14443-A (Mifare Classic 1K)
+- **Tag Format**: Bambu Lab proprietary RFID data structure
+
+## Screenshots
+
+*Screenshots will be added once the app is implemented*
+
+## Privacy & Security
+
+- **No data collection**: App reads tags locally and doesn't transmit any information
+- **No internet required**: All processing happens on-device
+- **No storage**: Tag data is displayed temporarily and not saved
+- **Read-only access**: App cannot modify or write to RFID tags
+
+## Limitations
+
+- Only supports Bambu Lab RFID tags (Mifare Classic 1K format)
+- Cannot read encrypted or damaged tags
+- Requires physical proximity to tag (NFC range ~4cm)
+- Does not support tag writing or modification
+
+## Related Projects
+
+This app is part of a larger ecosystem of Bambu Lab RFID tools:
+
+- **[OpenSpool](../OpenSpool/)**: ESP32 hardware for automatic filament detection
+- **[RFID-Tag-Guide](../RFID-Tag-Guide/)**: Research documentation for Bambu Lab RFID protocols
+- **[BambuSpoolPal](../MrBambuSpoolPal-BambuSpoolPal_AndroidApp/)**: Full-featured app with Spoolman integration
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
+1. Fork the repository
+2. Create your feature branch
+3. Make your changes
+4. Test thoroughly on real Bambu Lab tags  
+5. Submit a pull request
+
+## Disclaimer
+
+This is an unofficial third-party application. It is not affiliated with or endorsed by Bambu Lab. Use at your own risk.
