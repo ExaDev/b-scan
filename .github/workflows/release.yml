@@ -37,49 +37,27 @@ jobs:
         echo "tag=v$VERSION" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+    - name: Create Release and Upload Assets
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.version.outputs.tag }}
-        release_name: B-Scan ${{ steps.version.outputs.version }}
-        body: |
-          ## B-Scan Release ${{ steps.version.outputs.version }}
-          
-          Automated release from main branch.
-          
-          ### Downloads
-          - **APK**: Install directly on Android devices
-          - **AAB**: For Google Play Store distribution
-          
-          ### Requirements
-          - Android 10 (API 29) or higher
-          - NFC-enabled device
-          - NFC must be enabled in device settings
-          
-          ### Changes
-          Built from commit: ${{ github.sha }}
-        draft: false
-        prerelease: false
+      run: |
+        # Create the release
+        gh release create ${{ steps.version.outputs.tag }} \
+          --title "B-Scan ${{ steps.version.outputs.version }}" \
+          --notes "## B-Scan Release ${{ steps.version.outputs.version }}
 
-    - name: Upload APK to Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/apk/release/app-release-unsigned.apk
-        asset_name: b-scan-${{ steps.version.outputs.version }}-unsigned.apk
-        asset_content_type: application/vnd.android.package-archive
+        Automated release from main branch.
 
-    - name: Upload AAB to Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: app/build/outputs/bundle/release/app-release.aab
-        asset_name: b-scan-${{ steps.version.outputs.version }}.aab
-        asset_content_type: application/octet-stream
+        ### Downloads
+        - **APK**: Install directly on Android devices
+        - **AAB**: For Google Play Store distribution
+
+        ### Requirements
+        - Android 10 (API 29) or higher
+        - NFC-enabled device
+        - NFC must be enabled in device settings
+
+        ### Changes
+        Built from commit: ${{ github.sha }}" \
+          app/build/outputs/apk/release/app-release-unsigned.apk#b-scan-${{ steps.version.outputs.version }}-unsigned.apk \
+          app/build/outputs/bundle/release/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
