@@ -30,6 +30,13 @@ object BambuTagDecoder {
             val spoolWeight = int(data.bytes, 5, 4, 2) // uint16 LE
             val filamentDiameter = float(data.bytes, 5, 8, 4) ?: 1.75f // float LE
             
+            // Block 6: Temperature and Drying Info
+            val dryingTemperature = int(data.bytes, 6, 0, 2) // uint16 LE
+            val dryingTime = int(data.bytes, 6, 2, 2) // uint16 LE  
+            val bedTemperature = int(data.bytes, 6, 6, 2) // uint16 LE
+            val maxTemperature = int(data.bytes, 6, 8, 2) // uint16 LE
+            val minTemperature = int(data.bytes, 6, 10, 2) // uint16 LE
+            
             // Block 9: Tray UID (16 bytes)
             val trayUid = string(data.bytes, 9, 0, 16)
             
@@ -47,19 +54,48 @@ object BambuTagDecoder {
                     colorBytes[2].toUByte().toInt())
             } else "#000000"
             
+            // Generate a basic color name from the hex value (could be enhanced)
+            val colorName = getColorName(colorHex)
+            
             FilamentInfo(
                 uid = data.uid,
-                trayUID = trayUid,
+                trayUid = trayUid,
                 filamentType = material,
                 detailedFilamentType = detailedFilamentType,
                 colorHex = colorHex,
+                colorName = colorName,
                 spoolWeight = spoolWeight,
                 filamentDiameter = filamentDiameter,
                 filamentLength = filamentLength,
-                productionDate = productionDate
+                productionDate = productionDate,
+                minTemperature = minTemperature,
+                maxTemperature = maxTemperature,
+                bedTemperature = bedTemperature,
+                dryingTemperature = dryingTemperature,
+                dryingTime = dryingTime
             )
         } catch (e: Exception) {
             null
+        }
+    }
+    
+    private fun getColorName(colorHex: String): String {
+        // Basic color name mapping - could be enhanced with more sophisticated color matching
+        return when {
+            colorHex.equals("#000000", ignoreCase = true) -> "Black"
+            colorHex.equals("#FFFFFF", ignoreCase = true) -> "White"
+            colorHex.equals("#FF0000", ignoreCase = true) -> "Red"
+            colorHex.equals("#00FF00", ignoreCase = true) -> "Green"
+            colorHex.equals("#0000FF", ignoreCase = true) -> "Blue"
+            colorHex.equals("#FFFF00", ignoreCase = true) -> "Yellow"
+            colorHex.equals("#FF00FF", ignoreCase = true) -> "Magenta"
+            colorHex.equals("#00FFFF", ignoreCase = true) -> "Cyan"
+            colorHex.startsWith("#FF", ignoreCase = true) -> "Red-ish"
+            colorHex.substring(1, 3).equals("00", ignoreCase = true) && 
+            colorHex.substring(3, 5) != "00" -> "Green-ish"
+            colorHex.substring(3, 5).equals("00", ignoreCase = true) && 
+            colorHex.substring(5, 7) != "00" -> "Blue-ish"
+            else -> colorHex // Return hex if no match
         }
     }
     
