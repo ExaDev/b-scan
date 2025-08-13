@@ -1,0 +1,29 @@
+name: 'Build Android App'
+description: 'Build Android APK/AAB (unsigned)'
+
+inputs:
+  build-type:
+    description: 'Build type: debug or release'
+    required: true
+    default: 'debug'
+  
+  build-aab:
+    description: 'Whether to build AAB bundle'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run tests
+      shell: bash
+      run: ./gradlew test
+
+    - name: Build APK
+      shell: bash
+      run: ./gradlew assemble${{ inputs.build-type }}
+
+    - name: Build AAB
+      if: inputs.build-aab == 'true'
+      shell: bash
+      run: ./gradlew bundle${{ inputs.build-type }}
