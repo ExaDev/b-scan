@@ -18,23 +18,31 @@ class ScanHistoryTest {
         val filamentInfo = FilamentInfo(
             uid = uid,
             trayUid = "test-tray",
-            materialName = "PLA",
+            filamentType = "PLA",
+            detailedFilamentType = "Basic PLA",
+            colorHex = "#FF0000",
             colorName = "Red",
-            materialType = "PLA",
             spoolWeight = 1000,
             filamentDiameter = 1.75f,
-            dryingTemperature = 40,
-            dryingTime = 6,
-            bedTemperature = 60,
+            filamentLength = 250000,
+            productionDate = "2024-01-15",
+            minTemperature = 190,
             maxTemperature = 210,
-            minTemperature = 190
+            bedTemperature = 60,
+            dryingTemperature = 40,
+            dryingTime = 6
         )
         val debugInfo = ScanDebugInfo(
             tagSizeBytes = 1024,
             sectorCount = 16,
             authenticatedSectors = listOf(1, 2, 3),
+            failedSectors = listOf(4, 5),
+            usedKeyTypes = mapOf(1 to "KeyA", 2 to "KeyB"),
+            blockData = mapOf(5 to "FF0000FF12345678", 6 to "28003C00D2C2BE"),
+            derivedKeys = listOf("A1B2C3D4E5F6", "F6E5D4C3B2A1"),
             rawColorBytes = "FF0000FF",
-            blockData = mapOf(5 to "FF0000FF12345678", 6 to "28003C00D2C2BE")
+            errorMessages = emptyList(),
+            parsingDetails = mapOf("spoolWeight" to 1000, "diameter" to 1.75f)
         )
 
         // When creating ScanHistory
@@ -71,16 +79,23 @@ class ScanHistoryTest {
             tagSizeBytes = 1024,
             sectorCount = 16,
             authenticatedSectors = listOf(1, 2, 3),
+            failedSectors = listOf(4, 5),
+            usedKeyTypes = mapOf(1 to "KeyA", 2 to "KeyB"),
+            blockData = blockData,
+            derivedKeys = listOf("A1B2C3D4E5F6", "F6E5D4C3B2A1"),
             rawColorBytes = "FF0000FF",
-            blockData = blockData
+            errorMessages = emptyList(),
+            parsingDetails = mapOf("test" to "value")
         )
 
         // Then all properties should be set correctly
         assertEquals(1024, debugInfo.tagSizeBytes)
         assertEquals(16, debugInfo.sectorCount)
         assertEquals(listOf(1, 2, 3), debugInfo.authenticatedSectors)
+        assertEquals(listOf(4, 5), debugInfo.failedSectors)
         assertEquals("FF0000FF", debugInfo.rawColorBytes)
         assertEquals(blockData, debugInfo.blockData)
+        assertEquals(2, debugInfo.derivedKeys.size)
     }
 
     @Test

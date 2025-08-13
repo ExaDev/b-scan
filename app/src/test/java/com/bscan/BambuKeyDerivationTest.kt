@@ -12,7 +12,7 @@ class BambuKeyDerivationTest {
     @Test
     fun testKeyDerivationProducesCorrectNumberOfKeys() {
         // Given a test UID
-        val testUid = byteArrayOf(0x04, 0x5A, 0xB2, 0xC1, 0xDE, 0x34, 0x80)
+        val testUid = byteArrayOf(0x04, 0x5A.toByte(), 0xB2.toByte(), 0xC1.toByte(), 0xDE.toByte(), 0x34, 0x80.toByte())
         
         // When deriving keys
         val keys = BambuKeyDerivation.deriveKeys(testUid)
@@ -24,7 +24,7 @@ class BambuKeyDerivationTest {
     @Test
     fun testKeyDerivationIsConsistent() {
         // Given the same UID
-        val testUid = byteArrayOf(0x04, 0x5A, 0xB2, 0xC1, 0xDE, 0x34, 0x80)
+        val testUid = byteArrayOf(0x04, 0x5A.toByte(), 0xB2.toByte(), 0xC1.toByte(), 0xDE.toByte(), 0x34, 0x80.toByte())
         
         // When deriving keys multiple times
         val keys1 = BambuKeyDerivation.deriveKeys(testUid)
@@ -40,7 +40,7 @@ class BambuKeyDerivationTest {
     @Test
     fun testKeyDerivationProducesValidKeyLength() {
         // Given a test UID
-        val testUid = byteArrayOf(0x04, 0x5A, 0xB2, 0xC1, 0xDE, 0x34, 0x80)
+        val testUid = byteArrayOf(0x04, 0x5A.toByte(), 0xB2.toByte(), 0xC1.toByte(), 0xDE.toByte(), 0x34, 0x80.toByte())
         
         // When deriving keys
         val keys = BambuKeyDerivation.deriveKeys(testUid)
@@ -54,8 +54,8 @@ class BambuKeyDerivationTest {
     @Test
     fun testDifferentUidsProduceDifferentKeys() {
         // Given two different UIDs
-        val uid1 = byteArrayOf(0x04, 0x5A, 0xB2, 0xC1, 0xDE, 0x34, 0x80)
-        val uid2 = byteArrayOf(0x04, 0x1B, 0x3C, 0x4D, 0x5E, 0x6F, 0x70)
+        val uid1 = byteArrayOf(0x04, 0x5A.toByte(), 0xB2.toByte(), 0xC1.toByte(), 0xDE.toByte(), 0x34, 0x80.toByte())
+        val uid2 = byteArrayOf(0x04, 0x1B, 0x3C, 0x4D, 0x5E, 0x6F.toByte(), 0x70)
         
         // When deriving keys
         val keys1 = BambuKeyDerivation.deriveKeys(uid1)
