@@ -78,5 +78,5 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: app/build/outputs/bundle/release/app-release.aab
-        asset_name: b-scan-${{ steps.version.outputs.version }.aab
+        asset_name: b-scan-${{ steps.version.outputs.version }}.aab
         asset_content_type: application/octet-stream
