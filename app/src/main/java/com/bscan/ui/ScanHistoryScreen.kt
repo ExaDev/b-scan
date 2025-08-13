@@ -1,0 +1,427 @@
+package com.bscan.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.bscan.model.ScanHistory
+import com.bscan.model.ScanResult
+import com.bscan.repository.ScanHistoryRepository
+import java.time.format.DateTimeFormatter
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScanHistoryScreen(
+    onNavigateBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember { ScanHistoryRepository(context) }
+    var scans by remember { mutableStateOf(listOf<ScanHistory>()) }
+    var selectedFilter by remember { mutableStateOf("All") }
+    var expandedItems by remember { mutableStateOf(setOf<Long>()) }
+    
+    LaunchedEffect(Unit) {
+        scans = repository.getAllScans()
+    }
+    
+    val filteredScans = when (selectedFilter) {
+        "Success" -> scans.filter { it.scanResult == ScanResult.SUCCESS }
+        "Failed" -> scans.filter { it.scanResult != ScanResult.SUCCESS }
+        else -> scans
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Scan History") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = { 
+                            repository.clearHistory()
+                            scans = emptyList()
+                        }
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Clear History")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // Statistics Card
+            ScanStatisticsCard(repository = repository, scans = scans)
+            
+            // Filter Row
+            FilterRow(
+                selectedFilter = selectedFilter,
+                onFilterChanged = { selectedFilter = it }
+            )
+            
+            // Scans List
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filteredScans) { scan ->
+                    ScanHistoryItem(
+                        scan = scan,
+                        isExpanded = expandedItems.contains(scan.id),
+                        onToggleExpanded = { 
+                            expandedItems = if (expandedItems.contains(scan.id)) {
+                                expandedItems - scan.id
+                            } else {
+                                expandedItems + scan.id
+                            }
+                        }
+                    )
+                }
+                
+                if (filteredScans.isEmpty()) {
+                    item {
+                        EmptyHistoryMessage(filter = selectedFilter)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ScanStatisticsCard(repository: ScanHistoryRepository, scans: List<ScanHistory>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Statistics",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                StatItem("Total Scans", scans.size.toString())
+                StatItem("Success Rate", "${(repository.getSuccessRate() * 100).toInt()}%")
+                StatItem("Successful", repository.getSuccessfulScans().size.toString())
+                StatItem("Failed", repository.getFailedScans().size.toString())
+            }
+        }
+    }
+}
+
+@Composable
+fun StatItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+fun FilterRow(selectedFilter: String, onFilterChanged: (String) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        listOf("All", "Success", "Failed").forEach { filter ->
+            FilterChip(
+                selected = selectedFilter == filter,
+                onClick = { onFilterChanged(filter) },
+                label = { Text(filter) }
+            )
+        }
+    }
+}
+
+@Composable
+fun ScanHistoryItem(
+    scan: ScanHistory,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = when (scan.scanResult) {
+                ScanResult.SUCCESS -> MaterialTheme.colorScheme.surface
+                else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = scan.uid,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = scan.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ScanResultBadge(scan.scanResult)
+                    IconButton(onClick = onToggleExpanded) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand"
+                        )
+                    }
+                }
+            }
+            
+            // Basic Info
+            if (scan.filamentInfo != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Color indicator
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .background(
+                                color = try {
+                                    Color(android.graphics.Color.parseColor(scan.filamentInfo.colorHex))
+                                } catch (e: Exception) {
+                                    Color.Gray
+                                },
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                    )
+                    Text(
+                        text = "${scan.filamentInfo.filamentType} - ${scan.filamentInfo.colorName}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+            
+            // Expanded Debug Info
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(16.dp))
+                DebugInfoSection(scan)
+            }
+        }
+    }
+}
+
+@Composable
+fun ScanResultBadge(result: ScanResult) {
+    val (color, icon, text) = when (result) {
+        ScanResult.SUCCESS -> Triple(MaterialTheme.colorScheme.primary, Icons.Default.CheckCircle, "Success")
+        ScanResult.AUTHENTICATION_FAILED -> Triple(MaterialTheme.colorScheme.error, Icons.Default.Lock, "Auth Failed")
+        ScanResult.INSUFFICIENT_DATA -> Triple(MaterialTheme.colorScheme.warning, Icons.Default.Warning, "No Data")
+        ScanResult.PARSING_FAILED -> Triple(MaterialTheme.colorScheme.error, Icons.Default.Error, "Parse Error")
+        ScanResult.NO_NFC_TAG -> Triple(MaterialTheme.colorScheme.outline, Icons.Default.Nfc, "No Tag")
+        ScanResult.UNKNOWN_ERROR -> Triple(MaterialTheme.colorScheme.error, Icons.Default.Help, "Error")
+    }
+    
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = text,
+            tint = color,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = color
+        )
+    }
+}
+
+@Composable
+fun DebugInfoSection(scan: ScanHistory) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Debug Information",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold
+        )
+        
+        // Technical Details
+        DebugInfoRow("Technology", scan.technology)
+        DebugInfoRow("Tag Size", "${scan.debugInfo.tagSizeBytes} bytes")
+        DebugInfoRow("Sectors", scan.debugInfo.sectorCount.toString())
+        DebugInfoRow("Authenticated", "${scan.debugInfo.authenticatedSectors.size}/${scan.debugInfo.sectorCount}")
+        
+        if (scan.debugInfo.rawColorBytes.isNotEmpty()) {
+            DebugInfoRow("Raw Color", scan.debugInfo.rawColorBytes)
+        }
+        
+        // Authentication Details
+        if (scan.debugInfo.authenticatedSectors.isNotEmpty()) {
+            Text(
+                text = "Authentication Success:",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Sectors: ${scan.debugInfo.authenticatedSectors.joinToString(", ")}",
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+        
+        if (scan.debugInfo.failedSectors.isNotEmpty()) {
+            Text(
+                text = "Authentication Failed:",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            Text(
+                text = "Sectors: ${scan.debugInfo.failedSectors.joinToString(", ")}",
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+        
+        // Error Messages
+        if (scan.debugInfo.errorMessages.isNotEmpty()) {
+            Text(
+                text = "Errors:",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error
+            )
+            scan.debugInfo.errorMessages.forEach { error ->
+                Text(
+                    text = "• $error",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+        
+        // Key block data
+        if (scan.debugInfo.blockData.isNotEmpty()) {
+            Text(
+                text = "Block Data (First 6 blocks):",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold
+            )
+            scan.debugInfo.blockData.take(6).forEach { (block, data) ->
+                Text(
+                    text = "Block $block: $data",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DebugInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+@Composable
+fun EmptyHistoryMessage(filter: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.History,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.outline
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = when (filter) {
+                "Success" -> "No successful scans yet"
+                "Failed" -> "No failed scans"
+                else -> "No scan history yet"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.outline
+        )
+        Text(
+            text = "Scan an NFC tag to see history here",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline
+        )
+    }
+}

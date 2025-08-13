@@ -8,6 +8,7 @@ import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.nfc.tech.NfcA
 import android.util.Log
+import com.bscan.debug.DebugDataCollector
 import com.bscan.model.NfcTagData
 import com.bscan.nfc.BambuKeyDerivation
 import java.io.IOException
@@ -18,6 +19,7 @@ class NfcManager(private val activity: Activity) {
     }
     
     private val nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
+    val debugCollector = DebugDataCollector()
     private val pendingIntent: PendingIntent = PendingIntent.getActivity(
         activity, 0,
         Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -56,10 +58,13 @@ class NfcManager(private val activity: Activity) {
     
     private fun readTagData(tag: Tag): NfcTagData? {
         try {
+            debugCollector.reset() // Start fresh for each scan
+            
             val mifareClassic = MifareClassic.get(tag)
             return if (mifareClassic != null) {
                 readMifareClassicTag(mifareClassic, tag)
             } else {
+                debugCollector.recordError("Tag is not MIFARE Classic compatible")
                 // Fallback to reading basic tag info
                 NfcTagData(
                     uid = bytesToHex(tag.id),
@@ -68,6 +73,7 @@ class NfcManager(private val activity: Activity) {
                 )
             }
         } catch (e: IOException) {
+            debugCollector.recordError("IOException reading tag: ${e.message}")
             e.printStackTrace()
             return null
         }
@@ -85,8 +91,12 @@ class NfcManager(private val activity: Activity) {
             Log.d(TAG, "Sectors: $sectors")
             Log.d(TAG, "Size: ${mifareClassic.size} bytes")
             
+            // Record debug info
+            debugCollector.recordTagInfo(mifareClassic.size, sectors)
+            
             // Derive proper authentication keys from UID using KDF
             val derivedKeys = BambuKeyDerivation.deriveKeys(tag.id)
+            debugCollector.recordDerivedKeys(derivedKeys)
             Log.d(TAG, "Derived ${derivedKeys.size} keys from UID")
             
             // Fallback keys in case KDF fails
@@ -111,6 +121,7 @@ class NfcManager(private val activity: Activity) {
                         if (mifareClassic.authenticateSectorWithKeyA(sector, key)) {
                             authenticated = true
                             usedKey = key
+                            debugCollector.recordSectorAuthentication(sector, true, "KeyA")
                             Log.d(TAG, "Sector $sector authenticated with key A (index $keyIndex)")
                             break
                         }
@@ -122,6 +133,7 @@ class NfcManager(private val activity: Activity) {
                         if (mifareClassic.authenticateSectorWithKeyB(sector, key)) {
                             authenticated = true
                             usedKey = key
+                            debugCollector.recordSectorAuthentication(sector, true, "KeyB")
                             Log.d(TAG, "Sector $sector authenticated with key B (index $keyIndex)")
                             break
                         }
@@ -131,6 +143,7 @@ class NfcManager(private val activity: Activity) {
                 }
                 
                 if (!authenticated) {
+                    debugCollector.recordSectorAuthentication(sector, false)
                     Log.w(TAG, "Failed to authenticate sector $sector")
                 }
                 
@@ -152,10 +165,13 @@ class NfcManager(private val activity: Activity) {
                         // Log block data for key blocks (0-6)
                         if (sector <= 1 || absoluteBlock <= 6) {
                             val hexData = blockData.joinToString("") { "%02X".format(it) }
+                            debugCollector.recordBlockData(absoluteBlock, hexData)
                             Log.d(TAG, "Block $absoluteBlock (sector $sector, block $blockInSector): $hexData")
                         }
                     } catch (e: IOException) {
-                        Log.w(TAG, "Failed to read block $absoluteBlock: ${e.message}")
+                        val errorMsg = "Failed to read block $absoluteBlock: ${e.message}"
+                        debugCollector.recordError(errorMsg)
+                        Log.w(TAG, errorMsg)
                         // Fill with zeros if read fails
                         for (i in 0 until 16) {
                             allData[dataOffset + i] = 0

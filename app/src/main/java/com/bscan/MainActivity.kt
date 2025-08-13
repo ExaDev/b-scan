@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.nfc.NfcManager
+import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.screens.FilamentDetailsScreen
 import com.bscan.ui.screens.ScanPromptScreen
 import com.bscan.ui.theme.BScanTheme
@@ -40,10 +42,19 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             BScanTheme {
-                MainScreen(
-                    viewModel = viewModel,
-                    onResetScan = { viewModel.resetScan() }
-                )
+                var showHistory by remember { mutableStateOf(false) }
+                
+                if (showHistory) {
+                    ScanHistoryScreen(
+                        onNavigateBack = { showHistory = false }
+                    )
+                } else {
+                    MainScreen(
+                        viewModel = viewModel,
+                        onResetScan = { viewModel.resetScan() },
+                        onShowHistory = { showHistory = true }
+                    )
+                }
             }
         }
         
@@ -78,7 +89,7 @@ class MainActivity : ComponentActivity() {
             
             val tagData = nfcManager.handleIntent(intent)
             if (tagData != null) {
-                viewModel.processTag(tagData)
+                viewModel.processTag(tagData, nfcManager.debugCollector)
             } else {
                 viewModel.setNfcError("Error reading tag")
             }
@@ -90,7 +101,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
-    onResetScan: () -> Unit
+    onResetScan: () -> Unit,
+    onShowHistory: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
@@ -101,6 +113,12 @@ fun MainScreen(
                     Text(text = "B-Scan")
                 },
                 actions = {
+                    IconButton(onClick = onShowHistory) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = "View scan history"
+                        )
+                    }
                     if (uiState.filamentInfo != null) {
                         IconButton(onClick = onResetScan) {
                             Icon(

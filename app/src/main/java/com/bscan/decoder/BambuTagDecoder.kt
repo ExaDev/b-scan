@@ -1,6 +1,7 @@
 package com.bscan.decoder
 
 import android.util.Log
+import com.bscan.debug.DebugDataCollector
 import com.bscan.model.FilamentInfo
 import com.bscan.model.NfcTagData
 import java.nio.ByteBuffer
@@ -11,7 +12,7 @@ import java.time.format.DateTimeFormatter
 object BambuTagDecoder {
     private const val TAG = "BambuTagDecoder"
     
-    fun parseTagDetails(data: NfcTagData): FilamentInfo? {
+    fun parseTagDetails(data: NfcTagData, debugCollector: DebugDataCollector? = null): FilamentInfo? {
         Log.d(TAG, "Parsing tag UID: ${data.uid}")
         Log.d(TAG, "Tag data size: ${data.bytes.size} bytes")
         Log.d(TAG, "Tag technology: ${data.technology}")
@@ -44,7 +45,12 @@ object BambuTagDecoder {
             val spoolWeight = int(data.bytes, 5, 4, 2) // uint16 LE
             val filamentDiameter = float(data.bytes, 5, 8, 4) ?: 1.75f // float LE
             
-            Log.d(TAG, "Raw color bytes: ${colorBytes.joinToString("") { "%02X".format(it) }}")
+            val rawColorHex = colorBytes.joinToString("") { "%02X".format(it) }
+            debugCollector?.recordColorBytes(colorBytes)
+            debugCollector?.recordParsingDetail("spoolWeight", spoolWeight)
+            debugCollector?.recordParsingDetail("filamentDiameter", filamentDiameter)
+            
+            Log.d(TAG, "Raw color bytes: $rawColorHex")
             Log.d(TAG, "Spool weight: $spoolWeight g")
             Log.d(TAG, "Filament diameter: $filamentDiameter mm")
             
