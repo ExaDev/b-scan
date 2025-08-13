@@ -73,22 +73,58 @@ class NfcManager(private val activity: Activity) {
             mifareClassic.connect()
             
             val sectors = mifareClassic.sectorCount
-            val data = mutableListOf<Byte>()
+            val allData = ByteArray(sectors * 48) // Each sector has 3 data blocks * 16 bytes
             
-            // Read first few sectors that contain Bambu Lab data
+            // Bambu Lab authentication keys from reference implementation
+            val bambuKeys = arrayOf(
+                byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
+                byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte()),
+                byteArrayOf(0xB0.toByte(), 0xB1.toByte(), 0xB2.toByte(), 0xB3.toByte(), 0xB4.toByte(), 0xB5.toByte()),
+                byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte(), 0xFF.toByte()),
+                // Additional Bambu Lab keys
+                byteArrayOf(0x48, 0x4D, 0x42, 0x48, 0x44, 0x49),
+                byteArrayOf(0xF1.toByte(), 0xC4.toByte(), 0x42, 0x88.toByte(), 0x10, 0x01)
+            )
+            
+            // Read data systematically like the reference implementation
             for (sector in 0 until minOf(sectors, 16)) {
-                val blocks = mifareClassic.getBlockCountInSector(sector)
+                var authenticated = false
                 
-                for (block in 0 until blocks - 1) { // Skip trailer block
-                    val blockIndex = mifareClassic.sectorToBlock(sector) + block
+                // Try authentication with each key
+                for (key in bambuKeys) {
+                    try {
+                        if (mifareClassic.authenticateSectorWithKeyA(sector, key)) {
+                            authenticated = true
+                            break
+                        }
+                    } catch (e: IOException) {
+                        continue
+                    }
                     
                     try {
-                        // Try to read without authentication first
-                        val blockData = mifareClassic.readBlock(blockIndex)
-                        data.addAll(blockData.toList())
+                        if (mifareClassic.authenticateSectorWithKeyB(sector, key)) {
+                            authenticated = true
+                            break
+                        }
                     } catch (e: IOException) {
-                        // If read fails, add zeros as placeholder
-                        data.addAll(ByteArray(16).toList())
+                        continue
+                    }
+                }
+                
+                // Read blocks in sector (skip trailer block)
+                val blocksInSector = mifareClassic.getBlockCountInSector(sector)
+                for (blockInSector in 0 until blocksInSector - 1) {
+                    val absoluteBlock = mifareClassic.sectorToBlock(sector) + blockInSector
+                    val dataOffset = sector * 48 + blockInSector * 16
+                    
+                    try {
+                        val blockData = mifareClassic.readBlock(absoluteBlock)
+                        System.arraycopy(blockData, 0, allData, dataOffset, 16)
+                    } catch (e: IOException) {
+                        // Fill with zeros if read fails
+                        for (i in 0 until 16) {
+                            allData[dataOffset + i] = 0
+                        }
                     }
                 }
             }
@@ -97,7 +133,7 @@ class NfcManager(private val activity: Activity) {
             
             NfcTagData(
                 uid = bytesToHex(tag.id),
-                bytes = data.toByteArray(),
+                bytes = allData,
                 technology = "MifareClassic"
             )
         } catch (e: IOException) {

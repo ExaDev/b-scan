@@ -3,7 +3,7 @@ package com.bscan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.model.*
-import com.bscan.utils.BambuTagDecoder
+import com.bscan.decoder.BambuTagDecoder
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +19,7 @@ class MainViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
             
             val result = try {
-                val filamentInfo = BambuTagDecoder.parseTag(tagData)
+                val filamentInfo = BambuTagDecoder.parseTagDetails(tagData)
                 if (filamentInfo != null) {
                     TagReadResult.Success(filamentInfo)
                 } else {
