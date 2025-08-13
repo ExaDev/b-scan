@@ -15,15 +15,36 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Cache build outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          app/build/intermediates
+          app/build/tmp
+          build/kotlin
+        key: ${{ runner.os }}-build-${{ inputs.build-type }}-${{ hashFiles('**/src/**', '**/build.gradle.kts', '**/libs.versions.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ inputs.build-type }}-
+          ${{ runner.os }}-build-
+
+    - name: Enable Gradle build cache
+      shell: bash
+      run: |
+        mkdir -p ~/.gradle
+        echo "org.gradle.caching=true" >> ~/.gradle/gradle.properties
+        echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
+        echo "org.gradle.configureondemand=true" >> ~/.gradle/gradle.properties
+        echo "org.gradle.daemon=true" >> ~/.gradle/gradle.properties
+
     - name: Run tests
       shell: bash
-      run: ./gradlew test
+      run: ./gradlew test --build-cache
 
     - name: Build APK
       shell: bash
-      run: ./gradlew assemble${{ inputs.build-type }}
+      run: ./gradlew assemble${{ inputs.build-type }} --build-cache
 
     - name: Build AAB
       if: inputs.build-aab == 'true'
       shell: bash
-      run: ./gradlew bundle${{ inputs.build-type }}
+      run: ./gradlew bundle${{ inputs.build-type }} --build-cache
