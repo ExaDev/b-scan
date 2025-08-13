@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude cache and temp files from backup -->
+    <exclude domain="cache" />
+    <exclude domain="no_backup" />
+</full-backup-content>

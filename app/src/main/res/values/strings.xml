@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">B-Scan</string>
+    <string name="scan_prompt_title">Scan Filament Spool</string>
+    <string name="scan_prompt_subtitle">Tap your phone on a Bambu Lab filament spool</string>
+    <string name="scan_instruction">Hold for 2-3 seconds to read the RFID tag</string>
+    <string name="nfc_disabled">NFC is disabled</string>
+    <string name="nfc_not_supported">NFC is not supported on this device</string>
+    <string name="tag_read_error">Error reading tag</string>
+    <string name="invalid_tag">Invalid or unsupported tag</string>
+    <string name="filament_type">Filament Type</string>
+    <string name="color_name">Color</string>
+    <string name="specifications">Specifications</string>
+    <string name="temperatures">Temperature Settings</string>
+    <string name="production_info">Production Information</string>
+    <string name="diameter">Diameter</string>
+    <string name="weight">Weight</string>
+    <string name="length">Length</string>
+    <string name="hotend_temp">Hotend</string>
+    <string name="bed_temp">Bed</string>
+    <string name="drying_temp">Drying</string>
+    <string name="production_date">Production Date</string>
+    <string name="tray_uid">Tray UID</string>
+</resources>
