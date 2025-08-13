@@ -1,19 +1,26 @@
-name: Release
+# Legacy release workflow - now handled by ci.yml
+# This file is kept for backward compatibility but the CI workflow
+# now handles all build, test, and release processes
+
+name: Release (Legacy)
 
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force create a release (bypasses CI)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Release
+  manual-release:
+    name: Manual Release
     runs-on: ubuntu-latest
+    if: github.event.inputs.force_release == 'true'
 
     steps:
     - name: Checkout code
@@ -33,20 +40,19 @@ jobs:
     - name: Generate version tag
       id: version
       run: |
-        VERSION=$(date '+%Y.%m.%d')-$(echo ${{ github.sha }} | cut -c1-7)
+        VERSION=$(date '+%Y.%m.%d')-$(echo ${{ github.sha }} | cut -c1-7)-manual
         echo "tag=v$VERSION" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Create Release and Upload Assets
+    - name: Create Manual Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Create the release
         gh release create ${{ steps.version.outputs.tag }} \
-          --title "B-Scan ${{ steps.version.outputs.version }}" \
-          --notes "## B-Scan Release ${{ steps.version.outputs.version }}
+          --title "B-Scan ${{ steps.version.outputs.version }} (Manual)" \
+          --notes "## B-Scan Manual Release ${{ steps.version.outputs.version }}
 
-        Automated release from main branch.
+        ⚠️ **Manual release** - bypassed CI pipeline.
 
         ### Downloads
         - **APK**: Install directly on Android devices
@@ -61,3 +67,24 @@ jobs:
         Built from commit: ${{ github.sha }}" \
           app/build/outputs/apk/release/app-release.apk#b-scan-${{ steps.version.outputs.version }}.apk \
           app/build/outputs/bundle/release/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
+
+  redirect-to-ci:
+    name: Use CI Workflow
+    runs-on: ubuntu-latest
+    if: github.event.inputs.force_release != 'true'
+    
+    steps:
+    - name: Redirect Message
+      run: |
+        echo "## 🔄 Redirecting to CI Workflow" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Regular releases are now handled by the **CI workflow** (.github/workflows/ci.yml)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The CI workflow provides:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Code quality checks" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Unit tests" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Security scanning" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Performance analysis" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Automated releases on main branch" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "To trigger a manual release, re-run this workflow with 'force_release' set to true." >> $GITHUB_STEP_SUMMARY

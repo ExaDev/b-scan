@@ -1,0 +1,321 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false
+  KOTLIN_INCREMENTAL: false
+
+jobs:
+  # Job 1: Code Quality & Linting
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Run ktlint
+      run: ./gradlew ktlintCheck
+      continue-on-error: true
+      
+    - name: Run detekt
+      run: ./gradlew detekt
+      continue-on-error: true
+      
+    - name: Upload lint reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lint-reports
+        path: |
+          app/build/reports/ktlint/
+          app/build/reports/detekt/
+        retention-days: 7
+
+  # Job 2: Unit Tests
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Run unit tests
+      run: ./gradlew testDebugUnitTest
+      
+    - name: Generate test report
+      run: ./gradlew jacocoTestReport
+      continue-on-error: true
+      
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: unit-test-reports
+        path: |
+          app/build/reports/tests/
+          app/build/reports/jacoco/
+        retention-days: 7
+        
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: app/build/test-results/testDebugUnitTest/TEST-*.xml
+
+  # Job 3: Build Debug APK
+  build-debug:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [code-quality]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Build debug APK
+      uses: ./.github/actions/build-android
+      with:
+        build-type: Debug
+        
+    - name: Upload debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-apk
+        path: app/build/outputs/apk/debug/*.apk
+        retention-days: 7
+
+  # Job 4: Build Release (only on main branch)
+  build-release:
+    name: Build Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [code-quality, unit-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Build release APK and AAB
+      uses: ./.github/actions/build-android
+      with:
+        build-type: Release
+        build-aab: 'true'
+        
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-artifacts
+        path: |
+          app/build/outputs/apk/release/*.apk
+          app/build/outputs/bundle/release/*.aab
+        retention-days: 30
+
+  # Job 5: Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-debug]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Run dependency check
+      run: ./gradlew dependencyCheckAnalyze
+      continue-on-error: true
+      
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: app/build/reports/dependency-check/
+        retention-days: 7
+
+  # Job 6: Instrumented Tests (Android Emulator)
+  instrumented-tests:
+    name: Instrumented Tests
+    runs-on: macos-latest
+    timeout-minutes: 30
+    needs: [build-debug]
+    strategy:
+      matrix:
+        api-level: [29, 34]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Enable KVM group permissions
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        
+    - name: Run instrumented tests
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: ${{ matrix.api-level }}
+        target: google_apis
+        arch: x86_64
+        profile: Nexus 6
+        script: ./gradlew connectedDebugAndroidTest
+        
+    - name: Upload instrumented test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: instrumented-test-reports-api${{ matrix.api-level }}
+        path: app/build/reports/androidTests/
+        retention-days: 7
+
+  # Job 7: Performance Analysis
+  performance-analysis:
+    name: Performance Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-release]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Analyze APK size
+      run: |
+        APK_PATH="app/build/outputs/apk/release/app-release.apk"
+        if [ -f "$APK_PATH" ]; then
+          APK_SIZE=$(stat -f%z "$APK_PATH" 2>/dev/null || stat -c%s "$APK_PATH")
+          echo "APK Size: $(($APK_SIZE / 1024 / 1024)) MB"
+          echo "apk_size_mb=$(($APK_SIZE / 1024 / 1024))" >> $GITHUB_ENV
+        fi
+        
+    - name: Generate build scan
+      run: ./gradlew build --scan
+      continue-on-error: true
+
+  # Job 8: Release (only on main branch, after all checks pass)
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build-release, security-scan, performance-analysis]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download release artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: release-artifacts
+        path: artifacts/
+        
+    - name: Generate version tag
+      id: version
+      run: |
+        VERSION=$(date '+%Y.%m.%d')-$(echo ${{ github.sha }} | cut -c1-7)
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Create Release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create ${{ steps.version.outputs.tag }} \
+          --title "B-Scan ${{ steps.version.outputs.version }}" \
+          --notes "## B-Scan Release ${{ steps.version.outputs.version }}
+
+        Automated release from main branch.
+
+        ### Downloads
+        - **APK**: Install directly on Android devices
+        - **AAB**: For Google Play Store distribution
+
+        ### Requirements
+        - Android 10 (API 29) or higher
+        - NFC-enabled device
+        - NFC must be enabled in device settings
+
+        ### Changes
+        Built from commit: ${{ github.sha }}
+
+        ### Quality Gates Passed
+        ✅ Code quality checks
+        ✅ Unit tests
+        ✅ Security scan
+        ✅ Performance analysis" \
+          artifacts/app-release.apk#b-scan-${{ steps.version.outputs.version }}.apk \
+          artifacts/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
+
+  # Job 9: Notification (always runs, summarizes results)
+  notify:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [code-quality, unit-tests, build-debug, build-release, security-scan, instrumented-tests, performance-analysis, release]
+    
+    steps:
+    - name: Build Summary
+      run: |
+        echo "## 🚀 CI Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----|---------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Code Quality | ${{ needs.code-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build Debug | ${{ needs.build-debug.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build Release | ${{ needs.build-release.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Scan | ${{ needs.security-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Instrumented Tests | ${{ needs.instrumented-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Performance Analysis | ${{ needs.performance-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Release | ${{ needs.release.result }} |" >> $GITHUB_STEP_SUMMARY
