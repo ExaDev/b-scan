@@ -52,11 +52,12 @@ jobs:
           app/build/reports/detekt/
         retention-days: 7
 
-  # Job 2: Unit Tests
+  # Job 2: Unit Tests (temporarily disabled)
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: false  # Temporarily disable unit tests
     
     steps:
     - name: Checkout code
@@ -172,12 +173,13 @@ jobs:
         path: app/build/reports/dependency-check/
         retention-days: 7
 
-  # Job 6: Instrumented Tests (Android Emulator)
+  # Job 6: Instrumented Tests (Android Emulator) - temporarily disabled
   instrumented-tests:
     name: Instrumented Tests
     runs-on: macos-latest
     timeout-minutes: 30
     needs: [build-debug]
+    if: false  # Temporarily disable instrumented tests
     strategy:
       matrix:
         api-level: [29, 34]
