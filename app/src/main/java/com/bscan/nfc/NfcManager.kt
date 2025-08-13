@@ -8,6 +8,7 @@ import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.nfc.tech.NfcA
 import com.bscan.model.NfcTagData
+import com.bscan.nfc.BambuKeyDerivation
 import java.io.IOException
 
 class NfcManager(private val activity: Activity) {
@@ -75,23 +76,24 @@ class NfcManager(private val activity: Activity) {
             val sectors = mifareClassic.sectorCount
             val allData = ByteArray(sectors * 48) // Each sector has 3 data blocks * 16 bytes
             
-            // Bambu Lab authentication keys from reference implementation
-            val bambuKeys = arrayOf(
+            // Derive proper authentication keys from UID using KDF
+            val derivedKeys = BambuKeyDerivation.deriveKeys(tag.id)
+            
+            // Fallback keys in case KDF fails
+            val fallbackKeys = arrayOf(
                 byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
-                byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte()),
-                byteArrayOf(0xB0.toByte(), 0xB1.toByte(), 0xB2.toByte(), 0xB3.toByte(), 0xB4.toByte(), 0xB5.toByte()),
-                byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte(), 0xFF.toByte()),
-                // Additional Bambu Lab keys
-                byteArrayOf(0x48, 0x4D, 0x42, 0x48, 0x44, 0x49),
-                byteArrayOf(0xF1.toByte(), 0xC4.toByte(), 0x42, 0x88.toByte(), 0x10, 0x01)
+                byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte())
             )
             
-            // Read data systematically like the reference implementation
+            // Combine derived keys with fallback keys
+            val allKeys = derivedKeys + fallbackKeys
+            
+            // Read data systematically according to RFID-Tag-Guide specification
             for (sector in 0 until minOf(sectors, 16)) {
                 var authenticated = false
                 
-                // Try authentication with each key
-                for (key in bambuKeys) {
+                // Try authentication with derived keys first, then fallback keys
+                for (key in allKeys) {
                     try {
                         if (mifareClassic.authenticateSectorWithKeyA(sector, key)) {
                             authenticated = true
@@ -111,14 +113,19 @@ class NfcManager(private val activity: Activity) {
                     }
                 }
                 
-                // Read blocks in sector (skip trailer block)
+                // Read blocks in sector (skip trailer block which contains keys)
                 val blocksInSector = mifareClassic.getBlockCountInSector(sector)
                 for (blockInSector in 0 until blocksInSector - 1) {
                     val absoluteBlock = mifareClassic.sectorToBlock(sector) + blockInSector
                     val dataOffset = sector * 48 + blockInSector * 16
                     
                     try {
-                        val blockData = mifareClassic.readBlock(absoluteBlock)
+                        val blockData = if (authenticated) {
+                            mifareClassic.readBlock(absoluteBlock)
+                        } else {
+                            // Try to read without authentication for public blocks
+                            mifareClassic.readBlock(absoluteBlock)
+                        }
                         System.arraycopy(blockData, 0, allData, dataOffset, 16)
                     } catch (e: IOException) {
                         // Fill with zeros if read fails

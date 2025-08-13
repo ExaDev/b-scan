@@ -11,24 +11,36 @@ object BambuTagDecoder {
     
     fun parseTagDetails(data: NfcTagData): FilamentInfo? {
         // Ensure there is enough data in the tag bytes to extract the necessary details
-        if (data.bytes.size < 80) {
+        // Need at least 15 blocks (240 bytes) to read all required data
+        if (data.bytes.size < 240) {
             return null
         }
         
         return try {
-            val trayUid = hexstring(data.bytes, 9, 0, 16)
+            // Extract data according to official RFID-Tag-Guide block structure
             
-            // Extract the color bytes from block 5, offset 0, length 4
-            val colorBytes = bytes(data.bytes, 5, 0, 4)
+            // Block 2: Filament Type (16 bytes)
             val material = string(data.bytes, 2, 0, 16)
-            val colorHex = hexstring(data.bytes, 5, 0, 4)
+            
+            // Block 4: Detailed Filament Type (16 bytes) 
             val detailedFilamentType = string(data.bytes, 4, 0, 16)
             
-            // Extract RGB color (first 6 characters of color hex)
-            val rgb = colorHex.take(6)
+            // Block 5: Color RGBA (bytes 0-3), Spool Weight (bytes 4-5), Filament Diameter (bytes 8-11)
+            val colorBytes = bytes(data.bytes, 5, 0, 4) // RGBA format
+            val spoolWeight = int(data.bytes, 5, 4, 2) // uint16 LE
+            val filamentDiameter = float(data.bytes, 5, 8, 4) ?: 1.75f // float LE
             
-            // Convert color bytes to RGB for display
-            val colorRgb = if (colorBytes.size >= 3) {
+            // Block 9: Tray UID (16 bytes)
+            val trayUid = string(data.bytes, 9, 0, 16)
+            
+            // Block 12: Production Date/Time (16 bytes)
+            val productionDate = datetime(data.bytes, 12, 0)?.toString() ?: "Unknown"
+            
+            // Block 14: Filament Length (bytes 4-5) 
+            val filamentLength = int(data.bytes, 14, 4, 2) // uint16 LE
+            
+            // Convert RGBA color bytes to hex for display (ignore alpha channel)
+            val colorHex = if (colorBytes.size >= 3) {
                 String.format("#%02X%02X%02X", 
                     colorBytes[0].toUByte().toInt(),
                     colorBytes[1].toUByte().toInt(), 
@@ -40,21 +52,35 @@ object BambuTagDecoder {
                 trayUID = trayUid,
                 filamentType = material,
                 detailedFilamentType = detailedFilamentType,
-                colorHex = colorRgb,
-                spoolWeight = int(data.bytes, 5, 4),
-                filamentDiameter = float(data.bytes, 5, 8, 4) ?: 1.75f,
-                filamentLength = int(data.bytes, 14, 4),
-                productionDate = datetime(data.bytes, 12, 0)?.toString() ?: "Unknown"
+                colorHex = colorHex,
+                spoolWeight = spoolWeight,
+                filamentDiameter = filamentDiameter,
+                filamentLength = filamentLength,
+                productionDate = productionDate
             )
         } catch (e: Exception) {
             null
         }
     }
     
-    // Helper functions based on BambuTagDecodeHelpers
+    // Helper functions based on BambuTagDecodeHelpers  
+    // Note: MIFARE Classic has sectors, each sector has blocks
+    // Sectors 0-31 have 4 blocks each (blocks 0-3, 4-7, 8-11, etc.)
+    // We read data sequentially: sector 0 blocks 0-2, sector 1 blocks 0-2, etc.
     private fun bytes(data: ByteArray, blockNumber: Int, offset: Int, len: Int): ByteArray {
-        val startIndex = blockNumber * 16 + offset
+        // Calculate actual offset based on MIFARE Classic layout
+        // Each sector contributes 3 data blocks (48 bytes), skipping trailer blocks
+        val sector = blockNumber / 4
+        val blockInSector = blockNumber % 4
+        
+        // Skip if this is a trailer block (every 4th block contains keys)
+        if (blockInSector == 3) {
+            return ByteArray(len) // Return zeros for trailer blocks
+        }
+        
+        val startIndex = sector * 48 + blockInSector * 16 + offset
         val endIndex = startIndex + len
+        
         return if (startIndex < data.size && endIndex <= data.size) {
             data.copyOfRange(startIndex, endIndex)
         } else {
