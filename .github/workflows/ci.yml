@@ -125,6 +125,9 @@ jobs:
     timeout-minutes: 25
     needs: [code-quality, unit-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      version_code: ${{ steps.increment_version.outputs.new_version_code }}
+      version_name: ${{ steps.increment_version.outputs.new_version_name }}
     
     steps:
     - name: Checkout code
@@ -134,6 +137,30 @@ jobs:
         
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
+      
+    - name: Increment version
+      id: increment_version
+      run: |
+        # Get current version from build.gradle.kts
+        CURRENT_VERSION_CODE=$(grep "versionCode = " app/build.gradle.kts | sed 's/.*versionCode = \([0-9]*\).*/\1/')
+        CURRENT_VERSION_NAME=$(grep "versionName = " app/build.gradle.kts | sed 's/.*versionName = "\([^"]*\)".*/\1/')
+        
+        # Increment version code
+        NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
+        
+        # Generate version name based on run number
+        NEW_VERSION_NAME="1.${{ github.run_number }}"
+        
+        echo "old_version_code=$CURRENT_VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "old_version_name=$CURRENT_VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "new_version_code=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "new_version_name=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
+        
+        echo "Incrementing version: $CURRENT_VERSION_NAME ($CURRENT_VERSION_CODE) -> $NEW_VERSION_NAME ($NEW_VERSION_CODE)"
+        
+        # Update build.gradle.kts with new version
+        sed -i "s/versionCode = [0-9]*/versionCode = $NEW_VERSION_CODE/" app/build.gradle.kts
+        sed -i "s/versionName = \"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/" app/build.gradle.kts
       
     - name: Build release APK and AAB
       uses: ./.github/actions/build-android
@@ -264,25 +291,34 @@ jobs:
         name: release-artifacts
         path: artifacts/
         
-    - name: Generate version tag
-      id: version
+    - name: Get build version
+      id: build_version
       run: |
-        VERSION=$(date '+%Y.%m.%d')-$(echo ${{ github.sha }} | cut -c1-7)
-        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        VERSION_CODE="${{ needs.build-release.outputs.version_code }}"
+        VERSION_NAME="${{ needs.build-release.outputs.version_name }}"
+        
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION_NAME" >> $GITHUB_OUTPUT
+        
+        echo "Using version: $VERSION_NAME (code: $VERSION_CODE)"
         
     - name: Create Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release create ${{ steps.version.outputs.tag }} \
-          --title "B-Scan ${{ steps.version.outputs.version }}" \
-          --notes "## B-Scan Release ${{ steps.version.outputs.version }}
+        # List files to debug
+        echo "Available artifacts:"
+        find artifacts/ -type f -name "*.apk" -o -name "*.aab" | head -20
+        
+        gh release create ${{ steps.build_version.outputs.tag }} \
+          --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
+          --notes "## B-Scan Release ${{ steps.build_version.outputs.version_name }}
 
         Automated release from main branch.
 
         ### Downloads
-        - **APK**: Install directly on Android devices
+        - **APK**: Install directly on Android devices  
         - **AAB**: For Google Play Store distribution
 
         ### Requirements
@@ -292,14 +328,15 @@ jobs:
 
         ### Changes
         Built from commit: ${{ github.sha }}
+        Version Code: ${{ steps.build_version.outputs.version_code }}
 
         ### Quality Gates Passed
         ✅ Code quality checks
         ✅ Unit tests
         ✅ Security scan
         ✅ Performance analysis" \
-          artifacts/app-release.apk#b-scan-${{ steps.version.outputs.version }}.apk \
-          artifacts/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
+          artifacts/*.apk \
+          artifacts/*.aab
 
   # Job 9: Notification (always runs, summarizes results)
   notify:
