@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+
+    - name: Build unsigned release
+      uses: ./.github/actions/build-android
+      with:
+        build-type: Release
+        build-aab: 'true'
+
+    - name: Generate version tag
+      id: version
+      run: |
+        VERSION=$(date '+%Y.%m.%d')-$(echo ${{ github.sha }} | cut -c1-7)
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        release_name: B-Scan ${{ steps.version.outputs.version }}
+        body: |
+          ## B-Scan Release ${{ steps.version.outputs.version }}
+          
+          Automated release from main branch.
+          
+          ### Downloads
+          - **APK**: Install directly on Android devices
+          - **AAB**: For Google Play Store distribution
+          
+          ### Requirements
+          - Android 10 (API 29) or higher
+          - NFC-enabled device
+          - NFC must be enabled in device settings
+          
+          ### Changes
+          Built from commit: ${{ github.sha }}
+        draft: false
+        prerelease: false
+
+    - name: Upload APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/apk/release/app-release-unsigned.apk
+        asset_name: b-scan-${{ steps.version.outputs.version }}-unsigned.apk
+        asset_content_type: application/vnd.android.package-archive
+
+    - name: Upload AAB to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: app/build/outputs/bundle/release/app-release.aab
+        asset_name: b-scan-${{ steps.version.outputs.version }.aab
+        asset_content_type: application/octet-stream
