@@ -1,10 +1,12 @@
 package com.bscan.nfc
 
+import android.util.Log
 import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 object BambuKeyDerivation {
+    private const val TAG = "BambuKeyDerivation"
     
     private val MASTER_KEY = byteArrayOf(
         0x9a.toByte(), 0x75.toByte(), 0x9c.toByte(), 0xf2.toByte(),
@@ -20,19 +22,24 @@ object BambuKeyDerivation {
      * Based on the official Bambu Lab KDF discovered by the research community
      */
     fun deriveKeys(uid: ByteArray): Array<ByteArray> {
+        Log.d(TAG, "Deriving keys for UID: ${uid.joinToString("") { "%02X".format(it) }}")
+        
         val keys = mutableListOf<ByteArray>()
         
         // HKDF Extract phase
         val salt = MASTER_KEY
         val prk = hkdfExtract(salt, uid)
+        Log.d(TAG, "PRK: ${prk.joinToString("") { "%02X".format(it) }}")
         
         // HKDF Expand phase - generate 16 keys of 6 bytes each
         for (i in 0 until 16) {
             val info = CONTEXT + byteArrayOf((i + 1).toByte())
             val key = hkdfExpand(prk, info, 6)
             keys.add(key)
+            Log.d(TAG, "Key $i: ${key.joinToString("") { "%02X".format(it) }}")
         }
         
+        Log.d(TAG, "Generated ${keys.size} keys from UID")
         return keys.toTypedArray()
     }
     

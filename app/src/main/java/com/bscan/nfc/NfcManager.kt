@@ -7,11 +7,15 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.nfc.tech.NfcA
+import android.util.Log
 import com.bscan.model.NfcTagData
 import com.bscan.nfc.BambuKeyDerivation
 import java.io.IOException
 
 class NfcManager(private val activity: Activity) {
+    private companion object {
+        const val TAG = "NfcManager"
+    }
     
     private val nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
     private val pendingIntent: PendingIntent = PendingIntent.getActivity(
@@ -76,8 +80,14 @@ class NfcManager(private val activity: Activity) {
             val sectors = mifareClassic.sectorCount
             val allData = ByteArray(sectors * 48) // Each sector has 3 data blocks * 16 bytes
             
+            Log.d(TAG, "Reading MIFARE Classic tag:")
+            Log.d(TAG, "UID: ${bytesToHex(tag.id)}")
+            Log.d(TAG, "Sectors: $sectors")
+            Log.d(TAG, "Size: ${mifareClassic.size} bytes")
+            
             // Derive proper authentication keys from UID using KDF
             val derivedKeys = BambuKeyDerivation.deriveKeys(tag.id)
+            Log.d(TAG, "Derived ${derivedKeys.size} keys from UID")
             
             // Fallback keys in case KDF fails
             val fallbackKeys = arrayOf(
@@ -91,12 +101,17 @@ class NfcManager(private val activity: Activity) {
             // Read data systematically according to RFID-Tag-Guide specification
             for (sector in 0 until minOf(sectors, 16)) {
                 var authenticated = false
+                var usedKey: ByteArray? = null
+                
+                Log.d(TAG, "Reading sector $sector")
                 
                 // Try authentication with derived keys first, then fallback keys
-                for (key in allKeys) {
+                for ((keyIndex, key) in allKeys.withIndex()) {
                     try {
                         if (mifareClassic.authenticateSectorWithKeyA(sector, key)) {
                             authenticated = true
+                            usedKey = key
+                            Log.d(TAG, "Sector $sector authenticated with key A (index $keyIndex)")
                             break
                         }
                     } catch (e: IOException) {
@@ -106,11 +121,17 @@ class NfcManager(private val activity: Activity) {
                     try {
                         if (mifareClassic.authenticateSectorWithKeyB(sector, key)) {
                             authenticated = true
+                            usedKey = key
+                            Log.d(TAG, "Sector $sector authenticated with key B (index $keyIndex)")
                             break
                         }
                     } catch (e: IOException) {
                         continue
                     }
+                }
+                
+                if (!authenticated) {
+                    Log.w(TAG, "Failed to authenticate sector $sector")
                 }
                 
                 // Read blocks in sector (skip trailer block which contains keys)
@@ -127,7 +148,14 @@ class NfcManager(private val activity: Activity) {
                             mifareClassic.readBlock(absoluteBlock)
                         }
                         System.arraycopy(blockData, 0, allData, dataOffset, 16)
+                        
+                        // Log block data for key blocks (0-6)
+                        if (sector <= 1 || absoluteBlock <= 6) {
+                            val hexData = blockData.joinToString("") { "%02X".format(it) }
+                            Log.d(TAG, "Block $absoluteBlock (sector $sector, block $blockInSector): $hexData")
+                        }
                     } catch (e: IOException) {
+                        Log.w(TAG, "Failed to read block $absoluteBlock: ${e.message}")
                         // Fill with zeros if read fails
                         for (i in 0 until 16) {
                             allData[dataOffset + i] = 0

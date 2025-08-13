@@ -1,5 +1,6 @@
 package com.bscan.decoder
 
+import android.util.Log
 import com.bscan.model.FilamentInfo
 import com.bscan.model.NfcTagData
 import java.nio.ByteBuffer
@@ -8,12 +9,25 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 object BambuTagDecoder {
+    private const val TAG = "BambuTagDecoder"
     
     fun parseTagDetails(data: NfcTagData): FilamentInfo? {
+        Log.d(TAG, "Parsing tag UID: ${data.uid}")
+        Log.d(TAG, "Tag data size: ${data.bytes.size} bytes")
+        Log.d(TAG, "Tag technology: ${data.technology}")
+        
         // Ensure there is enough data in the tag bytes to extract the necessary details
         // Need at least 15 blocks (240 bytes) to read all required data
         if (data.bytes.size < 240) {
+            Log.w(TAG, "Insufficient data: ${data.bytes.size} bytes, need at least 240")
             return null
+        }
+        
+        // Log first few blocks of raw data for debugging
+        for (block in 0..6) {
+            val blockData = bytes(data.bytes, block, 0, 16)
+            val hexString = blockData.joinToString("") { "%02X".format(it) }
+            Log.d(TAG, "Block $block: $hexString")
         }
         
         return try {
@@ -29,6 +43,10 @@ object BambuTagDecoder {
             val colorBytes = bytes(data.bytes, 5, 0, 4) // RGBA format
             val spoolWeight = int(data.bytes, 5, 4, 2) // uint16 LE
             val filamentDiameter = float(data.bytes, 5, 8, 4) ?: 1.75f // float LE
+            
+            Log.d(TAG, "Raw color bytes: ${colorBytes.joinToString("") { "%02X".format(it) }}")
+            Log.d(TAG, "Spool weight: $spoolWeight g")
+            Log.d(TAG, "Filament diameter: $filamentDiameter mm")
             
             // Block 6: Temperature and Drying Info
             val dryingTemperature = int(data.bytes, 6, 0, 2) // uint16 LE
@@ -48,11 +66,16 @@ object BambuTagDecoder {
             
             // Convert RGBA color bytes to hex for display (ignore alpha channel)
             val colorHex = if (colorBytes.size >= 3) {
-                String.format("#%02X%02X%02X", 
-                    colorBytes[0].toUByte().toInt(),
-                    colorBytes[1].toUByte().toInt(), 
-                    colorBytes[2].toUByte().toInt())
-            } else "#000000"
+                val r = colorBytes[0].toUByte().toInt()
+                val g = colorBytes[1].toUByte().toInt()
+                val b = colorBytes[2].toUByte().toInt()
+                val hex = String.format("#%02X%02X%02X", r, g, b)
+                Log.d(TAG, "Color RGB: R=$r, G=$g, B=$b -> $hex")
+                hex
+            } else {
+                Log.w(TAG, "Invalid color data, defaulting to black")
+                "#000000"
+            }
             
             // Generate a basic color name from the hex value (could be enhanced)
             val colorName = getColorName(colorHex)
