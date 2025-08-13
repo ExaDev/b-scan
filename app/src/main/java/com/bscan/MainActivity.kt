@@ -118,8 +118,9 @@ fun MainScreen(
                 ProcessingScreen(modifier = Modifier.padding(paddingValues))
             }
             uiState.error != null -> {
+                val error = uiState.error
                 ErrorScreen(
-                    error = uiState.error,
+                    error = error!!,
                     onRetry = { viewModel.clearError() },
                     modifier = Modifier.padding(paddingValues)
                 )
