@@ -76,23 +76,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = when (result) {
                 is TagReadResult.Success -> BScanUiState(
                     filamentInfo = result.filamentInfo,
-                    scanState = ScanState.SUCCESS
+                    scanState = ScanState.SUCCESS,
+                    debugInfo = scanHistory.debugInfo
                 )
                 is TagReadResult.InvalidTag -> BScanUiState(
                     error = "Invalid or unsupported tag",
-                    scanState = ScanState.ERROR
+                    scanState = ScanState.ERROR,
+                    debugInfo = scanHistory.debugInfo
                 )
                 is TagReadResult.ReadError -> BScanUiState(
-                    error = "Error reading tag",
-                    scanState = ScanState.ERROR
+                    error = "Error reading tag", 
+                    scanState = ScanState.ERROR,
+                    debugInfo = scanHistory.debugInfo
                 )
                 is TagReadResult.InsufficientData -> BScanUiState(
                     error = "Insufficient data on tag",
-                    scanState = ScanState.ERROR
+                    scanState = ScanState.ERROR,
+                    debugInfo = scanHistory.debugInfo
                 )
                 else -> BScanUiState(
                     error = "Unknown error occurred",
-                    scanState = ScanState.ERROR
+                    scanState = ScanState.ERROR,
+                    debugInfo = scanHistory.debugInfo
                 )
             }
         }
@@ -102,6 +107,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(
             error = error,
             scanState = ScanState.ERROR
+        )
+    }
+    
+    fun setAuthenticationFailed(tagData: NfcTagData, debugCollector: DebugDataCollector) {
+        // Create scan history for failed authentication
+        val scanHistory = debugCollector.createScanHistory(
+            uid = tagData.uid,
+            technology = tagData.technology,
+            result = ScanResult.AUTHENTICATION_FAILED,
+            filamentInfo = null
+        )
+        
+        // Save to history even for failed scans
+        viewModelScope.launch {
+            scanHistoryRepository.saveScan(scanHistory)
+        }
+        
+        _uiState.value = _uiState.value.copy(
+            error = "Authentication failed - see debug info below",
+            scanState = ScanState.ERROR,
+            debugInfo = scanHistory.debugInfo
         )
     }
     
@@ -117,7 +143,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 data class BScanUiState(
     val filamentInfo: FilamentInfo? = null,
     val scanState: ScanState = ScanState.IDLE,
-    val error: String? = null
+    val error: String? = null,
+    val debugInfo: ScanDebugInfo? = null
 )
 
 enum class ScanState {
