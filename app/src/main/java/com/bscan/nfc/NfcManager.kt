@@ -99,10 +99,18 @@ class NfcManager(private val activity: Activity) {
             debugCollector.recordDerivedKeys(derivedKeys)
             Log.d(TAG, "Derived ${derivedKeys.size} keys from UID")
             
-            // Fallback keys in case KDF fails
+            // Fallback keys in case KDF fails - including common MIFARE Classic defaults
             val fallbackKeys = arrayOf(
+                // Default factory keys
+                byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte()),
                 byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x00, 0x00),
-                byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte())
+                // Common MIFARE Classic keys
+                byteArrayOf(0xA0.toByte(), 0xA1.toByte(), 0xA2.toByte(), 0xA3.toByte(), 0xA4.toByte(), 0xA5.toByte()),
+                byteArrayOf(0xB0.toByte(), 0xB1.toByte(), 0xB2.toByte(), 0xB3.toByte(), 0xB4.toByte(), 0xB5.toByte()),
+                byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte(), 0xFF.toByte()),
+                // Transport Configuration keys (NXP)
+                byteArrayOf(0x4D.toByte(), 0x3A.toByte(), 0x99.toByte(), 0xC3.toByte(), 0x51.toByte(), 0xDD.toByte()),
+                byteArrayOf(0x1A.toByte(), 0x98.toByte(), 0x2C.toByte(), 0x7E.toByte(), 0x45.toByte(), 0x9A.toByte())
             )
             
             // Combine derived keys with fallback keys
@@ -117,34 +125,46 @@ class NfcManager(private val activity: Activity) {
                 
                 // Try authentication with derived keys first, then fallback keys
                 for ((keyIndex, key) in allKeys.withIndex()) {
+                    val keyType = if (keyIndex < derivedKeys.size) "derived" else "fallback"
+                    val keyHex = key.joinToString("") { "%02X".format(it) }
+                    
                     try {
+                        Log.v(TAG, "Trying sector $sector with $keyType key A (index $keyIndex): $keyHex")
                         if (mifareClassic.authenticateSectorWithKeyA(sector, key)) {
                             authenticated = true
                             usedKey = key
                             debugCollector.recordSectorAuthentication(sector, true, "KeyA")
-                            Log.d(TAG, "Sector $sector authenticated with key A (index $keyIndex)")
+                            Log.d(TAG, "Sector $sector authenticated with $keyType key A (index $keyIndex): $keyHex")
                             break
+                        } else {
+                            Log.v(TAG, "Sector $sector key A failed (index $keyIndex)")
                         }
                     } catch (e: IOException) {
+                        Log.v(TAG, "Sector $sector key A IOException (index $keyIndex): ${e.message}")
                         continue
                     }
                     
                     try {
+                        Log.v(TAG, "Trying sector $sector with $keyType key B (index $keyIndex): $keyHex")
                         if (mifareClassic.authenticateSectorWithKeyB(sector, key)) {
                             authenticated = true
                             usedKey = key
                             debugCollector.recordSectorAuthentication(sector, true, "KeyB")
-                            Log.d(TAG, "Sector $sector authenticated with key B (index $keyIndex)")
+                            Log.d(TAG, "Sector $sector authenticated with $keyType key B (index $keyIndex): $keyHex")
                             break
+                        } else {
+                            Log.v(TAG, "Sector $sector key B failed (index $keyIndex)")
                         }
                     } catch (e: IOException) {
+                        Log.v(TAG, "Sector $sector key B IOException (index $keyIndex): ${e.message}")
                         continue
                     }
                 }
                 
                 if (!authenticated) {
                     debugCollector.recordSectorAuthentication(sector, false)
-                    Log.w(TAG, "Failed to authenticate sector $sector")
+                    debugCollector.recordError("Failed to authenticate sector $sector with any key")
+                    Log.w(TAG, "Failed to authenticate sector $sector with any of ${allKeys.size} keys")
                 }
                 
                 // Read blocks in sector (skip trailer block which contains keys)
@@ -181,6 +201,13 @@ class NfcManager(private val activity: Activity) {
             }
             
             mifareClassic.close()
+            
+            // Check if we have any successful authentications
+            if (!debugCollector.hasAuthenticatedSectors()) {
+                debugCollector.recordError("Complete authentication failure - no sectors authenticated")
+                Log.e(TAG, "Authentication failed for all sectors")
+                return null // This will trigger authentication failure handling
+            }
             
             NfcTagData(
                 uid = bytesToHex(tag.id),
