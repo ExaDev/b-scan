@@ -189,45 +189,47 @@ jobs:
         path: app/build/reports/dependency-check/
         retention-days: 7
 
-  # Job 6: Instrumented Tests (Android Emulator) - stubbed for now
+  # Job 6: Instrumented Tests (Android Emulator)
   instrumented-tests:
     name: Instrumented Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     needs: [build-debug]
+    strategy:
+      matrix:
+        api-level: [29, 30]
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    # Temporarily comment out emulator setup and return success
-    - name: Run instrumented tests (stubbed)
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Enable KVM group perms
       run: |
-        echo "Instrumented tests temporarily disabled - returning success"
-        # Actual instrumented tests would require emulator setup
-        exit 0
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
         
-    # - name: Setup Android emulator
-    #   run: |
-    #     sudo udevadm control --reload-rules
-    #     sudo udevadm trigger --name-match=kvm
-    #     
-    # - name: Run instrumented tests
-    #   uses: reactivecircus/android-emulator-runner@v2
-    #   with:
-    #     api-level: ${{ matrix.api-level }}
-    #     target: google_apis
-    #     arch: x86_64
-    #     profile: Nexus 6
-    #     script: ./gradlew connectedDebugAndroidTest
-    #     
-    # - name: Upload instrumented test reports
-    #   uses: actions/upload-artifact@v4
-    #   if: always()
-    #   with:
-    #     name: instrumented-test-reports-api${{ matrix.api-level }}
-    #     path: app/build/reports/androidTests/
-    #     retention-days: 7
+    - name: Run instrumented tests
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: ${{ matrix.api-level }}
+        target: google_apis
+        arch: x86_64
+        profile: Nexus 6
+        script: ./gradlew connectedDebugAndroidTest --continue
+        
+    - name: Upload instrumented test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: instrumented-test-reports-api${{ matrix.api-level }}
+        path: |
+          app/build/reports/androidTests/
+          app/build/test-results/connected/
+        retention-days: 7
 
   # Job 7: Performance Analysis
   performance-analysis:
