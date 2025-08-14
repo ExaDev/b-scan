@@ -5,6 +5,15 @@
     <!-- NFC permissions for reading RFID tags -->
     <uses-permission android:name="android.permission.NFC" />
     
+    <!-- Internet permission for update checks -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Permission to install packages (for updates) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    
+    <!-- Vibration permission for haptic feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    
     <!-- Require NFC hardware -->
     <uses-feature 
         android:name="android.hardware.nfc" 
@@ -48,5 +57,16 @@
                 android:name="android.nfc.action.TECH_DISCOVERED"
                 android:resource="@xml/nfc_tech_filter" />
         </activity>
+        
+        <!-- FileProvider for sharing APK files -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

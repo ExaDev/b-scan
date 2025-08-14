@@ -19,9 +19,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val scanHistoryRepository = ScanHistoryRepository(application)
     
+    fun onTagDetected() {
+        _uiState.value = _uiState.value.copy(
+            scanState = ScanState.TAG_DETECTED,
+            error = null
+        )
+        
+        // Show tag detected state for a brief moment before processing
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(300) // Show detection for 300ms
+            if (_uiState.value.scanState == ScanState.TAG_DETECTED) {
+                // Only proceed if still in TAG_DETECTED state (not cancelled)
+                // The actual processTag call will update the state to PROCESSING
+            }
+        }
+    }
+    
     fun processTag(tagData: NfcTagData, debugCollector: DebugDataCollector) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isProcessing = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                scanState = ScanState.PROCESSING,
+                error = null
+            )
             
             val result = try {
                 val filamentInfo = BambuTagDecoder.parseTagDetails(tagData, debugCollector)
@@ -57,30 +76,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = when (result) {
                 is TagReadResult.Success -> BScanUiState(
                     filamentInfo = result.filamentInfo,
-                    isProcessing = false
+                    scanState = ScanState.SUCCESS
                 )
                 is TagReadResult.InvalidTag -> BScanUiState(
                     error = "Invalid or unsupported tag",
-                    isProcessing = false
+                    scanState = ScanState.ERROR
                 )
                 is TagReadResult.ReadError -> BScanUiState(
                     error = "Error reading tag",
-                    isProcessing = false
+                    scanState = ScanState.ERROR
                 )
                 is TagReadResult.InsufficientData -> BScanUiState(
                     error = "Insufficient data on tag",
-                    isProcessing = false
+                    scanState = ScanState.ERROR
                 )
                 else -> BScanUiState(
                     error = "Unknown error occurred",
-                    isProcessing = false
+                    scanState = ScanState.ERROR
                 )
             }
         }
     }
     
     fun setNfcError(error: String) {
-        _uiState.value = _uiState.value.copy(error = error, isProcessing = false)
+        _uiState.value = _uiState.value.copy(
+            error = error,
+            scanState = ScanState.ERROR
+        )
     }
     
     fun clearError() {
@@ -94,6 +116,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 data class BScanUiState(
     val filamentInfo: FilamentInfo? = null,
-    val isProcessing: Boolean = false,
+    val scanState: ScanState = ScanState.IDLE,
     val error: String? = null
 )
+
+enum class ScanState {
+    IDLE,           // Waiting for tag
+    TAG_DETECTED,   // Tag detected but not yet processed
+    PROCESSING,     // Processing tag data
+    SUCCESS,        // Successfully processed
+    ERROR          // Error occurred
+}

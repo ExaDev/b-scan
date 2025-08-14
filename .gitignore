@@ -17,6 +17,9 @@ out/
 .gradle/
 build/
 
+# Kotlin compiler cache
+.kotlin/
+
 # Local configuration file (sdk path, etc)
 local.properties
 
@@ -77,6 +80,11 @@ lint/intermediates/
 lint/generated/
 lint/outputs/
 lint/tmp/
+
+# Test reports and results
+*/build/reports/
+*/build/test-results/
+*/build/jacoco/
 
 # Android Profiling
 *.hprof

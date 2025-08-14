@@ -3,31 +3,45 @@ package com.bscan
 import android.content.Intent
 import android.nfc.NfcAdapter
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.widget.Toast
+import androidx.core.content.getSystemService
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.lifecycle.lifecycleScope
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bscan.model.UpdateStatus
+import com.bscan.ScanState
 import com.bscan.nfc.NfcManager
+import kotlinx.coroutines.launch
 import com.bscan.ui.ScanHistoryScreen
+import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.FilamentDetailsScreen
 import com.bscan.ui.screens.ScanPromptScreen
 import com.bscan.ui.theme.BScanTheme
+import com.bscan.ui.components.ScanStateIndicator
+import com.bscan.ui.components.NfcStatusIndicator
+import com.bscan.viewmodel.UpdateViewModel
 
 class MainActivity : ComponentActivity() {
     
     private lateinit var nfcManager: NfcManager
     private val viewModel: MainViewModel by viewModels()
+    private val updateViewModel: UpdateViewModel by viewModels()
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +57,32 @@ class MainActivity : ComponentActivity() {
         setContent {
             BScanTheme {
                 var showHistory by remember { mutableStateOf(false) }
+                val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
+                val uriHandler = LocalUriHandler.current
+                
+                // Update dialog
+                if (updateUiState.status == UpdateStatus.AVAILABLE || 
+                    updateUiState.status == UpdateStatus.DOWNLOADING ||
+                    updateUiState.status == UpdateStatus.DOWNLOADED ||
+                    updateUiState.status == UpdateStatus.INSTALLING ||
+                    (updateUiState.status == UpdateStatus.ERROR && updateUiState.updateInfo != null)) {
+                    
+                    updateUiState.updateInfo?.let { updateInfo ->
+                        UpdateDialog(
+                            updateInfo = updateInfo,
+                            status = updateUiState.status,
+                            downloadProgress = updateUiState.downloadProgress,
+                            error = updateUiState.error,
+                            onDownload = { updateViewModel.downloadUpdate() },
+                            onInstall = { updateViewModel.installUpdate() },
+                            onDismiss = { updateViewModel.clearError() },
+                            onViewOnGitHub = { 
+                                uriHandler.openUri(updateInfo.releaseUrl)
+                            },
+                            onDismissVersion = { updateViewModel.dismissUpdate() }
+                        )
+                    }
+                }
                 
                 if (showHistory) {
                     ScanHistoryScreen(
@@ -51,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MainScreen(
                         viewModel = viewModel,
+                        updateViewModel = updateViewModel,
                         onResetScan = { viewModel.resetScan() },
                         onShowHistory = { showHistory = true }
                     )
@@ -87,12 +128,45 @@ class MainActivity : ComponentActivity() {
         if (intent.action == NfcAdapter.ACTION_TAG_DISCOVERED || 
             intent.action == NfcAdapter.ACTION_TECH_DISCOVERED) {
             
+            // Provide immediate feedback that tag was detected
+            viewModel.onTagDetected()
+            
+            // Provide haptic feedback
+            provideHapticFeedback()
+            
             val tagData = nfcManager.handleIntent(intent)
             if (tagData != null) {
-                viewModel.processTag(tagData, nfcManager.debugCollector)
+                // Add slight delay to show the "tag detected" state
+                lifecycleScope.launch {
+                    kotlinx.coroutines.delay(500) // Show detection state for 500ms
+                    viewModel.processTag(tagData, nfcManager.debugCollector)
+                }
             } else {
                 viewModel.setNfcError("Error reading tag")
             }
+        }
+    }
+    
+    private fun provideHapticFeedback() {
+        try {
+            val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService<VibratorManager>()
+                vibratorManager?.defaultVibrator
+            } else {
+                getSystemService<Vibrator>()
+            }
+            
+            vibrator?.let {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    val effect = VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)
+                    it.vibrate(effect)
+                } else {
+                    @Suppress("DEPRECATION")
+                    it.vibrate(100)
+                }
+            }
+        } catch (e: Exception) {
+            // Haptic feedback failed, continue silently
         }
     }
 }
@@ -101,24 +175,51 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
+    updateViewModel: UpdateViewModel,
     onResetScan: () -> Unit,
     onShowHistory: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { 
-                    Text(text = "B-Scan")
+                    Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(text = "B-Scan")
+                        NfcStatusIndicator(scanState = uiState.scanState)
+                    }
                 },
                 actions = {
+                    // Update button - show badge if update is available
+                    IconButton(
+                        onClick = { updateViewModel.checkForUpdates(force = true) }
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (updateUiState.status == UpdateStatus.AVAILABLE) {
+                                    Badge()
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdate,
+                                contentDescription = "Check for updates"
+                            )
+                        }
+                    }
+                    
                     IconButton(onClick = onShowHistory) {
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = "View scan history"
                         )
                     }
+                    
                     if (uiState.filamentInfo != null) {
                         IconButton(onClick = onResetScan) {
                             Icon(
@@ -131,28 +232,67 @@ fun MainScreen(
             )
         }
     ) { paddingValues ->
-        when {
-            uiState.isProcessing -> {
-                ProcessingScreen(modifier = Modifier.padding(paddingValues))
-            }
-            uiState.error != null -> {
-                val error = uiState.error
-                ErrorScreen(
-                    error = error!!,
-                    onRetry = { viewModel.clearError() },
-                    modifier = Modifier.padding(paddingValues)
-                )
-            }
-            uiState.filamentInfo != null -> {
-                val filamentInfo = uiState.filamentInfo
-                FilamentDetailsScreen(
-                    filamentInfo = filamentInfo!!,
-                    modifier = Modifier.padding(paddingValues)
-                )
-            }
-            else -> {
+        when (uiState.scanState) {
+            ScanState.IDLE -> {
                 ScanPromptScreen(modifier = Modifier.padding(paddingValues))
             }
+            ScanState.TAG_DETECTED -> {
+                TagDetectedScreen(modifier = Modifier.padding(paddingValues))
+            }
+            ScanState.PROCESSING -> {
+                ProcessingScreen(modifier = Modifier.padding(paddingValues))
+            }
+            ScanState.SUCCESS -> {
+                uiState.filamentInfo?.let { filamentInfo ->
+                    FilamentDetailsScreen(
+                        filamentInfo = filamentInfo,
+                        modifier = Modifier.padding(paddingValues)
+                    )
+                }
+            }
+            ScanState.ERROR -> {
+                uiState.error?.let { error ->
+                    ErrorScreen(
+                        error = error,
+                        onRetry = { viewModel.clearError(); viewModel.resetScan() },
+                        modifier = Modifier.padding(paddingValues)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagDetectedScreen(modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        androidx.compose.foundation.layout.Column(
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            ScanStateIndicator(
+                isDetected = true,
+                modifier = androidx.compose.ui.Modifier.size(120.dp)
+            )
+            
+            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(32.dp))
+            
+            Text(
+                text = "Tag Detected!",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+            
+            Text(
+                text = "Reading tag data...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -164,13 +304,28 @@ private fun ProcessingScreen(modifier: Modifier = Modifier) {
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
         androidx.compose.foundation.layout.Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            CircularProgressIndicator()
-            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(16.dp))
+            ScanStateIndicator(
+                isProcessing = true,
+                modifier = androidx.compose.ui.Modifier.size(120.dp)
+            )
+            
+            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(32.dp))
+            
             Text(
-                text = "Processing tag...",
-                style = MaterialTheme.typography.bodyLarge
+                text = "Processing Tag",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+            
+            Text(
+                text = "Decoding filament information...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
