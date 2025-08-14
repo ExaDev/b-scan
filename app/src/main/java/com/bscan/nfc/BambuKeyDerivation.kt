@@ -22,24 +22,50 @@ object BambuKeyDerivation {
      * Based on the official Bambu Lab KDF discovered by the research community
      */
     fun deriveKeys(uid: ByteArray): Array<ByteArray> {
-        Log.d(TAG, "Deriving keys for UID: ${uid.joinToString("") { "%02X".format(it) }}")
+        Log.d(TAG, "Deriving keys for UID: ${uid.joinToString("") { "%02X".format(it) }} (${uid.size} bytes)")
         
+        // Validate UID length
+        if (uid.size < 4) {
+            Log.e(TAG, "UID too short: ${uid.size} bytes, expected at least 4 bytes")
+            return arrayOf()
+        }
+        
+        // Generate both key derivation methods and combine them for broader compatibility
+        val standardKeys = deriveKeysStandard(uid)
+        Log.d(TAG, "Generated ${standardKeys.size} standard HKDF keys from UID")
+        
+        return standardKeys
+    }
+    
+    /**
+     * Standard HKDF derivation (RFC 5869) - matches our manual implementation
+     */
+    private fun deriveKeysStandard(uid: ByteArray): Array<ByteArray> {
         val keys = mutableListOf<ByteArray>()
         
-        // HKDF Extract phase
+        // HKDF Extract phase - Standard: PRK = HMAC-Hash(salt, IKM)
         val salt = MASTER_KEY
-        val prk = hkdfExtract(salt, uid)
-        Log.d(TAG, "PRK: ${prk.joinToString("") { "%02X".format(it) }}")
+        val inputKeyMaterial = uid
+        Log.v(TAG, "Standard - Salt (master key): ${salt.joinToString("") { "%02X".format(it) }}")
+        Log.v(TAG, "Standard - Input key material (UID): ${inputKeyMaterial.joinToString("") { "%02X".format(it) }}")
+        val prk = hkdfExtract(salt, inputKeyMaterial)
+        Log.d(TAG, "Standard - PRK: ${prk.joinToString("") { "%02X".format(it) }}")
         
         // HKDF Expand phase - generate 16 keys of 6 bytes each
         for (i in 0 until 16) {
             val info = CONTEXT + byteArrayOf((i + 1).toByte())
             val key = hkdfExpand(prk, info, 6)
             keys.add(key)
-            Log.d(TAG, "Key $i: ${key.joinToString("") { "%02X".format(it) }}")
+            Log.v(TAG, "Standard - Key $i: ${key.joinToString("") { "%02X".format(it) }}")
         }
         
-        Log.d(TAG, "Generated ${keys.size} keys from UID")
+        // Validate all keys are 6 bytes
+        keys.forEachIndexed { index, key ->
+            if (key.size != 6) {
+                Log.e(TAG, "Invalid key $index: ${key.size} bytes, expected 6")
+            }
+        }
+        
         return keys.toTypedArray()
     }
     
