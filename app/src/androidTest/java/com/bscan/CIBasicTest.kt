@@ -23,14 +23,36 @@ class CIBasicTest {
 
     @Test
     fun appLaunchesWithoutCrashing() {
-        // Verify app launches and displays core UI
+        // Give the activity time to launch and set content
         composeTestRule.waitForIdle()
+        
+        // Wait up to 5 seconds for the compose hierarchy to be established
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            try {
+                composeTestRule.onNodeWithText("B-Scan").fetchSemanticsNode()
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+        
+        // Verify app launches and displays core UI
         composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
         composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
     }
 
     @Test
     fun navigationToHistoryWorks() {
+        // Wait for compose hierarchy
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            try {
+                composeTestRule.onNodeWithContentDescription("View scan history").fetchSemanticsNode()
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+        
         // Test basic navigation functionality
         composeTestRule.onNodeWithContentDescription("View scan history")
             .assertExists()
@@ -49,6 +71,16 @@ class CIBasicTest {
 
     @Test
     fun updateButtonIsAccessible() {
+        // Wait for compose hierarchy
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            try {
+                composeTestRule.onNodeWithContentDescription("Check for updates").fetchSemanticsNode()
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+        
         // Verify update system UI is accessible
         composeTestRule.onNodeWithContentDescription("Check for updates")
             .assertExists()
@@ -57,6 +89,16 @@ class CIBasicTest {
 
     @Test
     fun nfcStatusIndicatorIsPresent() {
+        // Wait for compose hierarchy
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            try {
+                composeTestRule.onNodeWithTag("nfc_status_indicator").fetchSemanticsNode()
+                true
+            } catch (e: Exception) {
+                false
+            }
+        }
+        
         // Verify NFC indicator is shown (important for NFC-based app)
         composeTestRule.onNodeWithTag("nfc_status_indicator")
             .assertExists()
