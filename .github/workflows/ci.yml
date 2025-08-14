@@ -34,12 +34,8 @@ jobs:
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
       
-    - name: Run ktlint
-      run: ./gradlew ktlintCheck
-      continue-on-error: true
-      
-    - name: Run detekt
-      run: ./gradlew detekt
+    - name: Run lint checks
+      run: ./gradlew lint
       continue-on-error: true
       
     - name: Upload lint reports
@@ -48,8 +44,7 @@ jobs:
       with:
         name: lint-reports
         path: |
-          app/build/reports/ktlint/
-          app/build/reports/detekt/
+          app/build/reports/lint/
         retention-days: 7
 
   # Job 2: Unit Tests (stubbed - exit 0 for now)
