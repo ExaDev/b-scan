@@ -161,6 +161,18 @@ jobs:
         # Update build.gradle.kts with new version
         sed -i "s/versionCode = [0-9]*/versionCode = $NEW_VERSION_CODE/" app/build.gradle.kts
         sed -i "s/versionName = \"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/" app/build.gradle.kts
+    
+    - name: Commit version changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add app/build.gradle.kts
+        if git diff --staged --quiet; then
+          echo "No version changes to commit"
+        else
+          git commit -m "ci: bump version to ${{ steps.increment_version.outputs.new_version_name }} (code: ${{ steps.increment_version.outputs.new_version_code }})"
+          git push
+        fi
       
     - name: Build release APK and AAB
       uses: ./.github/actions/build-android
@@ -335,8 +347,8 @@ jobs:
         ✅ Unit tests
         ✅ Security scan
         ✅ Performance analysis" \
-          artifacts/apk/release/*.apk \
-          artifacts/bundle/release/*.aab
+          artifacts/*.apk \
+          artifacts/*.aab
 
   # Job 9: Notification (always runs, summarizes results)
   notify:
