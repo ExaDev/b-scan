@@ -186,19 +186,75 @@ jobs:
           app/build/reports/lint/
         retention-days: 7
 
-  # Job 6: Instrumented Tests (Android Emulator) - Disabled for CI due to resource constraints
+  # Job 6: Instrumented Tests (Android Emulator) - Optimized for CI
   instrumented-tests:
-    name: Instrumented Tests (Skipped in CI)
+    name: Instrumented Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     needs: [build-debug]
     
     steps:
-    - name: Skip instrumented tests
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Android environment
+      uses: ./.github/actions/setup-android
+      
+    - name: Enable KVM group perms
       run: |
-        echo "🚧 Instrumented tests skipped in CI due to emulator resource constraints"
-        echo "📝 Run locally with: ./run-e2e-tests.sh"
-        echo "✅ Unit tests and build validation cover core functionality"
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        
+    - name: AVD cache
+      uses: actions/cache@v4
+      id: avd-cache
+      with:
+        path: |
+          ~/.android/avd/*
+          ~/.android/adb*
+        key: avd-29
+        
+    - name: Create AVD and generate snapshot for caching
+      if: steps.avd-cache.outputs.cache-hit != 'true'
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        target: google_apis
+        arch: x86_64
+        profile: Nexus 6
+        ram-size: 2048M
+        heap-size: 512M
+        disable-animations: true
+        force-avd-creation: false
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+        script: echo "Generated AVD snapshot for caching."
+        
+    - name: Run core instrumented tests
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        target: google_apis
+        arch: x86_64
+        profile: Nexus 6
+        ram-size: 2048M
+        heap-size: 512M
+        disable-animations: true
+        force-avd-creation: false
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+        script: |
+          # Run only critical tests for CI
+          ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.bscan.CIBasicTest --continue --no-daemon
+        
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: instrumented-test-reports
+        path: |
+          app/build/reports/androidTests/
+          app/build/test-results/connected/
+        retention-days: 7
 
   # Job 7: Performance Analysis
   performance-analysis:
