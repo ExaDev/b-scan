@@ -96,8 +96,17 @@ echo "================================="
 # Set environment variables for testing
 export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2"
 
+# Check if running in CI mode (basic tests only)
+if [ "$1" = "--ci" ]; then
+    echo "🚀 Running CI-optimized tests only..."
+    TEST_CMD="./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.bscan.CIBasicTest --continue --no-daemon"
+else
+    echo "🚀 Running full test suite..."
+    TEST_CMD="./gradlew connectedDebugAndroidTest --info --continue"
+fi
+
 # Run the tests
-if ./gradlew connectedDebugAndroidTest --info --continue; then
+if $TEST_CMD; then
     echo ""
     echo "✅ All instrumented tests completed!"
     echo "📊 Test reports available in: app/build/reports/androidTests/"
