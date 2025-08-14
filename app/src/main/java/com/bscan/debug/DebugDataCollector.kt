@@ -56,6 +56,10 @@ class DebugDataCollector {
         parsingDetails[key] = value
     }
     
+    fun hasAuthenticatedSectors(): Boolean {
+        return authenticatedSectors.isNotEmpty()
+    }
+    
     fun createScanHistory(
         uid: String,
         technology: String,
