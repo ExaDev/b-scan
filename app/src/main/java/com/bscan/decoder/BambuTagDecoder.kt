@@ -43,7 +43,7 @@ object BambuTagDecoder {
             // Block 5: Color RGBA (bytes 0-3), Spool Weight (bytes 4-5), Filament Diameter (bytes 8-11)
             val colorBytes = bytes(data.bytes, 5, 0, 4) // RGBA format
             val spoolWeight = int(data.bytes, 5, 4, 2) // uint16 LE
-            val filamentDiameter = float(data.bytes, 5, 8, 4) ?: 1.75f // float LE
+            val filamentDiameter = float(data.bytes, 5, 8, 4)?.let { if (it == 0.0f) 1.75f else it } ?: 1.75f // float LE
             
             val rawColorHex = colorBytes.joinToString("") { "%02X".format(it) }
             debugCollector?.recordColorBytes(colorBytes)
@@ -54,21 +54,49 @@ object BambuTagDecoder {
             Log.d(TAG, "Spool weight: $spoolWeight g")
             Log.d(TAG, "Filament diameter: $filamentDiameter mm")
             
+            // Block 1: Tray Info Index - Material Variant ID (0-7) and Material ID (8-15)
+            val materialVariantId = string(data.bytes, 1, 0, 8)
+            val materialId = string(data.bytes, 1, 8, 8)
+            
             // Block 6: Temperature and Drying Info
             val dryingTemperature = int(data.bytes, 6, 0, 2) // uint16 LE
             val dryingTime = int(data.bytes, 6, 2, 2) // uint16 LE  
+            val bedTemperatureType = int(data.bytes, 6, 4, 2) // uint16 LE (bed temp type)
             val bedTemperature = int(data.bytes, 6, 6, 2) // uint16 LE
             val maxTemperature = int(data.bytes, 6, 8, 2) // uint16 LE
             val minTemperature = int(data.bytes, 6, 10, 2) // uint16 LE
             
+            // Block 8: X Cam Info (0-11) and Nozzle Diameter (12-15)
+            val xCamInfo = bytes(data.bytes, 8, 0, 12)
+            val nozzleDiameter = float(data.bytes, 8, 12, 4) ?: 0.4f // float LE
+            
             // Block 9: Tray UID (16 bytes)
             val trayUid = string(data.bytes, 9, 0, 16)
+            
+            // Block 10: Spool Width (bytes 4-5 in mm*100)
+            val spoolWidthRaw = int(data.bytes, 10, 4, 2) // uint16 LE
+            val spoolWidth = spoolWidthRaw / 100.0f // Convert from mm*100 to mm
             
             // Block 12: Production Date/Time (16 bytes)
             val productionDate = datetime(data.bytes, 12, 0)?.toString() ?: "Unknown"
             
+            // Block 13: Short Production Date/Time (alternative format)
+            val shortProductionDate = string(data.bytes, 13, 0, 16)
+            
             // Block 14: Filament Length (bytes 4-5) 
-            val filamentLength = int(data.bytes, 14, 4, 2) // uint16 LE
+            val filamentLength = int(data.bytes, 14, 4, 2) // uint16 LE in meters
+            
+            // Block 16: Extra Color Info for dual-color filaments
+            val formatIdentifier = int(data.bytes, 16, 0, 2) // uint16 LE
+            val rawColorCount = int(data.bytes, 16, 2, 2) // uint16 LE
+            // Default to 1 for single-color filaments when Block 16 is empty/zero
+            val colorCount = if (rawColorCount == 0) 1 else rawColorCount
+            val secondColorBytes = if (rawColorCount == 2) {
+                bytes(data.bytes, 16, 4, 4) // Second color in reverse ABGR format
+            } else null
+            
+            // Block 17: Unknown data (first 2 bytes)
+            val unknownBlock17 = bytes(data.bytes, 17, 0, 2)
             
             // Convert RGBA color bytes to hex for display (ignore alpha channel)
             val colorHex = if (colorBytes.size >= 3) {
@@ -83,27 +111,65 @@ object BambuTagDecoder {
                 "#000000"
             }
             
+            // Handle dual color support
+            val finalColorHex = if (rawColorCount == 2 && secondColorBytes != null && secondColorBytes.size >= 3) {
+                // Second color is in reverse ABGR format, convert to RGB hex
+                val a2 = secondColorBytes[0].toUByte().toInt()
+                val b2 = secondColorBytes[1].toUByte().toInt()
+                val g2 = secondColorBytes[2].toUByte().toInt()
+                val r2 = if (secondColorBytes.size > 3) secondColorBytes[3].toUByte().toInt() else 0
+                val secondColorHex = String.format("#%02X%02X%02X", r2, g2, b2)
+                Log.d(TAG, "Second color ABGR: A=$a2, B=$b2, G=$g2, R=$r2 -> $secondColorHex")
+                "$colorHex / $secondColorHex" // Dual color display
+            } else {
+                colorHex
+            }
+            
+            debugCollector?.recordParsingDetail("materialVariantId", materialVariantId)
+            debugCollector?.recordParsingDetail("materialId", materialId)
+            debugCollector?.recordParsingDetail("nozzleDiameter", nozzleDiameter)
+            debugCollector?.recordParsingDetail("spoolWidth", spoolWidth)
+            debugCollector?.recordParsingDetail("colorCount", colorCount)
+            debugCollector?.recordParsingDetail("formatIdentifier", formatIdentifier)
+            
+            Log.d(TAG, "Material Variant ID: $materialVariantId")
+            Log.d(TAG, "Material ID: $materialId")
+            Log.d(TAG, "Nozzle diameter: $nozzleDiameter mm")
+            Log.d(TAG, "Spool width: $spoolWidth mm")
+            Log.d(TAG, "Color count: $colorCount")
+            Log.d(TAG, "Final color: $finalColorHex")
+            
             // Generate a basic color name from the hex value (could be enhanced)
-            val colorName = getColorName(colorHex)
+            val colorName = getColorName(finalColorHex)
             
             FilamentInfo(
                 uid = data.uid,
                 trayUid = trayUid,
                 filamentType = material,
                 detailedFilamentType = detailedFilamentType,
-                colorHex = colorHex,
+                colorHex = finalColorHex,
                 colorName = colorName,
                 spoolWeight = spoolWeight,
                 filamentDiameter = filamentDiameter,
-                filamentLength = filamentLength,
+                filamentLength = filamentLength * 1000, // Convert from meters to mm
                 productionDate = productionDate,
                 minTemperature = minTemperature,
                 maxTemperature = maxTemperature,
                 bedTemperature = bedTemperature,
                 dryingTemperature = dryingTemperature,
-                dryingTime = dryingTime
+                dryingTime = dryingTime,
+                // Additional fields from extended parsing
+                materialVariantId = materialVariantId,
+                materialId = materialId,
+                nozzleDiameter = nozzleDiameter,
+                spoolWidth = spoolWidth,
+                bedTemperatureType = bedTemperatureType,
+                shortProductionDate = shortProductionDate,
+                colorCount = colorCount
             )
         } catch (e: Exception) {
+            Log.e(TAG, "Error parsing tag data", e)
+            debugCollector?.recordError("Parsing exception: ${e.message}")
             null
         }
     }
@@ -132,21 +198,15 @@ object BambuTagDecoder {
     // Note: MIFARE Classic has sectors, each sector has blocks
     // Sectors 0-31 have 4 blocks each (blocks 0-3, 4-7, 8-11, etc.)
     // We read data sequentially: sector 0 blocks 0-2, sector 1 blocks 0-2, etc.
+    // The data array is compressed - trailer blocks (every 4th block) are skipped
     private fun bytes(data: ByteArray, blockNumber: Int, offset: Int, len: Int): ByteArray {
-        // Calculate actual offset based on MIFARE Classic layout
-        // Each sector contributes 3 data blocks (48 bytes), skipping trailer blocks
-        val sector = blockNumber / 4
-        val blockInSector = blockNumber % 4
-        
-        // Skip if this is a trailer block (every 4th block contains keys)
-        if (blockInSector == 3) {
-            return ByteArray(len) // Return zeros for trailer blocks
-        }
-        
-        val startIndex = sector * 48 + blockInSector * 16 + offset
+        // Calculate compressed byte offset accounting for skipped trailer blocks
+        // For block N, the actual byte offset is (N - N/4) * 16 because we skip every 4th block
+        val compressedBlockIndex = blockNumber - (blockNumber / 4) // Number of trailer blocks skipped
+        val startIndex = compressedBlockIndex * 16 + offset
         val endIndex = startIndex + len
         
-        return if (startIndex < data.size && endIndex <= data.size) {
+        return if (startIndex >= 0 && startIndex < data.size && endIndex <= data.size) {
             data.copyOfRange(startIndex, endIndex)
         } else {
             ByteArray(len) // Return zeros if out of bounds
