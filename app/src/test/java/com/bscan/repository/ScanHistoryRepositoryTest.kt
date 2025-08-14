@@ -215,6 +215,7 @@ class ScanHistoryRepositoryTest {
     
     private fun createTestDebugInfo(): ScanDebugInfo {
         return ScanDebugInfo(
+            uid = "04123456789ABC",
             tagSizeBytes = 1024,
             sectorCount = 16,
             authenticatedSectors = listOf(1, 2, 3),

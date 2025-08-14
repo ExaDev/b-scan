@@ -263,6 +263,7 @@ private fun formatDebugInfoAsText(debugInfo: ScanDebugInfo): String {
         // App & Device Info
         appendLine("APP & DEVICE INFO:")
         appendLine("- App version: B-Scan ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        appendLine("- Build type: ${BuildConfig.BUILD_TYPE}")
         appendLine("- Android version: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine("- Device: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("- Device ID: ${Build.DEVICE}")
@@ -270,6 +271,7 @@ private fun formatDebugInfoAsText(debugInfo: ScanDebugInfo): String {
         
         // Tag Information
         appendLine("TAG INFORMATION:")
+        appendLine("- UID: ${debugInfo.uid}")
         appendLine("- Size: ${debugInfo.tagSizeBytes} bytes")
         appendLine("- Sectors: ${debugInfo.sectorCount}")
         appendLine()

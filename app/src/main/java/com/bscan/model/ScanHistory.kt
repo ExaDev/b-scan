@@ -22,6 +22,7 @@ enum class ScanResult {
 }
 
 data class ScanDebugInfo(
+    val uid: String, // Tag UID in hex format
     val tagSizeBytes: Int,
     val sectorCount: Int,
     val authenticatedSectors: List<Int>,

@@ -74,6 +74,7 @@ class DebugDataCollector {
             scanResult = result,
             filamentInfo = filamentInfo,
             debugInfo = ScanDebugInfo(
+                uid = uid,
                 tagSizeBytes = tagSizeBytes,
                 sectorCount = sectorCount,
                 authenticatedSectors = authenticatedSectors.toList(),
