@@ -34,7 +34,12 @@ fun ScanHistoryScreen(
     var expandedItems by remember { mutableStateOf(setOf<Long>()) }
     
     LaunchedEffect(Unit) {
-        scans = repository.getAllScans()
+        try {
+            scans = repository.getAllScans()
+        } catch (e: Exception) {
+            // If loading fails, start with empty list
+            scans = emptyList()
+        }
     }
     
     val filteredScans = when (selectedFilter) {
@@ -55,8 +60,13 @@ fun ScanHistoryScreen(
                 actions = {
                     IconButton(
                         onClick = { 
-                            repository.clearHistory()
-                            scans = emptyList()
+                            try {
+                                repository.clearHistory()
+                                scans = emptyList()
+                            } catch (e: Exception) {
+                                // If clear fails, just reset local scans list
+                                scans = emptyList()
+                            }
                         }
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = "Clear History")
@@ -131,10 +141,14 @@ fun ScanStatisticsCard(repository: ScanHistoryRepository, scans: List<ScanHistor
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
+                val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
+                val failedScans = scans.size - successfulScans
+                val successRate = if (scans.isNotEmpty()) (successfulScans.toFloat() / scans.size * 100).toInt() else 0
+                
                 StatItem("Total Scans", scans.size.toString())
-                StatItem("Success Rate", "${(repository.getSuccessRate() * 100).toInt()}%")
-                StatItem("Successful", repository.getSuccessfulScans().size.toString())
-                StatItem("Failed", repository.getFailedScans().size.toString())
+                StatItem("Success Rate", "$successRate%")
+                StatItem("Successful", successfulScans.toString())
+                StatItem("Failed", failedScans.toString())
             }
         }
     }
@@ -236,7 +250,11 @@ fun ScanHistoryItem(
                             .size(20.dp)
                             .background(
                                 color = try {
-                                    Color(android.graphics.Color.parseColor(scan.filamentInfo.colorHex))
+                                    if (scan.filamentInfo.colorHex.startsWith("#")) {
+                                        Color(android.graphics.Color.parseColor(scan.filamentInfo.colorHex))
+                                    } else {
+                                        Color(android.graphics.Color.parseColor("#${scan.filamentInfo.colorHex}"))
+                                    }
                                 } catch (e: Exception) {
                                     Color.Gray
                                 },

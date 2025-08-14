@@ -3,16 +3,38 @@ package com.bscan.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.ScanHistory
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
+import com.google.gson.*
 import com.google.gson.reflect.TypeToken
+import java.lang.reflect.Type
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class ScanHistoryRepository(context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("scan_history", Context.MODE_PRIVATE)
-    private val gson = Gson()
+    
+    // Custom LocalDateTime adapter for Gson
+    private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
+        private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+        
+        override fun serialize(src: LocalDateTime?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
+            return JsonPrimitive(src?.format(formatter))
+        }
+        
+        override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): LocalDateTime? {
+            return try {
+                json?.asString?.let { LocalDateTime.parse(it, formatter) }
+            } catch (e: Exception) {
+                LocalDateTime.now() // Fallback to current time
+            }
+        }
+    }
+    
+    private val gson = GsonBuilder()
+        .registerTypeAdapter(LocalDateTime::class.java, localDateTimeAdapter)
+        .create()
+    
     private val maxHistorySize = 100 // Keep last 100 scans
     
     fun saveScan(scanHistory: ScanHistory) {
