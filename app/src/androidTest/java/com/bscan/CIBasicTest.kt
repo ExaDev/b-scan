@@ -93,6 +93,6 @@ class CIBasicTest {
         composeTestRule.onNodeWithText("Context Test").assertIsDisplayed()
         
         // This verifies that the test is running in an actual Android environment
-        assert(composeTestRule.activity != null || true) // Basic context verification
+        // (createComposeRule doesn't have activity, but this test confirms Android instrumentation works)
     }
 }
