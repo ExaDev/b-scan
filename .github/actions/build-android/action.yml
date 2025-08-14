@@ -11,6 +11,16 @@ inputs:
     description: 'Whether to build AAB bundle'
     required: false
     default: 'false'
+    
+  version-code:
+    description: 'Version code for the build'
+    required: false
+    default: ''
+    
+  version-name:
+    description: 'Version name for the build'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -42,9 +52,23 @@ runs:
 
     - name: Build APK
       shell: bash
-      run: ./gradlew assemble${{ inputs.build-type }} --build-cache
+      run: |
+        if [[ -n "${{ inputs.version-code }}" && -n "${{ inputs.version-name }}" ]]; then
+          ./gradlew assemble${{ inputs.build-type }} --build-cache \
+            -PversionCode=${{ inputs.version-code }} \
+            -PversionName=${{ inputs.version-name }}
+        else
+          ./gradlew assemble${{ inputs.build-type }} --build-cache
+        fi
 
     - name: Build AAB
       if: inputs.build-aab == 'true'
       shell: bash
-      run: ./gradlew bundle${{ inputs.build-type }} --build-cache
+      run: |
+        if [[ -n "${{ inputs.version-code }}" && -n "${{ inputs.version-name }}" ]]; then
+          ./gradlew bundle${{ inputs.build-type }} --build-cache \
+            -PversionCode=${{ inputs.version-code }} \
+            -PversionName=${{ inputs.version-name }}
+        else
+          ./gradlew bundle${{ inputs.build-type }} --build-cache
+        fi

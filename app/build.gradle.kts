@@ -12,8 +12,8 @@ android {
         applicationId = "com.bscan"
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.13"
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

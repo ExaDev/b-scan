@@ -126,8 +126,8 @@ jobs:
     needs: [code-quality, unit-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     outputs:
-      version_code: ${{ steps.increment_version.outputs.new_version_code }}
-      version_name: ${{ steps.increment_version.outputs.new_version_name }}
+      version_code: ${{ steps.calculate_version.outputs.version_code }}
+      version_name: ${{ steps.calculate_version.outputs.version_name }}
     
     steps:
     - name: Checkout code
@@ -138,47 +138,29 @@ jobs:
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
       
-    - name: Increment version
-      id: increment_version
+    - name: Calculate version
+      id: calculate_version
       run: |
-        # Get current version from build.gradle.kts
-        CURRENT_VERSION_CODE=$(grep "versionCode = " app/build.gradle.kts | sed 's/.*versionCode = \([0-9]*\).*/\1/')
-        CURRENT_VERSION_NAME=$(grep "versionName = " app/build.gradle.kts | sed 's/.*versionName = "\([^"]*\)".*/\1/')
+        # Calculate version code from git commit count (deterministic)
+        VERSION_CODE=$(git rev-list --count HEAD)
         
-        # Increment version code
-        NEW_VERSION_CODE=$((CURRENT_VERSION_CODE + 1))
+        # Calculate version name from git commit count and short hash
+        SHORT_HASH=$(git rev-parse --short HEAD)
+        VERSION_NAME="1.0.$VERSION_CODE"
         
-        # Generate version name based on run number
-        NEW_VERSION_NAME="1.${{ github.run_number }}"
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "short_hash=$SHORT_HASH" >> $GITHUB_OUTPUT
         
-        echo "old_version_code=$CURRENT_VERSION_CODE" >> $GITHUB_OUTPUT
-        echo "old_version_name=$CURRENT_VERSION_NAME" >> $GITHUB_OUTPUT
-        echo "new_version_code=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
-        echo "new_version_name=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
-        
-        echo "Incrementing version: $CURRENT_VERSION_NAME ($CURRENT_VERSION_CODE) -> $NEW_VERSION_NAME ($NEW_VERSION_CODE)"
-        
-        # Update build.gradle.kts with new version
-        sed -i "s/versionCode = [0-9]*/versionCode = $NEW_VERSION_CODE/" app/build.gradle.kts
-        sed -i "s/versionName = \"[^\"]*\"/versionName = \"$NEW_VERSION_NAME\"/" app/build.gradle.kts
-    
-    - name: Commit version changes
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add app/build.gradle.kts
-        if git diff --staged --quiet; then
-          echo "No version changes to commit"
-        else
-          git commit -m "ci: bump version to ${{ steps.increment_version.outputs.new_version_name }} (code: ${{ steps.increment_version.outputs.new_version_code }})"
-          git push
-        fi
+        echo "Calculated version: $VERSION_NAME (code: $VERSION_CODE, hash: $SHORT_HASH)"
       
     - name: Build release APK and AAB
       uses: ./.github/actions/build-android
       with:
         build-type: Release
         build-aab: 'true'
+        version-code: ${{ steps.calculate_version.outputs.version_code }}
+        version-name: ${{ steps.calculate_version.outputs.version_name }}
         
     - name: Upload release artifacts
       uses: actions/upload-artifact@v4
