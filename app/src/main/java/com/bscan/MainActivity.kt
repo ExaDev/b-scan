@@ -32,6 +32,7 @@ import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.FilamentDetailsScreen
 import com.bscan.ui.screens.ScanPromptScreen
+import com.bscan.ui.screens.ErrorScreen
 import com.bscan.ui.theme.BScanTheme
 import com.bscan.ui.components.ScanStateIndicator
 import com.bscan.ui.components.NfcStatusIndicator
@@ -142,7 +143,20 @@ class MainActivity : ComponentActivity() {
                     viewModel.processTag(tagData, nfcManager.debugCollector)
                 }
             } else {
-                viewModel.setNfcError("Error reading tag")
+                // Check if this was an authentication failure
+                if (!nfcManager.debugCollector.hasAuthenticatedSectors()) {
+                    // Create a mock tag data for authentication failure case
+                    intent.getParcelableExtra<android.nfc.Tag>(NfcAdapter.EXTRA_TAG)?.let { tag ->
+                        val failedTagData = com.bscan.model.NfcTagData(
+                            uid = tag.id.joinToString("") { "%02X".format(it) },
+                            bytes = ByteArray(0),
+                            technology = tag.techList.firstOrNull() ?: "Unknown"
+                        )
+                        viewModel.setAuthenticationFailed(failedTagData, nfcManager.debugCollector)
+                    } ?: viewModel.setNfcError("Error reading tag")
+                } else {
+                    viewModel.setNfcError("Error reading tag")
+                }
             }
         }
     }
@@ -246,6 +260,7 @@ fun MainScreen(
                 uiState.filamentInfo?.let { filamentInfo ->
                     FilamentDetailsScreen(
                         filamentInfo = filamentInfo,
+                        debugInfo = uiState.debugInfo,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -254,6 +269,7 @@ fun MainScreen(
                 uiState.error?.let { error ->
                     ErrorScreen(
                         error = error,
+                        debugInfo = uiState.debugInfo,
                         onRetry = { viewModel.clearError(); viewModel.resetScan() },
                         modifier = Modifier.padding(paddingValues)
                     )
