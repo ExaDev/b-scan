@@ -140,7 +140,8 @@ class NfcManager(private val activity: Activity) {
                             Log.v(TAG, "Sector $sector key A failed (index $keyIndex)")
                         }
                     } catch (e: IOException) {
-                        Log.v(TAG, "Sector $sector key A IOException (index $keyIndex): ${e.message}")
+                        Log.w(TAG, "Sector $sector key A IOException (index $keyIndex): ${e.message}")
+                        debugCollector.recordError("Sector $sector KeyA authentication IOException: ${e.message}")
                         continue
                     }
                     
@@ -156,7 +157,8 @@ class NfcManager(private val activity: Activity) {
                             Log.v(TAG, "Sector $sector key B failed (index $keyIndex)")
                         }
                     } catch (e: IOException) {
-                        Log.v(TAG, "Sector $sector key B IOException (index $keyIndex): ${e.message}")
+                        Log.w(TAG, "Sector $sector key B IOException (index $keyIndex): ${e.message}")
+                        debugCollector.recordError("Sector $sector KeyB authentication IOException: ${e.message}")
                         continue
                     }
                 }
