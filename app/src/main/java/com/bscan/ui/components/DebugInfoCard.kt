@@ -1,6 +1,7 @@
 package com.bscan.ui.components
 
 import androidx.compose.foundation.background
+import com.bscan.BuildConfig
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -261,7 +262,7 @@ private fun formatDebugInfoAsText(debugInfo: ScanDebugInfo): String {
         
         // App & Device Info
         appendLine("APP & DEVICE INFO:")
-        appendLine("- App version: B-Scan")
+        appendLine("- App version: B-Scan ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         appendLine("- Android version: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
         appendLine("- Device: ${Build.MANUFACTURER} ${Build.MODEL}")
         appendLine("- Device ID: ${Build.DEVICE}")

@@ -1,6 +1,7 @@
 package com.bscan.update
 
 import android.content.Context
+import com.bscan.BuildConfig
 import com.bscan.model.*
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -59,7 +60,7 @@ class GitHubUpdateService(private val context: Context) {
     }
     
     private fun parseReleaseToUpdateInfo(release: GitHubRelease): UpdateInfo {
-        val currentVersion = "1.0" // TODO: Get from BuildConfig when available
+        val currentVersion = BuildConfig.VERSION_NAME
         val latestVersion = release.tag_name.removePrefix("v")
         
         // Find APK asset

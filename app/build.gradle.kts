@@ -12,8 +12,10 @@ android {
         applicationId = "com.bscan"
         minSdk = 29
         targetSdk = 35
+        
+        // Use provided version or sensible defaults
         versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
-        versionName = (project.findProperty("versionName") as String?) ?: "1.0"
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0-dev"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -49,6 +51,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.6.0"
