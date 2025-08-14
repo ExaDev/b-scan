@@ -65,32 +65,24 @@ jobs:
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
       
-    # Temporarily comment out actual test execution and return success
-    - name: Run unit tests (stubbed)
-      run: |
-        echo "Unit tests temporarily disabled - returning success"
-        # ./gradlew testDebugUnitTest
-        exit 0
+    - name: Run unit tests
+      run: ./gradlew testDebugUnitTest
       
-    # - name: Generate test report
-    #   run: ./gradlew jacocoTestReport
-    #   continue-on-error: true
-    #   
-    # - name: Upload test reports
-    #   uses: actions/upload-artifact@v4
-    #   if: always()
-    #   with:
-    #     name: unit-test-reports
-    #     path: |
-    #       app/build/reports/tests/
-    #       app/build/reports/jacoco/
-    #     retention-days: 7
-    #     
-    # - name: Publish test results
-    #   uses: EnricoMi/publish-unit-test-result-action@v2
-    #   if: always()
-    #   with:
-    #     files: app/build/test-results/testDebugUnitTest/TEST-*.xml
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: unit-test-reports
+        path: |
+          app/build/reports/tests/
+          app/build/test-results/
+        retention-days: 7
+        
+    - name: Publish test results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      if: always()
+      with:
+        files: app/build/test-results/testDebugUnitTest/TEST-*.xml
 
   # Job 3: Build Debug APK
   build-debug:
