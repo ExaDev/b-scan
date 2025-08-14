@@ -8,11 +8,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bscan.model.FilamentInfo
+import com.bscan.model.ScanDebugInfo
 import com.bscan.ui.components.*
 
 @Composable
 fun FilamentDetailsScreen(
     filamentInfo: FilamentInfo,
+    debugInfo: ScanDebugInfo? = null,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -44,6 +46,13 @@ fun FilamentDetailsScreen(
         
         item {
             ProductionInfoCard(filamentInfo = filamentInfo)
+        }
+        
+        // Show debug info if available
+        debugInfo?.let { debug ->
+            item {
+                DebugInfoCard(debugInfo = debug)
+            }
         }
     }
 }
