@@ -317,6 +317,14 @@ class NfcManager(private val activity: Activity) {
     }
     
     /**
+     * Invalidates cached data for a specific UID
+     */
+    fun invalidateTagCache(uid: String) {
+        tagDataCache.invalidateUID(uid)
+        Log.d(TAG, "Invalidated tag cache for UID: $uid")
+    }
+    
+    /**
      * Cleanup method to cancel background operations when NfcManager is no longer needed
      */
     fun cleanup() {

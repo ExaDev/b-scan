@@ -98,7 +98,8 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         updateViewModel = updateViewModel,
                         onResetScan = { viewModel.resetScan() },
-                        onShowHistory = { showHistory = true }
+                        onShowHistory = { showHistory = true },
+                        onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
                     )
                 }
             }
@@ -220,7 +221,8 @@ fun MainScreen(
     viewModel: MainViewModel,
     updateViewModel: UpdateViewModel,
     onResetScan: () -> Unit,
-    onShowHistory: () -> Unit
+    onShowHistory: () -> Unit,
+    onPurgeCache: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
@@ -290,6 +292,7 @@ fun MainScreen(
                     FilamentDetailsScreen(
                         filamentInfo = filamentInfo,
                         debugInfo = uiState.debugInfo,
+                        onPurgeCache = onPurgeCache,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
