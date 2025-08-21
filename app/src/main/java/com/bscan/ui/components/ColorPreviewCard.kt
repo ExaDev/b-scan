@@ -45,7 +45,7 @@ fun ColorPreviewCard(
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "#${colorHex.take(6)}",
+                    text = "#${colorHex.removePrefix("#").take(6)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
