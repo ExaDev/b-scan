@@ -18,6 +18,7 @@ class DebugDataCollector {
     private var rawColorBytes = ""
     private var tagSizeBytes = 0
     private var sectorCount = 0
+    private var cacheHit = false
     
     fun recordTagInfo(sizeBytes: Int, sectors: Int) {
         tagSizeBytes = sizeBytes
@@ -54,6 +55,10 @@ class DebugDataCollector {
     
     fun recordParsingDetail(key: String, value: Any?) {
         parsingDetails[key] = value
+    }
+    
+    fun recordCacheHit() {
+        cacheHit = true
     }
     
     fun hasAuthenticatedSectors(): Boolean {
@@ -100,5 +105,6 @@ class DebugDataCollector {
         rawColorBytes = ""
         tagSizeBytes = 0
         sectorCount = 0
+        cacheHit = false
     }
 }
