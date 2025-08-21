@@ -82,9 +82,11 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation("org.mockito:mockito-core:5.4.0")
     testImplementation("org.mockito:mockito-inline:5.2.0")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.5.0")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.0")
     // testImplementation("org.powermock:powermock-api-mockito2:2.0.9") // Removed due to performance issues
     // testImplementation("org.powermock:powermock-module-junit4:2.0.9")
-    // testImplementation("org.robolectric:robolectric:4.11") // Removed due to slow test execution
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
