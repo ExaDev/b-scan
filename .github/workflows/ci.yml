@@ -55,7 +55,8 @@ jobs:
       with:
         name: lint-reports
         path: |
-          app/build/reports/lint/
+          app/build/reports/lint-results*.html
+          app/build/reports/lint-results*.xml
         retention-days: 7
 
   # Job 2: Unit Tests (stubbed - exit 0 for now)
@@ -192,7 +193,8 @@ jobs:
       with:
         name: security-scan-reports
         path: |
-          app/build/reports/lint/
+          app/build/reports/lint-results*.html
+          app/build/reports/lint-results*.xml
         retention-days: 7
 
   # Job 6: Instrumented Tests (Android Emulator) - Optimized for CI

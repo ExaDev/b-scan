@@ -16,7 +16,7 @@ runs:
         cache-cleanup: on-success
         cache-read-only: ${{ github.event_name == 'pull_request' }}
         gradle-version: wrapper
-        build-scan-publish: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        build-scan-publish: false
 
     - name: Cache Android build outputs
       uses: actions/cache@v4
