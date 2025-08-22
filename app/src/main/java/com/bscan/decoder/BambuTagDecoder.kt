@@ -2,6 +2,7 @@ package com.bscan.decoder
 
 import android.util.Log
 import com.bscan.debug.DebugDataCollector
+import com.bscan.debug.BedTemperatureDebugHelper
 import com.bscan.model.FilamentInfo
 import com.bscan.model.NfcTagData
 import java.nio.ByteBuffer
@@ -59,12 +60,50 @@ object BambuTagDecoder {
             val materialId = string(data.bytes, 1, 8, 8)
             
             // Block 6: Temperature and Drying Info
+            
+            // Debug: Log raw Block 6 bytes for temperature analysis
+            val block6RawBytes = bytes(data.bytes, 6, 0, 16)
+            val block6Hex = block6RawBytes.joinToString("") { "%02X".format(it) }
+            Log.d(TAG, "Block 6 raw bytes: $block6Hex")
+            
+            // Debug: Check if Block 6 is all zeros (common with authentication failures)
+            val isBlock6AllZeros = block6RawBytes.all { it == 0.toByte() }
+            if (isBlock6AllZeros) {
+                Log.w(TAG, "WARNING: Block 6 is all zeros - possible authentication failure or empty tag")
+                debugCollector?.recordError("Block 6 contains only zeros - bed temperature will be 0")
+            }
+            
+            // Run detailed bed temperature debug analysis
+            debugCollector?.let { 
+                BedTemperatureDebugHelper.analyzeBedTemperatureIssue(data, it)
+            }
+            
             val dryingTemperature = int(data.bytes, 6, 0, 2) // uint16 LE
             val dryingTime = int(data.bytes, 6, 2, 2) // uint16 LE  
             val bedTemperatureType = int(data.bytes, 6, 4, 2) // uint16 LE (bed temp type)
             val bedTemperature = int(data.bytes, 6, 6, 2) // uint16 LE
             val maxTemperature = int(data.bytes, 6, 8, 2) // uint16 LE
             val minTemperature = int(data.bytes, 6, 10, 2) // uint16 LE
+            
+            // Debug: Log individual temperature values and raw bytes for each
+            val bedTempBytes = bytes(data.bytes, 6, 6, 2)
+            val bedTempHex = bedTempBytes.joinToString("") { "%02X".format(it) }
+            Log.d(TAG, "Bed temperature raw bytes at offset 6: $bedTempHex -> $bedTemperature°C")
+            Log.d(TAG, "Bed temperature type: $bedTemperatureType")
+            Log.d(TAG, "Drying temperature: $dryingTemperature°C")
+            Log.d(TAG, "Drying time: $dryingTime hours")
+            Log.d(TAG, "Min temperature: $minTemperature°C")
+            Log.d(TAG, "Max temperature: $maxTemperature°C")
+            
+            // Debug: Verify bed temperature calculation manually
+            if (bedTempBytes.size >= 2) {
+                val manualBedTemp = (bedTempBytes[0].toUByte().toInt()) + 
+                                   (bedTempBytes[1].toUByte().toInt() shl 8)
+                Log.d(TAG, "Manual bed temp calculation: ${bedTempBytes[0].toUByte()} + (${bedTempBytes[1].toUByte()} << 8) = $manualBedTemp")
+                if (manualBedTemp != bedTemperature) {
+                    Log.w(TAG, "BED TEMP MISMATCH: manual=$manualBedTemp, parsed=$bedTemperature")
+                }
+            }
             
             // Block 8: X Cam Info (0-11) and Nozzle Diameter (12-15)
             val xCamInfo = bytes(data.bytes, 8, 0, 12)
@@ -131,6 +170,16 @@ object BambuTagDecoder {
             debugCollector?.recordParsingDetail("spoolWidth", spoolWidth)
             debugCollector?.recordParsingDetail("colorCount", colorCount)
             debugCollector?.recordParsingDetail("formatIdentifier", formatIdentifier)
+            
+            // Debug: Record temperature parsing details
+            debugCollector?.recordParsingDetail("bedTemperature", bedTemperature)
+            debugCollector?.recordParsingDetail("bedTemperatureType", bedTemperatureType)
+            debugCollector?.recordParsingDetail("dryingTemperature", dryingTemperature)
+            debugCollector?.recordParsingDetail("dryingTime", dryingTime)
+            debugCollector?.recordParsingDetail("minTemperature", minTemperature)
+            debugCollector?.recordParsingDetail("maxTemperature", maxTemperature)
+            debugCollector?.recordParsingDetail("block6Hex", block6Hex)
+            debugCollector?.recordParsingDetail("bedTempHex", bedTempHex)
             
             Log.d(TAG, "Material Variant ID: $materialVariantId")
             Log.d(TAG, "Material ID: $materialId")
