@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
@@ -182,7 +182,12 @@ class MainActivity : ComponentActivity() {
                             // Failed read - check if authentication failure
                             if (!nfcManager.debugCollector.hasAuthenticatedSectors()) {
                                 // Create a mock tag data for authentication failure case
-                                intent.getParcelableExtra<android.nfc.Tag>(NfcAdapter.EXTRA_TAG)?.let { tag ->
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, android.nfc.Tag::class.java)
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    intent.getParcelableExtra<android.nfc.Tag>(NfcAdapter.EXTRA_TAG)
+                                }?.let { tag ->
                                     val failedTagData = com.bscan.model.NfcTagData(
                                         uid = tag.id.joinToString("") { "%02X".format(it) },
                                         bytes = ByteArray(0),
@@ -273,7 +278,7 @@ fun MainScreen(
                     
                     IconButton(onClick = onShowSpoolList) {
                         Icon(
-                            imageVector = Icons.Default.List,
+                            imageVector = Icons.AutoMirrored.Filled.List,
                             contentDescription = "View spool list"
                         )
                     }
