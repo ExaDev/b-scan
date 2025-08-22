@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
@@ -42,6 +43,7 @@ import com.bscan.ui.screens.ScanPromptScreen
 import com.bscan.ui.screens.HomeScreen
 import com.bscan.ui.screens.ErrorScreen
 import com.bscan.ui.screens.SpoolListScreen
+import com.bscan.ui.screens.SettingsScreen
 import com.bscan.ui.screens.TrayTrackingScreen
 import com.bscan.ui.theme.BScanTheme
 import com.bscan.ui.components.ScanStateIndicator
@@ -110,6 +112,7 @@ class MainActivity : ComponentActivity() {
                             onShowHistory = { navController.navigate("history") },
                             onShowSpoolList = { navController.navigate("spoolList") },
                             onShowTrayTracking = { navController.navigate("trayTracking") },
+                            onShowSettings = { navController.navigate("settings") },
                             onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
                         )
                     }
@@ -129,6 +132,12 @@ class MainActivity : ComponentActivity() {
                     composable("trayTracking") {
                         TrayTrackingScreen(
                             viewModel = viewModel,
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+                    
+                    composable("settings") {
+                        SettingsScreen(
                             onNavigateBack = { navController.popBackStack() }
                         )
                     }
@@ -260,6 +269,7 @@ fun MainScreen(
     onShowHistory: () -> Unit,
     onShowSpoolList: () -> Unit,
     onShowTrayTracking: () -> Unit,
+    onShowSettings: () -> Unit,
     onPurgeCache: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -314,6 +324,13 @@ fun MainScreen(
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = "View scan history"
+                        )
+                    }
+                    
+                    IconButton(onClick = onShowSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
                         )
                     }
                     
