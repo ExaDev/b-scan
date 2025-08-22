@@ -353,7 +353,86 @@ jobs:
         # Get previous tag for changelog
         PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         
-        # Create additional release notes with build info
+        # Generate changelog from conventional commits
+        CHANGELOG=""
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Generating changelog from $PREVIOUS_TAG to current commit..."
+          
+          # Get all commits since last tag
+          ALL_COMMITS=$(git log --pretty=format:"%s" $PREVIOUS_TAG..HEAD --reverse)
+          
+          # Parse conventional commits by type
+          FEAT_COMMITS=""
+          FIX_COMMITS=""
+          PERF_COMMITS=""
+          CHORE_COMMITS=""
+          DOCS_COMMITS=""
+          TEST_COMMITS=""
+          STYLE_COMMITS=""
+          REFACTOR_COMMITS=""
+          OTHER_COMMITS=""
+          
+          while IFS= read -r commit; do
+            if [[ $commit =~ ^feat(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^feat[^:]*: //')
+              FEAT_COMMITS="${FEAT_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^fix(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^fix[^:]*: //')
+              FIX_COMMITS="${FIX_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^perf(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^perf[^:]*: //')
+              PERF_COMMITS="${PERF_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^chore(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^chore[^:]*: //')
+              CHORE_COMMITS="${CHORE_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^docs(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^docs[^:]*: //')
+              DOCS_COMMITS="${DOCS_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^test(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^test[^:]*: //')
+              TEST_COMMITS="${TEST_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^style(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^style[^:]*: //')
+              STYLE_COMMITS="${STYLE_COMMITS}- ${desc}\n"
+            elif [[ $commit =~ ^refactor(\([^)]*\))?: ]]; then
+              desc=$(echo "$commit" | sed 's/^refactor[^:]*: //')
+              REFACTOR_COMMITS="${REFACTOR_COMMITS}- ${desc}\n"
+            else
+              OTHER_COMMITS="${OTHER_COMMITS}- ${commit}\n"
+            fi
+          done <<< "$ALL_COMMITS"
+          
+          # Build changelog sections (only include non-empty sections)
+          if [ -n "$FEAT_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## 🚀 Features\n${FEAT_COMMITS}\n"
+          fi
+          if [ -n "$FIX_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## 🐛 Bug Fixes\n${FIX_COMMITS}\n"
+          fi
+          if [ -n "$PERF_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## ⚡ Performance\n${PERF_COMMITS}\n"
+          fi
+          if [ -n "$CHORE_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## 🔧 Maintenance\n${CHORE_COMMITS}\n"
+          fi
+          if [ -n "$DOCS_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## 📚 Documentation\n${DOCS_COMMITS}\n"
+          fi
+          if [ -n "$TEST_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## 🧪 Testing\n${TEST_COMMITS}\n"
+          fi
+          if [ -n "$STYLE_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## 💄 Style\n${STYLE_COMMITS}\n"
+          fi
+          if [ -n "$REFACTOR_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## ♻️ Refactoring\n${REFACTOR_COMMITS}\n"
+          fi
+          if [ -n "$OTHER_COMMITS" ]; then
+            CHANGELOG="${CHANGELOG}## Other Changes\n${OTHER_COMMITS}\n"
+          fi
+        fi
+        
+        # Create release notes with build info and changelog
         NOTES_FILE=$(mktemp)
         cat > "$NOTES_FILE" << ENDNOTES
         ## 📱 Download
@@ -376,8 +455,15 @@ jobs:
         - Security scan
         - Performance analysis
         
-        ---
         ENDNOTES
+        
+        # Add changelog if available
+        if [ -n "$CHANGELOG" ]; then
+          echo "" >> "$NOTES_FILE"
+          echo -e "$CHANGELOG" >> "$NOTES_FILE"
+        fi
+        
+        echo "---" >> "$NOTES_FILE"
         
         # Check if artifact files exist
         APK_FILES=$(find artifacts/ -name "*.apk" -type f)
@@ -390,11 +476,9 @@ jobs:
           exit 1
         fi
         
-        # Create release using .github/release.yml template with additional build info
+        # Create release with conventional commit based changelog
         gh release create ${{ steps.build_version.outputs.tag }} \
           --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
-          --generate-notes \
-          ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} \
           --notes-file "$NOTES_FILE" \
           --prerelease=false \
           $APK_FILES \
