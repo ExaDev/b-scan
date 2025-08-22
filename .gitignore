@@ -35,17 +35,11 @@ proguard/
 # Android Studio captures folder
 captures/
 
-# IntelliJ
+# IntelliJ IDEA - exclude entire .idea directory for better security
+.idea/
 *.iml
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/gradle.xml
-.idea/assetWizard.xml
-.idea/dictionaries
-.idea/libraries
-.idea/caches
-.idea/modules.xml
-.idea/navEditor.xml
+*.ipr
+*.iws
 
 # Keystore files
 *.jks
@@ -95,8 +89,36 @@ lint/tmp/
 # VS Code
 .vscode/
 
+# Claude Code - contains sensitive local configuration and context
+.claude/
+
+# Environment and configuration files with sensitive data
+.env
+.env.local
+.env.*.local
+secrets.properties
+signing.properties
+release.properties
+
+# Backup files
+*.bak
+*.backup
+
+# OS generated files
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Database files (if any local databases are used)
+*.db
+*.sqlite
+*.sqlite3
+
 # Temporary files
 *.tmp
 *.temp
 *.swp
 *.swo
+*~
