@@ -4,24 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
 }
 
-// Automatically install git hooks when gradle syncs
-tasks.register("installGitHooks") {
-    description = "Install git hooks for conventional commits"
-    group = "git"
-    
-    doLast {
-        val gitDir = file(".git")
-        if (!gitDir.exists()) {
-            logger.info("Skipping git hooks installation - not a git repository")
-            return@doLast
-        }
-        
-        val hooksDir = file(".git/hooks")
-        hooksDir.mkdirs()
-        
-        // Create commit-msg hook for validation
-        val commitMsgHook = file("$hooksDir/commit-msg")
-        commitMsgHook.writeText("""#!/bin/sh
+// Shared commit-msg hook content for DRY principle
+val commitMsgHookContent = """#!/bin/sh
 # Validate conventional commit format
 # This hook is automatically installed by Gradle
 
@@ -51,7 +35,26 @@ if ! grep -qE "${'$'}commit_regex" "${'$'}1"; then
     echo ""
     exit 1
 fi
-""")
+"""
+
+// Automatically install git hooks when gradle syncs
+tasks.register("installGitHooks") {
+    description = "Install git hooks for conventional commits"
+    group = "git"
+    
+    doLast {
+        val gitDir = file(".git")
+        if (!gitDir.exists()) {
+            logger.info("Skipping git hooks installation - not a git repository")
+            return@doLast
+        }
+        
+        val hooksDir = file(".git/hooks")
+        hooksDir.mkdirs()
+        
+        // Create commit-msg hook for validation
+        val commitMsgHook = file("$hooksDir/commit-msg")
+        commitMsgHook.writeText(commitMsgHookContent)
         commitMsgHook.setExecutable(true)
         
         // Configure git to use the commit template for guidance
@@ -84,37 +87,7 @@ if (file(".git").exists()) {
             
             // Create commit-msg hook for validation
             val commitMsgHook = file("$hooksDir/commit-msg")
-            commitMsgHook.writeText("""#!/bin/sh
-# Validate conventional commit format
-# This hook is automatically installed by Gradle
-
-# Skip validation for merge commits
-if grep -qE '^Merge (branch|remote-tracking branch|pull request)' "${'$'}1"; then
-    exit 0
-fi
-
-commit_regex='^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: .{1,50}'
-
-if ! grep -qE "${'$'}commit_regex" "${'$'}1"; then
-    echo ""
-    echo "❌ Commit message does not follow conventional commit format!"
-    echo ""
-    echo "Expected format: type(scope): description"
-    echo ""
-    echo "Types: feat, fix, docs, style, refactor, perf, test, chore"
-    echo "Scope: optional, e.g. (nfc), (ui), (decoder)"
-    echo ""
-    echo "Examples:"
-    echo "  feat(nfc): add support for new tag format"
-    echo "  fix(decoder): handle corrupted data gracefully"
-    echo "  docs: update README installation steps"
-    echo ""
-    echo "Your commit message:"
-    echo "${'$'}(cat "${'$'}1")"
-    echo ""
-    exit 1
-fi
-""")
+            commitMsgHook.writeText(commitMsgHookContent)
             commitMsgHook.setExecutable(true)
             
             // Configure git to use the commit template for guidance
