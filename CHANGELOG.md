@@ -1,3 +1,15 @@
+# [3.0.0](https://github.com/Mearman/b-scan/compare/v2.0.2...v3.0.0) (2025-08-22)
+
+
+### Bug Fixes
+
+* **update:** implement real-time download progress monitoring ([b8ab203](https://github.com/Mearman/b-scan/commit/b8ab20336eb9bdb820e73733260cbf3afa03911e))
+
+
+### BREAKING CHANGES
+
+* **update:** None - maintains existing UpdateDownloadService API
+
 ## [2.0.2](https://github.com/Mearman/b-scan/compare/v2.0.1...v2.0.2) (2025-08-22)
 
 
