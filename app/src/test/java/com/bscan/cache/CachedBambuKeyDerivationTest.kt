@@ -148,8 +148,11 @@ class CachedBambuKeyDerivationTest {
         CachedBambuKeyDerivation.deriveKeys(testUID1) // cache hit
         
         // Should not throw exception
-        assertDoesNotThrow {
+        try {
             CachedBambuKeyDerivation.logCacheStatistics()
+            // If we get here, no exception was thrown - test passes
+        } catch (e: Exception) {
+            fail("logCacheStatistics should not throw exception: ${e.message}")
         }
     }
     
@@ -190,8 +193,11 @@ class CachedBambuKeyDerivationTest {
         assertContentEquals(keys1, keys2)
         
         // Test preloadKeys extension
-        assertDoesNotThrow {
+        try {
             testUID2.preloadKeys()
+            // If we get here, no exception was thrown - test passes
+        } catch (e: Exception) {
+            fail("preloadKeys should not throw exception: ${e.message}")
         }
     }
     
