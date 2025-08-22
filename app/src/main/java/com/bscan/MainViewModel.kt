@@ -145,13 +145,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun resetScan() {
         _uiState.value = BScanUiState()
     }
+    
+    fun showSpoolList() {
+        _uiState.value = _uiState.value.copy(showSpoolList = true)
+    }
+    
+    fun hideSpoolList() {
+        _uiState.value = _uiState.value.copy(showSpoolList = false)
+    }
 }
 
 data class BScanUiState(
     val filamentInfo: FilamentInfo? = null,
     val scanState: ScanState = ScanState.IDLE,
     val error: String? = null,
-    val debugInfo: ScanDebugInfo? = null
+    val debugInfo: ScanDebugInfo? = null,
+    val showSpoolList: Boolean = false
 )
 
 enum class ScanState {
