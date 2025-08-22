@@ -53,6 +53,17 @@ The app will automatically decode the RFID data and present it in an easy-to-rea
 - **NFC Protocol**: ISO 14443-A (Mifare Classic 1K)
 - **Tag Format**: Bambu Lab proprietary RFID data structure
 
+## Documentation
+
+Comprehensive documentation is available in the [docs/](docs/) directory:
+
+- **[Cache Design](docs/CACHE_DESIGN.md)** - Architecture and implementation of the high-performance caching system
+- **[Development Guide](docs/DEVELOPMENT.md)** - Development setup, building, and testing instructions
+- **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Detailed technical implementation overview
+- **[Security Analysis](docs/SECURITY_ANALYSIS.md)** - Security considerations and threat analysis
+
+For developers looking to contribute or understand the codebase, start with the [Development Guide](docs/DEVELOPMENT.md).
+
 ## Screenshots
 
 *Screenshots will be added once the app is implemented*
