@@ -41,10 +41,10 @@ jobs:
             COMMITS_RANGE="HEAD"
           fi
           
-          # Check for breaking changes, features, or fixes
-          HAS_BREAKING=$(git log --pretty=format:"%s %b" $COMMITS_RANGE | grep -E "(BREAKING CHANGE|!:)" || true)
-          HAS_FEAT=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -E "^feat" || true)
-          HAS_FIX=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -E "^fix" || true)
+          # Check for breaking changes, features, or fixes (excluding version bump commits)
+          HAS_BREAKING=$(git log --pretty=format:"%s %b" $COMMITS_RANGE | grep -v "bump version to" | grep -v "\[skip ci\]" | grep -E "(BREAKING CHANGE|!:)" || true)
+          HAS_FEAT=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -v "bump version to" | grep -v "\[skip ci\]" | grep -E "^feat" || true)
+          HAS_FIX=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -v "bump version to" | grep -v "\[skip ci\]" | grep -E "^fix" || true)
           
           # Parse current version
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -88,7 +88,8 @@ jobs:
             echo "Generating changelog for all commits"
           fi
           
-          ALL_COMMITS=$(git log --pretty=format:"%s" $COMMITS_RANGE --reverse)
+          # Get all commits excluding version bump commits
+          ALL_COMMITS=$(git log --pretty=format:"%s" $COMMITS_RANGE --reverse | grep -v "bump version to" | grep -v "\[skip ci\]")
           
           # Initialize sections
           BREAKING_CHANGES=""
@@ -107,6 +108,11 @@ jobs:
           
           # Parse commits by type
           while IFS= read -r commit; do
+            # Skip empty commits and version bump commits
+            if [[ -z "$commit" || "$commit" =~ "bump version to" || "$commit" =~ "\[skip ci\]" ]]; then
+              continue
+            fi
+            
             # Check for breaking changes first
             if [[ $commit =~ BREAKING\ CHANGE || $commit =~ !: ]]; then
               desc=$(echo "$commit" | sed 's/^[^:]*: //')
