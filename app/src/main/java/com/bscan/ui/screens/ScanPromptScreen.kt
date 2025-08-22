@@ -37,19 +37,20 @@ fun ScanPromptScreen(
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(
-            text = "Tap your phone on a Bambu Lab filament spool",
+            text = "Place your phone on a Bambu Lab filament spool and hold until filament details appear",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "Hold for 2-3 seconds to read the RFID tag",
+            text = "• Keep the device steady on the tag\n• Don't move until scanning completes\n• First scans may take a few seconds",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.2
         )
     }
 }

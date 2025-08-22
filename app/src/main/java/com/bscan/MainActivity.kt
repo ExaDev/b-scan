@@ -98,7 +98,8 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         updateViewModel = updateViewModel,
                         onResetScan = { viewModel.resetScan() },
-                        onShowHistory = { showHistory = true }
+                        onShowHistory = { showHistory = true },
+                        onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
                     )
                 }
             }
@@ -124,6 +125,11 @@ class MainActivity : ComponentActivity() {
         nfcManager.disableForegroundDispatch()
     }
     
+    override fun onDestroy() {
+        super.onDestroy()
+        nfcManager.cleanup()
+    }
+    
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
@@ -139,27 +145,47 @@ class MainActivity : ComponentActivity() {
             // Provide haptic feedback
             provideHapticFeedback()
             
-            val tagData = nfcManager.handleIntent(intent)
-            if (tagData != null) {
-                // Add slight delay to show the "tag detected" state
+            // First try quick cache check for immediate response
+            val quickTagData = nfcManager.handleIntent(intent)
+            if (quickTagData != null) {
+                // Cache hit - immediate response
                 lifecycleScope.launch {
-                    kotlinx.coroutines.delay(500) // Show detection state for 500ms
-                    viewModel.processTag(tagData, nfcManager.debugCollector)
+                    kotlinx.coroutines.delay(300) // Brief delay to show detection
+                    viewModel.processTag(quickTagData, nfcManager.debugCollector)
                 }
             } else {
-                // Check if this was an authentication failure
-                if (!nfcManager.debugCollector.hasAuthenticatedSectors()) {
-                    // Create a mock tag data for authentication failure case
-                    intent.getParcelableExtra<android.nfc.Tag>(NfcAdapter.EXTRA_TAG)?.let { tag ->
-                        val failedTagData = com.bscan.model.NfcTagData(
-                            uid = tag.id.joinToString("") { "%02X".format(it) },
-                            bytes = ByteArray(0),
-                            technology = tag.techList.firstOrNull() ?: "Unknown"
-                        )
-                        viewModel.setAuthenticationFailed(failedTagData, nfcManager.debugCollector)
-                    } ?: viewModel.setNfcError("Error reading tag")
-                } else {
-                    viewModel.setNfcError("Error reading tag")
+                // Cache miss - need background read
+                // Show scanning state immediately
+                viewModel.setScanning()
+                
+                lifecycleScope.launch {
+                    try {
+                        // Perform heavy read operation on background thread
+                        val tagData = nfcManager.handleIntentAsync(intent)
+                        
+                        if (tagData != null) {
+                            // Successful read
+                            viewModel.processTag(tagData, nfcManager.debugCollector)
+                        } else {
+                            // Failed read - check if authentication failure
+                            if (!nfcManager.debugCollector.hasAuthenticatedSectors()) {
+                                // Create a mock tag data for authentication failure case
+                                intent.getParcelableExtra<android.nfc.Tag>(NfcAdapter.EXTRA_TAG)?.let { tag ->
+                                    val failedTagData = com.bscan.model.NfcTagData(
+                                        uid = tag.id.joinToString("") { "%02X".format(it) },
+                                        bytes = ByteArray(0),
+                                        technology = tag.techList.firstOrNull() ?: "Unknown"
+                                    )
+                                    viewModel.setAuthenticationFailed(failedTagData, nfcManager.debugCollector)
+                                } ?: viewModel.setNfcError("Error reading tag")
+                            } else {
+                                viewModel.setNfcError("Error reading tag")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Handle any unexpected errors
+                        viewModel.setNfcError("Error reading tag: ${e.message}")
+                    }
                 }
             }
         }
@@ -195,7 +221,8 @@ fun MainScreen(
     viewModel: MainViewModel,
     updateViewModel: UpdateViewModel,
     onResetScan: () -> Unit,
-    onShowHistory: () -> Unit
+    onShowHistory: () -> Unit,
+    onPurgeCache: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
@@ -265,6 +292,7 @@ fun MainScreen(
                     FilamentDetailsScreen(
                         filamentInfo = filamentInfo,
                         debugInfo = uiState.debugInfo,
+                        onPurgeCache = onPurgeCache,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -335,7 +363,7 @@ private fun ProcessingScreen(modifier: Modifier = Modifier) {
             androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(32.dp))
             
             Text(
-                text = "Processing Tag",
+                text = "Reading Tag Data",
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -343,7 +371,15 @@ private fun ProcessingScreen(modifier: Modifier = Modifier) {
             androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
             
             Text(
-                text = "Decoding filament information...",
+                text = "Keep your device on the tag until complete",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.ui.Modifier.height(4.dp))
+            
+            Text(
+                text = "Authenticating and reading sectors...",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

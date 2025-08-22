@@ -2,8 +2,10 @@ package com.bscan.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -15,6 +17,7 @@ import com.bscan.ui.components.*
 fun FilamentDetailsScreen(
     filamentInfo: FilamentInfo,
     debugInfo: ScanDebugInfo? = null,
+    onPurgeCache: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -46,6 +49,16 @@ fun FilamentDetailsScreen(
         
         item {
             ProductionInfoCard(filamentInfo = filamentInfo)
+        }
+        
+        // Show cache management if callback provided
+        onPurgeCache?.let { purgeCallback ->
+            item {
+                CacheManagementCard(
+                    uid = filamentInfo.uid,
+                    onPurgeCache = purgeCallback
+                )
+            }
         }
         
         // Show debug info if available
@@ -120,6 +133,83 @@ private fun ProductionInfoRow(
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CacheManagementCard(
+    uid: String,
+    onPurgeCache: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Cache Management",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "This spool's data is cached for faster scanning. You can purge the cache to force a fresh read on the next scan.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedButton(
+                onClick = { showConfirmDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Purge Cache for This Spool")
+            }
+        }
+    }
+    
+    // Confirmation dialog
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Purge Cache?") },
+            text = { 
+                Text("This will remove cached data for this spool. The next scan will take longer as it reads fresh data from the tag.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onPurgeCache(uid)
+                        showConfirmDialog = false
+                    }
+                ) {
+                    Text("Purge")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showConfirmDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 }

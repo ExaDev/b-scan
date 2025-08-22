@@ -103,6 +103,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    fun setScanning() {
+        _uiState.value = _uiState.value.copy(
+            scanState = ScanState.PROCESSING,
+            error = null
+        )
+    }
+    
     fun setNfcError(error: String) {
         _uiState.value = _uiState.value.copy(
             error = error,

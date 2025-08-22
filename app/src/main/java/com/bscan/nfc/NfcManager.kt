@@ -14,6 +14,7 @@ import com.bscan.nfc.BambuKeyDerivation
 import com.bscan.cache.CachedBambuKeyDerivation
 import com.bscan.cache.TagDataCache
 import java.io.IOException
+import kotlinx.coroutines.*
 
 class NfcManager(private val activity: Activity) {
     private companion object {
@@ -23,6 +24,7 @@ class NfcManager(private val activity: Activity) {
     private val nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
     val debugCollector = DebugDataCollector()
     private val tagDataCache = TagDataCache.getInstance(activity)
+    private val backgroundScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val pendingIntent: PendingIntent = PendingIntent.getActivity(
         activity, 0,
         Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -54,18 +56,54 @@ class NfcManager(private val activity: Activity) {
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
             val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
-            return tag?.let { readTagData(it) }
+            return tag?.let { readTagDataSync(it) }
         }
         return null
     }
     
+    /**
+     * Async version of tag reading that performs heavy operations on background thread
+     */
+    suspend fun handleIntentAsync(intent: Intent): NfcTagData? = withContext(Dispatchers.IO) {
+        if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
+            NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
+            
+            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            return@withContext tag?.let { readTagData(it) }
+        }
+        return@withContext null
+    }
+    
+    /**
+     * Synchronous version that only checks cache - for immediate response
+     */
+    private fun readTagDataSync(tag: Tag): NfcTagData? {
+        debugCollector.reset() // Start fresh for each scan
+        
+        val uid = bytesToHex(tag.id)
+        Log.d(TAG, "Quick check for cached data for UID: $uid")
+        
+        // Check cache first for instant response
+        tagDataCache.getCachedTagData(uid)?.let { cachedData ->
+            Log.d(TAG, "Found cached tag data for UID: $uid - returning immediately")
+            debugCollector.recordCacheHit()
+            return cachedData
+        }
+        
+        Log.d(TAG, "No cached data for UID: $uid - will need background read")
+        return null // Indicates background read needed
+    }
+    
+    /**
+     * Full tag reading with heavy operations - should be called on background thread
+     */
     private fun readTagData(tag: Tag): NfcTagData? {
+        debugCollector.reset() // Start fresh for each scan
+        
+        val uid = bytesToHex(tag.id)
+        Log.d(TAG, "Reading tag with UID: $uid")
+        
         try {
-            debugCollector.reset() // Start fresh for each scan
-            
-            val uid = bytesToHex(tag.id)
-            Log.d(TAG, "Reading tag with UID: $uid")
-            
             // Check cache first for this UID
             tagDataCache.getCachedTagData(uid)?.let { cachedData ->
                 Log.d(TAG, "Found cached tag data for UID: $uid - skipping physical read")
@@ -276,5 +314,21 @@ class NfcManager(private val activity: Activity) {
     
     private fun bytesToHex(bytes: ByteArray): String {
         return bytes.joinToString("") { "%02X".format(it) }
+    }
+    
+    /**
+     * Invalidates cached data for a specific UID
+     */
+    fun invalidateTagCache(uid: String) {
+        tagDataCache.invalidateUID(uid)
+        Log.d(TAG, "Invalidated tag cache for UID: $uid")
+    }
+    
+    /**
+     * Cleanup method to cancel background operations when NfcManager is no longer needed
+     */
+    fun cleanup() {
+        backgroundScope.cancel()
+        Log.d(TAG, "NfcManager cleanup completed")
     }
 }
