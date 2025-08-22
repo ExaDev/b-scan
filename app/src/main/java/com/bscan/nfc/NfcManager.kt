@@ -197,8 +197,18 @@ class NfcManager(private val activity: Activity) {
                 
                 Log.d(TAG, "Reading sector $sector")
                 
-                // Try authentication with derived keys first, then fallback keys
-                for ((keyIndex, key) in allKeys.withIndex()) {
+                // Optimization: Try the key at the same index as the sector first
+                // Pattern observed: sector N typically uses key index N
+                val keyIndicesToTry = if (sector < allKeys.size) {
+                    // Try sector-matching key first, then all others
+                    listOf(sector) + (allKeys.indices - sector)
+                } else {
+                    // Fallback to trying all keys if sector >= key count
+                    allKeys.indices.toList()
+                }
+                
+                for (keyIndex in keyIndicesToTry) {
+                    val key = allKeys[keyIndex]
                     val keyType = if (keyIndex < derivedKeys.size) "derived" else "fallback"
                     val keyHex = key.joinToString("") { "%02X".format(it) }
                     
