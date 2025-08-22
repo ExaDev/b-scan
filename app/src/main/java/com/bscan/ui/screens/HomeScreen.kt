@@ -90,9 +90,9 @@ private fun CombinedHomeScreen(
     val scanPromptHeightDp = 120.dp
     val scanPromptHeightPx = with(density) { scanPromptHeightDp.toPx() }
     
-    // Overscroll reveal state
-    var overscrollOffset by remember { mutableFloatStateOf(0f) }
-    var isRevealing by remember { mutableStateOf(false) }
+    // Overscroll reveal state - start with prompt visible
+    var overscrollOffset by remember { mutableFloatStateOf(scanPromptHeightPx) }
+    var isRevealing by remember { mutableStateOf(true) }
     
     // Animated offset for smooth transitions
     val animatedOffset by animateFloatAsState(
@@ -112,7 +112,18 @@ private fun CombinedHomeScreen(
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                Log.d("HomeScreen", "onPreScroll: available.y=${available.y}, firstIndex=${lazyListState.firstVisibleItemIndex}, offset=${lazyListState.firstVisibleItemScrollOffset}")
+                Log.d("HomeScreen", "onPreScroll: available.y=${available.y}, firstIndex=${lazyListState.firstVisibleItemIndex}, offset=${lazyListState.firstVisibleItemScrollOffset}, overscrollOffset=$overscrollOffset")
+                
+                // Handle upward scrolls - hide scan prompt first before scrolling list
+                if (available.y < 0 && overscrollOffset > 0) {
+                    Log.d("HomeScreen", "Hiding scan prompt: available=${available.y}, current offset=$overscrollOffset")
+                    val consumed = minOf(-available.y, overscrollOffset)
+                    overscrollOffset -= consumed
+                    if (overscrollOffset <= scanPromptHeightPx * 0.4f) {
+                        isRevealing = false
+                    }
+                    return Offset(0f, -consumed)
+                }
                 
                 // Handle downward scrolls when at the top (reveal scan prompt)
                 if (available.y > 0 && lazyListState.firstVisibleItemIndex == 0 && 
@@ -126,12 +137,6 @@ private fun CombinedHomeScreen(
                     return Offset(0f, consumed)
                 }
                 
-                // If scrolling up while scan prompt is visible, hide it first
-                if (available.y < 0 && overscrollOffset > 0) {
-                    val consumed = minOf(-available.y, overscrollOffset)
-                    overscrollOffset -= consumed
-                    return Offset(0f, -consumed)
-                }
                 return Offset.Zero
             }
             
@@ -155,18 +160,21 @@ private fun CombinedHomeScreen(
             
             override suspend fun onPreFling(available: Velocity): Velocity {
                 // Handle fling to snap open/closed based on pull distance
-                if (overscrollOffset > 0) {
-                    isRevealing = overscrollOffset > scanPromptHeightPx * 0.25f
+                if (overscrollOffset > 0 && overscrollOffset < scanPromptHeightPx) {
+                    isRevealing = overscrollOffset > scanPromptHeightPx * 0.3f
                     return available // Let animation handle the rest
                 }
                 return Velocity.Zero
             }
             
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                // Reset revealing state after fling
+                // Ensure state consistency after fling
                 if (overscrollOffset <= scanPromptHeightPx * 0.1f) {
                     isRevealing = false
                     overscrollOffset = 0f
+                } else if (overscrollOffset >= scanPromptHeightPx * 0.9f) {
+                    isRevealing = true
+                    overscrollOffset = scanPromptHeightPx
                 }
                 return Velocity.Zero
             }
