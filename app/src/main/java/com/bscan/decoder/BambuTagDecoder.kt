@@ -109,8 +109,8 @@ object BambuTagDecoder {
             val xCamInfo = bytes(data.bytes, 8, 0, 12)
             val nozzleDiameter = float(data.bytes, 8, 12, 4) ?: 0.4f // float LE
             
-            // Block 9: Tray UID (16 bytes)
-            val trayUid = string(data.bytes, 9, 0, 16)
+            // Block 9: Tray UID (16 bytes) - extract as hex to avoid garbled display
+            val trayUid = hexstring(data.bytes, 9, 0, 16)
             
             // Block 10: Spool Width (bytes 4-5 in mm*100)
             val spoolWidthRaw = int(data.bytes, 10, 4, 2) // uint16 LE

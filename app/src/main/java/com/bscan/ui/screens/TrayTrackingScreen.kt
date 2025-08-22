@@ -21,6 +21,17 @@ import com.bscan.repository.TrayStatistics
 import com.bscan.ui.components.ColorPreviewDot
 import java.time.format.DateTimeFormatter
 
+// Utility functions for tray UID display
+private fun formatTrayId(trayUid: String): String {
+    // Tray UID is already in hex format from BambuTagDecoder
+    // Git-style: use last 8 characters of hex string
+    return if (trayUid.length > 8) {
+        trayUid.takeLast(8)
+    } else {
+        trayUid
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrayTrackingScreen(
@@ -53,7 +64,7 @@ fun TrayTrackingScreen(
             onDismissRequest = { trayToDelete = null },
             title = { Text("Remove Tray") },
             text = { 
-                Text("Remove tray ${tray.trayUid} and all its tracking data? This cannot be undone.")
+                Text("Remove tray ${formatTrayId(tray.trayUid)} and all its tracking data? This cannot be undone.")
             },
             confirmButton = {
                 TextButton(
@@ -223,7 +234,7 @@ private fun TrayStatisticsCard(
             statistics.mostActiveTray?.let { tray ->
                 Divider()
                 Text(
-                    text = "Most Active Tray: ${tray.trayUid} (${tray.totalScans} scans)",
+                    text = "Most Active: ${formatTrayId(tray.trayUid)} (${tray.totalScans} scans)",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -232,7 +243,7 @@ private fun TrayStatisticsCard(
             // Tray with most tags
             statistics.trayWithMostTags?.let { tray ->
                 Text(
-                    text = "Most Tags: ${tray.trayUid} (${tray.uniqueTagCount} unique tags)",
+                    text = "Most Tags: ${formatTrayId(tray.trayUid)} (${tray.uniqueTagCount} unique tags)",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -292,9 +303,14 @@ private fun TrayCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = trayData.trayUid,
+                        text = formatTrayId(trayData.trayUid),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Full: ${trayData.trayUid}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
