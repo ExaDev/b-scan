@@ -2,12 +2,15 @@ package com.bscan.ui.screens
 
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,8 +37,9 @@ import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.UniqueSpool
 import com.bscan.ui.components.ScanStateIndicator
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
-enum class ViewMode { SPOOLS, TAGS, SCANS }
+enum class ViewMode { SPOOLS, SKUS, TAGS, SCANS }
 enum class SortOption { MOST_RECENT, OLDEST, NAME, SUCCESS_RATE }
 
 @Composable
@@ -97,7 +101,7 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun DataBrowserScreen(
     viewMode: ViewMode,
@@ -111,7 +115,22 @@ private fun DataBrowserScreen(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val lazyListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    
+    // Pager state for swipeable tabs
+    val pagerState = rememberPagerState(
+        initialPage = viewMode.ordinal,
+        pageCount = { ViewMode.values().size }
+    )
+    
+    // Sync pager state with view mode
+    LaunchedEffect(viewMode) {
+        pagerState.animateScrollToPage(viewMode.ordinal)
+    }
+    
+    LaunchedEffect(pagerState.currentPage) {
+        onViewModeChange(ViewMode.values()[pagerState.currentPage])
+    }
     
     // Scan prompt dimensions
     val scanPromptHeightDp = 100.dp
@@ -135,8 +154,16 @@ private fun DataBrowserScreen(
         label = "scan_prompt_reveal"
     )
     
+    // Store LazyListState for each page
+    val lazyListStates = listOf(
+        rememberLazyListState(), // SPOOLS
+        rememberLazyListState(), // SKUS
+        rememberLazyListState(), // TAGS  
+        rememberLazyListState()  // SCANS
+    )
+    
     // NestedScrollConnection for scan prompt reveal/hide
-    val nestedScrollConnection = remember {
+    val nestedScrollConnection = remember(pagerState.currentPage) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 // Handle hiding scan prompt when scrolling up
@@ -159,8 +186,9 @@ private fun DataBrowserScreen(
                 source: NestedScrollSource
             ): Offset {
                 // Handle scan prompt reveal when pulling down from top
-                if (available.y > 0) {
-                    val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
+                if (available.y > 0 && pagerState.currentPage < lazyListStates.size) {
+                    val currentListState = lazyListStates[pagerState.currentPage]
+                    val isAtTop = currentListState.firstVisibleItemIndex == 0 && currentListState.firstVisibleItemScrollOffset == 0
                     
                     if (isAtTop && overscrollOffset < scanPromptHeightPx) {
                         // Reveal scan prompt when pulling down from top
@@ -208,29 +236,33 @@ private fun DataBrowserScreen(
             }
         }
         
-        // Tab row for view modes
+        // Tab row for view modes (synced with pager)
         TabRow(
-            selectedTabIndex = viewMode.ordinal,
+            selectedTabIndex = pagerState.currentPage,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Tab(
-                selected = viewMode == ViewMode.SPOOLS,
-                onClick = { onViewModeChange(ViewMode.SPOOLS) },
-                text = { Text("Spools") },
-                icon = { Icon(Icons.Default.Storage, contentDescription = null) }
-            )
-            Tab(
-                selected = viewMode == ViewMode.TAGS,
-                onClick = { onViewModeChange(ViewMode.TAGS) },
-                text = { Text("Tags") },
-                icon = { Icon(Icons.Default.Tag, contentDescription = null) }
-            )
-            Tab(
-                selected = viewMode == ViewMode.SCANS,
-                onClick = { onViewModeChange(ViewMode.SCANS) },
-                text = { Text("Scans") },
-                icon = { Icon(Icons.Default.History, contentDescription = null) }
-            )
+            ViewMode.values().forEachIndexed { index, mode ->
+                Tab(
+                    selected = pagerState.currentPage == index,
+                    onClick = { 
+                        scope.launch {
+                            pagerState.animateScrollToPage(index)
+                        }
+                    },
+                    text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    icon = { 
+                        Icon(
+                            imageVector = when (mode) {
+                                ViewMode.SPOOLS -> Icons.Default.Storage
+                                ViewMode.SKUS -> Icons.Default.Inventory
+                                ViewMode.TAGS -> Icons.Default.Tag
+                                ViewMode.SCANS -> Icons.Default.History
+                            },
+                            contentDescription = null
+                        )
+                    }
+                )
+            }
         }
         
         // Controls row
@@ -289,11 +321,17 @@ private fun DataBrowserScreen(
             }
         }
         
-        // Data list
-        when (viewMode) {
-            ViewMode.SPOOLS -> SpoolsList(spools, sortOption, lazyListState)
-            ViewMode.TAGS -> TagsList(allScans, sortOption, lazyListState)
-            ViewMode.SCANS -> ScansList(allScans, sortOption, lazyListState)
+        // Swipeable content pager
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            when (ViewMode.values()[page]) {
+                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, lazyListStates[page])
+                ViewMode.SKUS -> SkusList(allScans, sortOption, lazyListStates[page])
+                ViewMode.TAGS -> TagsList(allScans, sortOption, lazyListStates[page])
+                ViewMode.SCANS -> ScansList(allScans, sortOption, lazyListStates[page])
+            }
         }
     }
 }
@@ -321,6 +359,60 @@ private fun SpoolsList(
     ) {
         items(sortedSpools) { spool ->
             SpoolCard(spool = spool)
+        }
+    }
+}
+
+@Composable
+private fun SkusList(
+    allScans: List<ScanHistory>,
+    sortOption: SortOption,
+    lazyListState: LazyListState
+) {
+    // Group scans by SKU (filament type + color combination)
+    val uniqueSkus = remember(allScans) {
+        allScans
+            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+            .groupBy { "${it.filamentInfo!!.filamentType}-${it.filamentInfo.colorName}" }
+            .mapNotNull { (skuKey, scans) ->
+                val mostRecentScan = scans.maxByOrNull { it.timestamp }
+                val filamentInfo = mostRecentScan?.filamentInfo
+                if (filamentInfo != null) {
+                    val uniqueSpools = scans.groupBy { it.filamentInfo!!.trayUid }.size
+                    val totalScans = scans.size
+                    val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
+                    val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
+                    
+                    SkuInfo(
+                        skuKey = skuKey,
+                        filamentInfo = filamentInfo,
+                        spoolCount = uniqueSpools,
+                        totalScans = totalScans,
+                        successfulScans = successfulScans,
+                        lastScanned = lastScanned ?: java.time.LocalDateTime.now(),
+                        successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f
+                    )
+                } else null
+            }
+    }
+    
+    val sortedSkus = remember(uniqueSkus, sortOption) {
+        when (sortOption) {
+            SortOption.MOST_RECENT -> uniqueSkus.sortedByDescending { it.lastScanned }
+            SortOption.OLDEST -> uniqueSkus.sortedBy { it.lastScanned }
+            SortOption.NAME -> uniqueSkus.sortedBy { it.filamentInfo.colorName }
+            SortOption.SUCCESS_RATE -> uniqueSkus.sortedByDescending { it.successRate }
+        }
+    }
+    
+    LazyColumn(
+        state = lazyListState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(sortedSkus) { sku ->
+            SkuCard(sku = sku)
         }
     }
 }
@@ -695,6 +787,106 @@ private fun CompactScanPrompt(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
+        }
+    }
+}
+
+data class SkuInfo(
+    val skuKey: String,
+    val filamentInfo: com.bscan.model.FilamentInfo,
+    val spoolCount: Int,
+    val totalScans: Int,
+    val successfulScans: Int,
+    val lastScanned: java.time.LocalDateTime,
+    val successRate: Float
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SkuCard(
+    sku: SkuInfo,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Color preview
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = parseColor(sku.filamentInfo.colorHex),
+                        shape = CircleShape
+                    )
+            )
+            
+            // SKU info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = sku.filamentInfo.colorName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Text(
+                    text = sku.filamentInfo.filamentType,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Text(
+                    text = "${sku.spoolCount} spool${if (sku.spoolCount != 1) "s" else ""} • ${sku.totalScans} scans • ${(sku.successRate * 100).toInt()}% success",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Inventory indicator
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when {
+                    sku.successRate >= 0.9f -> {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "High success rate",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    sku.successRate >= 0.7f -> {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Good success rate", 
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    else -> {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Low success rate",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
+                Text(
+                    text = "${sku.spoolCount}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
