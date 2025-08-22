@@ -385,6 +385,17 @@ jobs:
         ✅ Performance analysis
         ENDNOTES
         
+        # Check if artifact files exist
+        APK_FILES=$(find artifacts/ -name "*.apk" -type f)
+        AAB_FILES=$(find artifacts/ -name "*.aab" -type f)
+        
+        if [ -z "$APK_FILES" ] || [ -z "$AAB_FILES" ]; then
+          echo "Error: Missing artifact files"
+          echo "APK files: $APK_FILES"
+          echo "AAB files: $AAB_FILES"
+          exit 1
+        fi
+        
         # Create release with auto-generated changelog and custom notes
         gh release create ${{ steps.build_version.outputs.tag }} \
           --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
@@ -392,8 +403,8 @@ jobs:
           ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} \
           --notes-file "$NOTES_FILE" \
           --prerelease=false \
-          artifacts/*.apk \
-          artifacts/*.aab
+          $APK_FILES \
+          $AAB_FILES
           
         # Clean up temporary file
         rm -f "$NOTES_FILE"
