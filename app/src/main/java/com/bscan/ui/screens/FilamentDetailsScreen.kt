@@ -1,5 +1,6 @@
 package com.bscan.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -18,8 +19,14 @@ fun FilamentDetailsScreen(
     filamentInfo: FilamentInfo,
     debugInfo: ScanDebugInfo? = null,
     onPurgeCache: ((String) -> Unit)? = null,
+    onNavigateBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    // Handle back press to return to scan prompt instead of closing app
+    BackHandler(enabled = onNavigateBack != null) {
+        onNavigateBack?.invoke()
+    }
+    
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
