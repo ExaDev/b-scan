@@ -43,8 +43,8 @@ jobs:
           
           # Check for breaking changes, features, or fixes
           HAS_BREAKING=$(git log --pretty=format:"%s %b" $COMMITS_RANGE | grep -E "(BREAKING CHANGE|!:)" || true)
-          HAS_FEAT=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -E "^feat(\([^)]*\))?:" || true)
-          HAS_FIX=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -E "^fix(\([^)]*\))?:" || true)
+          HAS_FEAT=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -E "^feat" || true)
+          HAS_FIX=$(git log --pretty=format:"%s" $COMMITS_RANGE | grep -E "^fix" || true)
           
           # Parse current version
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
@@ -111,37 +111,37 @@ jobs:
             if [[ $commit =~ BREAKING\ CHANGE || $commit =~ !: ]]; then
               desc=$(echo "$commit" | sed 's/^[^:]*: //')
               BREAKING_CHANGES="${BREAKING_CHANGES}- ${desc}\n"
-            elif [[ $commit =~ ^feat(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^feat ]]; then
               desc=$(echo "$commit" | sed 's/^feat[^:]*: //')
               FEAT_COMMITS="${FEAT_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^fix(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^fix ]]; then
               desc=$(echo "$commit" | sed 's/^fix[^:]*: //')
               FIX_COMMITS="${FIX_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^perf(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^perf ]]; then
               desc=$(echo "$commit" | sed 's/^perf[^:]*: //')
               PERF_COMMITS="${PERF_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^refactor(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^refactor ]]; then
               desc=$(echo "$commit" | sed 's/^refactor[^:]*: //')
               REFACTOR_COMMITS="${REFACTOR_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^docs(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^docs ]]; then
               desc=$(echo "$commit" | sed 's/^docs[^:]*: //')
               DOCS_COMMITS="${DOCS_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^test(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^test ]]; then
               desc=$(echo "$commit" | sed 's/^test[^:]*: //')
               TEST_COMMITS="${TEST_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^build(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^build ]]; then
               desc=$(echo "$commit" | sed 's/^build[^:]*: //')
               BUILD_COMMITS="${BUILD_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^ci(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^ci ]]; then
               desc=$(echo "$commit" | sed 's/^ci[^:]*: //')
               CI_COMMITS="${CI_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^chore(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^chore ]]; then
               desc=$(echo "$commit" | sed 's/^chore[^:]*: //')
               CHORE_COMMITS="${CHORE_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^style(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^style ]]; then
               desc=$(echo "$commit" | sed 's/^style[^:]*: //')
               STYLE_COMMITS="${STYLE_COMMITS}- ${desc}\n"
-            elif [[ $commit =~ ^revert(\([^)]*\))?: ]]; then
+            elif [[ $commit =~ ^revert ]]; then
               desc=$(echo "$commit" | sed 's/^revert[^:]*: //')
               REVERT_COMMITS="${REVERT_COMMITS}- ${desc}\n"
             else
