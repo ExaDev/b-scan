@@ -1,8 +1,8 @@
 package com.bscan.model
 
 data class FilamentInfo(
-    val uid: String,
-    val trayUid: String,
+    val tagUid: String, // Individual tag UID (unique per tag)
+    val trayUid: String, // Tray UID (shared across both tags on a spool)
     val filamentType: String,
     val detailedFilamentType: String,
     val colorHex: String,
