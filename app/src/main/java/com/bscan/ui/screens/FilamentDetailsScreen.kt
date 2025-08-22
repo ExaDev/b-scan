@@ -55,7 +55,7 @@ fun FilamentDetailsScreen(
         onPurgeCache?.let { purgeCallback ->
             item {
                 CacheManagementCard(
-                    uid = filamentInfo.uid,
+                    uid = filamentInfo.tagUid,
                     onPurgeCache = purgeCallback
                 )
             }
@@ -104,7 +104,7 @@ private fun ProductionInfoCard(
             
             ProductionInfoRow(
                 label = "Tag UID",
-                value = filamentInfo.uid
+                value = filamentInfo.tagUid
             )
         }
     }
