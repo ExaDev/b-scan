@@ -130,47 +130,18 @@ private fun CombinedHomeScreen(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 Log.d("HomeScreen", "onPreScroll: available.y=${available.y}, firstIndex=${lazyListState.firstVisibleItemIndex}, offset=${lazyListState.firstVisibleItemScrollOffset}, overscrollOffset=$overscrollOffset")
                 
-                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
-                val isAtBottom = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.let { lastItem ->
-                    lastItem.index == lazyListState.layoutInfo.totalItemsCount - 1
-                } ?: false
-                
-                // Handle upward scrolls - hide scan prompt first, then elastic scroll
-                if (available.y < 0) {
-                    if (overscrollOffset > 0) {
-                        Log.d("HomeScreen", "Hiding scan prompt: available=${available.y}, current offset=$overscrollOffset")
-                        val consumed = minOf(-available.y, overscrollOffset)
-                        overscrollOffset -= consumed
-                        if (overscrollOffset <= scanPromptHeightPx * 0.4f) {
-                            isRevealing = false
-                        }
-                        return Offset(0f, -consumed)
-                    } else if (isAtTop) {
-                        // Elastic scroll up from top
-                        val elasticFactor = 0.3f // Reduce scroll for elastic feel
-                        listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceAtMost(0f)
-                        return Offset(0f, -available.y * elasticFactor)
+                // Only handle upward scrolls when scan prompt is visible
+                if (available.y < 0 && overscrollOffset > 0) {
+                    Log.d("HomeScreen", "Hiding scan prompt: available=${available.y}, current offset=$overscrollOffset")
+                    val consumed = minOf(-available.y, overscrollOffset)
+                    overscrollOffset -= consumed
+                    if (overscrollOffset <= scanPromptHeightPx * 0.4f) {
+                        isRevealing = false
                     }
+                    return Offset(0f, -consumed)
                 }
                 
-                // Handle downward scrolls 
-                if (available.y > 0) {
-                    if (isAtTop) {
-                        // Reveal scan prompt when at top
-                        Log.d("HomeScreen", "Revealing scan prompt: consumed=${available.y}")
-                        isRevealing = true
-                        val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
-                        val consumed = newOffset - overscrollOffset
-                        overscrollOffset = newOffset
-                        return Offset(0f, consumed)
-                    } else if (isAtBottom) {
-                        // Elastic scroll down from bottom
-                        val elasticFactor = 0.3f
-                        listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceAtLeast(0f)
-                        return Offset(0f, available.y * elasticFactor)
-                    }
-                }
-                
+                // Let LazyColumn handle all other scrolling normally
                 return Offset.Zero
             }
             
@@ -179,16 +150,33 @@ private fun CombinedHomeScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // Handle any remaining overscroll at the top (for very fast scrolls)
-                if (available.y > 0 && lazyListState.firstVisibleItemIndex == 0 && 
-                    lazyListState.firstVisibleItemScrollOffset == 0) {
-                    
-                    isRevealing = true
-                    val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
-                    val consumed = newOffset - overscrollOffset
-                    overscrollOffset = newOffset
-                    return Offset(0f, consumed)
+                // Handle remaining overscroll at boundaries
+                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
+                val isAtBottom = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.let { lastItem ->
+                    lastItem.index == lazyListState.layoutInfo.totalItemsCount - 1
+                } ?: false
+                
+                if (available.y > 0) {
+                    if (isAtTop && overscrollOffset < scanPromptHeightPx) {
+                        // Reveal scan prompt at top
+                        isRevealing = true
+                        val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
+                        val consumed = newOffset - overscrollOffset
+                        overscrollOffset = newOffset
+                        return Offset(0f, consumed)
+                    } else if (isAtBottom || (isAtTop && overscrollOffset >= scanPromptHeightPx)) {
+                        // Elastic scroll down
+                        val elasticFactor = 0.3f
+                        listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceAtLeast(0f)
+                        return Offset(0f, available.y)
+                    }
+                } else if (available.y < 0 && isAtTop) {
+                    // Elastic scroll up from top
+                    val elasticFactor = 0.3f
+                    listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceAtMost(0f)
+                    return Offset(0f, available.y)
                 }
+                
                 return Offset.Zero
             }
             
