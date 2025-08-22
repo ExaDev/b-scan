@@ -200,8 +200,10 @@ class MainActivity : ComponentActivity() {
                 
                 lifecycleScope.launch {
                     try {
-                        // Perform heavy read operation on background thread
-                        val tagData = nfcManager.handleIntentAsync(intent)
+                        // Perform heavy read operation on background thread with progress callback
+                        val tagData = nfcManager.handleIntentAsync(intent) { progress ->
+                            viewModel.updateScanProgress(progress)
+                        }
                         
                         if (tagData != null) {
                             // Successful read
@@ -273,6 +275,7 @@ fun MainScreen(
     onPurgeCache: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
     
     Scaffold(
@@ -348,13 +351,28 @@ fun MainScreen(
     ) { paddingValues ->
         when (uiState.scanState) {
             ScanState.IDLE -> {
-                HomeScreen(modifier = Modifier.padding(paddingValues))
+                HomeScreen(
+                    scanState = uiState.scanState,
+                    scanProgress = scanProgress,
+                    onSimulateScan = { viewModel.simulateScan() },
+                    modifier = Modifier.padding(paddingValues)
+                )
             }
             ScanState.TAG_DETECTED -> {
-                TagDetectedScreen(modifier = Modifier.padding(paddingValues))
+                HomeScreen(
+                    scanState = uiState.scanState,
+                    scanProgress = scanProgress,
+                    onSimulateScan = { viewModel.simulateScan() },
+                    modifier = Modifier.padding(paddingValues)
+                )
             }
             ScanState.PROCESSING -> {
-                ProcessingScreen(modifier = Modifier.padding(paddingValues))
+                HomeScreen(
+                    scanState = uiState.scanState,
+                    scanProgress = scanProgress,
+                    onSimulateScan = { viewModel.simulateScan() },
+                    modifier = Modifier.padding(paddingValues)
+                )
             }
             ScanState.SUCCESS -> {
                 uiState.filamentInfo?.let { filamentInfo ->
@@ -362,6 +380,7 @@ fun MainScreen(
                         filamentInfo = filamentInfo,
                         debugInfo = uiState.debugInfo,
                         onPurgeCache = onPurgeCache,
+                        onNavigateBack = { viewModel.resetScan() },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
