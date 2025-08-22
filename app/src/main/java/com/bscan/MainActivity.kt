@@ -39,6 +39,7 @@ import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.FilamentDetailsScreen
 import com.bscan.ui.screens.ScanPromptScreen
+import com.bscan.ui.screens.HomeScreen
 import com.bscan.ui.screens.ErrorScreen
 import com.bscan.ui.screens.SpoolListScreen
 import com.bscan.ui.screens.TrayTrackingScreen
@@ -330,7 +331,7 @@ fun MainScreen(
     ) { paddingValues ->
         when (uiState.scanState) {
             ScanState.IDLE -> {
-                ScanPromptScreen(modifier = Modifier.padding(paddingValues))
+                HomeScreen(modifier = Modifier.padding(paddingValues))
             }
             ScanState.TAG_DETECTED -> {
                 TagDetectedScreen(modifier = Modifier.padding(paddingValues))
