@@ -233,12 +233,17 @@ jobs:
             cat changelog.md >> release_notes.md
           fi
           
-          # Create GitHub release
+          # Rename artifacts with version numbers
+          VERSION="${{ steps.version.outputs.new_version }}"
+          cp app/build/outputs/apk/release/app-release.apk "b-scan-${VERSION}.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "b-scan-${VERSION}.aab"
+          
+          # Create GitHub release with versioned filenames
           gh release create ${{ steps.version.outputs.tag }} \
             --title "B-Scan ${{ steps.version.outputs.new_version }}" \
             --notes-file release_notes.md \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/bundle/release/app-release.aab
+            "b-scan-${VERSION}.apk" \
+            "b-scan-${VERSION}.aab"
           
           echo "✅ Created release ${{ steps.version.outputs.tag }}"
       
