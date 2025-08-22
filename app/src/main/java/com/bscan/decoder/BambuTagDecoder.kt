@@ -10,6 +10,19 @@ import java.nio.ByteOrder
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+/**
+ * Bambu Lab RFID Tag Decoder
+ * 
+ * TERMINOLOGY CLARIFICATION:
+ * - Tag UID: Unique identifier for each individual RFID tag (unique per tag)
+ * - Tray UID: Identifier for the filament spool tray (shared between both tags on a spool)
+ * - Spool: Physical filament spool containing 2 RFID tags with the same tray UID
+ * 
+ * Each Bambu Lab filament spool contains 2 RFID tags with:
+ * - Different tag UIDs (unique per physical tag)
+ * - Same tray UID (identifying the spool/tray)
+ * - Same filament information encoded on both tags
+ */
 object BambuTagDecoder {
     private const val TAG = "BambuTagDecoder"
     
@@ -192,8 +205,8 @@ object BambuTagDecoder {
             val colorName = getColorName(finalColorHex)
             
             FilamentInfo(
-                uid = data.uid,
-                trayUid = trayUid,
+                tagUid = data.uid, // Individual tag UID
+                trayUid = trayUid, // Tray UID shared across spool tags
                 filamentType = material,
                 detailedFilamentType = detailedFilamentType,
                 colorHex = finalColorHex,
