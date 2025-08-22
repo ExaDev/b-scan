@@ -107,4 +107,53 @@ class ScanHistoryRepository(context: Context) {
         val successfulScans = allScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
         return successfulScans.toFloat() / allScans.size
     }
+    
+    fun getUniqueSpools(): List<UniqueSpool> {
+        val allScans = getAllScans()
+        
+        // Group scans by UID
+        val scansByUid = allScans.groupBy { it.uid }
+        
+        return scansByUid.mapNotNull { (uid, scans) ->
+            // Find the most recent successful scan with filament info
+            val mostRecentSuccessfulScan = scans
+                .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+                .maxByOrNull { it.timestamp }
+                ?: return@mapNotNull null // Skip if no successful scans with filament info
+            
+            val scanCount = scans.size
+            val successCount = scans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+            val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+            val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
+            
+            UniqueSpool(
+                uid = uid,
+                filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
+                scanCount = scanCount,
+                successCount = successCount,
+                lastScanned = lastScanned,
+                successRate = successRate
+            )
+        }.sortedByDescending { it.lastScanned } // Most recently scanned first
+    }
+    
+    fun getSpoolByUid(uid: String): UniqueSpool? {
+        return getUniqueSpools().firstOrNull { it.uid == uid }
+    }
+    
+    fun getFilamentTypes(): List<String> {
+        return getSuccessfulScans()
+            .mapNotNull { it.filamentInfo?.filamentType }
+            .distinct()
+            .sorted()
+    }
 }
+
+data class UniqueSpool(
+    val uid: String,
+    val filamentInfo: com.bscan.model.FilamentInfo,
+    val scanCount: Int,
+    val successCount: Int,
+    val lastScanned: LocalDateTime,
+    val successRate: Float
+)
