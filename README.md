@@ -89,6 +89,7 @@ This app is part of a larger ecosystem of Bambu Lab RFID tools:
 - **[OpenSpool](../OpenSpool/)**: ESP32 hardware for automatic filament detection
 - **[RFID-Tag-Guide](../RFID-Tag-Guide/)**: Research documentation for Bambu Lab RFID protocols
 - **[BambuSpoolPal](../MrBambuSpoolPal-BambuSpoolPal_AndroidApp/)**: Full-featured app with Spoolman integration
+- **[Spoolease](https://www.spoolease.io/)**: Web-based filament spool management platform
 
 ## License
 
