@@ -25,6 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.bscan.model.UpdateStatus
 import com.bscan.ScanState
 import com.bscan.nfc.NfcManager
@@ -63,8 +67,7 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             BScanTheme {
-                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                var showHistory by remember { mutableStateOf(false) }
+                val navController = rememberNavController()
                 val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
                 val uriHandler = LocalUriHandler.current
                 
@@ -92,25 +95,30 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 
-                when {
-                    showHistory -> {
-                        ScanHistoryScreen(
-                            onNavigateBack = { showHistory = false }
-                        )
-                    }
-                    uiState.showSpoolList -> {
-                        SpoolListScreen(
-                            onNavigateBack = { viewModel.hideSpoolList() }
-                        )
-                    }
-                    else -> {
+                NavHost(
+                    navController = navController,
+                    startDestination = "main"
+                ) {
+                    composable("main") {
                         MainScreen(
                             viewModel = viewModel,
                             updateViewModel = updateViewModel,
                             onResetScan = { viewModel.resetScan() },
-                            onShowHistory = { showHistory = true },
-                            onShowSpoolList = { viewModel.showSpoolList() },
+                            onShowHistory = { navController.navigate("history") },
+                            onShowSpoolList = { navController.navigate("spoolList") },
                             onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
+                        )
+                    }
+                    
+                    composable("history") {
+                        ScanHistoryScreen(
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+                    
+                    composable("spoolList") {
+                        SpoolListScreen(
+                            onNavigateBack = { navController.popBackStack() }
                         )
                     }
                 }
