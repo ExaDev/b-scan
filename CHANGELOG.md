@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/Mearman/b-scan/compare/v2.0.0...v2.0.1) (2025-08-22)
+
+
+### Performance Improvements
+
+* **ci:** optimize semantic-release build performance ([9d42eaf](https://github.com/Mearman/b-scan/commit/9d42eaf1cf0b67541ed87cee43bfd88d71375d95))
+
 # [2.0.0](https://github.com/Mearman/b-scan/compare/v1.2.0...v2.0.0) (2025-08-22)
 
 
