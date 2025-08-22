@@ -16,6 +16,21 @@ runs:
         gradle-home-cache-cleanup: true
         cache-read-only: ${{ github.event_name == 'pull_request' }}
 
+    - name: Cache Android build outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          app/build/intermediates/javac
+          app/build/intermediates/kotlin_classes
+          app/build/intermediates/compile_and_runtime_not_namespaced_r_class_jar
+          app/build/intermediates/merged_res
+          app/build/intermediates/processed_res
+          app/build/intermediates/compile_r_class_jar
+          app/build/tmp/kotlin-classes
+        key: ${{ runner.os }}-build-outputs-${{ hashFiles('app/src/**/*.kt', 'app/src/**/*.java', 'app/src/**/res/**', 'app/build.gradle.kts', 'gradle/libs.versions.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-build-outputs-
+
     - name: Cache Android SDK
       uses: actions/cache@v4
       with:
@@ -25,6 +40,18 @@ runs:
         key: ${{ runner.os }}-android-sdk-${{ hashFiles('**/build.gradle.kts') }}
         restore-keys: |
           ${{ runner.os }}-android-sdk-
+
+    - name: Cache R8/ProGuard outputs
+      uses: actions/cache@v4
+      with:
+        path: |
+          app/build/intermediates/dex
+          app/build/intermediates/external_libs_dex
+          app/build/intermediates/project_dex_archive
+          app/build/intermediates/transforms
+        key: ${{ runner.os }}-r8-cache-${{ hashFiles('app/proguard-rules.pro', 'app/build.gradle.kts', 'app/src/**/*.kt') }}
+        restore-keys: |
+          ${{ runner.os }}-r8-cache-
 
     - name: Grant execute permission for gradlew
       shell: bash
