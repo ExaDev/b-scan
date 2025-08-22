@@ -55,7 +55,12 @@ class NfcManager(private val activity: Activity) {
         if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
-            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            }
             return tag?.let { readTagDataSync(it) }
         }
         return null
@@ -68,7 +73,12 @@ class NfcManager(private val activity: Activity) {
         if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
-            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            }
             return@withContext tag?.let { readTagData(it) }
         }
         return@withContext null
