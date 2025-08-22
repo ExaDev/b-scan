@@ -147,6 +147,26 @@ class ScanHistoryRepository(context: Context) {
             .distinct()
             .sorted()
     }
+    
+    fun clearGeneratedData() {
+        val allScans = getAllScans()
+        val realScans = allScans.filter { scan ->
+            val isGenerated = scan.debugInfo.parsingDetails["sampleData"] as? Boolean ?: false
+            !isGenerated
+        }
+        
+        // Save only the real scans back to SharedPreferences
+        val scansJson = gson.toJson(realScans)
+        sharedPreferences.edit()
+            .putString("scans", scansJson)
+            .apply()
+    }
+    
+    fun getGeneratedDataCount(): Int {
+        return getAllScans().count { scan ->
+            scan.debugInfo.parsingDetails["sampleData"] as? Boolean ?: false
+        }
+    }
 }
 
 /**
