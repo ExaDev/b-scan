@@ -25,6 +25,15 @@ android {
         }
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     testOptions {
         unitTests {
             isReturnDefaultValues = true
@@ -38,7 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sign with debug key for testing (no production signing)
+            // Use committed debug keystore for consistent signing
             signingConfig = signingConfigs.getByName("debug")
         }
     }
