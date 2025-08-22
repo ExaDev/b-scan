@@ -7,6 +7,7 @@ import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
+import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -15,7 +16,7 @@ class TrayTrackingRepository(context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("tray_tracking", Context.MODE_PRIVATE)
     
-    // Custom LocalDateTime adapter for Gson
+    // Custom LocalDateTime adapter for Gson (copied from ScanHistoryRepository)
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         
@@ -27,7 +28,7 @@ class TrayTrackingRepository(context: Context) {
             return try {
                 json?.asString?.let { LocalDateTime.parse(it, formatter) }
             } catch (e: Exception) {
-                LocalDateTime.now()
+                LocalDateTime.now() // Fallback to current time
             }
         }
     }

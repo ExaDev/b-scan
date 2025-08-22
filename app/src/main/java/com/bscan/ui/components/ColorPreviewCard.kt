@@ -54,6 +54,20 @@ fun ColorPreviewCard(
     }
 }
 
+@Composable
+fun ColorPreviewDot(
+    colorHex: String,
+    size: androidx.compose.ui.unit.Dp = 32.dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(size / 2))
+            .background(parseColor(colorHex))
+    )
+}
+
 private fun parseColor(colorHex: String): Color {
     return try {
         val cleanHex = colorHex.removePrefix("#")
