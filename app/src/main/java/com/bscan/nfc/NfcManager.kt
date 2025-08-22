@@ -11,6 +11,8 @@ import android.util.Log
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.NfcTagData
 import com.bscan.nfc.BambuKeyDerivation
+import com.bscan.cache.CachedBambuKeyDerivation
+import com.bscan.cache.TagDataCache
 import java.io.IOException
 
 class NfcManager(private val activity: Activity) {
@@ -20,6 +22,7 @@ class NfcManager(private val activity: Activity) {
     
     private val nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
     val debugCollector = DebugDataCollector()
+    private val tagDataCache = TagDataCache.getInstance(activity)
     private val pendingIntent: PendingIntent = PendingIntent.getActivity(
         activity, 0,
         Intent(activity, activity.javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -60,21 +63,52 @@ class NfcManager(private val activity: Activity) {
         try {
             debugCollector.reset() // Start fresh for each scan
             
+            val uid = bytesToHex(tag.id)
+            Log.d(TAG, "Reading tag with UID: $uid")
+            
+            // Check cache first for this UID
+            tagDataCache.getCachedTagData(uid)?.let { cachedData ->
+                Log.d(TAG, "Found cached tag data for UID: $uid - skipping physical read")
+                debugCollector.recordCacheHit()
+                return cachedData
+            }
+            
+            Log.d(TAG, "No cached data for UID: $uid - performing physical read")
             val mifareClassic = MifareClassic.get(tag)
-            return if (mifareClassic != null) {
+            val tagData = if (mifareClassic != null) {
                 readMifareClassicTag(mifareClassic, tag)
             } else {
                 debugCollector.recordError("Tag is not MIFARE Classic compatible")
                 // Fallback to reading basic tag info
                 NfcTagData(
-                    uid = bytesToHex(tag.id),
+                    uid = uid,
                     bytes = ByteArray(0), // Empty for now
                     technology = tag.techList.firstOrNull() ?: "Unknown"
                 )
             }
+            
+            // Cache the tag data only if read was completely successful
+            tagData?.let { data ->
+                // Only cache if we have meaningful data and no critical errors
+                if (data.bytes.isNotEmpty() && debugCollector.hasAuthenticatedSectors()) {
+                    tagDataCache.cacheTagData(data)
+                    Log.d(TAG, "Cached complete tag data for UID: $uid (${data.bytes.size} bytes)")
+                } else {
+                    Log.d(TAG, "Not caching incomplete/failed read for UID: $uid - missing data or authentication failures")
+                }
+            }
+            
+            return tagData
+            
         } catch (e: IOException) {
             debugCollector.recordError("IOException reading tag: ${e.message}")
             e.printStackTrace()
+            
+            // If we had an IOException, invalidate any cached data for this UID
+            // as it might be stale or corrupted
+            tagDataCache.invalidateUID(uid)
+            Log.d(TAG, "Invalidated cached data for UID: $uid due to IOException")
+            
             return null
         }
     }
@@ -94,8 +128,8 @@ class NfcManager(private val activity: Activity) {
             // Record debug info
             debugCollector.recordTagInfo(mifareClassic.size, sectors)
             
-            // Derive proper authentication keys from UID using KDF
-            val derivedKeys = BambuKeyDerivation.deriveKeys(tag.id)
+            // Derive proper authentication keys from UID using cached KDF
+            val derivedKeys = CachedBambuKeyDerivation.deriveKeys(tag.id)
             debugCollector.recordDerivedKeys(derivedKeys)
             Log.d(TAG, "Derived ${derivedKeys.size} keys from UID")
             
@@ -114,8 +148,9 @@ class NfcManager(private val activity: Activity) {
             )
             
             // Combine derived keys with fallback keys
-            val allKeys = derivedKeys + fallbackKeys
-            
+//            val allKeys = derivedKeys + fallbackKeys
+            val allKeys = derivedKeys
+
             // Read data systematically according to RFID-Tag-Guide specification
             for (sector in 0 until minOf(sectors, 16)) {
                 var authenticated = false
@@ -208,6 +243,12 @@ class NfcManager(private val activity: Activity) {
             if (!debugCollector.hasAuthenticatedSectors()) {
                 debugCollector.recordError("Complete authentication failure - no sectors authenticated")
                 Log.e(TAG, "Authentication failed for all sectors")
+                
+                // Invalidate any cached data for this UID since authentication failed
+                val uid = bytesToHex(tag.id)
+                tagDataCache.invalidateUID(uid)
+                Log.d(TAG, "Invalidated cached data for UID: $uid due to authentication failure")
+                
                 return null // This will trigger authentication failure handling
             }
             
@@ -223,6 +264,12 @@ class NfcManager(private val activity: Activity) {
             } catch (closeException: IOException) {
                 closeException.printStackTrace()
             }
+            
+            // Invalidate any cached data for this UID since the read failed
+            val uid = bytesToHex(tag.id)
+            tagDataCache.invalidateUID(uid)
+            Log.d(TAG, "Invalidated cached data for UID: $uid due to MIFARE Classic read IOException")
+            
             null
         }
     }

@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.model.UpdateStatus
 import com.bscan.ScanState
 import com.bscan.nfc.NfcManager
+import com.bscan.cache.CachedBambuKeyDerivation
 import kotlinx.coroutines.launch
 import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
@@ -46,6 +47,9 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize the key cache system
+        CachedBambuKeyDerivation.initialize(this)
         
         nfcManager = NfcManager(this)
         
