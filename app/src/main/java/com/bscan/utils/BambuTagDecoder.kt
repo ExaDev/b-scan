@@ -170,6 +170,16 @@ object BambuTagDecoder {
     private fun extractBedTemperature(bytes: ByteArray): Int {
         // Block 6: Bed Temperature (bytes 6-7, little endian)
         val blockOffset = 6 * 16 + 6
+        android.util.Log.d("BambuTagDecoder", "Extracting bed temperature from block 6, offset $blockOffset (bytes ${blockOffset}-${blockOffset+1})")
+        
+        // Debug: Show entire block 6 contents
+        val block6Start = 6 * 16
+        if (block6Start + 16 <= bytes.size) {
+            val block6Hex = bytes.sliceArray(block6Start until block6Start + 16)
+                .joinToString(" ") { "%02X".format(it) }
+            android.util.Log.d("BambuTagDecoder", "Block 6 contents: $block6Hex")
+        }
+        
         return extractTemperature(bytes, blockOffset, 60) // Default 60°C
     }
     
@@ -194,11 +204,26 @@ object BambuTagDecoder {
     
     private fun extractTemperature(bytes: ByteArray, offset: Int, default: Int): Int {
         return if (offset + 2 <= bytes.size) {
-            ByteBuffer.wrap(bytes, offset, 2)
+            val byte1 = bytes[offset].toUByte().toInt()
+            val byte2 = bytes[offset + 1].toUByte().toInt()
+            val rawValue = ByteBuffer.wrap(bytes, offset, 2)
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .short
                 .toInt()
+            
+            // Debug logging for temperature extraction
+            android.util.Log.d("BambuTagDecoder", "Temperature at offset $offset: byte1=$byte1, byte2=$byte2, rawValue=$rawValue, default=$default")
+            
+            // Check if the raw value seems reasonable for temperature
+            // Note: Bed temperature can legitimately be 0 for some filaments
+            if (rawValue >= 0 && rawValue < 500) {
+                rawValue
+            } else {
+                android.util.Log.w("BambuTagDecoder", "Temperature value $rawValue seems unreasonable, using default $default")
+                default
+            }
         } else {
+            android.util.Log.w("BambuTagDecoder", "Temperature offset $offset out of bounds, using default $default")
             default
         }
     }
