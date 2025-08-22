@@ -385,8 +385,8 @@ jobs:
           ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} \
           --notes-file "$NOTES_FILE" \
           --prerelease=false \
-          artifacts/apk/release/*.apk \
-          artifacts/bundle/release/*.aab
+          artifacts/app/build/outputs/apk/release/*.apk \
+          artifacts/app/build/outputs/bundle/release/*.aab
           
         # Clean up temporary file
         rm -f "$NOTES_FILE"
