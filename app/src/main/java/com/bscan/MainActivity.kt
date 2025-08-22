@@ -344,6 +344,7 @@ fun MainScreen(
                         filamentInfo = filamentInfo,
                         debugInfo = uiState.debugInfo,
                         onPurgeCache = onPurgeCache,
+                        viewModel = viewModel,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }

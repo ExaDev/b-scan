@@ -9,6 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bscan.MainViewModel
 import com.bscan.model.FilamentInfo
 import com.bscan.model.ScanDebugInfo
 import com.bscan.ui.components.*
@@ -18,8 +20,11 @@ fun FilamentDetailsScreen(
     filamentInfo: FilamentInfo,
     debugInfo: ScanDebugInfo? = null,
     onPurgeCache: ((String) -> Unit)? = null,
+    viewModel: MainViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
+    val weightTrackingService = viewModel.getWeightTrackingService()
+    val spoolId = "${filamentInfo.trayUid}_${filamentInfo.uid}"
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -49,6 +54,13 @@ fun FilamentDetailsScreen(
         
         item {
             ProductionInfoCard(filamentInfo = filamentInfo)
+        }
+        
+        item {
+            WeightTrackingCard(
+                weightTrackingService = weightTrackingService,
+                spoolId = spoolId
+            )
         }
         
         // Show cache management if callback provided

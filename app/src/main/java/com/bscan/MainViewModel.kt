@@ -8,6 +8,7 @@ import com.bscan.model.*
 import com.bscan.decoder.BambuTagDecoder
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TrayTrackingRepository
+import com.bscan.service.WeightTrackingService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +21,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val scanHistoryRepository = ScanHistoryRepository(application)
     private val trayTrackingRepository = TrayTrackingRepository(application)
+    private val weightTrackingService = WeightTrackingService(application)
     
     fun onTagDetected() {
         _uiState.value = _uiState.value.copy(
@@ -75,6 +77,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             
             scanHistoryRepository.saveScan(scanHistory)
             trayTrackingRepository.recordScan(scanHistory)
+            
+            // Set active spool for weight tracking if scan was successful
+            if (result is TagReadResult.Success) {
+                weightTrackingService.setActiveSpool(
+                    trayUid = result.filamentInfo.trayUid,
+                    tagUid = result.filamentInfo.uid,
+                    filamentType = result.filamentInfo.filamentType,
+                    colorName = result.filamentInfo.colorName
+                )
+            }
             
             _uiState.value = when (result) {
                 is TagReadResult.Success -> BScanUiState(
@@ -150,8 +162,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = BScanUiState()
     }
     
-    // Expose tray tracking repository for UI access
+    // Expose repositories and services for UI access
     fun getTrayTrackingRepository(): TrayTrackingRepository = trayTrackingRepository
+    fun getWeightTrackingService(): WeightTrackingService = weightTrackingService
+    
+    override fun onCleared() {
+        super.onCleared()
+        weightTrackingService.cleanup()
+    }
     
 }
 
