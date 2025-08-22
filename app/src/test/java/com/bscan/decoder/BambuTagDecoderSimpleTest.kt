@@ -74,7 +74,7 @@ class BambuTagDecoderSimpleTest {
             // Test may return null due to parsing exceptions, which is acceptable
             // The key is that it doesn't crash and handles the data gracefully
             if (result != null) {
-                assertNotNull("Should have valid UID", result.uid)
+                assertNotNull("Should have valid tag UID", result.tagUid)
                 assertNotNull("Should have valid filament type", result.filamentType)
                 assertTrue("Should have valid color hex", result.colorHex.startsWith("#"))
             }

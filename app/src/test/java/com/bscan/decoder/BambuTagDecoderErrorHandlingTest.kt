@@ -60,7 +60,7 @@ class BambuTagDecoderErrorHandlingTest {
         // Should either return null or handle gracefully
         if (result != null) {
             // If parsing succeeds, ensure no runtime errors
-            assertNotNull("Should have valid UID", result.uid)
+            assertNotNull("Should have valid tag UID", result.tagUid)
             assertTrue("Color hex should be valid format", result.colorHex.startsWith("#"))
             assertTrue("Temperatures should be non-negative", result.dryingTemperature >= 0)
         }
@@ -149,7 +149,7 @@ class BambuTagDecoderErrorHandlingTest {
         
         // Should handle gracefully, either returning null or valid result
         if (result != null) {
-            assertNotNull("Should have valid UID", result.uid)
+            assertNotNull("Should have valid tag UID", result.tagUid)
             assertNotNull("Should have valid filament type", result.filamentType)
         }
     }

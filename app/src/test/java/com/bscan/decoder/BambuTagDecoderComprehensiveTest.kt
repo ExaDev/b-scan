@@ -24,8 +24,8 @@ class BambuTagDecoderComprehensiveTest {
         assertNotNull("Should parse valid tag data", result)
         result!!
         
-        // Block 0: UID
-        assertEquals("UID should match", "75886B1D", result.uid)
+        // Block 0: Tag UID
+        assertEquals("Tag UID should match", "75886B1D", result.tagUid)
         
         // Block 1: Material Variant ID and Material ID  
         assertEquals("Material variant ID should be parsed", "A00-A0", result.materialVariantId)
