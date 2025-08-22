@@ -186,8 +186,9 @@ class NfcManager(private val activity: Activity) {
             )
             
             // Combine derived keys with fallback keys
-//            val allKeys = derivedKeys + fallbackKeys
-            val allKeys = derivedKeys
+            // Enable fallback keys to help with Sector 1 authentication issues that cause bed temp to show 0°C
+            val allKeys = derivedKeys + fallbackKeys
+            Log.d(TAG, "Using ${derivedKeys.size} derived keys + ${fallbackKeys.size} fallback keys = ${allKeys.size} total keys")
 
             // Read data systematically according to RFID-Tag-Guide specification
             for (sector in 0 until minOf(sectors, 16)) {
@@ -240,6 +241,12 @@ class NfcManager(private val activity: Activity) {
                     debugCollector.recordSectorAuthentication(sector, false)
                     debugCollector.recordError("Failed to authenticate sector $sector with any key")
                     Log.w(TAG, "Failed to authenticate sector $sector with any of ${allKeys.size} keys")
+                    
+                    // Special warning for Sector 1 which contains Block 6 (temperature data)
+                    if (sector == 1) {
+                        Log.e(TAG, "*** CRITICAL: Sector 1 authentication failed - Block 6 (bed temperature) will be zeros ***")
+                        debugCollector.recordError("Sector 1 authentication failure will cause bed temperature to show as 0°C")
+                    }
                 }
                 
                 // Read blocks in sector (skip trailer block which contains keys)
@@ -257,11 +264,21 @@ class NfcManager(private val activity: Activity) {
                         }
                         System.arraycopy(blockData, 0, allData, dataOffset, 16)
                         
-                        // Log block data for key blocks (0-6)
-                        if (sector <= 1 || absoluteBlock <= 6) {
+                        // Log block data for key blocks (0-6) and Block 6 specifically for bed temperature debugging
+                        if (sector <= 1 || absoluteBlock <= 6 || absoluteBlock == 6) {
                             val hexData = blockData.joinToString("") { "%02X".format(it) }
                             debugCollector.recordBlockData(absoluteBlock, hexData)
                             Log.d(TAG, "Block $absoluteBlock (sector $sector, block $blockInSector): $hexData")
+                            
+                            // Special logging for Block 6 (temperature data)
+                            if (absoluteBlock == 6) {
+                                Log.i(TAG, "*** BLOCK 6 DATA (Temperature Block): $hexData ***")
+                                val isAllZeros = blockData.all { it == 0.toByte() }
+                                if (isAllZeros) {
+                                    Log.w(TAG, "*** WARNING: Block 6 contains only zeros - bed temperature will show as 0°C ***")
+                                    debugCollector.recordError("Block 6 read as all zeros - authentication may have failed for sector containing temperature data")
+                                }
+                            }
                         }
                     } catch (e: IOException) {
                         val errorMsg = "Failed to read block $absoluteBlock: ${e.message}"
