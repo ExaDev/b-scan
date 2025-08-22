@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -42,6 +43,14 @@ import kotlinx.coroutines.launch
 enum class ViewMode { SPOOLS, SKUS, TAGS, SCANS }
 enum class SortOption { MOST_RECENT, OLDEST, NAME, SUCCESS_RATE }
 
+data class FilterState(
+    val filamentTypes: Set<String> = emptySet(),
+    val minSuccessRate: Float = 0f,
+    val showSuccessOnly: Boolean = false,
+    val showFailuresOnly: Boolean = false,
+    val dateRangeDays: Int? = null // null = all time, 7 = last week, 30 = last month, etc.
+)
+
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier
@@ -53,20 +62,27 @@ fun HomeScreen(
     var viewMode by remember { mutableStateOf(ViewMode.SPOOLS) }
     var sortOption by remember { mutableStateOf(SortOption.MOST_RECENT) }
     var isLoading by remember { mutableStateOf(true) }
+    var filterState by remember { mutableStateOf(FilterState()) }
     
     // Data state
     var spools by remember { mutableStateOf(listOf<UniqueSpool>()) }
     var allScans by remember { mutableStateOf(listOf<ScanHistory>()) }
+    var availableFilamentTypes by remember { mutableStateOf(setOf<String>()) }
     var showSortMenu by remember { mutableStateOf(false) }
+    var showFilterMenu by remember { mutableStateOf(false) }
     
     // Load data
     LaunchedEffect(Unit) {
         try {
             spools = repository.getUniqueSpools()
             allScans = repository.getAllScans()
+            availableFilamentTypes = allScans
+                .mapNotNull { it.filamentInfo?.filamentType }
+                .toSet()
         } catch (e: Exception) {
             spools = emptyList()
             allScans = emptyList()
+            availableFilamentTypes = emptySet()
         } finally {
             isLoading = false
         }
@@ -90,12 +106,17 @@ fun HomeScreen(
         DataBrowserScreen(
             viewMode = viewMode,
             sortOption = sortOption,
+            filterState = filterState,
             spools = spools,
             allScans = allScans,
+            availableFilamentTypes = availableFilamentTypes,
             showSortMenu = showSortMenu,
+            showFilterMenu = showFilterMenu,
             onViewModeChange = { viewMode = it },
             onSortOptionChange = { sortOption = it },
+            onFilterStateChange = { filterState = it },
             onShowSortMenu = { showSortMenu = it },
+            onShowFilterMenu = { showFilterMenu = it },
             modifier = modifier
         )
     }
@@ -106,30 +127,46 @@ fun HomeScreen(
 private fun DataBrowserScreen(
     viewMode: ViewMode,
     sortOption: SortOption,
+    filterState: FilterState,
     spools: List<UniqueSpool>,
     allScans: List<ScanHistory>,
+    availableFilamentTypes: Set<String>,
     showSortMenu: Boolean,
+    showFilterMenu: Boolean,
     onViewModeChange: (ViewMode) -> Unit,
     onSortOptionChange: (SortOption) -> Unit,
+    onFilterStateChange: (FilterState) -> Unit,
     onShowSortMenu: (Boolean) -> Unit,
+    onShowFilterMenu: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     
-    // Pager state for swipeable tabs
+    // Pager state for swipeable tabs with wrap-around
+    val tabCount = ViewMode.values().size
+    val virtualPageCount = tabCount * 1000 // Large number for infinite scrolling effect
+    val startPage = virtualPageCount / 2 + viewMode.ordinal // Start in middle to allow wrapping both ways
+    
     val pagerState = rememberPagerState(
-        initialPage = viewMode.ordinal,
-        pageCount = { ViewMode.values().size }
+        initialPage = startPage,
+        pageCount = { virtualPageCount }
     )
     
     // Sync pager state with view mode
     LaunchedEffect(viewMode) {
-        pagerState.animateScrollToPage(viewMode.ordinal)
+        val targetPage = pagerState.currentPage - (pagerState.currentPage % tabCount) + viewMode.ordinal
+        if (targetPage != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
     }
     
     LaunchedEffect(pagerState.currentPage) {
-        onViewModeChange(ViewMode.values()[pagerState.currentPage])
+        val actualPage = pagerState.currentPage % tabCount
+        val currentMode = ViewMode.values()[actualPage]
+        if (currentMode != viewMode) {
+            onViewModeChange(currentMode)
+        }
     }
     
     // Scan prompt dimensions
@@ -186,8 +223,9 @@ private fun DataBrowserScreen(
                 source: NestedScrollSource
             ): Offset {
                 // Handle scan prompt reveal when pulling down from top
-                if (available.y > 0 && pagerState.currentPage < lazyListStates.size) {
-                    val currentListState = lazyListStates[pagerState.currentPage]
+                if (available.y > 0) {
+                    val currentPageIndex = pagerState.currentPage % tabCount
+                    val currentListState = lazyListStates[currentPageIndex]
                     val isAtTop = currentListState.firstVisibleItemIndex == 0 && currentListState.firstVisibleItemScrollOffset == 0
                     
                     if (isAtTop && overscrollOffset < scanPromptHeightPx) {
@@ -238,15 +276,16 @@ private fun DataBrowserScreen(
         
         // Tab row for view modes (synced with pager)
         TabRow(
-            selectedTabIndex = pagerState.currentPage,
+            selectedTabIndex = pagerState.currentPage % tabCount,
             modifier = Modifier.fillMaxWidth()
         ) {
             ViewMode.values().forEachIndexed { index, mode ->
                 Tab(
-                    selected = pagerState.currentPage == index,
+                    selected = (pagerState.currentPage % tabCount) == index,
                     onClick = { 
                         scope.launch {
-                            pagerState.animateScrollToPage(index)
+                            val targetPage = pagerState.currentPage - (pagerState.currentPage % tabCount) + index
+                            pagerState.animateScrollToPage(targetPage)
                         }
                     },
                     text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
@@ -319,6 +358,149 @@ private fun DataBrowserScreen(
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // Filter button
+            OutlinedButton(
+                onClick = { onShowFilterMenu(true) }
+            ) {
+                Icon(
+                    Icons.Default.FilterList,
+                    contentDescription = "Filter",
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Filter")
+                // Show badge if filters are active
+                if (filterState.filamentTypes.isNotEmpty() || 
+                    filterState.minSuccessRate > 0f || 
+                    filterState.showSuccessOnly || 
+                    filterState.showFailuresOnly || 
+                    filterState.dateRangeDays != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Badge(
+                        modifier = Modifier.size(8.dp)
+                    ) {}
+                }
+            }
+        }
+        
+        // Active filter chips
+        if (filterState.filamentTypes.isNotEmpty() || 
+            filterState.minSuccessRate > 0f || 
+            filterState.showSuccessOnly || 
+            filterState.showFailuresOnly || 
+            filterState.dateRangeDays != null) {
+            
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filterState.filamentTypes.toList()) { type ->
+                    InputChip(
+                        onClick = { 
+                            val newTypes = filterState.filamentTypes - type
+                            onFilterStateChange(filterState.copy(filamentTypes = newTypes))
+                        },
+                        label = { Text(type) },
+                        selected = false,
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove filter",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+                
+                if (filterState.minSuccessRate > 0f) {
+                    item {
+                        InputChip(
+                            onClick = { 
+                                onFilterStateChange(filterState.copy(minSuccessRate = 0f))
+                            },
+                            label = { Text("Success ≥ ${(filterState.minSuccessRate * 100).toInt()}%") },
+                            selected = false,
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove filter",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+                
+                if (filterState.showSuccessOnly) {
+                    item {
+                        InputChip(
+                            onClick = { 
+                                onFilterStateChange(filterState.copy(showSuccessOnly = false))
+                            },
+                            label = { Text("Success Only") },
+                            selected = false,
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove filter",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+                
+                if (filterState.showFailuresOnly) {
+                    item {
+                        InputChip(
+                            onClick = { 
+                                onFilterStateChange(filterState.copy(showFailuresOnly = false))
+                            },
+                            label = { Text("Failures Only") },
+                            selected = false,
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove filter",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+                
+                filterState.dateRangeDays?.let { days ->
+                    item {
+                        val label = when (days) {
+                            1 -> "Last Day"
+                            7 -> "Last Week"
+                            30 -> "Last Month"
+                            90 -> "Last 3 Months"
+                            else -> "Last $days days"
+                        }
+                        
+                        InputChip(
+                            onClick = { 
+                                onFilterStateChange(filterState.copy(dateRangeDays = null))
+                            },
+                            label = { Text(label) },
+                            selected = false,
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove filter",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
         }
         
         // Swipeable content pager
@@ -326,13 +508,24 @@ private fun DataBrowserScreen(
             state = pagerState,
             modifier = Modifier.fillMaxSize()
         ) { page ->
-            when (ViewMode.values()[page]) {
-                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, lazyListStates[page])
-                ViewMode.SKUS -> SkusList(allScans, sortOption, lazyListStates[page])
-                ViewMode.TAGS -> TagsList(allScans, sortOption, lazyListStates[page])
-                ViewMode.SCANS -> ScansList(allScans, sortOption, lazyListStates[page])
+            val actualPage = page % tabCount
+            when (ViewMode.values()[actualPage]) {
+                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, filterState, lazyListStates[actualPage])
+                ViewMode.SKUS -> SkusList(allScans, sortOption, filterState, lazyListStates[actualPage])
+                ViewMode.TAGS -> TagsList(allScans, sortOption, filterState, lazyListStates[actualPage])
+                ViewMode.SCANS -> ScansList(allScans, sortOption, filterState, lazyListStates[actualPage])
             }
         }
+    }
+    
+    // Filter dialog
+    if (showFilterMenu) {
+        FilterDialog(
+            filterState = filterState,
+            availableFilamentTypes = availableFilamentTypes,
+            onFilterStateChange = onFilterStateChange,
+            onDismiss = { onShowFilterMenu(false) }
+        )
     }
 }
 
@@ -340,14 +533,42 @@ private fun DataBrowserScreen(
 private fun SpoolsList(
     spools: List<UniqueSpool>,
     sortOption: SortOption,
+    filterState: FilterState,
     lazyListState: LazyListState
 ) {
-    val sortedSpools = remember(spools, sortOption) {
+    val filteredAndSortedSpools = remember(spools, sortOption, filterState) {
+        val filtered = spools.filter { spool ->
+            // Filter by filament types
+            val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
+                true
+            } else {
+                filterState.filamentTypes.contains(spool.filamentInfo.filamentType)
+            }
+            
+            // Filter by success rate
+            val matchesSuccessRate = spool.successRate >= filterState.minSuccessRate
+            
+            // Filter by success/failure only
+            val matchesResultFilter = when {
+                filterState.showSuccessOnly -> spool.successRate == 1.0f
+                filterState.showFailuresOnly -> spool.successRate < 1.0f
+                else -> true
+            }
+            
+            // Filter by date range
+            val matchesDateRange = filterState.dateRangeDays?.let { days ->
+                val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
+                spool.lastScanned.isAfter(cutoffDate)
+            } ?: true
+            
+            matchesFilamentType && matchesSuccessRate && matchesResultFilter && matchesDateRange
+        }
+        
         when (sortOption) {
-            SortOption.MOST_RECENT -> spools.sortedByDescending { it.lastScanned }
-            SortOption.OLDEST -> spools.sortedBy { it.lastScanned }
-            SortOption.NAME -> spools.sortedBy { it.filamentInfo.colorName }
-            SortOption.SUCCESS_RATE -> spools.sortedByDescending { it.successRate }
+            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.lastScanned }
+            SortOption.OLDEST -> filtered.sortedBy { it.lastScanned }
+            SortOption.NAME -> filtered.sortedBy { it.filamentInfo.colorName }
+            SortOption.SUCCESS_RATE -> filtered.sortedByDescending { it.successRate }
         }
     }
     
@@ -357,7 +578,7 @@ private fun SpoolsList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(sortedSpools) { spool ->
+        items(filteredAndSortedSpools) { spool ->
             SpoolCard(spool = spool)
         }
     }
@@ -367,6 +588,7 @@ private fun SpoolsList(
 private fun SkusList(
     allScans: List<ScanHistory>,
     sortOption: SortOption,
+    filterState: FilterState,
     lazyListState: LazyListState
 ) {
     // Group scans by SKU (filament type + color combination)
@@ -396,12 +618,39 @@ private fun SkusList(
             }
     }
     
-    val sortedSkus = remember(uniqueSkus, sortOption) {
+    val filteredAndSortedSkus = remember(uniqueSkus, sortOption, filterState) {
+        val filtered = uniqueSkus.filter { sku ->
+            // Filter by filament types
+            val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
+                true
+            } else {
+                filterState.filamentTypes.contains(sku.filamentInfo.filamentType)
+            }
+            
+            // Filter by success rate
+            val matchesSuccessRate = sku.successRate >= filterState.minSuccessRate
+            
+            // Filter by success/failure only
+            val matchesResultFilter = when {
+                filterState.showSuccessOnly -> sku.successRate == 1.0f
+                filterState.showFailuresOnly -> sku.successRate < 1.0f
+                else -> true
+            }
+            
+            // Filter by date range
+            val matchesDateRange = filterState.dateRangeDays?.let { days ->
+                val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
+                sku.lastScanned.isAfter(cutoffDate)
+            } ?: true
+            
+            matchesFilamentType && matchesSuccessRate && matchesResultFilter && matchesDateRange
+        }
+        
         when (sortOption) {
-            SortOption.MOST_RECENT -> uniqueSkus.sortedByDescending { it.lastScanned }
-            SortOption.OLDEST -> uniqueSkus.sortedBy { it.lastScanned }
-            SortOption.NAME -> uniqueSkus.sortedBy { it.filamentInfo.colorName }
-            SortOption.SUCCESS_RATE -> uniqueSkus.sortedByDescending { it.successRate }
+            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.lastScanned }
+            SortOption.OLDEST -> filtered.sortedBy { it.lastScanned }
+            SortOption.NAME -> filtered.sortedBy { it.filamentInfo.colorName }
+            SortOption.SUCCESS_RATE -> filtered.sortedByDescending { it.successRate }
         }
     }
     
@@ -411,7 +660,7 @@ private fun SkusList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(sortedSkus) { sku ->
+        items(filteredAndSortedSkus) { sku ->
             SkuCard(sku = sku)
         }
     }
@@ -421,6 +670,7 @@ private fun SkusList(
 private fun TagsList(
     allScans: List<ScanHistory>,
     sortOption: SortOption,
+    filterState: FilterState,
     lazyListState: LazyListState
 ) {
     // Group scans by tag UID to show unique tags
@@ -435,17 +685,44 @@ private fun TagsList(
             }
     }
     
-    val sortedTags = remember(uniqueTags, sortOption) {
-        when (sortOption) {
-            SortOption.MOST_RECENT -> uniqueTags.sortedByDescending { it.second.timestamp }
-            SortOption.OLDEST -> uniqueTags.sortedBy { it.second.timestamp }
-            SortOption.NAME -> uniqueTags.sortedBy { it.third?.colorName ?: it.first }
-            SortOption.SUCCESS_RATE -> {
-                val tagSuccessRates = allScans.groupBy { it.uid }.mapValues { (_, scans) ->
-                    scans.count { it.scanResult == ScanResult.SUCCESS }.toFloat() / scans.size
-                }
-                uniqueTags.sortedByDescending { tagSuccessRates[it.first] ?: 0f }
+    val filteredAndSortedTags = remember(uniqueTags, sortOption, filterState, allScans) {
+        val tagSuccessRates = allScans.groupBy { it.uid }.mapValues { (_, scans) ->
+            scans.count { it.scanResult == ScanResult.SUCCESS }.toFloat() / scans.size
+        }
+        
+        val filtered = uniqueTags.filter { (uid, mostRecentScan, filamentInfo) ->
+            // Filter by filament types
+            val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
+                true
+            } else {
+                filamentInfo?.filamentType?.let { filterState.filamentTypes.contains(it) } ?: false
             }
+            
+            // Filter by success rate
+            val successRate = tagSuccessRates[uid] ?: 0f
+            val matchesSuccessRate = successRate >= filterState.minSuccessRate
+            
+            // Filter by success/failure only
+            val matchesResultFilter = when {
+                filterState.showSuccessOnly -> successRate == 1.0f
+                filterState.showFailuresOnly -> successRate < 1.0f
+                else -> true
+            }
+            
+            // Filter by date range
+            val matchesDateRange = filterState.dateRangeDays?.let { days ->
+                val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
+                mostRecentScan.timestamp.isAfter(cutoffDate)
+            } ?: true
+            
+            matchesFilamentType && matchesSuccessRate && matchesResultFilter && matchesDateRange
+        }
+        
+        when (sortOption) {
+            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.second.timestamp }
+            SortOption.OLDEST -> filtered.sortedBy { it.second.timestamp }
+            SortOption.NAME -> filtered.sortedBy { it.third?.colorName ?: it.first }
+            SortOption.SUCCESS_RATE -> filtered.sortedByDescending { tagSuccessRates[it.first] ?: 0f }
         }
     }
     
@@ -455,7 +732,7 @@ private fun TagsList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(sortedTags) { (uid, mostRecentScan, filamentInfo) ->
+        items(filteredAndSortedTags) { (uid, mostRecentScan, filamentInfo) ->
             TagCard(
                 uid = uid,
                 mostRecentScan = mostRecentScan,
@@ -470,14 +747,39 @@ private fun TagsList(
 private fun ScansList(
     allScans: List<ScanHistory>,
     sortOption: SortOption,
+    filterState: FilterState,
     lazyListState: LazyListState
 ) {
-    val sortedScans = remember(allScans, sortOption) {
+    val filteredAndSortedScans = remember(allScans, sortOption, filterState) {
+        val filtered = allScans.filter { scan ->
+            // Filter by filament types
+            val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
+                true
+            } else {
+                scan.filamentInfo?.filamentType?.let { filterState.filamentTypes.contains(it) } ?: false
+            }
+            
+            // Filter by success rate (not directly applicable to individual scans, but we can filter by success/failure)
+            val matchesResultFilter = when {
+                filterState.showSuccessOnly -> scan.scanResult == ScanResult.SUCCESS
+                filterState.showFailuresOnly -> scan.scanResult != ScanResult.SUCCESS
+                else -> true
+            }
+            
+            // Filter by date range
+            val matchesDateRange = filterState.dateRangeDays?.let { days ->
+                val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
+                scan.timestamp.isAfter(cutoffDate)
+            } ?: true
+            
+            matchesFilamentType && matchesResultFilter && matchesDateRange
+        }
+        
         when (sortOption) {
-            SortOption.MOST_RECENT -> allScans.sortedByDescending { it.timestamp }
-            SortOption.OLDEST -> allScans.sortedBy { it.timestamp }
-            SortOption.NAME -> allScans.sortedBy { it.filamentInfo?.colorName ?: it.uid }
-            SortOption.SUCCESS_RATE -> allScans.sortedBy { it.scanResult != ScanResult.SUCCESS }
+            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.timestamp }
+            SortOption.OLDEST -> filtered.sortedBy { it.timestamp }
+            SortOption.NAME -> filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
+            SortOption.SUCCESS_RATE -> filtered.sortedBy { it.scanResult != ScanResult.SUCCESS }
         }
     }
     
@@ -487,7 +789,7 @@ private fun ScansList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(sortedScans) { scan ->
+        items(filteredAndSortedScans) { scan ->
             ScanCard(scan = scan)
         }
     }
@@ -889,6 +1191,162 @@ private fun SkuCard(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterDialog(
+    filterState: FilterState,
+    availableFilamentTypes: Set<String>,
+    onFilterStateChange: (FilterState) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Filter Options") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Filament types filter
+                if (availableFilamentTypes.isNotEmpty()) {
+                    Text(
+                        text = "Filament Types",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    availableFilamentTypes.forEach { type ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = filterState.filamentTypes.contains(type),
+                                onCheckedChange = { checked ->
+                                    val newTypes = if (checked) {
+                                        filterState.filamentTypes + type
+                                    } else {
+                                        filterState.filamentTypes - type
+                                    }
+                                    onFilterStateChange(filterState.copy(filamentTypes = newTypes))
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = type)
+                        }
+                    }
+                    
+                    HorizontalDivider()
+                }
+                
+                // Success rate filter
+                Text(
+                    text = "Minimum Success Rate: ${(filterState.minSuccessRate * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Slider(
+                    value = filterState.minSuccessRate,
+                    onValueChange = { onFilterStateChange(filterState.copy(minSuccessRate = it)) },
+                    valueRange = 0f..1f,
+                    steps = 9 // 0%, 10%, 20%, ..., 100%
+                )
+                
+                HorizontalDivider()
+                
+                // Result type filters
+                Text(
+                    text = "Result Types",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = filterState.showSuccessOnly,
+                        onCheckedChange = { 
+                            onFilterStateChange(
+                                filterState.copy(
+                                    showSuccessOnly = it,
+                                    showFailuresOnly = if (it) false else filterState.showFailuresOnly
+                                )
+                            ) 
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Success Only")
+                }
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = filterState.showFailuresOnly,
+                        onCheckedChange = { 
+                            onFilterStateChange(
+                                filterState.copy(
+                                    showFailuresOnly = it,
+                                    showSuccessOnly = if (it) false else filterState.showSuccessOnly
+                                )
+                            ) 
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Failures Only")
+                }
+                
+                HorizontalDivider()
+                
+                // Date range filter
+                Text(
+                    text = "Date Range",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                val dateRangeOptions = listOf(
+                    null to "All Time",
+                    1 to "Last Day",
+                    7 to "Last Week", 
+                    30 to "Last Month",
+                    90 to "Last 3 Months"
+                )
+                
+                dateRangeOptions.forEach { (days, label) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = filterState.dateRangeDays == days,
+                            onClick = { onFilterStateChange(filterState.copy(dateRangeDays = days)) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = label)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    onFilterStateChange(FilterState()) // Reset filters
+                    onDismiss()
+                }
+            ) {
+                Text("Clear All")
+            }
+        }
+    )
 }
 
 private fun parseColor(colorHex: String): Color {
