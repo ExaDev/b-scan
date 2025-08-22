@@ -12,7 +12,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "./gradlew assembleRelease bundleRelease -PversionName=${nextRelease.version} -PversionCode=${process.env.GITHUB_RUN_NUMBER} --parallel --build-cache --configuration-cache"
+        "prepareCmd": "echo ${nextRelease.version} > version.txt && ./gradlew assembleRelease bundleRelease -PversionName=${nextRelease.version} -PversionCode=${process.env.GITHUB_RUN_NUMBER} --no-daemon --parallel"
       }
     ],
     [
