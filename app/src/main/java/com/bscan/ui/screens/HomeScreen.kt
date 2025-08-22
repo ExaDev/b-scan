@@ -1,6 +1,5 @@
 package com.bscan.ui.screens
 
-import android.util.Log
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -128,11 +127,8 @@ private fun CombinedHomeScreen(
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                Log.d("HomeScreen", "onPreScroll: available.y=${available.y}, firstIndex=${lazyListState.firstVisibleItemIndex}, offset=${lazyListState.firstVisibleItemScrollOffset}, overscrollOffset=$overscrollOffset")
-                
                 // Only handle upward scrolls when scan prompt is visible
                 if (available.y < 0 && overscrollOffset > 0) {
-                    Log.d("HomeScreen", "Hiding scan prompt: available=${available.y}, current offset=$overscrollOffset")
                     val consumed = minOf(-available.y, overscrollOffset)
                     overscrollOffset -= consumed
                     if (overscrollOffset <= scanPromptHeightPx * 0.4f) {
@@ -150,31 +146,27 @@ private fun CombinedHomeScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // Handle remaining overscroll at boundaries
-                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
-                val isAtBottom = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.let { lastItem ->
-                    lastItem.index == lazyListState.layoutInfo.totalItemsCount - 1
-                } ?: false
-                
-                if (available.y > 0) {
-                    if (isAtTop && overscrollOffset < scanPromptHeightPx) {
-                        // Reveal scan prompt at top
+                // Only handle true overscroll when LazyColumn couldn't consume scroll
+                if (available.y != 0f) {
+                    val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
+                    val isAtBottom = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.let { lastItem ->
+                        lastItem.index == lazyListState.layoutInfo.totalItemsCount - 1 && 
+                        lastItem.offset + lastItem.size <= lazyListState.layoutInfo.viewportEndOffset
+                    } ?: false
+                    
+                    if (available.y > 0 && isAtTop && overscrollOffset < scanPromptHeightPx) {
+                        // Reveal scan prompt when pulling down from top
                         isRevealing = true
                         val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
                         val consumed = newOffset - overscrollOffset
                         overscrollOffset = newOffset
                         return Offset(0f, consumed)
-                    } else if (isAtBottom || (isAtTop && overscrollOffset >= scanPromptHeightPx)) {
-                        // Elastic scroll down
+                    } else {
+                        // Elastic overscroll for all other cases
                         val elasticFactor = 0.3f
-                        listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceAtLeast(0f)
+                        listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceIn(-200f, 200f)
                         return Offset(0f, available.y)
                     }
-                } else if (available.y < 0 && isAtTop) {
-                    // Elastic scroll up from top
-                    val elasticFactor = 0.3f
-                    listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceAtMost(0f)
-                    return Offset(0f, available.y)
                 }
                 
                 return Offset.Zero
@@ -263,9 +255,9 @@ private fun CombinedHomeScreen(
                 RecentSpoolCard(spool = spool)
             }
             
-            // Add invisible spacer to ensure list is always scrollable
+            // Small spacer for better bottom padding
             item {
-                Spacer(modifier = Modifier.height(200.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
