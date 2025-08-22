@@ -10,6 +10,8 @@ import android.nfc.tech.NfcA
 import android.util.Log
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.NfcTagData
+import com.bscan.model.ScanProgress
+import com.bscan.model.ScanStage
 import com.bscan.nfc.BambuKeyDerivation
 import com.bscan.cache.CachedBambuKeyDerivation
 import com.bscan.cache.TagDataCache
@@ -69,7 +71,7 @@ class NfcManager(private val activity: Activity) {
     /**
      * Async version of tag reading that performs heavy operations on background thread
      */
-    suspend fun handleIntentAsync(intent: Intent): NfcTagData? = withContext(Dispatchers.IO) {
+    suspend fun handleIntentAsync(intent: Intent, progressCallback: ((ScanProgress) -> Unit)? = null): NfcTagData? = withContext(Dispatchers.IO) {
         if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
@@ -79,7 +81,7 @@ class NfcManager(private val activity: Activity) {
                 @Suppress("DEPRECATION")
                 intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
             }
-            return@withContext tag?.let { readTagData(it) }
+            return@withContext tag?.let { readTagData(it, progressCallback) }
         }
         return@withContext null
     }
@@ -107,24 +109,35 @@ class NfcManager(private val activity: Activity) {
     /**
      * Full tag reading with heavy operations - should be called on background thread
      */
-    private fun readTagData(tag: Tag): NfcTagData? {
+    private fun readTagData(tag: Tag, progressCallback: ((ScanProgress) -> Unit)? = null): NfcTagData? {
         debugCollector.reset() // Start fresh for each scan
         
         val uid = bytesToHex(tag.id)
         Log.d(TAG, "Reading tag with UID: $uid")
+        
+        progressCallback?.invoke(ScanProgress(
+            stage = ScanStage.CONNECTING,
+            percentage = 0.05f,
+            statusMessage = "Connecting to tag"
+        ))
         
         try {
             // Check cache first for this UID
             tagDataCache.getCachedTagData(uid)?.let { cachedData ->
                 Log.d(TAG, "Found cached tag data for UID: $uid - skipping physical read")
                 debugCollector.recordCacheHit()
+                progressCallback?.invoke(ScanProgress(
+                    stage = ScanStage.COMPLETED,
+                    percentage = 1.0f,
+                    statusMessage = "Using cached data"
+                ))
                 return cachedData
             }
             
             Log.d(TAG, "No cached data for UID: $uid - performing physical read")
             val mifareClassic = MifareClassic.get(tag)
             val tagData = if (mifareClassic != null) {
-                readMifareClassicTag(mifareClassic, tag)
+                readMifareClassicTag(mifareClassic, tag, progressCallback)
             } else {
                 debugCollector.recordError("Tag is not MIFARE Classic compatible")
                 // Fallback to reading basic tag info
@@ -161,7 +174,7 @@ class NfcManager(private val activity: Activity) {
         }
     }
     
-    private fun readMifareClassicTag(mifareClassic: MifareClassic, tag: Tag): NfcTagData? {
+    private fun readMifareClassicTag(mifareClassic: MifareClassic, tag: Tag, progressCallback: ((ScanProgress) -> Unit)? = null): NfcTagData? {
         return try {
             mifareClassic.connect()
             
@@ -175,6 +188,13 @@ class NfcManager(private val activity: Activity) {
             
             // Record debug info
             debugCollector.recordTagInfo(mifareClassic.size, sectors)
+            
+            // Report key derivation progress
+            progressCallback?.invoke(ScanProgress(
+                stage = ScanStage.KEY_DERIVATION,
+                percentage = 0.1f,
+                statusMessage = "Deriving authentication keys"
+            ))
             
             // Derive proper authentication keys from UID using cached KDF
             val derivedKeys = CachedBambuKeyDerivation.deriveKeys(tag.id)
@@ -204,6 +224,14 @@ class NfcManager(private val activity: Activity) {
             for (sector in 0 until minOf(sectors, 16)) {
                 var authenticated = false
                 var usedKey: ByteArray? = null
+                
+                // Report authentication progress for this sector
+                progressCallback?.invoke(ScanProgress(
+                    stage = ScanStage.AUTHENTICATING,
+                    percentage = 0.15f + (sector * 0.04f), // 15% to 75% (16 sectors * 4% each)
+                    currentSector = sector,
+                    statusMessage = "Authenticating sector ${sector + 1}/16"
+                ))
                 
                 Log.d(TAG, "Reading sector $sector")
                 
@@ -275,6 +303,14 @@ class NfcManager(private val activity: Activity) {
                     val absoluteBlock = mifareClassic.sectorToBlock(sector) + blockInSector
                     val dataOffset = sector * 48 + blockInSector * 16
                     
+                    // Report block reading progress
+                    val blockProgress = 0.75f + (sector * 0.015f) + (blockInSector * 0.005f) // 75% to 95%
+                    progressCallback?.invoke(ScanProgress(
+                        stage = ScanStage.READING_BLOCKS,
+                        percentage = blockProgress,
+                        statusMessage = "Reading block ${absoluteBlock + 1}"
+                    ))
+                    
                     try {
                         val blockData = if (authenticated) {
                             mifareClassic.readBlock(absoluteBlock)
@@ -311,6 +347,13 @@ class NfcManager(private val activity: Activity) {
                     }
                 }
             }
+            
+            // Report data assembly progress
+            progressCallback?.invoke(ScanProgress(
+                stage = ScanStage.ASSEMBLING_DATA,
+                percentage = 0.95f,
+                statusMessage = "Assembling tag data"
+            ))
             
             mifareClassic.close()
             
