@@ -58,13 +58,16 @@ jobs:
           app/build/outputs/bundle/release/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
           
         # Add manual release warning and additional context
+        CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        EXISTING_NOTES=$(gh release view ${{ steps.version.outputs.tag }} --json body --jq '.body')
+        
         gh release edit ${{ steps.version.outputs.tag }} \
-          --notes-file <(cat << 'EOF'
+          --notes-file <(cat << EOF
         ## ⚠️ Manual Release
         
         **This is a manual release that bypassed the CI pipeline.**
         
-        $(gh release view ${{ steps.version.outputs.tag }} --json body --jq '.body')
+        ${EXISTING_NOTES}
 
         ---
 
@@ -79,7 +82,7 @@ jobs:
 
         ## Build Information
         - **Commit**: ${{ github.sha }}
-        - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - **Build Date**: ${CURRENT_DATE}
         
         ## ⚠️ Quality Gates Status
         ❓ Code quality checks (bypassed)  

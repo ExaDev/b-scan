@@ -334,9 +334,12 @@ jobs:
           artifacts/bundle/release/*.aab
           
         # Add additional context to the release notes
+        CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        EXISTING_NOTES=$(gh release view ${{ steps.build_version.outputs.tag }} --json body --jq '.body')
+        
         gh release edit ${{ steps.build_version.outputs.tag }} \
-          --notes-file <(cat << 'EOF'
-        $(gh release view ${{ steps.build_version.outputs.tag }} --json body --jq '.body')
+          --notes-file <(cat << EOF
+        ${EXISTING_NOTES}
 
         ---
 
@@ -352,7 +355,7 @@ jobs:
         ## Build Information
         - **Commit**: ${{ github.sha }}
         - **Version Code**: ${{ steps.build_version.outputs.version_code }}
-        - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        - **Build Date**: ${CURRENT_DATE}
 
         ## Quality Gates Passed
         ✅ Code quality checks  
