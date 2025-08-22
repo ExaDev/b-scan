@@ -140,10 +140,10 @@ class ScanHistoryRepositoryTest {
     }
 
     @Test
-    fun `getScanByUid filters correctly`() {
+    fun `getScansByTagUid filters correctly`() {
         `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
         
-        val result = repository.getScanByUid("test-uid")
+        val result = repository.getScansByTagUid("test-uid")
         
         assertTrue("Should return empty list", result.isEmpty())
     }
@@ -195,7 +195,7 @@ class ScanHistoryRepositoryTest {
     
     private fun createTestFilamentInfo(): FilamentInfo {
         return FilamentInfo(
-            uid = "TEST_UID",
+            tagUid = "TEST_UID",
             trayUid = "TEST_TRAY",
             filamentType = "PLA",
             detailedFilamentType = "PLA Basic",
