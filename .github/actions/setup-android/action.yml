@@ -10,25 +10,11 @@ runs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Cache Gradle wrapper
-      uses: actions/cache@v4
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v3
       with:
-        path: ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-wrapper-
-
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.gradle/caches/modules-2
-          ~/.gradle/caches/jars-9
-          ~/.gradle/caches/transforms-3
-          ~/.gradle/caches/build-cache-1
-        key: ${{ runner.os }}-gradle-deps-${{ hashFiles('**/build.gradle.kts', '**/gradle.properties', '**/libs.versions.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-deps-
+        gradle-home-cache-cleanup: true
+        cache-read-only: ${{ github.event_name == 'pull_request' }}
 
     - name: Cache Android SDK
       uses: actions/cache@v4
@@ -39,14 +25,6 @@ runs:
         key: ${{ runner.os }}-android-sdk-${{ hashFiles('**/build.gradle.kts') }}
         restore-keys: |
           ${{ runner.os }}-android-sdk-
-
-    - name: Cache Kotlin compiler daemon
-      uses: actions/cache@v4
-      with:
-        path: ~/.kotlin
-        key: ${{ runner.os }}-kotlin-daemon-${{ hashFiles('**/build.gradle.kts', '**/libs.versions.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-kotlin-daemon-
 
     - name: Grant execute permission for gradlew
       shell: bash
