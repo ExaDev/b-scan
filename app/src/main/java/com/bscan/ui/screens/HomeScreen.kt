@@ -93,9 +93,6 @@ private fun CombinedHomeScreen(
     var overscrollOffset by remember { mutableFloatStateOf(scanPromptHeightPx) }
     var isRevealing by remember { mutableStateOf(true) }
     
-    // Elastic scroll state for list content
-    var listElasticOffset by remember { mutableFloatStateOf(0f) }
-    
     // Animated offset for smooth transitions
     val animatedOffset by animateFloatAsState(
         targetValue = if (isRevealing && overscrollOffset > scanPromptHeightPx * 0.4f) {
@@ -109,19 +106,6 @@ private fun CombinedHomeScreen(
         ),
         label = "scan_prompt_reveal"
     )
-    
-    // Animated elastic offset for list content
-    val animatedListElasticOffset by animateFloatAsState(
-        targetValue = 0f, // Always return to 0
-        animationSpec = SpringSpec(
-            stiffness = 400f,
-            dampingRatio = 0.7f
-        ),
-        label = "list_elastic"
-    ) { 
-        // Reset the elastic offset when animation completes
-        listElasticOffset = 0f
-    }
     
     // NestedScrollConnection to handle overscroll
     val nestedScrollConnection = remember {
@@ -146,26 +130,17 @@ private fun CombinedHomeScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // Only handle true overscroll when LazyColumn couldn't consume scroll
-                if (available.y != 0f) {
+                // Only handle scan prompt reveal when pulling down from top
+                if (available.y > 0) {
                     val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
-                    val isAtBottom = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.let { lastItem ->
-                        lastItem.index == lazyListState.layoutInfo.totalItemsCount - 1 && 
-                        lastItem.offset + lastItem.size <= lazyListState.layoutInfo.viewportEndOffset
-                    } ?: false
                     
-                    if (available.y > 0 && isAtTop && overscrollOffset < scanPromptHeightPx) {
+                    if (isAtTop && overscrollOffset < scanPromptHeightPx) {
                         // Reveal scan prompt when pulling down from top
                         isRevealing = true
                         val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
                         val consumed = newOffset - overscrollOffset
                         overscrollOffset = newOffset
                         return Offset(0f, consumed)
-                    } else {
-                        // Elastic overscroll for all other cases
-                        val elasticFactor = 0.3f
-                        listElasticOffset = (listElasticOffset + available.y * elasticFactor).coerceIn(-200f, 200f)
-                        return Offset(0f, available.y)
                     }
                 }
                 
@@ -176,14 +151,7 @@ private fun CombinedHomeScreen(
                 // Handle fling to snap open/closed based on pull distance
                 if (overscrollOffset > 0 && overscrollOffset < scanPromptHeightPx) {
                     isRevealing = overscrollOffset > scanPromptHeightPx * 0.3f
-                    return available // Let animation handle the rest
                 }
-                
-                // Trigger elastic return animation for list content
-                if (listElasticOffset != 0f) {
-                    listElasticOffset = 0f // This will trigger the spring animation
-                }
-                
                 return Velocity.Zero
             }
             
@@ -195,11 +163,6 @@ private fun CombinedHomeScreen(
                 } else if (overscrollOffset >= scanPromptHeightPx * 0.9f) {
                     isRevealing = true
                     overscrollOffset = scanPromptHeightPx
-                }
-                
-                // Ensure elastic content returns to neutral
-                if (listElasticOffset != 0f) {
-                    listElasticOffset = 0f
                 }
                 
                 return Velocity.Zero
@@ -233,11 +196,7 @@ private fun CombinedHomeScreen(
         // Main content list (gets pushed down as scan prompt reveals)
         LazyColumn(
             state = lazyListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    translationY = if (listElasticOffset != 0f) listElasticOffset else animatedListElasticOffset
-                },
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
