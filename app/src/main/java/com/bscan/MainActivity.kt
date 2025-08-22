@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -40,6 +41,7 @@ import com.bscan.ui.screens.FilamentDetailsScreen
 import com.bscan.ui.screens.ScanPromptScreen
 import com.bscan.ui.screens.ErrorScreen
 import com.bscan.ui.screens.SpoolListScreen
+import com.bscan.ui.screens.TrayTrackingScreen
 import com.bscan.ui.theme.BScanTheme
 import com.bscan.ui.components.ScanStateIndicator
 import com.bscan.ui.components.NfcStatusIndicator
@@ -106,6 +108,7 @@ class MainActivity : ComponentActivity() {
                             onResetScan = { viewModel.resetScan() },
                             onShowHistory = { navController.navigate("history") },
                             onShowSpoolList = { navController.navigate("spoolList") },
+                            onShowTrayTracking = { navController.navigate("trayTracking") },
                             onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
                         )
                     }
@@ -118,6 +121,13 @@ class MainActivity : ComponentActivity() {
                     
                     composable("spoolList") {
                         SpoolListScreen(
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
+                    
+                    composable("trayTracking") {
+                        TrayTrackingScreen(
+                            viewModel = viewModel,
                             onNavigateBack = { navController.popBackStack() }
                         )
                     }
@@ -248,6 +258,7 @@ fun MainScreen(
     onResetScan: () -> Unit,
     onShowHistory: () -> Unit,
     onShowSpoolList: () -> Unit,
+    onShowTrayTracking: () -> Unit,
     onPurgeCache: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -282,6 +293,13 @@ fun MainScreen(
                                 contentDescription = "Check for updates"
                             )
                         }
+                    }
+                    
+                    IconButton(onClick = onShowTrayTracking) {
+                        Icon(
+                            imageVector = Icons.Default.Storage,
+                            contentDescription = "View tray tracking"
+                        )
                     }
                     
                     IconButton(onClick = onShowSpoolList) {

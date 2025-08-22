@@ -7,6 +7,7 @@ import com.bscan.debug.DebugDataCollector
 import com.bscan.model.*
 import com.bscan.decoder.BambuTagDecoder
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.TrayTrackingRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<BScanUiState> = _uiState.asStateFlow()
     
     private val scanHistoryRepository = ScanHistoryRepository(application)
+    private val trayTrackingRepository = TrayTrackingRepository(application)
     
     fun onTagDetected() {
         _uiState.value = _uiState.value.copy(
@@ -72,6 +74,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             
             scanHistoryRepository.saveScan(scanHistory)
+            trayTrackingRepository.recordScan(scanHistory)
             
             _uiState.value = when (result) {
                 is TagReadResult.Success -> BScanUiState(
@@ -129,6 +132,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Save to history even for failed scans
         viewModelScope.launch {
             scanHistoryRepository.saveScan(scanHistory)
+            trayTrackingRepository.recordScan(scanHistory)
         }
         
         _uiState.value = _uiState.value.copy(
@@ -145,6 +149,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun resetScan() {
         _uiState.value = BScanUiState()
     }
+    
+    // Expose tray tracking repository for UI access
+    fun getTrayTrackingRepository(): TrayTrackingRepository = trayTrackingRepository
     
 }
 
