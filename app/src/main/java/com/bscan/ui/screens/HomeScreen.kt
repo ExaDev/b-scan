@@ -1,9 +1,14 @@
 package com.bscan.ui.screens
 
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -13,10 +18,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.UniqueSpool
@@ -70,28 +82,124 @@ private fun CombinedHomeScreen(
     recentSpools: List<UniqueSpool>,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    val density = LocalDensity.current
+    val lazyListState = rememberLazyListState()
+    
+    // Scan prompt dimensions
+    val scanPromptHeightDp = 120.dp
+    val scanPromptHeightPx = with(density) { scanPromptHeightDp.toPx() }
+    
+    // Overscroll reveal state
+    var overscrollOffset by remember { mutableFloatStateOf(0f) }
+    var isRevealing by remember { mutableStateOf(false) }
+    
+    // Animated offset for smooth transitions
+    val animatedOffset by animateFloatAsState(
+        targetValue = if (isRevealing && overscrollOffset > scanPromptHeightPx * 0.4f) {
+            scanPromptHeightPx // Fully revealed
+        } else {
+            0f // Hidden
+        },
+        animationSpec = SpringSpec(
+            stiffness = 300f,
+            dampingRatio = 0.8f
+        ),
+        label = "scan_prompt_reveal"
+    )
+    
+    // NestedScrollConnection to handle overscroll
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // If scrolling up while scan prompt is visible, hide it first
+                if (available.y < 0 && overscrollOffset > 0) {
+                    val consumed = minOf(-available.y, overscrollOffset)
+                    overscrollOffset -= consumed
+                    return Offset(0f, -consumed)
+                }
+                return Offset.Zero
+            }
+            
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Handle overscroll at the top
+                if (available.y > 0 && lazyListState.firstVisibleItemIndex == 0 && 
+                    lazyListState.firstVisibleItemScrollOffset == 0) {
+                    
+                    isRevealing = true
+                    val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
+                    val consumed = newOffset - overscrollOffset
+                    overscrollOffset = newOffset
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+            
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                // Handle fling to snap open/closed based on pull distance
+                if (overscrollOffset > 0) {
+                    isRevealing = overscrollOffset > scanPromptHeightPx * 0.25f
+                    return available // Let animation handle the rest
+                }
+                return Velocity.Zero
+            }
+            
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                // Reset revealing state after fling
+                if (overscrollOffset <= scanPromptHeightPx * 0.1f) {
+                    isRevealing = false
+                    overscrollOffset = 0f
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(nestedScrollConnection)
     ) {
-        item {
-            // Compact scan prompt at the top
+        // Hidden scan prompt above the viewport
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(scanPromptHeightDp)
+                .graphicsLayer {
+                    translationY = animatedOffset - scanPromptHeightPx
+                    // Add subtle scaling effect during reveal
+                    scaleX = 0.95f + (animatedOffset / scanPromptHeightPx) * 0.05f
+                    scaleY = 0.95f + (animatedOffset / scanPromptHeightPx) * 0.05f
+                    alpha = (animatedOffset / scanPromptHeightPx).coerceIn(0f, 1f)
+                }
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
             CompactScanPrompt()
         }
         
-        item {
-            // Section header
-            Text(
-                text = "Recently Scanned",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Medium
-            )
-        }
-        
-        items(recentSpools) { spool ->
-            RecentSpoolCard(spool = spool)
+        // Main content list
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                // Section header
+                Text(
+                    text = "Recently Scanned",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            items(recentSpools) { spool ->
+                RecentSpoolCard(spool = spool)
+            }
         }
     }
 }
