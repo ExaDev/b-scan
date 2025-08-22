@@ -1,5 +1,6 @@
 package com.bscan.ui.screens
 
+import android.util.Log
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -111,10 +112,13 @@ private fun CombinedHomeScreen(
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                Log.d("HomeScreen", "onPreScroll: available.y=${available.y}, firstIndex=${lazyListState.firstVisibleItemIndex}, offset=${lazyListState.firstVisibleItemScrollOffset}")
+                
                 // Handle downward scrolls when at the top (reveal scan prompt)
                 if (available.y > 0 && lazyListState.firstVisibleItemIndex == 0 && 
                     lazyListState.firstVisibleItemScrollOffset == 0) {
                     
+                    Log.d("HomeScreen", "Revealing scan prompt: consumed=${available.y}")
                     isRevealing = true
                     val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
                     val consumed = newOffset - overscrollOffset
@@ -169,18 +173,17 @@ private fun CombinedHomeScreen(
         }
     }
     
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .nestedScroll(nestedScrollConnection)
     ) {
-        // Hidden scan prompt above the viewport
+        // Scan prompt that slides down from above (affects layout)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(scanPromptHeightDp)
+                .height(with(LocalDensity.current) { animatedOffset.toDp() })
                 .graphicsLayer {
-                    translationY = animatedOffset - scanPromptHeightPx
                     // Add subtle scaling effect during reveal
                     scaleX = 0.95f + (animatedOffset / scanPromptHeightPx) * 0.05f
                     scaleY = 0.95f + (animatedOffset / scanPromptHeightPx) * 0.05f
@@ -188,10 +191,12 @@ private fun CombinedHomeScreen(
                 }
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            CompactScanPrompt()
+            if (animatedOffset > 0) {
+                CompactScanPrompt()
+            }
         }
         
-        // Main content list
+        // Main content list (gets pushed down as scan prompt reveals)
         LazyColumn(
             state = lazyListState,
             modifier = Modifier.fillMaxSize(),
@@ -210,6 +215,11 @@ private fun CombinedHomeScreen(
             
             items(recentSpools) { spool ->
                 RecentSpoolCard(spool = spool)
+            }
+            
+            // Add invisible spacer to ensure list is always scrollable
+            item {
+                Spacer(modifier = Modifier.height(200.dp))
             }
         }
     }
