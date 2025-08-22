@@ -324,25 +324,14 @@ jobs:
         echo "Available artifacts:"
         find artifacts/ -type f -name "*.apk" -o -name "*.aab" | head -20
         
-        # Create release with auto-generated changelog from conventional commits
-        gh release create ${{ steps.build_version.outputs.tag }} \
-          --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
-          --generate-notes \
-          --notes-start-tag "$(git describe --tags --abbrev=0 2>/dev/null || echo '')" \
-          --prerelease=false \
-          artifacts/apk/release/*.apk \
-          artifacts/bundle/release/*.aab
-          
-        # Add additional context to the release notes
-        CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        EXISTING_NOTES=$(gh release view ${{ steps.build_version.outputs.tag }} --json body --jq '.body')
+        # Get previous tag for changelog
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         
-        gh release edit ${{ steps.build_version.outputs.tag }} \
-          --notes-file <(cat << EOF
-        ${EXISTING_NOTES}
-
-        ---
-
+        # Create temporary file for release notes
+        NOTES_FILE=$(mktemp)
+        
+        # Build release notes content
+        cat > "$NOTES_FILE" << 'ENDNOTES'
         ## Download Information
         - **APK**: Install directly on Android devices  
         - **AAB**: For Google Play Store distribution
@@ -353,17 +342,35 @@ jobs:
         - NFC must be enabled in device settings
 
         ## Build Information
-        - **Commit**: ${{ github.sha }}
-        - **Version Code**: ${{ steps.build_version.outputs.version_code }}
-        - **Build Date**: ${CURRENT_DATE}
-
+        ENDNOTES
+        
+        # Add dynamic build info
+        echo "- **Commit**: ${{ github.sha }}" >> "$NOTES_FILE"
+        echo "- **Version Code**: ${{ steps.build_version.outputs.version_code }}" >> "$NOTES_FILE"
+        echo "- **Build Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$NOTES_FILE"
+        echo "" >> "$NOTES_FILE"
+        
+        # Add quality gates
+        cat >> "$NOTES_FILE" << 'ENDNOTES'
         ## Quality Gates Passed
         ✅ Code quality checks  
         ✅ Unit tests  
         ✅ Security scan  
         ✅ Performance analysis
-        EOF
-        )
+        ENDNOTES
+        
+        # Create release with auto-generated changelog and custom notes
+        gh release create ${{ steps.build_version.outputs.tag }} \
+          --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
+          --generate-notes \
+          ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} \
+          --notes-file "$NOTES_FILE" \
+          --prerelease=false \
+          artifacts/*.apk \
+          artifacts/*.aab
+          
+        # Clean up temporary file
+        rm -f "$NOTES_FILE"
 
   # Job 9: Notification (always runs, summarizes results)
   notify:
