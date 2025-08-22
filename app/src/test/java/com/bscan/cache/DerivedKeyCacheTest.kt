@@ -9,7 +9,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.*
+import org.junit.Assert.*
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29])
@@ -46,7 +46,7 @@ class DerivedKeyCacheTest {
         
         // Verify keys are computed correctly
         val expectedKeys = BambuKeyDerivation.deriveKeys(testUID1)
-        assertContentEquals(expectedKeys, keys)
+        assertTrue("Keys should be identical", expectedKeys.contentDeepEquals(keys))
         
         // Verify cache statistics
         val stats = cache.getStatistics()
@@ -63,7 +63,7 @@ class DerivedKeyCacheTest {
         val keys2 = cache.getDerivedKeys(testUID1)
         
         // Should return same keys
-        assertContentEquals(keys1, keys2)
+        assertTrue("Keys should be identical", keys1.contentDeepEquals(keys2))
         
         // Verify cache statistics
         val stats = cache.getStatistics()
@@ -98,7 +98,7 @@ class DerivedKeyCacheTest {
         cache.getDerivedKeys(testUID1)
         
         val stats = cache.getStatistics()
-        assertTrue(stats.persistentHits > 0, "Should have at least one persistent hit")
+        assertTrue("Should have at least one persistent hit", stats.persistentHits > 0)
     }
     
     @Test
@@ -117,7 +117,7 @@ class DerivedKeyCacheTest {
         // Should load from persistent storage
         val keys2 = newCache.getDerivedKeys(testUID1)
         
-        assertContentEquals(keys1, keys2)
+        assertTrue("Keys should be identical", keys1.contentDeepEquals(keys2))
         
         val stats = newCache.getStatistics()
         assertEquals(1, stats.persistentHits)
@@ -175,8 +175,8 @@ class DerivedKeyCacheTest {
         }
         
         val sizes = cache.getCacheSizes()
-        assertTrue(sizes.persistentSize <= sizes.persistentMaxSize,
-            "Persistent storage size ${sizes.persistentSize} exceeds limit ${sizes.persistentMaxSize}")
+        assertTrue("Persistent storage size ${sizes.persistentSize} exceeds limit ${sizes.persistentMaxSize}",
+            sizes.persistentSize <= sizes.persistentMaxSize)
     }
     
     @Test
@@ -214,7 +214,7 @@ class DerivedKeyCacheTest {
         cache.getDerivedKeys(testUID1)
         
         val stats = cache.getStatistics()
-        assertTrue(stats.getTotalHits() > 0, "Should have cache hit after preload")
+        assertTrue("Should have cache hit after preload", stats.getTotalHits() > 0)
     }
     
     @Test
@@ -279,7 +279,7 @@ class DerivedKeyCacheTest {
         
         // Should clear corrupted data and work normally
         val keys2 = cache.getDerivedKeys(testUID1)
-        assertContentEquals(keys, keys2)
+        assertTrue("Keys should be identical", keys.contentDeepEquals(keys2))
     }
     
     @Test
@@ -288,8 +288,8 @@ class DerivedKeyCacheTest {
         val keys2 = cache.getDerivedKeys(testUID2)
         
         // Keys should be different
-        assertFalse(keys1.contentDeepEquals(keys2), 
-            "Different UIDs should produce different keys")
+        assertFalse("Different UIDs should produce different keys", 
+            keys1.contentDeepEquals(keys2))
     }
     
     @Test
