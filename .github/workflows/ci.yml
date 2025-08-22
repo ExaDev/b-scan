@@ -17,8 +17,19 @@ permissions:
   pull-requests: write
 
 env:
-  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false
-  KOTLIN_INCREMENTAL: false
+  GRADLE_OPTS: >-
+    -Dorg.gradle.daemon=true
+    -Dorg.gradle.parallel=true
+    -Dorg.gradle.workers.max=4
+    -Dorg.gradle.configuration-cache=true
+    -Dorg.gradle.caching=true
+    -Dorg.gradle.vfs.watch=true
+    -Dkotlin.incremental=true
+    -Dkotlin.incremental.useClasspathSnapshot=true
+    -Xmx4g
+    -XX:+UseG1GC
+    -XX:MaxMetaspaceSize=1g
+  KOTLIN_INCREMENTAL: true
 
 jobs:
   # Job 1: Code Quality & Linting
