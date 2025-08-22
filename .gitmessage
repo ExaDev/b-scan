@@ -1,0 +1,44 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type must be one of the following:
+# feat:     A new feature
+# fix:      A bug fix
+# docs:     Documentation only changes
+# style:    Changes that do not affect the meaning of the code
+# refactor: A code change that neither fixes a bug nor adds a feature
+# perf:     A code change that improves performance
+# test:     Adding missing tests or correcting existing tests
+# chore:    Changes to the build process or auxiliary tools
+
+# Scope is optional but recommended:
+# - ui: User interface changes
+# - nfc: NFC related functionality
+# - decoder: Tag decoding logic
+# - cache: Caching functionality
+# - debug: Debug features
+# - build: Build system changes
+
+# Subject line rules:
+# - Use imperative mood ("add" not "added" or "adds")
+# - Keep under 50 characters
+# - Do not end with a period
+# - Capitalize first letter
+
+# Body (optional):
+# - Wrap at 72 characters
+# - Explain what and why, not how
+# - Use imperative mood
+
+# Footer (optional):
+# - Reference issues: "Closes #123"
+# - Breaking changes: "BREAKING CHANGE: description"
+
+# Examples:
+# feat(nfc): add support for Bambu Lab RFID tags
+# fix(decoder): handle corrupted tag data gracefully
+# docs: update README with installation instructions
+# style(ui): improve spacing in filament details screen
