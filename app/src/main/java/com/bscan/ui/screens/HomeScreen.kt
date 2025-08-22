@@ -4,6 +4,7 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -34,6 +35,8 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
+import com.bscan.ScanState
+import com.bscan.model.ScanProgress
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.UniqueSpool
 import com.bscan.ui.components.ScanStateIndicator
@@ -57,6 +60,9 @@ data class FilterState(
 
 @Composable
 fun HomeScreen(
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -142,6 +148,9 @@ fun HomeScreen(
             availableMaterialSeries = availableMaterialSeries,
             showSortMenu = showSortMenu,
             showFilterMenu = showFilterMenu,
+            scanState = scanState,
+            scanProgress = scanProgress,
+            onSimulateScan = onSimulateScan,
             onViewModeChange = { viewMode = it },
             onSortOptionChange = { sortOption = it },
             onGroupByOptionChange = { groupByOption = it },
@@ -168,6 +177,9 @@ private fun DataBrowserScreen(
     availableMaterialSeries: Set<String>,
     showSortMenu: Boolean,
     showFilterMenu: Boolean,
+    scanState: ScanState,
+    scanProgress: ScanProgress?,
+    onSimulateScan: () -> Unit,
     onViewModeChange: (ViewMode) -> Unit,
     onSortOptionChange: (SortOption) -> Unit,
     onGroupByOptionChange: (GroupByOption) -> Unit,
@@ -235,10 +247,22 @@ private fun DataBrowserScreen(
         rememberLazyListState(), // SPOOLS
         rememberLazyListState(), // SKUS
         rememberLazyListState(), // TAGS  
-        rememberLazyListState(), // SCANS
-        rememberLazyListState(), // BY_COLOR
-        rememberLazyListState()  // BY_MATERIAL
+        rememberLazyListState()  // SCANS
     )
+    
+    // Auto-scroll to top and reveal scan prompt when scanning starts
+    LaunchedEffect(scanState) {
+        if (scanState == ScanState.TAG_DETECTED || scanState == ScanState.PROCESSING) {
+            // Reveal scan prompt
+            isRevealing = true
+            overscrollOffset = scanPromptHeightPx
+            
+            // Scroll to top of current list
+            val currentPageIndex = pagerState.currentPage % tabCount
+            val currentListState = lazyListStates[currentPageIndex]
+            currentListState.animateScrollToItem(0)
+        }
+    }
     
     // NestedScrollConnection for scan prompt reveal/hide
     val nestedScrollConnection = remember(pagerState.currentPage) {
@@ -311,7 +335,11 @@ private fun DataBrowserScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             if (animatedOffset > 0) {
-                CompactScanPrompt()
+                CompactScanPrompt(
+                    scanState = scanState,
+                    scanProgress = scanProgress,
+                    onLongPress = onSimulateScan
+                )
             }
         }
         
@@ -1424,48 +1452,109 @@ private fun ScanCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CompactScanPrompt(
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onLongPress: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onLongClick = onLongPress
+            ) {},
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            ScanStateIndicator(
-                isIdle = true,
-                modifier = Modifier.size(48.dp)
-            )
-            
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Scan a Spool",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
+                ScanStateIndicator(
+                    isIdle = scanState == ScanState.IDLE,
+                    isDetected = scanState == ScanState.TAG_DETECTED,
+                    isProcessing = scanState == ScanState.PROCESSING,
+                    modifier = Modifier.size(48.dp)
                 )
                 
-                Text(
-                    text = "Tap your device against a filament spool to read its information",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    val title = when (scanState) {
+                        ScanState.IDLE -> "Scan a Spool"
+                        ScanState.TAG_DETECTED -> "Tag Detected"
+                        ScanState.PROCESSING -> "Scanning..."
+                        ScanState.SUCCESS -> "Scan Complete"
+                        ScanState.ERROR -> "Scan Failed"
+                    }
+                    
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    val description = when (scanState) {
+                        ScanState.IDLE -> "Tap your device against a filament spool to read its information"
+                        ScanState.TAG_DETECTED -> "Preparing to read tag data"
+                        ScanState.PROCESSING -> scanProgress?.statusMessage ?: "Processing tag data"
+                        ScanState.SUCCESS -> "Filament information successfully read"
+                        ScanState.ERROR -> "Unable to read tag data"
+                    }
+                    
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                val iconVector = when (scanState) {
+                    ScanState.IDLE -> Icons.Default.NearMe
+                    ScanState.TAG_DETECTED -> Icons.Default.CheckCircle
+                    ScanState.PROCESSING -> Icons.Default.HourglassEmpty
+                    ScanState.SUCCESS -> Icons.Default.CheckCircle
+                    ScanState.ERROR -> Icons.Default.Error
+                }
+                
+                val iconColor = when (scanState) {
+                    ScanState.IDLE -> MaterialTheme.colorScheme.primary
+                    ScanState.TAG_DETECTED -> MaterialTheme.colorScheme.secondary
+                    ScanState.PROCESSING -> MaterialTheme.colorScheme.primary
+                    ScanState.SUCCESS -> MaterialTheme.colorScheme.primary
+                    ScanState.ERROR -> MaterialTheme.colorScheme.error
+                }
+                
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp)
                 )
             }
             
-            Icon(
-                imageVector = Icons.Default.NearMe,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
+            // Show progress bar when scanning
+            if (scanState == ScanState.PROCESSING && scanProgress != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                LinearProgressIndicator(
+                    progress = { scanProgress.percentage },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (scanProgress.currentSector > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Sector ${scanProgress.currentSector}/${scanProgress.totalSectors}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -1570,298 +1659,10 @@ private fun SkuCard(
     }
 }
 
-        allScans
-            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
-            .filter { scan ->
-                // Apply existing filters
-                val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
-                    true
-                } else {
-                    filterState.filamentTypes.contains(scan.filamentInfo!!.detailedFilamentType)
-                }
-                
-                val matchesMaterial = if (filterState.materials.isEmpty()) {
-                    true
-                } else {
-                    filterState.materials.contains(scan.filamentInfo!!.filamentType)
-                }
-                
-                val matchesColor = if (filterState.colors.isEmpty()) {
-                    true
-                } else {
-                    filterState.colors.contains(scan.filamentInfo!!.colorName)
-                }
-                
-                val matchesDateRange = filterState.dateRangeDays?.let { days ->
-                    val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
-                    scan.timestamp.isAfter(cutoffDate)
-                } ?: true
-                
-                matchesFilamentType && matchesMaterial && matchesColor && matchesDateRange
-            }
-            .groupBy { it.filamentInfo!!.colorName }
-            .map { (colorName, scans) ->
-                val totalScans = scans.size
-                val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
-                val uniqueSpools = scans.distinctBy { it.filamentInfo!!.trayUid }.size
-                val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
-                val mostRecentFilament = scans.maxByOrNull { it.timestamp }?.filamentInfo
-                val materialVariantCount = scans.distinctBy { "${it.filamentInfo!!.filamentType}-${it.filamentInfo.detailedFilamentType}" }.size
-                
-                ColorGroupInfo(
-                    colorName = scans.first().filamentInfo!!.colorName,
-                    colorHex = scans.first().filamentInfo!!.colorHex,
-                    spoolCount = uniqueSpools,
-                    totalScans = totalScans,
-                    successfulScans = successfulScans,
-                    lastScanned = lastScanned ?: java.time.LocalDateTime.now(),
-                    successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f,
-                    filamentInfo = mostRecentFilament!!
-                ) to materialVariantCount
-            }
-    }
-    
-    val sortedColorGroups = remember(colorGroups, sortOption) {
-        when (sortOption) {
-            SortOption.MOST_RECENT -> colorGroups.sortedByDescending { it.first.lastScanned }
-            SortOption.OLDEST -> colorGroups.sortedBy { it.first.lastScanned }
-            SortOption.NAME, SortOption.COLOR -> colorGroups.sortedBy { it.first.colorName }
-            SortOption.SUCCESS_RATE -> colorGroups.sortedByDescending { it.first.successRate }
-            SortOption.MATERIAL_TYPE -> colorGroups.sortedBy { it.first.filamentInfo.filamentType }
-        }
-    }
-    
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(sortedColorGroups) { (colorInfo, materialCount) ->
-            ColorGroupCard(
-                colorInfo = colorInfo,
-                materialCount = materialCount
-            )
-        }
-    }
-}
 
-@Composable
-private fun ByMaterialList(
-    allScans: List<ScanHistory>,
-    sortOption: SortOption,
-    filterState: FilterState,
-    lazyListState: LazyListState
-) {
-    // Group scans by material type
-    val materialGroups = remember(allScans, filterState) {
-        allScans
-            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
-            .filter { scan ->
-                // Apply existing filters
-                val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
-                    true
-                } else {
-                    filterState.filamentTypes.contains(scan.filamentInfo!!.detailedFilamentType)
-                }
-                
-                val matchesMaterial = if (filterState.materials.isEmpty()) {
-                    true
-                } else {
-                    filterState.materials.contains(scan.filamentInfo!!.filamentType)
-                }
-                
-                val matchesColor = if (filterState.colors.isEmpty()) {
-                    true
-                } else {
-                    filterState.colors.contains(scan.filamentInfo!!.colorName)
-                }
-                
-                val matchesDateRange = filterState.dateRangeDays?.let { days ->
-                    val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
-                    scan.timestamp.isAfter(cutoffDate)
-                } ?: true
-                
-                matchesFilamentType && matchesMaterial && matchesColor && matchesDateRange
-            }
-            .groupBy { it.filamentInfo!!.filamentType }
-            .mapValues { (_, scans) ->
-                val totalScans = scans.size
-                val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
-                val uniqueSpools = scans.distinctBy { it.filamentInfo!!.trayUid }.size
-                val uniqueColors = scans.distinctBy { it.filamentInfo!!.colorName }.size
-                val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
-                val mostRecentFilament = scans.maxByOrNull { it.timestamp }?.filamentInfo
-                
-                MaterialGroupInfo(
-                    materialType = scans.first().filamentInfo!!.filamentType,
-                    spoolCount = uniqueSpools,
-                    colorCount = uniqueColors,
-                    totalScans = totalScans,
-                    successfulScans = successfulScans,
-                    lastScanned = lastScanned ?: java.time.LocalDateTime.now(),
-                    successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f,
-                    filamentInfo = mostRecentFilament!!
-                )
-            }
-    }
-    
-    val sortedMaterialGroups = remember(materialGroups, sortOption) {
-        when (sortOption) {
-            SortOption.MOST_RECENT -> materialGroups.values.sortedByDescending { it.lastScanned }
-            SortOption.OLDEST -> materialGroups.values.sortedBy { it.lastScanned }
-            SortOption.NAME, SortOption.MATERIAL_TYPE -> materialGroups.values.sortedBy { it.materialType }
-            SortOption.SUCCESS_RATE -> materialGroups.values.sortedByDescending { it.successRate }
-            SortOption.COLOR -> materialGroups.values.sortedBy { it.colorCount }
-        }
-    }
-    
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(sortedMaterialGroups) { materialInfo ->
-            MaterialGroupCard(materialInfo = materialInfo)
-        }
-    }
-}
 
-data class ColorGroupInfo(
-    val colorName: String,
-    val colorHex: String,
-    val spoolCount: Int,
-    val totalScans: Int,
-    val successfulScans: Int,
-    val lastScanned: java.time.LocalDateTime,
-    val successRate: Float,
-    val filamentInfo: com.bscan.model.FilamentInfo
-)
 
-data class MaterialGroupInfo(
-    val materialType: String,
-    val spoolCount: Int,
-    val colorCount: Int,
-    val totalScans: Int,
-    val successfulScans: Int,
-    val lastScanned: java.time.LocalDateTime,
-    val successRate: Float,
-    val filamentInfo: com.bscan.model.FilamentInfo
-)
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ColorGroupCard(
-    colorInfo: ColorGroupInfo,
-    materialCount: Int,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Color preview
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = parseColor(colorInfo.colorHex),
-                        shape = CircleShape
-                    )
-            )
-            
-            // Color info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = colorInfo.colorName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Text(
-                    text = "${materialCount} material${if (materialCount != 1) "s" else ""} • ${colorInfo.spoolCount} spool${if (colorInfo.spoolCount != 1) "s" else ""}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Text(
-                    text = "${colorInfo.totalScans} scans • ${(colorInfo.successRate * 100).toInt()}% success",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable  
-private fun MaterialGroupCard(
-    materialInfo: MaterialGroupInfo,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Material icon
-            Icon(
-                imageVector = when (materialInfo.materialType) {
-                    "PLA" -> Icons.Default.Eco
-                    "PETG" -> Icons.Default.Science
-                    "ABS" -> Icons.Default.Engineering
-                    "TPU" -> Icons.Default.Extension
-                    "PC" -> Icons.Default.Engineering
-                    "PA" -> Icons.Default.Construction
-                    "ASA" -> Icons.Default.WbSunny
-                    "PVA" -> Icons.Default.WaterDrop
-                    else -> Icons.Default.Category
-                },
-                contentDescription = "${materialInfo.materialType} material",
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            
-            // Material info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = materialInfo.materialType,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                Text(
-                    text = "${materialInfo.colorCount} color${if (materialInfo.colorCount != 1) "s" else ""} • ${materialInfo.spoolCount} spool${if (materialInfo.spoolCount != 1) "s" else ""}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Text(
-                    text = "${materialInfo.totalScans} scans • ${(materialInfo.successRate * 100).toInt()}% success",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
