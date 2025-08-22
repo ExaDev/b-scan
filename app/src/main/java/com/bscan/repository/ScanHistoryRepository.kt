@@ -86,8 +86,8 @@ class ScanHistoryRepository(context: Context) {
         return getAllScans().filter { it.scanResult != com.bscan.model.ScanResult.SUCCESS }
     }
     
-    fun getScanByUid(uid: String): List<ScanHistory> {
-        return getAllScans().filter { it.uid == uid }
+    fun getScansByTagUid(tagUid: String): List<ScanHistory> {
+        return getAllScans().filter { it.uid == tagUid }
     }
     
     fun clearHistory() {
@@ -137,8 +137,8 @@ class ScanHistoryRepository(context: Context) {
         }.sortedByDescending { it.lastScanned } // Most recently scanned first
     }
     
-    fun getSpoolByUid(uid: String): UniqueSpool? {
-        return getUniqueSpools().firstOrNull { it.uid == uid }
+    fun getSpoolByTagUid(tagUid: String): UniqueSpool? {
+        return getUniqueSpools().firstOrNull { it.uid == tagUid }
     }
     
     fun getFilamentTypes(): List<String> {
@@ -149,8 +149,14 @@ class ScanHistoryRepository(context: Context) {
     }
 }
 
+/**
+ * Represents a unique scanned tag and its associated filament information.
+ * Note: Despite the name "UniqueSpool", this actually represents unique tags.
+ * Each physical spool has 2 tags, so there can be 2 UniqueSpool entries per physical spool.
+ * The uid field contains the tag UID (unique per tag).
+ */
 data class UniqueSpool(
-    val uid: String,
+    val uid: String, // Tag UID (unique per individual tag)
     val filamentInfo: com.bscan.model.FilamentInfo,
     val scanCount: Int,
     val successCount: Int,
