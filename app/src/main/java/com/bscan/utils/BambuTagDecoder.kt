@@ -74,7 +74,17 @@ object BambuTagDecoder {
     
     private fun extractColorName(bytes: ByteArray): String {
         val colorHex = extractColorHex(bytes)
-        // Simple color name mapping based on hex values
+        
+        // Check alpha channel (last 2 characters in RGBA format)
+        if (colorHex.length >= 8) {
+            val alpha = colorHex.takeLast(2).lowercase()
+            if (alpha == "00") {
+                return "Clear/Transparent"
+            }
+            // Warning: I do not have a nonclear transparent filament to test behaviour.
+        }
+        
+        // Simple color name mapping based on RGB values (first 6 chars)
         return when (colorHex.take(6).lowercase()) {
             "ff0000" -> "Red"
             "00ff00" -> "Green"
