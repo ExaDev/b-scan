@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.MainViewModel
 import com.bscan.repository.TrayData
 import com.bscan.repository.TrayStatistics
@@ -41,22 +42,12 @@ fun TrayTrackingScreen(
 ) {
     val trayTrackingRepository = viewModel.getTrayTrackingRepository()
     
-    // Load tray data
-    var trayData by remember { mutableStateOf<List<TrayData>>(emptyList()) }
-    var statistics by remember { mutableStateOf<TrayStatistics?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
+    // Observe reactive data flows
+    val trayData by trayTrackingRepository.trayDataFlow.collectAsStateWithLifecycle()
+    val statistics by trayTrackingRepository.statisticsFlow.collectAsStateWithLifecycle()
     
     // Show delete confirmation dialog
     var trayToDelete by remember { mutableStateOf<TrayData?>(null) }
-    
-    LaunchedEffect(Unit) {
-        try {
-            trayData = trayTrackingRepository.getAllTrays()
-            statistics = trayTrackingRepository.getTrayStatistics()
-        } finally {
-            isLoading = false
-        }
-    }
     
     // Delete confirmation dialog
     trayToDelete?.let { tray ->
@@ -70,8 +61,6 @@ fun TrayTrackingScreen(
                 TextButton(
                     onClick = {
                         trayTrackingRepository.removeTray(tray.trayUid)
-                        trayData = trayTrackingRepository.getAllTrays()
-                        statistics = trayTrackingRepository.getTrayStatistics()
                         trayToDelete = null
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -105,16 +94,7 @@ fun TrayTrackingScreen(
         }
     ) { paddingValues ->
         
-        if (isLoading) {
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (trayData.isEmpty()) {
+        if (trayData.isEmpty()) {
             Box(
                 modifier = modifier
                     .fillMaxSize()

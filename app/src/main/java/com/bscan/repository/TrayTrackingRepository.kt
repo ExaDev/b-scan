@@ -10,6 +10,9 @@ import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class TrayTrackingRepository(context: Context) {
     
@@ -36,6 +39,18 @@ class TrayTrackingRepository(context: Context) {
     private val gson = GsonBuilder()
         .registerTypeAdapter(LocalDateTime::class.java, localDateTimeAdapter)
         .create()
+    
+    // StateFlow for reactive data updates
+    private val _trayDataFlow = MutableStateFlow<List<TrayData>>(emptyList())
+    val trayDataFlow: StateFlow<List<TrayData>> = _trayDataFlow.asStateFlow()
+    
+    private val _statisticsFlow = MutableStateFlow<TrayStatistics?>(null)
+    val statisticsFlow: StateFlow<TrayStatistics?> = _statisticsFlow.asStateFlow()
+    
+    init {
+        // Initialize with current data
+        refreshFlows()
+    }
     
     /**
      * Records a successful scan with tray UID tracking
@@ -94,6 +109,7 @@ class TrayTrackingRepository(context: Context) {
         }
         
         saveTrayData(trayData)
+        refreshFlows() // Notify observers of data changes
     }
     
     /**
@@ -163,6 +179,7 @@ class TrayTrackingRepository(context: Context) {
      */
     fun clearAllData() {
         sharedPreferences.edit().clear().apply()
+        refreshFlows() // Notify observers of data changes
     }
     
     /**
@@ -172,6 +189,7 @@ class TrayTrackingRepository(context: Context) {
         val trayData = getTrayData().toMutableMap()
         trayData.remove(trayUid)
         saveTrayData(trayData)
+        refreshFlows() // Notify observers of data changes
     }
     
     private fun getTrayData(): Map<String, TrayData> {
@@ -192,6 +210,14 @@ class TrayTrackingRepository(context: Context) {
         sharedPreferences.edit()
             .putString("tray_data", trayJson)
             .apply()
+    }
+    
+    /**
+     * Refreshes the StateFlows with current data
+     */
+    private fun refreshFlows() {
+        _trayDataFlow.value = getAllTrays()
+        _statisticsFlow.value = getTrayStatistics()
     }
 }
 
