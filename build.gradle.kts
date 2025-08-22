@@ -25,6 +25,11 @@ tasks.register("installGitHooks") {
 # Validate conventional commit format
 # This hook is automatically installed by Gradle
 
+# Skip validation for merge commits
+if grep -qE '^Merge (branch|remote-tracking branch|pull request)' "${'$'}1"; then
+    exit 0
+fi
+
 commit_regex='^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: .{1,50}'
 
 if ! grep -qE "${'$'}commit_regex" "${'$'}1"; then
@@ -82,6 +87,11 @@ if (file(".git").exists()) {
             commitMsgHook.writeText("""#!/bin/sh
 # Validate conventional commit format
 # This hook is automatically installed by Gradle
+
+# Skip validation for merge commits
+if grep -qE '^Merge (branch|remote-tracking branch|pull request)' "${'$'}1"; then
+    exit 0
+fi
 
 commit_regex='^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: .{1,50}'
 
