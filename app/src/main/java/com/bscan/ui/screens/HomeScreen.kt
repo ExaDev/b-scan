@@ -41,10 +41,14 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 enum class ViewMode { SPOOLS, SKUS, TAGS, SCANS }
-enum class SortOption { MOST_RECENT, OLDEST, NAME, SUCCESS_RATE }
+enum class SortOption { MOST_RECENT, OLDEST, NAME, SUCCESS_RATE, COLOR, MATERIAL_TYPE }
+enum class GroupByOption { NONE, COLOR, BASE_MATERIAL, MATERIAL_SERIES }
 
 data class FilterState(
-    val filamentTypes: Set<String> = emptySet(),
+    val filamentTypes: Set<String> = emptySet(), // Detailed types (PLA Basic, PLA Silk+, etc.)
+    val colors: Set<String> = emptySet(),
+    val baseMaterials: Set<String> = emptySet(), // PLA, PETG, ABS, etc.
+    val materialSeries: Set<String> = emptySet(), // Basic, Silk+, Matte, etc.
     val minSuccessRate: Float = 0f,
     val showSuccessOnly: Boolean = false,
     val showFailuresOnly: Boolean = false,
@@ -61,6 +65,7 @@ fun HomeScreen(
     // View state
     var viewMode by remember { mutableStateOf(ViewMode.SPOOLS) }
     var sortOption by remember { mutableStateOf(SortOption.MOST_RECENT) }
+    var groupByOption by remember { mutableStateOf(GroupByOption.NONE) }
     var isLoading by remember { mutableStateOf(true) }
     var filterState by remember { mutableStateOf(FilterState()) }
     
@@ -68,8 +73,12 @@ fun HomeScreen(
     var spools by remember { mutableStateOf(listOf<UniqueSpool>()) }
     var allScans by remember { mutableStateOf(listOf<ScanHistory>()) }
     var availableFilamentTypes by remember { mutableStateOf(setOf<String>()) }
+    var availableColors by remember { mutableStateOf(setOf<String>()) }
+    var availableBaseMaterials by remember { mutableStateOf(setOf<String>()) }
+    var availableMaterialSeries by remember { mutableStateOf(setOf<String>()) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    var showGroupByMenu by remember { mutableStateOf(false) }
     
     // Load data
     LaunchedEffect(Unit) {
@@ -77,12 +86,29 @@ fun HomeScreen(
             spools = repository.getUniqueSpools()
             allScans = repository.getAllScans()
             availableFilamentTypes = allScans
+                .mapNotNull { it.filamentInfo?.detailedFilamentType }
+                .toSet()
+            availableColors = allScans
+                .mapNotNull { it.filamentInfo?.colorName }
+                .toSet()
+            availableBaseMaterials = allScans
                 .mapNotNull { it.filamentInfo?.filamentType }
+                .toSet()
+            availableMaterialSeries = allScans
+                .mapNotNull { it.filamentInfo?.detailedFilamentType }
+                .mapNotNull { detailedType ->
+                    // Extract series from detailed type (e.g., "Basic" from "PLA Basic")
+                    val parts = detailedType.split(" ")
+                    if (parts.size >= 2) parts.drop(1).joinToString(" ") else null
+                }
                 .toSet()
         } catch (e: Exception) {
             spools = emptyList()
             allScans = emptyList()
             availableFilamentTypes = emptySet()
+            availableColors = emptySet()
+            availableBaseMaterials = emptySet()
+            availableMaterialSeries = emptySet()
         } finally {
             isLoading = false
         }
@@ -106,14 +132,19 @@ fun HomeScreen(
         DataBrowserScreen(
             viewMode = viewMode,
             sortOption = sortOption,
+            groupByOption = groupByOption,
             filterState = filterState,
             spools = spools,
             allScans = allScans,
             availableFilamentTypes = availableFilamentTypes,
+            availableColors = availableColors,
+            availableBaseMaterials = availableBaseMaterials,
+            availableMaterialSeries = availableMaterialSeries,
             showSortMenu = showSortMenu,
             showFilterMenu = showFilterMenu,
             onViewModeChange = { viewMode = it },
             onSortOptionChange = { sortOption = it },
+            onGroupByOptionChange = { groupByOption = it },
             onFilterStateChange = { filterState = it },
             onShowSortMenu = { showSortMenu = it },
             onShowFilterMenu = { showFilterMenu = it },
@@ -127,14 +158,19 @@ fun HomeScreen(
 private fun DataBrowserScreen(
     viewMode: ViewMode,
     sortOption: SortOption,
+    groupByOption: GroupByOption,
     filterState: FilterState,
     spools: List<UniqueSpool>,
     allScans: List<ScanHistory>,
     availableFilamentTypes: Set<String>,
+    availableColors: Set<String>,
+    availableBaseMaterials: Set<String>,
+    availableMaterialSeries: Set<String>,
     showSortMenu: Boolean,
     showFilterMenu: Boolean,
     onViewModeChange: (ViewMode) -> Unit,
     onSortOptionChange: (SortOption) -> Unit,
+    onGroupByOptionChange: (GroupByOption) -> Unit,
     onFilterStateChange: (FilterState) -> Unit,
     onShowSortMenu: (Boolean) -> Unit,
     onShowFilterMenu: (Boolean) -> Unit,
@@ -142,6 +178,9 @@ private fun DataBrowserScreen(
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
+    
+    // Local state for GroupBy menu
+    var showGroupByMenu by remember { mutableStateOf(false) }
     
     // Pager state for swipeable tabs with wrap-around
     val tabCount = ViewMode.values().size
@@ -196,7 +235,9 @@ private fun DataBrowserScreen(
         rememberLazyListState(), // SPOOLS
         rememberLazyListState(), // SKUS
         rememberLazyListState(), // TAGS  
-        rememberLazyListState()  // SCANS
+        rememberLazyListState(), // SCANS
+        rememberLazyListState(), // BY_COLOR
+        rememberLazyListState()  // BY_MATERIAL
     )
     
     // NestedScrollConnection for scan prompt reveal/hide
@@ -288,7 +329,16 @@ private fun DataBrowserScreen(
                             pagerState.animateScrollToPage(targetPage)
                         }
                     },
-                    text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                    text = { 
+                        Text(
+                            when (mode) {
+                                ViewMode.SPOOLS -> "Spools"
+                                ViewMode.SKUS -> "SKUs"
+                                ViewMode.TAGS -> "Tags"
+                                ViewMode.SCANS -> "Scans"
+                            }
+                        )
+                    },
                     icon = { 
                         Icon(
                             imageVector = when (mode) {
@@ -328,6 +378,8 @@ private fun DataBrowserScreen(
                             SortOption.OLDEST -> "Oldest"
                             SortOption.NAME -> "Name"
                             SortOption.SUCCESS_RATE -> "Success Rate"
+                            SortOption.COLOR -> "Color"
+                            SortOption.MATERIAL_TYPE -> "Material"
                         }
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -347,6 +399,8 @@ private fun DataBrowserScreen(
                                         SortOption.OLDEST -> "Oldest"
                                         SortOption.NAME -> "Name"
                                         SortOption.SUCCESS_RATE -> "Success Rate"
+                                        SortOption.COLOR -> "Color"
+                                        SortOption.MATERIAL_TYPE -> "Material"
                                     }
                                 )
                             },
@@ -374,6 +428,9 @@ private fun DataBrowserScreen(
                 Text("Filter")
                 // Show badge if filters are active
                 if (filterState.filamentTypes.isNotEmpty() || 
+                    filterState.colors.isNotEmpty() ||
+                    filterState.baseMaterials.isNotEmpty() ||
+                    filterState.materialSeries.isNotEmpty() ||
                     filterState.minSuccessRate > 0f || 
                     filterState.showSuccessOnly || 
                     filterState.showFailuresOnly || 
@@ -384,10 +441,63 @@ private fun DataBrowserScreen(
                     ) {}
                 }
             }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // GroupBy dropdown
+            Text(
+                text = "Group by:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Box {
+                OutlinedButton(
+                    onClick = { showGroupByMenu = true }
+                ) {
+                    Text(
+                        text = when (groupByOption) {
+                            GroupByOption.NONE -> "None"
+                            GroupByOption.COLOR -> "Color"
+                            GroupByOption.BASE_MATERIAL -> "Material"
+                            GroupByOption.MATERIAL_SERIES -> "Series"
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+                
+                DropdownMenu(
+                    expanded = showGroupByMenu,
+                    onDismissRequest = { showGroupByMenu = false }
+                ) {
+                    GroupByOption.values().forEach { option ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    when (option) {
+                                        GroupByOption.NONE -> "None"
+                                        GroupByOption.COLOR -> "Color"
+                                        GroupByOption.BASE_MATERIAL -> "Material"
+                                        GroupByOption.MATERIAL_SERIES -> "Series"
+                                    }
+                                )
+                            },
+                            onClick = {
+                                onGroupByOptionChange(option)
+                                showGroupByMenu = false
+                            }
+                        )
+                    }
+                }
+            }
         }
         
         // Active filter chips
         if (filterState.filamentTypes.isNotEmpty() || 
+            filterState.colors.isNotEmpty() ||
+            filterState.baseMaterials.isNotEmpty() ||
+            filterState.materialSeries.isNotEmpty() ||
             filterState.minSuccessRate > 0f || 
             filterState.showSuccessOnly || 
             filterState.showFailuresOnly || 
@@ -411,6 +521,60 @@ private fun DataBrowserScreen(
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "Remove filter",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+                
+                items(filterState.colors.toList()) { color ->
+                    InputChip(
+                        onClick = { 
+                            val newColors = filterState.colors - color
+                            onFilterStateChange(filterState.copy(colors = newColors))
+                        },
+                        label = { Text(color) },
+                        selected = false,
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove color filter",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+                
+                items(filterState.baseMaterials.toList()) { material ->
+                    InputChip(
+                        onClick = { 
+                            val newMaterials = filterState.baseMaterials - material
+                            onFilterStateChange(filterState.copy(baseMaterials = newMaterials))
+                        },
+                        label = { Text(material) },
+                        selected = false,
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove base material filter",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+                
+                items(filterState.materialSeries.toList()) { series ->
+                    InputChip(
+                        onClick = { 
+                            val newSeries = filterState.materialSeries - series
+                            onFilterStateChange(filterState.copy(materialSeries = newSeries))
+                        },
+                        label = { Text(series) },
+                        selected = false,
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove material series filter",
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -510,10 +674,10 @@ private fun DataBrowserScreen(
         ) { page ->
             val actualPage = page % tabCount
             when (ViewMode.values()[actualPage]) {
-                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, filterState, lazyListStates[actualPage])
-                ViewMode.SKUS -> SkusList(allScans, sortOption, filterState, lazyListStates[actualPage])
-                ViewMode.TAGS -> TagsList(allScans, sortOption, filterState, lazyListStates[actualPage])
-                ViewMode.SCANS -> ScansList(allScans, sortOption, filterState, lazyListStates[actualPage])
+                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SKUS -> SkusList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.TAGS -> TagsList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SCANS -> ScansList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
             }
         }
     }
@@ -523,6 +687,9 @@ private fun DataBrowserScreen(
         FilterDialog(
             filterState = filterState,
             availableFilamentTypes = availableFilamentTypes,
+            availableColors = availableColors,
+            availableBaseMaterials = availableBaseMaterials,
+            availableMaterialSeries = availableMaterialSeries,
             onFilterStateChange = onFilterStateChange,
             onDismiss = { onShowFilterMenu(false) }
         )
@@ -533,16 +700,41 @@ private fun DataBrowserScreen(
 private fun SpoolsList(
     spools: List<UniqueSpool>,
     sortOption: SortOption,
+    groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
 ) {
-    val filteredAndSortedSpools = remember(spools, sortOption, filterState) {
+    val filteredGroupedAndSortedSpools = remember(spools, sortOption, groupByOption, filterState) {
         val filtered = spools.filter { spool ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
                 true
             } else {
                 filterState.filamentTypes.contains(spool.filamentInfo.filamentType)
+            }
+            
+            // Filter by colors
+            val matchesColor = if (filterState.colors.isEmpty()) {
+                true
+            } else {
+                filterState.colors.contains(spool.filamentInfo.colorName)
+            }
+            
+            // Filter by base materials
+            val matchesBaseMaterial = if (filterState.baseMaterials.isEmpty()) {
+                true
+            } else {
+                val baseMaterial = spool.filamentInfo.filamentType.split(" ").firstOrNull() ?: ""
+                filterState.baseMaterials.contains(baseMaterial)
+            }
+            
+            // Filter by material series
+            val matchesMaterialSeries = if (filterState.materialSeries.isEmpty()) {
+                true
+            } else {
+                val parts = spool.filamentInfo.filamentType.split(" ")
+                val series = if (parts.size >= 2) parts.drop(1).joinToString(" ") else ""
+                filterState.materialSeries.contains(series)
             }
             
             // Filter by success rate
@@ -561,14 +753,30 @@ private fun SpoolsList(
                 spool.lastScanned.isAfter(cutoffDate)
             } ?: true
             
-            matchesFilamentType && matchesSuccessRate && matchesResultFilter && matchesDateRange
+            matchesFilamentType && matchesColor && matchesBaseMaterial && matchesMaterialSeries && 
+            matchesSuccessRate && matchesResultFilter && matchesDateRange
         }
         
-        when (sortOption) {
+        val sorted = when (sortOption) {
             SortOption.MOST_RECENT -> filtered.sortedByDescending { it.lastScanned }
             SortOption.OLDEST -> filtered.sortedBy { it.lastScanned }
             SortOption.NAME -> filtered.sortedBy { it.filamentInfo.colorName }
             SortOption.SUCCESS_RATE -> filtered.sortedByDescending { it.successRate }
+            SortOption.COLOR -> filtered.sortedBy { it.filamentInfo.colorName }
+            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.filamentInfo.filamentType }
+        }
+        
+        // Group the sorted spools if grouping is enabled
+        when (groupByOption) {
+            GroupByOption.NONE -> sorted.map { "ungrouped" to listOf(it) }
+            GroupByOption.COLOR -> sorted.groupBy { it.filamentInfo.colorName }.toList()
+            GroupByOption.BASE_MATERIAL -> sorted.groupBy { 
+                it.filamentInfo.filamentType.split(" ").firstOrNull() ?: "Unknown"
+            }.toList()
+            GroupByOption.MATERIAL_SERIES -> sorted.groupBy { 
+                val parts = it.filamentInfo.filamentType.split(" ")
+                if (parts.size >= 2) parts.drop(1).joinToString(" ") else "Basic"
+            }.toList()
         }
     }
     
@@ -578,8 +786,18 @@ private fun SpoolsList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(filteredAndSortedSpools) { spool ->
-            SpoolCard(spool = spool)
+        filteredGroupedAndSortedSpools.forEach { (groupKey, groupSpools) ->
+            // Show group header if grouping is enabled
+            if (groupByOption != GroupByOption.NONE) {
+                item(key = "header_$groupKey") {
+                    GroupHeader(title = groupKey, itemCount = groupSpools.size)
+                }
+            }
+            
+            // Show spools in the group
+            items(groupSpools, key = { it.uid }) { spool ->
+                SpoolCard(spool = spool)
+            }
         }
     }
 }
@@ -588,6 +806,7 @@ private fun SpoolsList(
 private fun SkusList(
     allScans: List<ScanHistory>,
     sortOption: SortOption,
+    groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
 ) {
@@ -618,13 +837,37 @@ private fun SkusList(
             }
     }
     
-    val filteredAndSortedSkus = remember(uniqueSkus, sortOption, filterState) {
+    val filteredGroupedAndSortedSkus = remember(uniqueSkus, sortOption, groupByOption, filterState) {
         val filtered = uniqueSkus.filter { sku ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
                 true
             } else {
                 filterState.filamentTypes.contains(sku.filamentInfo.filamentType)
+            }
+            
+            // Filter by colors
+            val matchesColor = if (filterState.colors.isEmpty()) {
+                true
+            } else {
+                filterState.colors.contains(sku.filamentInfo.colorName)
+            }
+            
+            // Filter by base materials
+            val matchesBaseMaterial = if (filterState.baseMaterials.isEmpty()) {
+                true
+            } else {
+                val baseMaterial = sku.filamentInfo.filamentType.split(" ").firstOrNull() ?: ""
+                filterState.baseMaterials.contains(baseMaterial)
+            }
+            
+            // Filter by material series
+            val matchesMaterialSeries = if (filterState.materialSeries.isEmpty()) {
+                true
+            } else {
+                val parts = sku.filamentInfo.filamentType.split(" ")
+                val series = if (parts.size >= 2) parts.drop(1).joinToString(" ") else ""
+                filterState.materialSeries.contains(series)
             }
             
             // Filter by success rate
@@ -643,14 +886,30 @@ private fun SkusList(
                 sku.lastScanned.isAfter(cutoffDate)
             } ?: true
             
-            matchesFilamentType && matchesSuccessRate && matchesResultFilter && matchesDateRange
+            matchesFilamentType && matchesColor && matchesBaseMaterial && matchesMaterialSeries && 
+            matchesSuccessRate && matchesResultFilter && matchesDateRange
         }
         
-        when (sortOption) {
+        val sorted = when (sortOption) {
             SortOption.MOST_RECENT -> filtered.sortedByDescending { it.lastScanned }
             SortOption.OLDEST -> filtered.sortedBy { it.lastScanned }
             SortOption.NAME -> filtered.sortedBy { it.filamentInfo.colorName }
             SortOption.SUCCESS_RATE -> filtered.sortedByDescending { it.successRate }
+            SortOption.COLOR -> filtered.sortedBy { it.filamentInfo.colorName }
+            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.filamentInfo.filamentType }
+        }
+        
+        // Group the sorted SKUs if grouping is enabled
+        when (groupByOption) {
+            GroupByOption.NONE -> sorted.map { "ungrouped" to listOf(it) }
+            GroupByOption.COLOR -> sorted.groupBy { it.filamentInfo.colorName }.toList()
+            GroupByOption.BASE_MATERIAL -> sorted.groupBy { 
+                it.filamentInfo.filamentType.split(" ").firstOrNull() ?: "Unknown"
+            }.toList()
+            GroupByOption.MATERIAL_SERIES -> sorted.groupBy { 
+                val parts = it.filamentInfo.filamentType.split(" ")
+                if (parts.size >= 2) parts.drop(1).joinToString(" ") else "Basic"
+            }.toList()
         }
     }
     
@@ -660,8 +919,18 @@ private fun SkusList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(filteredAndSortedSkus) { sku ->
-            SkuCard(sku = sku)
+        filteredGroupedAndSortedSkus.forEach { (groupKey, groupSkus) ->
+            // Show group header if grouping is enabled
+            if (groupByOption != GroupByOption.NONE) {
+                item(key = "header_$groupKey") {
+                    GroupHeader(title = groupKey, itemCount = groupSkus.size)
+                }
+            }
+            
+            // Show SKUs in the group
+            items(groupSkus, key = { it.skuKey }) { sku ->
+                SkuCard(sku = sku)
+            }
         }
     }
 }
@@ -670,6 +939,7 @@ private fun SkusList(
 private fun TagsList(
     allScans: List<ScanHistory>,
     sortOption: SortOption,
+    groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
 ) {
@@ -685,7 +955,7 @@ private fun TagsList(
             }
     }
     
-    val filteredAndSortedTags = remember(uniqueTags, sortOption, filterState, allScans) {
+    val filteredGroupedAndSortedTags = remember(uniqueTags, sortOption, groupByOption, filterState, allScans) {
         val tagSuccessRates = allScans.groupBy { it.uid }.mapValues { (_, scans) ->
             scans.count { it.scanResult == ScanResult.SUCCESS }.toFloat() / scans.size
         }
@@ -696,6 +966,33 @@ private fun TagsList(
                 true
             } else {
                 filamentInfo?.filamentType?.let { filterState.filamentTypes.contains(it) } ?: false
+            }
+            
+            // Filter by colors
+            val matchesColor = if (filterState.colors.isEmpty()) {
+                true
+            } else {
+                filamentInfo?.colorName?.let { filterState.colors.contains(it) } ?: false
+            }
+            
+            // Filter by base materials
+            val matchesBaseMaterial = if (filterState.baseMaterials.isEmpty()) {
+                true
+            } else {
+                filamentInfo?.filamentType?.split(" ")?.firstOrNull()?.let { 
+                    filterState.baseMaterials.contains(it) 
+                } ?: false
+            }
+            
+            // Filter by material series
+            val matchesMaterialSeries = if (filterState.materialSeries.isEmpty()) {
+                true
+            } else {
+                filamentInfo?.filamentType?.let { type ->
+                    val parts = type.split(" ")
+                    val series = if (parts.size >= 2) parts.drop(1).joinToString(" ") else ""
+                    filterState.materialSeries.contains(series)
+                } ?: false
             }
             
             // Filter by success rate
@@ -715,14 +1012,30 @@ private fun TagsList(
                 mostRecentScan.timestamp.isAfter(cutoffDate)
             } ?: true
             
-            matchesFilamentType && matchesSuccessRate && matchesResultFilter && matchesDateRange
+            matchesFilamentType && matchesColor && matchesBaseMaterial && matchesMaterialSeries && 
+            matchesSuccessRate && matchesResultFilter && matchesDateRange
         }
         
-        when (sortOption) {
+        val sorted = when (sortOption) {
             SortOption.MOST_RECENT -> filtered.sortedByDescending { it.second.timestamp }
             SortOption.OLDEST -> filtered.sortedBy { it.second.timestamp }
             SortOption.NAME -> filtered.sortedBy { it.third?.colorName ?: it.first }
             SortOption.SUCCESS_RATE -> filtered.sortedByDescending { tagSuccessRates[it.first] ?: 0f }
+            SortOption.COLOR -> filtered.sortedBy { it.third?.colorName ?: it.first }
+            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.third?.filamentType ?: "" }
+        }
+        
+        // Group the sorted tags if grouping is enabled
+        when (groupByOption) {
+            GroupByOption.NONE -> sorted.map { "ungrouped" to listOf(it) }
+            GroupByOption.COLOR -> sorted.groupBy { it.third?.colorName ?: "Unknown" }.toList()
+            GroupByOption.BASE_MATERIAL -> sorted.groupBy { 
+                it.third?.filamentType?.split(" ")?.firstOrNull() ?: "Unknown"
+            }.toList()
+            GroupByOption.MATERIAL_SERIES -> sorted.groupBy { 
+                val parts = it.third?.filamentType?.split(" ")
+                if (parts != null && parts.size >= 2) parts.drop(1).joinToString(" ") else "Basic"
+            }.toList()
         }
     }
     
@@ -732,13 +1045,23 @@ private fun TagsList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(filteredAndSortedTags) { (uid, mostRecentScan, filamentInfo) ->
-            TagCard(
-                uid = uid,
-                mostRecentScan = mostRecentScan,
-                filamentInfo = filamentInfo,
-                allScans = allScans
-            )
+        filteredGroupedAndSortedTags.forEach { (groupKey, groupTags) ->
+            // Show group header if grouping is enabled
+            if (groupByOption != GroupByOption.NONE) {
+                item(key = "header_$groupKey") {
+                    GroupHeader(title = groupKey, itemCount = groupTags.size)
+                }
+            }
+            
+            // Show tags in the group
+            items(groupTags, key = { it.first }) { (uid, mostRecentScan, filamentInfo) ->
+                TagCard(
+                    uid = uid,
+                    mostRecentScan = mostRecentScan,
+                    filamentInfo = filamentInfo,
+                    allScans = allScans
+                )
+            }
         }
     }
 }
@@ -747,16 +1070,44 @@ private fun TagsList(
 private fun ScansList(
     allScans: List<ScanHistory>,
     sortOption: SortOption,
+    groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
 ) {
-    val filteredAndSortedScans = remember(allScans, sortOption, filterState) {
+    val filteredGroupedAndSortedScans = remember(allScans, sortOption, groupByOption, filterState) {
         val filtered = allScans.filter { scan ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
                 true
             } else {
                 scan.filamentInfo?.filamentType?.let { filterState.filamentTypes.contains(it) } ?: false
+            }
+            
+            // Filter by colors
+            val matchesColor = if (filterState.colors.isEmpty()) {
+                true
+            } else {
+                scan.filamentInfo?.colorName?.let { filterState.colors.contains(it) } ?: false
+            }
+            
+            // Filter by base materials
+            val matchesBaseMaterial = if (filterState.baseMaterials.isEmpty()) {
+                true
+            } else {
+                scan.filamentInfo?.filamentType?.split(" ")?.firstOrNull()?.let { 
+                    filterState.baseMaterials.contains(it) 
+                } ?: false
+            }
+            
+            // Filter by material series
+            val matchesMaterialSeries = if (filterState.materialSeries.isEmpty()) {
+                true
+            } else {
+                scan.filamentInfo?.filamentType?.let { type ->
+                    val parts = type.split(" ")
+                    val series = if (parts.size >= 2) parts.drop(1).joinToString(" ") else ""
+                    filterState.materialSeries.contains(series)
+                } ?: false
             }
             
             // Filter by success rate (not directly applicable to individual scans, but we can filter by success/failure)
@@ -772,14 +1123,30 @@ private fun ScansList(
                 scan.timestamp.isAfter(cutoffDate)
             } ?: true
             
-            matchesFilamentType && matchesResultFilter && matchesDateRange
+            matchesFilamentType && matchesColor && matchesBaseMaterial && matchesMaterialSeries && 
+            matchesResultFilter && matchesDateRange
         }
         
-        when (sortOption) {
+        val sorted = when (sortOption) {
             SortOption.MOST_RECENT -> filtered.sortedByDescending { it.timestamp }
             SortOption.OLDEST -> filtered.sortedBy { it.timestamp }
             SortOption.NAME -> filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
             SortOption.SUCCESS_RATE -> filtered.sortedBy { it.scanResult != ScanResult.SUCCESS }
+            SortOption.COLOR -> filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
+            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.filamentInfo?.filamentType ?: "" }
+        }
+        
+        // Group the sorted scans if grouping is enabled
+        when (groupByOption) {
+            GroupByOption.NONE -> sorted.map { "ungrouped" to listOf(it) }
+            GroupByOption.COLOR -> sorted.groupBy { it.filamentInfo?.colorName ?: "Unknown" }.toList()
+            GroupByOption.BASE_MATERIAL -> sorted.groupBy { 
+                it.filamentInfo?.filamentType?.split(" ")?.firstOrNull() ?: "Unknown"
+            }.toList()
+            GroupByOption.MATERIAL_SERIES -> sorted.groupBy { 
+                val parts = it.filamentInfo?.filamentType?.split(" ")
+                if (parts != null && parts.size >= 2) parts.drop(1).joinToString(" ") else "Basic"
+            }.toList()
         }
     }
     
@@ -789,8 +1156,18 @@ private fun ScansList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(filteredAndSortedScans) { scan ->
-            ScanCard(scan = scan)
+        filteredGroupedAndSortedScans.forEach { (groupKey, groupScans) ->
+            // Show group header if grouping is enabled
+            if (groupByOption != GroupByOption.NONE) {
+                item(key = "header_$groupKey") {
+                    GroupHeader(title = groupKey, itemCount = groupScans.size)
+                }
+            }
+            
+            // Show scans in the group
+            items(groupScans, key = { "${it.uid}_${it.timestamp}" }) { scan ->
+                ScanCard(scan = scan)
+            }
         }
     }
 }
@@ -1193,11 +1570,307 @@ private fun SkuCard(
     }
 }
 
+        allScans
+            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+            .filter { scan ->
+                // Apply existing filters
+                val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
+                    true
+                } else {
+                    filterState.filamentTypes.contains(scan.filamentInfo!!.detailedFilamentType)
+                }
+                
+                val matchesMaterial = if (filterState.materials.isEmpty()) {
+                    true
+                } else {
+                    filterState.materials.contains(scan.filamentInfo!!.filamentType)
+                }
+                
+                val matchesColor = if (filterState.colors.isEmpty()) {
+                    true
+                } else {
+                    filterState.colors.contains(scan.filamentInfo!!.colorName)
+                }
+                
+                val matchesDateRange = filterState.dateRangeDays?.let { days ->
+                    val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
+                    scan.timestamp.isAfter(cutoffDate)
+                } ?: true
+                
+                matchesFilamentType && matchesMaterial && matchesColor && matchesDateRange
+            }
+            .groupBy { it.filamentInfo!!.colorName }
+            .map { (colorName, scans) ->
+                val totalScans = scans.size
+                val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
+                val uniqueSpools = scans.distinctBy { it.filamentInfo!!.trayUid }.size
+                val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
+                val mostRecentFilament = scans.maxByOrNull { it.timestamp }?.filamentInfo
+                val materialVariantCount = scans.distinctBy { "${it.filamentInfo!!.filamentType}-${it.filamentInfo.detailedFilamentType}" }.size
+                
+                ColorGroupInfo(
+                    colorName = scans.first().filamentInfo!!.colorName,
+                    colorHex = scans.first().filamentInfo!!.colorHex,
+                    spoolCount = uniqueSpools,
+                    totalScans = totalScans,
+                    successfulScans = successfulScans,
+                    lastScanned = lastScanned ?: java.time.LocalDateTime.now(),
+                    successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f,
+                    filamentInfo = mostRecentFilament!!
+                ) to materialVariantCount
+            }
+    }
+    
+    val sortedColorGroups = remember(colorGroups, sortOption) {
+        when (sortOption) {
+            SortOption.MOST_RECENT -> colorGroups.sortedByDescending { it.first.lastScanned }
+            SortOption.OLDEST -> colorGroups.sortedBy { it.first.lastScanned }
+            SortOption.NAME, SortOption.COLOR -> colorGroups.sortedBy { it.first.colorName }
+            SortOption.SUCCESS_RATE -> colorGroups.sortedByDescending { it.first.successRate }
+            SortOption.MATERIAL_TYPE -> colorGroups.sortedBy { it.first.filamentInfo.filamentType }
+        }
+    }
+    
+    LazyColumn(
+        state = lazyListState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(sortedColorGroups) { (colorInfo, materialCount) ->
+            ColorGroupCard(
+                colorInfo = colorInfo,
+                materialCount = materialCount
+            )
+        }
+    }
+}
+
+@Composable
+private fun ByMaterialList(
+    allScans: List<ScanHistory>,
+    sortOption: SortOption,
+    filterState: FilterState,
+    lazyListState: LazyListState
+) {
+    // Group scans by material type
+    val materialGroups = remember(allScans, filterState) {
+        allScans
+            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+            .filter { scan ->
+                // Apply existing filters
+                val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
+                    true
+                } else {
+                    filterState.filamentTypes.contains(scan.filamentInfo!!.detailedFilamentType)
+                }
+                
+                val matchesMaterial = if (filterState.materials.isEmpty()) {
+                    true
+                } else {
+                    filterState.materials.contains(scan.filamentInfo!!.filamentType)
+                }
+                
+                val matchesColor = if (filterState.colors.isEmpty()) {
+                    true
+                } else {
+                    filterState.colors.contains(scan.filamentInfo!!.colorName)
+                }
+                
+                val matchesDateRange = filterState.dateRangeDays?.let { days ->
+                    val cutoffDate = java.time.LocalDateTime.now().minusDays(days.toLong())
+                    scan.timestamp.isAfter(cutoffDate)
+                } ?: true
+                
+                matchesFilamentType && matchesMaterial && matchesColor && matchesDateRange
+            }
+            .groupBy { it.filamentInfo!!.filamentType }
+            .mapValues { (_, scans) ->
+                val totalScans = scans.size
+                val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
+                val uniqueSpools = scans.distinctBy { it.filamentInfo!!.trayUid }.size
+                val uniqueColors = scans.distinctBy { it.filamentInfo!!.colorName }.size
+                val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
+                val mostRecentFilament = scans.maxByOrNull { it.timestamp }?.filamentInfo
+                
+                MaterialGroupInfo(
+                    materialType = scans.first().filamentInfo!!.filamentType,
+                    spoolCount = uniqueSpools,
+                    colorCount = uniqueColors,
+                    totalScans = totalScans,
+                    successfulScans = successfulScans,
+                    lastScanned = lastScanned ?: java.time.LocalDateTime.now(),
+                    successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f,
+                    filamentInfo = mostRecentFilament!!
+                )
+            }
+    }
+    
+    val sortedMaterialGroups = remember(materialGroups, sortOption) {
+        when (sortOption) {
+            SortOption.MOST_RECENT -> materialGroups.values.sortedByDescending { it.lastScanned }
+            SortOption.OLDEST -> materialGroups.values.sortedBy { it.lastScanned }
+            SortOption.NAME, SortOption.MATERIAL_TYPE -> materialGroups.values.sortedBy { it.materialType }
+            SortOption.SUCCESS_RATE -> materialGroups.values.sortedByDescending { it.successRate }
+            SortOption.COLOR -> materialGroups.values.sortedBy { it.colorCount }
+        }
+    }
+    
+    LazyColumn(
+        state = lazyListState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(sortedMaterialGroups) { materialInfo ->
+            MaterialGroupCard(materialInfo = materialInfo)
+        }
+    }
+}
+
+data class ColorGroupInfo(
+    val colorName: String,
+    val colorHex: String,
+    val spoolCount: Int,
+    val totalScans: Int,
+    val successfulScans: Int,
+    val lastScanned: java.time.LocalDateTime,
+    val successRate: Float,
+    val filamentInfo: com.bscan.model.FilamentInfo
+)
+
+data class MaterialGroupInfo(
+    val materialType: String,
+    val spoolCount: Int,
+    val colorCount: Int,
+    val totalScans: Int,
+    val successfulScans: Int,
+    val lastScanned: java.time.LocalDateTime,
+    val successRate: Float,
+    val filamentInfo: com.bscan.model.FilamentInfo
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ColorGroupCard(
+    colorInfo: ColorGroupInfo,
+    materialCount: Int,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Color preview
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = parseColor(colorInfo.colorHex),
+                        shape = CircleShape
+                    )
+            )
+            
+            // Color info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = colorInfo.colorName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Text(
+                    text = "${materialCount} material${if (materialCount != 1) "s" else ""} • ${colorInfo.spoolCount} spool${if (colorInfo.spoolCount != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Text(
+                    text = "${colorInfo.totalScans} scans • ${(colorInfo.successRate * 100).toInt()}% success",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable  
+private fun MaterialGroupCard(
+    materialInfo: MaterialGroupInfo,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Material icon
+            Icon(
+                imageVector = when (materialInfo.materialType) {
+                    "PLA" -> Icons.Default.Eco
+                    "PETG" -> Icons.Default.Science
+                    "ABS" -> Icons.Default.Engineering
+                    "TPU" -> Icons.Default.Extension
+                    "PC" -> Icons.Default.Engineering
+                    "PA" -> Icons.Default.Construction
+                    "ASA" -> Icons.Default.WbSunny
+                    "PVA" -> Icons.Default.WaterDrop
+                    else -> Icons.Default.Category
+                },
+                contentDescription = "${materialInfo.materialType} material",
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            
+            // Material info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = materialInfo.materialType,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Text(
+                    text = "${materialInfo.colorCount} color${if (materialInfo.colorCount != 1) "s" else ""} • ${materialInfo.spoolCount} spool${if (materialInfo.spoolCount != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Text(
+                    text = "${materialInfo.totalScans} scans • ${(materialInfo.successRate * 100).toInt()}% success",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterDialog(
     filterState: FilterState,
     availableFilamentTypes: Set<String>,
+    availableColors: Set<String>,
+    availableBaseMaterials: Set<String>,
+    availableMaterialSeries: Set<String>,
     onFilterStateChange: (FilterState) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1234,6 +1907,102 @@ private fun FilterDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(text = type)
+                        }
+                    }
+                    
+                    HorizontalDivider()
+                }
+                
+                // Colors filter
+                if (availableColors.isNotEmpty()) {
+                    Text(
+                        text = "Colors",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    availableColors.forEach { color ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = filterState.colors.contains(color),
+                                onCheckedChange = { checked ->
+                                    val newColors = if (checked) {
+                                        filterState.colors + color
+                                    } else {
+                                        filterState.colors - color
+                                    }
+                                    onFilterStateChange(filterState.copy(colors = newColors))
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = color)
+                        }
+                    }
+                    
+                    HorizontalDivider()
+                }
+                
+                // Base Materials filter
+                if (availableBaseMaterials.isNotEmpty()) {
+                    Text(
+                        text = "Base Materials",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    availableBaseMaterials.forEach { material ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = filterState.baseMaterials.contains(material),
+                                onCheckedChange = { checked ->
+                                    val newMaterials = if (checked) {
+                                        filterState.baseMaterials + material
+                                    } else {
+                                        filterState.baseMaterials - material
+                                    }
+                                    onFilterStateChange(filterState.copy(baseMaterials = newMaterials))
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = material)
+                        }
+                    }
+                    
+                    HorizontalDivider()
+                }
+                
+                // Material Series filter
+                if (availableMaterialSeries.isNotEmpty()) {
+                    Text(
+                        text = "Material Series",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    availableMaterialSeries.forEach { series ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Checkbox(
+                                checked = filterState.materialSeries.contains(series),
+                                onCheckedChange = { checked ->
+                                    val newSeries = if (checked) {
+                                        filterState.materialSeries + series
+                                    } else {
+                                        filterState.materialSeries - series
+                                    }
+                                    onFilterStateChange(filterState.copy(materialSeries = newSeries))
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = series)
                         }
                     }
                     
@@ -1347,6 +2116,42 @@ private fun FilterDialog(
             }
         }
     )
+}
+
+@Composable
+private fun GroupHeader(
+    title: String,
+    itemCount: Int,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "$itemCount ${if (itemCount == 1) "item" else "items"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 private fun parseColor(colorHex: String): Color {
