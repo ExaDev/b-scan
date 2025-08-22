@@ -111,6 +111,17 @@ private fun CombinedHomeScreen(
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Handle downward scrolls when at the top (reveal scan prompt)
+                if (available.y > 0 && lazyListState.firstVisibleItemIndex == 0 && 
+                    lazyListState.firstVisibleItemScrollOffset == 0) {
+                    
+                    isRevealing = true
+                    val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
+                    val consumed = newOffset - overscrollOffset
+                    overscrollOffset = newOffset
+                    return Offset(0f, consumed)
+                }
+                
                 // If scrolling up while scan prompt is visible, hide it first
                 if (available.y < 0 && overscrollOffset > 0) {
                     val consumed = minOf(-available.y, overscrollOffset)
@@ -125,7 +136,7 @@ private fun CombinedHomeScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // Handle overscroll at the top
+                // Handle any remaining overscroll at the top (for very fast scrolls)
                 if (available.y > 0 && lazyListState.firstVisibleItemIndex == 0 && 
                     lazyListState.firstVisibleItemScrollOffset == 0) {
                     
