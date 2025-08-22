@@ -1,0 +1,19 @@
+{
+  "name": "b-scan",
+  "version": "1.2.0",
+  "description": "Android application for reading and displaying Bambu Lab filament spool RFID tags",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mearman/b-scan.git"
+  },
+  "devDependencies": {
+    "semantic-release": "^22.0.12",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/exec": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^9.2.6",
+    "@semantic-release/commit-analyzer": "^11.1.0",
+    "@semantic-release/release-notes-generator": "^12.1.0"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "./gradlew assembleRelease bundleRelease -PversionName=${nextRelease.version} -PversionCode=${process.env.GITHUB_RUN_NUMBER} --parallel --build-cache --configuration-cache"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "app/build/outputs/apk/release/app-release.apk",
+            "name": "b-scan-${nextRelease.version}.apk",
+            "label": "Android APK"
+          },
+          {
+            "path": "app/build/outputs/bundle/release/app-release.aab",
+            "name": "b-scan-${nextRelease.version}.aab", 
+            "label": "Android App Bundle"
+          }
+        ],
+        "releaseBodyTemplate": "## 📱 Download\nDownload the appropriate file for your device:\n- **APK**: For direct installation on Android devices\n- **AAB**: For distribution via Google Play Store\n\n## 📋 Requirements\n- Android 10+ (API 29)\n- NFC-enabled device with NFC enabled\n\n## What's Changed\n\n{{changelog}}"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md", "version.txt"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}
