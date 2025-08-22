@@ -8,7 +8,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import kotlin.test.*
+import org.junit.Assert.*
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29])
@@ -43,7 +43,7 @@ class CachedBambuKeyDerivationTest {
         val cachedKeys = CachedBambuKeyDerivation.deriveKeys(testUID1)
         val directKeys = BambuKeyDerivation.deriveKeys(testUID1)
         
-        assertContentEquals(directKeys, cachedKeys)
+        assertTrue("Keys should be identical", directKeys.contentDeepEquals(cachedKeys))
     }
     
     @Test
@@ -54,11 +54,11 @@ class CachedBambuKeyDerivationTest {
         // Second call - should be cache hit
         val keys2 = CachedBambuKeyDerivation.deriveKeys(testUID1)
         
-        assertContentEquals(keys1, keys2)
+        assertTrue("Keys should be identical", keys1.contentDeepEquals(keys2))
         
         // Verify cache was used
         val hitRate = CachedBambuKeyDerivation.getCacheHitRate()
-        assertTrue(hitRate > 0f, "Cache hit rate should be greater than 0")
+        assertTrue("Cache hit rate should be greater than 0", hitRate > 0f)
     }
     
     @Test
@@ -75,7 +75,7 @@ class CachedBambuKeyDerivationTest {
         
         val stats = CachedBambuKeyDerivation.getCacheStatistics()
         assertNotNull(stats)
-        assertTrue(stats.getTotalHits() > 0)
+        assertTrue("Should have cache hits", stats!!.getTotalHits() > 0)
     }
     
     @Test
@@ -93,7 +93,7 @@ class CachedBambuKeyDerivationTest {
         
         // Should recompute
         val keys2 = CachedBambuKeyDerivation.deriveKeys(testUID1)
-        assertContentEquals(keys1, keys2) // Same result
+        assertTrue("Keys should be identical", keys1.contentDeepEquals(keys2)) // Same result
         
         stats = CachedBambuKeyDerivation.getCacheStatistics()!!
         assertTrue(stats.invalidations > 0)
@@ -136,9 +136,9 @@ class CachedBambuKeyDerivationTest {
         
         val sizes = CachedBambuKeyDerivation.getCacheSizes()
         assertNotNull(sizes)
-        assertTrue(sizes.memorySize > 0)
-        assertTrue(sizes.memoryMaxSize > 0)
-        assertTrue(sizes.persistentMaxSize > 0)
+        assertTrue("Memory size should be > 0", sizes!!.memorySize > 0)
+        assertTrue("Memory max size should be > 0", sizes.memoryMaxSize > 0)
+        assertTrue("Persistent max size should be > 0", sizes.persistentMaxSize > 0)
     }
     
     @Test
@@ -177,12 +177,12 @@ class CachedBambuKeyDerivationTest {
         }
         
         // Cache should be significantly faster for repeated operations
-        assertTrue(cachedTime < directTime, 
-            "Cached operations ($cachedTime ms) should be faster than direct operations ($directTime ms)")
+        assertTrue("Cached operations ($cachedTime ms) should be faster than direct operations ($directTime ms)",
+            cachedTime < directTime)
         
         // Verify high hit rate
         val hitRate = CachedBambuKeyDerivation.getCacheHitRate()
-        assertTrue(hitRate > 0.8f, "Hit rate should be high: $hitRate")
+        assertTrue("Hit rate should be high: $hitRate", hitRate > 0.8f)
     }
     
     @Test
@@ -190,7 +190,7 @@ class CachedBambuKeyDerivationTest {
         // Test deriveCachedKeys extension
         val keys1 = testUID1.deriveCachedKeys()
         val keys2 = CachedBambuKeyDerivation.deriveKeys(testUID1)
-        assertContentEquals(keys1, keys2)
+        assertTrue("Keys should be identical", keys1.contentDeepEquals(keys2))
         
         // Test preloadKeys extension
         try {
@@ -228,12 +228,12 @@ class CachedBambuKeyDerivationTest {
         // Verify all results are consistent
         val expectedKeys = BambuKeyDerivation.deriveKeys(testUID1)
         results.forEach { keys ->
-            assertContentEquals(expectedKeys, keys)
+            assertTrue("Keys should be identical", expectedKeys.contentDeepEquals(keys))
         }
         
         // Verify high cache hit rate due to concurrent access
         val stats = CachedBambuKeyDerivation.getCacheStatistics()!!
-        assertTrue(stats.getHitRate() > 0.8f, "Hit rate should be high with concurrent access")
+        assertTrue("Hit rate should be high with concurrent access", stats.getHitRate() > 0.8f)
     }
     
     private fun measureTimeMillis(block: () -> Unit): Long {
