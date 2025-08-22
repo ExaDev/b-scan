@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.*
@@ -34,6 +35,7 @@ import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.FilamentDetailsScreen
 import com.bscan.ui.screens.ScanPromptScreen
 import com.bscan.ui.screens.ErrorScreen
+import com.bscan.ui.screens.SpoolListScreen
 import com.bscan.ui.theme.BScanTheme
 import com.bscan.ui.components.ScanStateIndicator
 import com.bscan.ui.components.NfcStatusIndicator
@@ -61,6 +63,7 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             BScanTheme {
+                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 var showHistory by remember { mutableStateOf(false) }
                 val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
                 val uriHandler = LocalUriHandler.current
@@ -89,18 +92,27 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 
-                if (showHistory) {
-                    ScanHistoryScreen(
-                        onNavigateBack = { showHistory = false }
-                    )
-                } else {
-                    MainScreen(
-                        viewModel = viewModel,
-                        updateViewModel = updateViewModel,
-                        onResetScan = { viewModel.resetScan() },
-                        onShowHistory = { showHistory = true },
-                        onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
-                    )
+                when {
+                    showHistory -> {
+                        ScanHistoryScreen(
+                            onNavigateBack = { showHistory = false }
+                        )
+                    }
+                    uiState.showSpoolList -> {
+                        SpoolListScreen(
+                            onNavigateBack = { viewModel.hideSpoolList() }
+                        )
+                    }
+                    else -> {
+                        MainScreen(
+                            viewModel = viewModel,
+                            updateViewModel = updateViewModel,
+                            onResetScan = { viewModel.resetScan() },
+                            onShowHistory = { showHistory = true },
+                            onShowSpoolList = { viewModel.showSpoolList() },
+                            onPurgeCache = { uid -> nfcManager.invalidateTagCache(uid) }
+                        )
+                    }
                 }
             }
         }
@@ -222,6 +234,7 @@ fun MainScreen(
     updateViewModel: UpdateViewModel,
     onResetScan: () -> Unit,
     onShowHistory: () -> Unit,
+    onShowSpoolList: () -> Unit,
     onPurgeCache: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -256,6 +269,13 @@ fun MainScreen(
                                 contentDescription = "Check for updates"
                             )
                         }
+                    }
+                    
+                    IconButton(onClick = onShowSpoolList) {
+                        Icon(
+                            imageVector = Icons.Default.List,
+                            contentDescription = "View spool list"
+                        )
                     }
                     
                     IconButton(onClick = onShowHistory) {
