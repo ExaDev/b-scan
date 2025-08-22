@@ -353,38 +353,6 @@ jobs:
         # Get previous tag for changelog
         PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         
-        # Create temporary file for release notes
-        NOTES_FILE=$(mktemp)
-        
-        # Build release notes content
-        cat > "$NOTES_FILE" << 'ENDNOTES'
-        ## Download Information
-        - **APK**: Install directly on Android devices  
-        - **AAB**: For Google Play Store distribution
-
-        ## Requirements
-        - Android 10 (API 29) or higher
-        - NFC-enabled device
-        - NFC must be enabled in device settings
-
-        ## Build Information
-        ENDNOTES
-        
-        # Add dynamic build info
-        echo "- **Commit**: ${{ github.sha }}" >> "$NOTES_FILE"
-        echo "- **Version Code**: ${{ steps.build_version.outputs.version_code }}" >> "$NOTES_FILE"
-        echo "- **Build Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$NOTES_FILE"
-        echo "" >> "$NOTES_FILE"
-        
-        # Add quality gates
-        cat >> "$NOTES_FILE" << 'ENDNOTES'
-        ## Quality Gates Passed
-        ✅ Code quality checks  
-        ✅ Unit tests  
-        ✅ Security scan  
-        ✅ Performance analysis
-        ENDNOTES
-        
         # Check if artifact files exist
         APK_FILES=$(find artifacts/ -name "*.apk" -type f)
         AAB_FILES=$(find artifacts/ -name "*.aab" -type f)
@@ -396,18 +364,14 @@ jobs:
           exit 1
         fi
         
-        # Create release with auto-generated changelog and custom notes
+        # Create release using .github/release.yml template
         gh release create ${{ steps.build_version.outputs.tag }} \
           --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
           --generate-notes \
           ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} \
-          --notes-file "$NOTES_FILE" \
           --prerelease=false \
           $APK_FILES \
           $AAB_FILES
-          
-        # Clean up temporary file
-        rm -f "$NOTES_FILE"
 
   # Job 9: Notification (always runs, summarizes results)
   notify:
