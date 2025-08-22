@@ -59,7 +59,8 @@ fun FilamentDetailsScreen(
         item {
             WeightTrackingCard(
                 weightTrackingService = weightTrackingService,
-                spoolId = spoolId
+                spoolId = spoolId,
+                permissionHandler = viewModel.getBlePermissionHandler()
             )
         }
         

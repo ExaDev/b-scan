@@ -22,6 +22,8 @@ import androidx.core.app.ActivityCompat
 import com.bscan.model.BleScalesDevice
 import com.bscan.model.SpoolWeight
 import com.bscan.model.WeightMeasurementType
+import com.bscan.model.BleScalesConfig
+import com.bscan.model.BleScalesConfigs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,7 +50,7 @@ class BleScalesManager(private val context: Context) {
         // Client Characteristic Configuration Descriptor
         private val CLIENT_CHARACTERISTIC_CONFIG_UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
         
-        private const val SCAN_TIMEOUT_MS = 30000L
+        private const val SCAN_TIMEOUT_MS = 10000L // Reduced from 30s to 10s since we're using service filters
         private const val CONNECTION_TIMEOUT_MS = 10000L
     }
     
@@ -63,6 +65,9 @@ class BleScalesManager(private val context: Context) {
     
     // Connected devices and their GATT connections
     private val connectedGatts = ConcurrentHashMap<String, BluetoothGatt>()
+    
+    // Device configurations - maps device ID to scale config
+    private val deviceConfigs = ConcurrentHashMap<String, BleScalesConfig>()
     
     // StateFlows for reactive updates
     private val _discoveredDevicesFlow = MutableStateFlow<List<BleScalesDevice>>(emptyList())
@@ -89,7 +94,7 @@ class BleScalesManager(private val context: Context) {
     /**
      * Starts scanning for BLE scales devices
      */
-    fun startScan() {
+    fun startScan(useServiceFilters: Boolean = true) {
         if (!isBluetoothEnabled()) {
             Log.w(TAG, "Bluetooth is not enabled")
             return
@@ -105,13 +110,24 @@ class BleScalesManager(private val context: Context) {
             return
         }
         
-        Log.d(TAG, "Starting BLE scan for scales devices")
+        Log.d(TAG, "Starting BLE scan for scales devices (filtered: $useServiceFilters)")
         
-        val scanFilters = listOf(
-            ScanFilter.Builder()
-                .setServiceUuid(ParcelUuid(WEIGHT_SERVICE_UUID))
-                .build()
-        )
+        // Create scan filters for known scale service UUIDs (or empty for unfiltered scan)
+        val scanFilters = if (useServiceFilters) {
+            BleScalesConfigs.ALL_CONFIGS.map { config ->
+                ScanFilter.Builder()
+                    .setServiceUuid(ParcelUuid(UUID.fromString(config.serviceUuid)))
+                    .build()
+            }
+        } else {
+            emptyList()
+        }
+        
+        if (useServiceFilters) {
+            Log.d(TAG, "Scanning for ${scanFilters.size} known scale service UUIDs: ${BleScalesConfigs.ALL_CONFIGS.joinToString(", ") { it.serviceUuid }}")
+        } else {
+            Log.d(TAG, "Scanning for all BLE devices (unfiltered mode for debugging)")
+        }
         
         val scanSettings = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -259,14 +275,32 @@ class BleScalesManager(private val context: Context) {
             val device = result.device
             val deviceId = device.address
             
-            // Skip devices without names or with weak signals
+            // Get device name with enhanced logging
             val deviceName = try {
-                device.name ?: "Unknown Scales"
+                device.name ?: "Unknown Device"
             } catch (e: SecurityException) {
-                "Unknown Scales"
+                "Unknown Device"
             }
             
-            if (result.rssi < -80) return // Skip very weak signals
+            // Log all discovered devices for debugging
+            val serviceUuids = result.scanRecord?.serviceUuids?.joinToString(", ") { it.toString() } ?: "None"
+            Log.d(TAG, "BLE Device Found: $deviceName ($deviceId) RSSI: ${result.rssi}dBm, Services: $serviceUuids")
+            
+            // Check if this device matches any known scale configurations
+            val matchingConfig = result.scanRecord?.serviceUuids?.firstNotNullOfOrNull { serviceUuid ->
+                BleScalesConfigs.getConfigByServiceUuid(serviceUuid.toString())
+            }
+            
+            if (matchingConfig != null) {
+                Log.d(TAG, "Device $deviceName matches scale config: ${matchingConfig.name} (${matchingConfig.manufacturer} ${matchingConfig.model})")
+                deviceConfigs[deviceId] = matchingConfig
+            }
+            
+            // Skip very weak signals but be more permissive for debugging
+            if (result.rssi < -90) {
+                Log.d(TAG, "Skipping device $deviceName due to weak signal: ${result.rssi}dBm")
+                return
+            }
             
             val bleDevice = BleScalesDevice(
                 deviceId = deviceId,
@@ -279,7 +313,7 @@ class BleScalesManager(private val context: Context) {
             discoveredDevices[deviceId] = bleDevice
             _discoveredDevicesFlow.value = discoveredDevices.values.toList()
             
-            Log.d(TAG, "Discovered scales device: $deviceName ($deviceId) RSSI: ${result.rssi}")
+            Log.d(TAG, "Added to discovered devices: $deviceName ($deviceId)")
         }
         
         override fun onScanFailed(errorCode: Int) {
@@ -316,27 +350,56 @@ class BleScalesManager(private val context: Context) {
         
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Services discovered for device: ${gatt.device.address}")
+                val deviceId = gatt.device.address
+                Log.d(TAG, "Services discovered for device: $deviceId")
+                
+                // Log all available services and characteristics for debugging
+                gatt.services.forEach { service ->
+                    Log.d(TAG, "Service UUID: ${service.uuid}")
+                    service.characteristics.forEach { characteristic ->
+                        val properties = mutableListOf<String>()
+                        if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_READ != 0) properties.add("READ")
+                        if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_WRITE != 0) properties.add("WRITE")
+                        if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0) properties.add("NOTIFY")
+                        if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0) properties.add("INDICATE")
+                        
+                        Log.d(TAG, "  Characteristic UUID: ${characteristic.uuid}, Properties: ${properties.joinToString(", ")}")
+                    }
+                }
                 
                 // Subscribe to weight measurements
                 subscribeToWeightMeasurements(gatt)
                 
                 // Read battery level if available
                 readBatteryLevel(gatt)
+            } else {
+                Log.e(TAG, "Service discovery failed for device: ${gatt.device.address}, status: $status")
             }
         }
         
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             val deviceId = gatt.device.address
+            val config = deviceConfigs[deviceId]
             
-            when (characteristic.uuid) {
-                WEIGHT_MEASUREMENT_UUID -> {
-                    val weight = parseWeightMeasurement(characteristic.value)
-                    if (weight > 0) {
-                        Log.d(TAG, "Weight measurement from $deviceId: ${weight}g")
-                        _weightMeasurementFlow.value = Pair(deviceId, weight)
-                    }
+            Log.d(TAG, "Characteristic changed for device $deviceId: ${characteristic.uuid}")
+            
+            // Check if this is a weight measurement characteristic
+            val isWeightCharacteristic = if (config != null) {
+                characteristic.uuid.toString().equals(config.weightCharacteristicUuid, ignoreCase = true)
+            } else {
+                characteristic.uuid == WEIGHT_MEASUREMENT_UUID
+            }
+            
+            if (isWeightCharacteristic) {
+                val weight = parseWeightMeasurement(deviceId, characteristic.value)
+                if (weight > 0) {
+                    Log.d(TAG, "Weight measurement from $deviceId: ${weight}g")
+                    _weightMeasurementFlow.value = Pair(deviceId, weight)
+                } else {
+                    Log.d(TAG, "Invalid or zero weight measurement from $deviceId")
                 }
+            } else {
+                Log.d(TAG, "Ignoring non-weight characteristic: ${characteristic.uuid}")
             }
         }
         
@@ -359,20 +422,53 @@ class BleScalesManager(private val context: Context) {
     }
     
     private fun subscribeToWeightMeasurements(gatt: BluetoothGatt) {
-        val weightService = gatt.getService(WEIGHT_SERVICE_UUID)
-        val weightCharacteristic = weightService?.getCharacteristic(WEIGHT_MEASUREMENT_UUID)
+        val deviceId = gatt.device.address
+        val config = deviceConfigs[deviceId]
         
-        if (weightCharacteristic != null) {
-            try {
-                gatt.setCharacteristicNotification(weightCharacteristic, true)
-                
-                val descriptor = weightCharacteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
-                descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                gatt.writeDescriptor(descriptor)
-                
-                Log.d(TAG, "Subscribed to weight measurements")
-            } catch (e: SecurityException) {
-                Log.e(TAG, "Security exception subscribing to notifications: ${e.message}")
+        if (config != null) {
+            Log.d(TAG, "Using scale config for $deviceId: ${config.name}")
+            
+            // Try to find the configured service and characteristic
+            val serviceUuid = UUID.fromString(config.serviceUuid)
+            val characteristicUuid = UUID.fromString(config.weightCharacteristicUuid)
+            
+            val weightService = gatt.getService(serviceUuid)
+            val weightCharacteristic = weightService?.getCharacteristic(characteristicUuid)
+            
+            if (weightCharacteristic != null) {
+                try {
+                    gatt.setCharacteristicNotification(weightCharacteristic, true)
+                    
+                    val descriptor = weightCharacteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
+                    descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    gatt.writeDescriptor(descriptor)
+                    
+                    Log.d(TAG, "Subscribed to weight measurements for ${config.name}")
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Security exception subscribing to notifications: ${e.message}")
+                }
+            } else {
+                Log.w(TAG, "Weight characteristic not found for ${config.name}: $characteristicUuid")
+            }
+        } else {
+            // Fallback to standard weight scale service
+            Log.d(TAG, "No specific config found for $deviceId, trying standard weight scale service")
+            
+            val weightService = gatt.getService(WEIGHT_SERVICE_UUID)
+            val weightCharacteristic = weightService?.getCharacteristic(WEIGHT_MEASUREMENT_UUID)
+            
+            if (weightCharacteristic != null) {
+                try {
+                    gatt.setCharacteristicNotification(weightCharacteristic, true)
+                    
+                    val descriptor = weightCharacteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIG_UUID)
+                    descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    gatt.writeDescriptor(descriptor)
+                    
+                    Log.d(TAG, "Subscribed to standard weight measurements")
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Security exception subscribing to notifications: ${e.message}")
+                }
             }
         }
     }
@@ -390,23 +486,15 @@ class BleScalesManager(private val context: Context) {
         }
     }
     
-    private fun parseWeightMeasurement(data: ByteArray): Float {
+    private fun parseWeightMeasurement(deviceId: String, data: ByteArray): Float {
         if (data.isEmpty()) return 0f
         
-        // Weight Scale Service measurement format (simplified)
-        // This is a basic implementation - actual parsing depends on scales protocol
-        return try {
-            // Assuming weight is stored as 16-bit integer in grams (little-endian)
-            if (data.size >= 2) {
-                val weightRaw = (data[0].toInt() and 0xFF) or ((data[1].toInt() and 0xFF) shl 8)
-                weightRaw.toFloat()
-            } else {
-                0f
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing weight measurement: ${e.message}")
-            0f
-        }
+        val config = deviceConfigs[deviceId]
+        val parser = config?.weightParser ?: com.bscan.model.WeightParser.STANDARD_16BIT_GRAMS
+        
+        Log.d(TAG, "Parsing weight for device $deviceId using parser: $parser")
+        
+        return WeightDataParser.parseWeight(data, parser)
     }
     
     private fun updateConnectionState(deviceId: String, isConnected: Boolean) {

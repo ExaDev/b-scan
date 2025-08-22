@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.model.BleScalesDevice
 import com.bscan.model.SpoolWeight
 import com.bscan.model.SpoolWeightStats
+import com.bscan.permissions.BlePermissionState
 import com.bscan.service.WeightTrackingService
 import java.time.format.DateTimeFormatter
 
@@ -37,8 +38,12 @@ import java.time.format.DateTimeFormatter
 fun WeightTrackingCard(
     weightTrackingService: WeightTrackingService,
     spoolId: String,
+    permissionHandler: com.bscan.permissions.BlePermissionHandler? = null,
     modifier: Modifier = Modifier
 ) {
+    val permissionState by (permissionHandler?.permissionState?.collectAsStateWithLifecycle() 
+        ?: mutableStateOf(BlePermissionState.DENIED))
+    
     val discoveredDevices by weightTrackingService.getDiscoveredDevices().collectAsStateWithLifecycle()
     val connectionStates by weightTrackingService.getConnectionStates().collectAsStateWithLifecycle()
     val batteryLevels by weightTrackingService.getBatteryLevels().collectAsStateWithLifecycle()
@@ -53,6 +58,7 @@ fun WeightTrackingCard(
     }
     
     var isExpanded by remember { mutableStateOf(false) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -108,34 +114,51 @@ fun WeightTrackingCard(
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Service status
-                ServiceStatusSection(
-                    isRunning = isServiceRunning,
-                    onStartService = { weightTrackingService.start() },
-                    onStopService = { weightTrackingService.stop() },
-                    onScanDevices = { weightTrackingService.scanForDevices() }
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // BLE Devices section
-                if (discoveredDevices.isNotEmpty()) {
-                    BleDevicesSection(
-                        devices = discoveredDevices,
-                        connectionStates = connectionStates,
-                        batteryLevels = batteryLevels,
-                        onConnectDevice = { deviceId -> weightTrackingService.connectToDevice(deviceId) },
-                        onDisconnectDevice = { deviceId -> weightTrackingService.disconnectFromDevice(deviceId) }
+                // Check permissions first
+                if (permissionState != BlePermissionState.GRANTED) {
+                    // Show permission prompt
+                    PermissionPromptSection(
+                        permissionState = permissionState,
+                        onRequestPermissions = { showPermissionDialog = true }
                     )
                 } else {
-                    Text(
-                        text = "No BLE scales devices found",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    // Service status
+                    ServiceStatusSection(
+                        isRunning = isServiceRunning,
+                        onStartService = { weightTrackingService.start() },
+                        onStopService = { weightTrackingService.stop() },
+                        onScanDevices = { weightTrackingService.scanForDevices() }
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // BLE Devices section
+                    if (discoveredDevices.isNotEmpty()) {
+                        BleDevicesSection(
+                            devices = discoveredDevices,
+                            connectionStates = connectionStates,
+                            batteryLevels = batteryLevels,
+                            onConnectDevice = { deviceId -> weightTrackingService.connectToDevice(deviceId) },
+                            onDisconnectDevice = { deviceId -> weightTrackingService.disconnectFromDevice(deviceId) }
+                        )
+                    } else {
+                        Text(
+                            text = "No BLE scales devices found",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
+    }
+    
+    // Permission dialog
+    if (showPermissionDialog && permissionHandler != null) {
+        BlePermissionDialog(
+            permissionHandler = permissionHandler,
+            onDismiss = { showPermissionDialog = false }
+        )
     }
 }
 
@@ -363,6 +386,61 @@ private fun BleDeviceChip(
             )
         }
     )
+}
+
+@Composable
+private fun PermissionPromptSection(
+    permissionState: BlePermissionState,
+    onRequestPermissions: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bluetooth,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "BLE Permissions Required",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            Text(
+                text = when (permissionState) {
+                    BlePermissionState.CHECKING -> "Checking BLE permissions..."
+                    BlePermissionState.REQUESTING -> "Please grant the requested permissions in the system dialog."
+                    BlePermissionState.DENIED -> "BLE scales integration requires Bluetooth and location permissions to discover and connect to devices."
+                    BlePermissionState.GRANTED -> "Permissions granted"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            
+            if (permissionState == BlePermissionState.DENIED) {
+                Button(
+                    onClick = onRequestPermissions,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Grant Permissions")
+                }
+            }
+        }
+    }
 }
 
 private fun getBatteryIcon(batteryLevel: Int): ImageVector {

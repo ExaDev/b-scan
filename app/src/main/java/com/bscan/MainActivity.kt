@@ -46,12 +46,14 @@ import com.bscan.ui.theme.BScanTheme
 import com.bscan.ui.components.ScanStateIndicator
 import com.bscan.ui.components.NfcStatusIndicator
 import com.bscan.viewmodel.UpdateViewModel
+import com.bscan.permissions.BlePermissionHandler
 
 class MainActivity : ComponentActivity() {
     
     private lateinit var nfcManager: NfcManager
     private val viewModel: MainViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
+    private lateinit var blePermissionHandler: BlePermissionHandler
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,6 +62,13 @@ class MainActivity : ComponentActivity() {
         CachedBambuKeyDerivation.initialize(this)
         
         nfcManager = NfcManager(this)
+        blePermissionHandler = BlePermissionHandler(this)
+        
+        // Set the permission handler in the ViewModel
+        viewModel.setBlePermissionHandler(blePermissionHandler)
+        
+        // Initialize permission state
+        blePermissionHandler.checkPermissions()
         
         if (!nfcManager.isNfcAvailable()) {
             Toast.makeText(this, "NFC is not supported on this device", Toast.LENGTH_LONG).show()

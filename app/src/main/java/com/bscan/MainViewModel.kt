@@ -9,6 +9,7 @@ import com.bscan.decoder.BambuTagDecoder
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TrayTrackingRepository
 import com.bscan.service.WeightTrackingService
+import com.bscan.permissions.BlePermissionHandler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val scanHistoryRepository = ScanHistoryRepository(application)
     private val trayTrackingRepository = TrayTrackingRepository(application)
     private val weightTrackingService = WeightTrackingService(application)
+    
+    private var blePermissionHandler: BlePermissionHandler? = null
     
     fun onTagDetected() {
         _uiState.value = _uiState.value.copy(
@@ -162,9 +165,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = BScanUiState()
     }
     
+    // Set the BLE permission handler from MainActivity
+    fun setBlePermissionHandler(handler: BlePermissionHandler) {
+        blePermissionHandler = handler
+    }
+    
     // Expose repositories and services for UI access
     fun getTrayTrackingRepository(): TrayTrackingRepository = trayTrackingRepository
     fun getWeightTrackingService(): WeightTrackingService = weightTrackingService
+    fun getBlePermissionHandler(): BlePermissionHandler? = blePermissionHandler
     
     override fun onCleared() {
         super.onCleared()
