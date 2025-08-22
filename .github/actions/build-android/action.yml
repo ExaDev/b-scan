@@ -53,6 +53,21 @@ runs:
     - name: Build APK
       shell: bash
       run: |
+        # Verify keystore configuration
+        echo "Checking keystore setup..."
+        if [[ -f "app/debug.keystore" ]]; then
+          echo "✅ Found committed debug.keystore"
+          ls -la app/debug.keystore
+        else
+          echo "❌ Missing app/debug.keystore - builds will have inconsistent signatures"
+        fi
+        
+        # Check if gradle will use default Android SDK keystore
+        if [[ -f "$HOME/.android/debug.keystore" ]]; then
+          echo "⚠️  Found default Android SDK keystore - may conflict with committed keystore"
+          ls -la "$HOME/.android/debug.keystore"
+        fi
+        
         if [[ -n "${{ inputs.version-code }}" && -n "${{ inputs.version-name }}" ]]; then
           ./gradlew assemble${{ inputs.build-type }} --build-cache \
             -PversionCode=${{ inputs.version-code }} \

@@ -58,19 +58,30 @@ jobs:
           app/build/outputs/bundle/release/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
           
         # Add manual release warning and additional context
-        CURRENT_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        EXISTING_NOTES=$(gh release view ${{ steps.version.outputs.tag }} --json body --jq '.body')
+        # Create temporary file for release notes
+        NOTES_FILE=$(mktemp)
         
-        gh release edit ${{ steps.version.outputs.tag }} \
-          --notes-file <(cat << EOF
+        # Get existing notes safely
+        EXISTING_NOTES=$(gh release view ${{ steps.version.outputs.tag }} --json body --jq -r '.body // ""')
+        
+        # Build release notes content
+        cat > "$NOTES_FILE" << 'ENDNOTES'
         ## ⚠️ Manual Release
-        
+
         **This is a manual release that bypassed the CI pipeline.**
+
+        ENDNOTES
         
-        ${EXISTING_NOTES}
-
-        ---
-
+        # Add existing notes if they exist
+        if [ -n "$EXISTING_NOTES" ] && [ "$EXISTING_NOTES" != "null" ]; then
+          echo "$EXISTING_NOTES" >> "$NOTES_FILE"
+          echo "" >> "$NOTES_FILE"
+          echo "---" >> "$NOTES_FILE"
+          echo "" >> "$NOTES_FILE"
+        fi
+        
+        # Add static content
+        cat >> "$NOTES_FILE" << 'ENDNOTES'
         ## Download Information
         - **APK**: Install directly on Android devices
         - **AAB**: For Google Play Store distribution
@@ -81,16 +92,27 @@ jobs:
         - NFC must be enabled in device settings
 
         ## Build Information
-        - **Commit**: ${{ github.sha }}
-        - **Build Date**: ${CURRENT_DATE}
+        ENDNOTES
         
+        # Add dynamic build info
+        echo "- **Commit**: ${{ github.sha }}" >> "$NOTES_FILE"
+        echo "- **Build Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$NOTES_FILE"
+        echo "" >> "$NOTES_FILE"
+        
+        # Add quality gates status
+        cat >> "$NOTES_FILE" << 'ENDNOTES'
         ## ⚠️ Quality Gates Status
         ❓ Code quality checks (bypassed)  
         ❓ Unit tests (bypassed)  
         ❓ Security scan (bypassed)  
         ❓ Performance analysis (bypassed)
-        EOF
-        )
+        ENDNOTES
+        
+        # Update release with new notes
+        gh release edit ${{ steps.version.outputs.tag }} --notes-file "$NOTES_FILE"
+        
+        # Clean up temporary file
+        rm -f "$NOTES_FILE"
 
   redirect-to-ci:
     name: Use CI Workflow
