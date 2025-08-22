@@ -117,7 +117,6 @@ class BambuTagDecoderErrorHandlingTest {
         
         // NOTE: The decoder/BambuTagDecoder ignores alpha channel, so this test
         // documents current behavior rather than testing transparency detection
-        // The transparency detection is implemented in utils/BambuTagDecoder
         assertNotNull("Should have a color name", result.colorName)
         assertNotNull("Should have a color hex", result.colorHex)
     }
