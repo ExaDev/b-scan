@@ -62,7 +62,7 @@ class ScanHistoryIntegrationTest {
         debugCollector.recordParsingDetail("confidence", 0.95)
         
         val filamentInfo = FilamentInfo(
-            uid = "A1B2C3D4",
+            tagUid = "A1B2C3D4",
             trayUid = "TRAY001",
             filamentType = "PLA",
             detailedFilamentType = "PLA Basic",
@@ -200,7 +200,7 @@ class ScanHistoryIntegrationTest {
     
     private fun createTestFilamentInfo(): FilamentInfo {
         return FilamentInfo(
-            uid = "TEST_UID",
+            tagUid = "TEST_UID",
             trayUid = "TEST_TRAY",
             filamentType = "PLA",
             detailedFilamentType = "PLA Basic",

@@ -181,7 +181,7 @@ class DebugDataCollectorTest {
         debugCollector.recordParsingDetail("testField", "testValue")
         
         val filamentInfo = FilamentInfo(
-            uid = "ABCDEF12",
+            tagUid = "ABCDEF12",
             trayUid = "TRAY001",
             filamentType = "PLA",
             detailedFilamentType = "PLA Basic",
