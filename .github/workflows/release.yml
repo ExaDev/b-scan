@@ -48,25 +48,46 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        # Create release with auto-generated changelog, but mark as manual
         gh release create ${{ steps.version.outputs.tag }} \
           --title "B-Scan ${{ steps.version.outputs.version }} (Manual)" \
-          --notes "## B-Scan Manual Release ${{ steps.version.outputs.version }}
+          --generate-notes \
+          --notes-start-tag "$(git describe --tags --abbrev=0 2>/dev/null || echo '')" \
+          --prerelease=false \
+          app/build/outputs/apk/release/app-release.apk#b-scan-${{ steps.version.outputs.version }}.apk \
+          app/build/outputs/bundle/release/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
+          
+        # Add manual release warning and additional context
+        gh release edit ${{ steps.version.outputs.tag }} \
+          --notes-file <(cat << 'EOF'
+        ## ⚠️ Manual Release
+        
+        **This is a manual release that bypassed the CI pipeline.**
+        
+        $(gh release view ${{ steps.version.outputs.tag }} --json body --jq '.body')
 
-        ⚠️ **Manual release** - bypassed CI pipeline.
+        ---
 
-        ### Downloads
+        ## Download Information
         - **APK**: Install directly on Android devices
         - **AAB**: For Google Play Store distribution
 
-        ### Requirements
+        ## Requirements
         - Android 10 (API 29) or higher
         - NFC-enabled device
         - NFC must be enabled in device settings
 
-        ### Changes
-        Built from commit: ${{ github.sha }}" \
-          app/build/outputs/apk/release/app-release.apk#b-scan-${{ steps.version.outputs.version }}.apk \
-          app/build/outputs/bundle/release/app-release.aab#b-scan-${{ steps.version.outputs.version }}.aab
+        ## Build Information
+        - **Commit**: ${{ github.sha }}
+        - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        
+        ## ⚠️ Quality Gates Status
+        ❓ Code quality checks (bypassed)  
+        ❓ Unit tests (bypassed)  
+        ❓ Security scan (bypassed)  
+        ❓ Performance analysis (bypassed)
+        EOF
+        )
 
   redirect-to-ci:
     name: Use CI Workflow

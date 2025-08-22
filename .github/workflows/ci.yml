@@ -324,32 +324,43 @@ jobs:
         echo "Available artifacts:"
         find artifacts/ -type f -name "*.apk" -o -name "*.aab" | head -20
         
+        # Create release with auto-generated changelog from conventional commits
         gh release create ${{ steps.build_version.outputs.tag }} \
           --title "B-Scan ${{ steps.build_version.outputs.version_name }}" \
-          --notes "## B-Scan Release ${{ steps.build_version.outputs.version_name }}
+          --generate-notes \
+          --notes-start-tag "$(git describe --tags --abbrev=0 2>/dev/null || echo '')" \
+          --prerelease=false \
+          artifacts/apk/release/*.apk \
+          artifacts/bundle/release/*.aab
+          
+        # Add additional context to the release notes
+        gh release edit ${{ steps.build_version.outputs.tag }} \
+          --notes-file <(cat << 'EOF'
+        $(gh release view ${{ steps.build_version.outputs.tag }} --json body --jq '.body')
 
-        Automated release from main branch.
+        ---
 
-        ### Downloads
+        ## Download Information
         - **APK**: Install directly on Android devices  
         - **AAB**: For Google Play Store distribution
 
-        ### Requirements
+        ## Requirements
         - Android 10 (API 29) or higher
         - NFC-enabled device
         - NFC must be enabled in device settings
 
-        ### Changes
-        Built from commit: ${{ github.sha }}
-        Version Code: ${{ steps.build_version.outputs.version_code }}
+        ## Build Information
+        - **Commit**: ${{ github.sha }}
+        - **Version Code**: ${{ steps.build_version.outputs.version_code }}
+        - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
-        ### Quality Gates Passed
-        ✅ Code quality checks
-        ✅ Unit tests
-        ✅ Security scan
-        ✅ Performance analysis" \
-          artifacts/apk/release/*.apk \
-          artifacts/bundle/release/*.aab
+        ## Quality Gates Passed
+        ✅ Code quality checks  
+        ✅ Unit tests  
+        ✅ Security scan  
+        ✅ Performance analysis
+        EOF
+        )
 
   # Job 9: Notification (always runs, summarizes results)
   notify:
