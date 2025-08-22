@@ -211,22 +211,18 @@ jobs:
           # Update version.txt
           echo "${{ steps.version.outputs.new_version }}" > version.txt
           
-          # Create release notes
-          cat > release_notes.md << 'EOF'
+          # Create release notes with dynamic date
+          BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          cat > release_notes.md << EOF
           ## 📱 Download
-          - **APK**: Direct installation on Android devices
-          - **AAB**: Google Play Store distribution format
+          Download the appropriate file for your device:
+          - **APK**: For direct installation on Android devices
+          - **AAB**: For distribution via Google Play Store
           
           ## 📋 Requirements
-          - Android 10 (API 29) or higher
-          - NFC-enabled device
-          - NFC must be enabled in device settings
-          
-          ## 🔧 Build Information
-          - **Version**: ${{ steps.version.outputs.new_version }}
-          - **Version Code**: ${{ steps.version.outputs.version_code }}
-          - **Commit**: ${{ github.sha }}
-          - **Build Date**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          - Android 10+ (API 29)
+          - NFC-enabled device with NFC enabled
           
           ## What's Changed
           
