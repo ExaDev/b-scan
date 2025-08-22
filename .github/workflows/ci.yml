@@ -96,7 +96,6 @@ jobs:
     name: Build Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [code-quality]
     
     steps:
     - name: Checkout code
@@ -175,7 +174,6 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [build-debug]
     
     steps:
     - name: Checkout code
