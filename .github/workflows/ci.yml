@@ -222,38 +222,48 @@ jobs:
         path: |
           ~/.android/avd/*
           ~/.android/adb*
-        key: avd-29
+        key: avd-34
         
     - name: Create AVD and generate snapshot for caching
       if: steps.avd-cache.outputs.cache-hit != 'true'
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 29
+        api-level: 34
         target: google_apis
         arch: x86_64
-        profile: Nexus 6
-        ram-size: 2048M
-        heap-size: 512M
+        profile: pixel_6
+        ram-size: 3584M
+        heap-size: 1024M
+        disk-size: 8192M
         disable-animations: true
+        disable-spellchecker: true
         force-avd-creation: false
-        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+        emulator-options: >-
+          -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim 
+          -camera-back none -camera-front none -qemu -m 3584
+          -netdelay none -netspeed full -accel on
         script: echo "Generated AVD snapshot for caching."
         
     - name: Run core instrumented tests
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 29
+        api-level: 34
         target: google_apis
         arch: x86_64
-        profile: Nexus 6
-        ram-size: 2048M
-        heap-size: 512M
+        profile: pixel_6
+        ram-size: 3584M
+        heap-size: 1024M
+        disk-size: 8192M
         disable-animations: true
+        disable-spellchecker: true
         force-avd-creation: false
-        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+        emulator-options: >-
+          -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim 
+          -camera-back none -camera-front none -qemu -m 3584
+          -netdelay none -netspeed full -accel on
         script: |
-          # Run only critical tests for CI
-          ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.bscan.CIBasicTest --continue --no-daemon
+          # Run only critical tests for CI with optimised Gradle settings
+          ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.bscan.CIBasicTest --parallel --build-cache
         
     - name: Upload test reports
       uses: actions/upload-artifact@v4
