@@ -30,7 +30,8 @@
             "label": "Android App Bundle"
           }
         ],
-        "releaseBodyTemplate": "## 📱 Download\nDownload the appropriate file for your device:\n- **APK**: For direct installation on Android devices\n- **AAB**: For distribution via Google Play Store\n\n## 📋 Requirements\n- Android 10+ (API 29)\n- NFC-enabled device with NFC enabled\n\n## What's Changed\n\n{{changelog}}"
+        "successComment": false,
+        "failComment": false
       }
     ],
     [
