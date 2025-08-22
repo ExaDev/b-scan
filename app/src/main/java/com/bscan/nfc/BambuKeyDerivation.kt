@@ -38,11 +38,9 @@ object BambuKeyDerivation {
     }
     
     /**
-     * Standard HKDF derivation (RFC 5869) - matches our manual implementation
+     * Standard HKDF derivation (RFC 5869) - matches Cryptodome HKDF behavior
      */
     private fun deriveKeysStandard(uid: ByteArray): Array<ByteArray> {
-        val keys = mutableListOf<ByteArray>()
-        
         // HKDF Extract phase - Standard: PRK = HMAC-Hash(salt, IKM)
         val salt = MASTER_KEY
         val inputKeyMaterial = uid
@@ -51,10 +49,19 @@ object BambuKeyDerivation {
         val prk = hkdfExtract(salt, inputKeyMaterial)
         Log.d(TAG, "Standard - PRK: ${prk.joinToString("") { "%02X".format(it) }}")
         
-        // HKDF Expand phase - generate 16 keys of 6 bytes each
+        // HKDF Expand phase - generate single 96-byte output then split into 16 keys
+        // This matches Cryptodome HKDF behavior: HKDF(uid, 6, master, SHA256, 16, context=b"RFID-A\0")
+        val totalLength = 16 * 6  // 96 bytes total
+        val info = CONTEXT        // Just "RFID-A\0", no counter per key
+        val allKeyMaterial = hkdfExpand(prk, info, totalLength)
+        Log.d(TAG, "Standard - All key material (${allKeyMaterial.size} bytes): ${allKeyMaterial.joinToString("") { "%02X".format(it) }}")
+        
+        // Split into individual 6-byte keys
+        val keys = mutableListOf<ByteArray>()
         for (i in 0 until 16) {
-            val info = CONTEXT + byteArrayOf((i + 1).toByte())
-            val key = hkdfExpand(prk, info, 6)
+            val start = i * 6
+            val end = start + 6
+            val key = allKeyMaterial.sliceArray(start until end)
             keys.add(key)
             Log.v(TAG, "Standard - Key $i: ${key.joinToString("") { "%02X".format(it) }}")
         }
