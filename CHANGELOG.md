@@ -105,3 +105,74 @@
 ### BREAKING CHANGES
 
 * Release workflow now uses semantic-release instead of custom bash solution. This provides better reliability and professional changelog formatting.
+
+## [1.2.0](https://github.com/Mearman/b-scan/compare/v1.1.1...v1.2.0) (2025-08-22)
+
+### Bug Fixes
+
+* exclude version bump commits from changelog generation ([f7a8e65](https://github.com/Mearman/b-scan/commit/f7a8e6554dc4eb9cf09747e9f92b4dff80950d84))
+
+### Features
+
+* add version numbers to APK and AAB filenames in releases ([f46f5d0](https://github.com/Mearman/b-scan/commit/f46f5d0931646e483e7e61c3a774b5ee06a71f61))
+
+## [1.1.1](https://github.com/Mearman/b-scan/compare/v1.1.0...v1.1.1) (2025-08-22)
+
+### Bug Fixes
+
+* improve release notes formatting and remove redundant information ([560cb2d](https://github.com/Mearman/b-scan/commit/560cb2d1cd0132b8bfc0abc522bd55dddb5d8395))
+
+# [1.1.0](https://github.com/Mearman/b-scan/compare/v1.0.156...v1.1.0) (2025-08-22)
+
+### Bug Fixes
+
+* correct bash regex patterns in auto-release workflow ([a62cf73](https://github.com/Mearman/b-scan/commit/a62cf73026fc3c5bf196d3bf8d4bacf5d5deccbe))
+
+### Features
+
+* implement direct release workflow for every push to main ([e3a74bf](https://github.com/Mearman/b-scan/commit/e3a74bf072767159920b0a84bb7023e92be203ea))
+* integrate Release Please for automated changelog and releases ([28f0104](https://github.com/Mearman/b-scan/commit/28f01047435dfd03aa39b21019fab5689dc8a888))
+* **release:** generate structured changelog from conventional commits ([3537f10](https://github.com/Mearman/b-scan/commit/3537f10a23f999c0f6501ad48d8aa08152d8ddfa))
+
+## [1.0.156](https://github.com/Mearman/b-scan/compare/v1.0.155...v1.0.156) (2025-08-22)
+
+### Features
+
+* **release:** hybrid approach using .github/release.yml template with build information ([80954bd](https://github.com/Mearman/b-scan/commit/80954bdd9bdb059d00c37aa6138b26c56449428f))
+
+# [1.13](https://github.com/Mearman/b-scan/compare/v1.10...v1.13) (2025-08-14)
+
+### Bug Fixes
+
+* correct artifact paths for release file attachments ([2aaa804](https://github.com/Mearman/b-scan/commit/2aaa804824275dabe24d9f29b5f6016684a197bb))
+* grant CI workflow write permissions for version commits ([789f188](https://github.com/Mearman/b-scan/commit/789f1880cc1507cb85006212393d4fd366b9cd79))
+* resolve CI version management and compatibility issues ([883e97b](https://github.com/Mearman/b-scan/commit/883e97b7d720113a5c201f0a4947dcf0793135b6))
+
+### Features
+
+* implement deterministic versioning without repository modifications ([364f3ee](https://github.com/Mearman/b-scan/commit/364f3eaedff8092d4aec550fb39810b43623995c))
+
+# [1.10](https://github.com/Mearman/b-scan/compare/v1.0.0-clean...v1.10) (2025-08-13)
+
+### Major Features (consolidated from v1.0.0-clean to v1.10)
+
+* **authentication:** implement comprehensive RFID authentication with fallback keys ([40524ab](https://github.com/Mearman/b-scan/commit/40524ab5ae493414b13be5f51a97ef0a9b680cb9))
+* **caching:** implement derived key caching system for performance ([4848bba](https://github.com/Mearman/b-scan/commit/4848bba90377eb3d50b06838b9577b049a951f99))
+* **debugging:** add comprehensive debug information collection and display ([22f9ebe](https://github.com/Mearman/b-scan/commit/22f9ebee716e7aeed99358612d5ef68fd22621d1))
+* **decoder:** implement comprehensive RFID tag decoding per RFID-Tag-Guide ([22222398](https://github.com/Mearman/b-scan/commit/22222398661e42438ee29b0133dcdd2f821a56ab))
+* **navigation:** migrate to Navigation Compose architecture ([10920d4](https://github.com/Mearman/b-scan/commit/109dd196917b74fd7433d0a67a40b08e89a24963))
+* **repository:** implement scan history persistence and spool management ([d6577ce](https://github.com/Mearman/b-scan/commit/d6577ce91307c5b8cf9fda513041985a7065daa2))
+* **testing:** comprehensive testing infrastructure with CI/CD optimisation ([86a527a](https://github.com/Mearman/b-scan/commit/86a527ab5adc578285b18a0b27fb9998ab0229c7))
+* **tray-tracking:** comprehensive tray UID tracking system ([5ec092b](https://github.com/Mearman/b-scan/commit/5ec092bd892cbc1aa438c78cad548cec1d5083a0))
+* **ui:** SpoolListScreen with collection statistics and filtering ([d6577ce](https://github.com/Mearman/b-scan/commit/d6577ce91307c5b8cf9fda513041985a7065daa2))
+
+### Bug Fixes
+
+* improve NFC authentication error logging ([1cebc1c](https://github.com/Mearman/b-scan/commit/1cebc1c54d85a501a4917a1487f78533519667c1))
+* resolve colour preview card issues ([4c217977](https://github.com/Mearman/b-scan/commit/4c217977ec43e836e28cb90251c4b76a3c72693c))
+* resolve transparent filament identification ([8f777b5](https://github.com/Mearman/b-scan/commit/8f777b51d9d3afef5ad7b1cafc1b79b8b3647c5f))
+
+### Performance Improvements
+
+* enable R8 full mode and incremental build optimisations ([ccd1ba7](https://github.com/Mearman/b-scan/commit/ccd1ba76257e7301e100cc42856c90b8d2bd0c2b))
+* optimise NFC sector authentication with smart key ordering ([4c7c0b9](https://github.com/Mearman/b-scan/commit/4c7c0b997c0ab2756413025e57e3c11cd05f70a6))
