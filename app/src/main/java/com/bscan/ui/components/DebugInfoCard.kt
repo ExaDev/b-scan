@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,9 +22,14 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import android.widget.Toast
 import android.os.Build
+import android.content.Context
+import android.os.Environment
 import com.bscan.model.ScanDebugInfo
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -177,6 +183,38 @@ fun DebugInfoCard(
                     }
                 }
                 
+                // Full Raw Data
+                if (debugInfo.fullRawHex.isNotEmpty()) {
+                    DebugSection(title = "Complete Raw Data (768 bytes)") {
+                        Text(
+                            text = "Complete encrypted data as read from tag",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        RawDataDisplay(
+                            data = debugInfo.fullRawHex,
+                            label = "Raw Encrypted"
+                        )
+                    }
+                }
+                
+                // Decrypted Data
+                if (debugInfo.decryptedHex.isNotEmpty()) {
+                    DebugSection(title = "Complete Decrypted Data (768 bytes)") {
+                        Text(
+                            text = "Data after successful sector authentication",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        RawDataDisplay(
+                            data = debugInfo.decryptedHex,
+                            label = "Decrypted"
+                        )
+                    }
+                }
+                
                 // Parsing Details
                 if (debugInfo.parsingDetails.isNotEmpty()) {
                     DebugSection(title = "Parsing Details") {
@@ -323,6 +361,20 @@ private fun formatDebugInfoAsText(debugInfo: ScanDebugInfo): String {
             appendLine()
         }
         
+        // Full Raw Data
+        if (debugInfo.fullRawHex.isNotEmpty()) {
+            appendLine("COMPLETE RAW DATA (768 bytes):")
+            appendLine("- Raw encrypted: ${debugInfo.fullRawHex}")
+            appendLine()
+        }
+        
+        // Decrypted Data
+        if (debugInfo.decryptedHex.isNotEmpty()) {
+            appendLine("COMPLETE DECRYPTED DATA (768 bytes):")
+            appendLine("- Decrypted: ${debugInfo.decryptedHex}")
+            appendLine()
+        }
+        
         // Error Messages
         if (debugInfo.errorMessages.isNotEmpty()) {
             appendLine("ERRORS:")
@@ -333,5 +385,149 @@ private fun formatDebugInfoAsText(debugInfo: ScanDebugInfo): String {
         }
         
         appendLine("=== End Debug Information ===")
+    }
+}
+
+@Composable
+private fun RawDataDisplay(
+    data: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    var showFormatted by remember { mutableStateOf(true) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    
+    Column(modifier = modifier) {
+        // Controls
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${data.length / 2} bytes",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+            
+            Row {
+                TextButton(
+                    onClick = { showFormatted = !showFormatted }
+                ) {
+                    Text(
+                        text = if (showFormatted) "Raw" else "Formatted",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(data))
+                        Toast.makeText(context, "$label data copied", Toast.LENGTH_SHORT).show()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentCopy,
+                        contentDescription = "Copy $label data",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                
+                IconButton(
+                    onClick = {
+                        exportRawData(context, data, label)
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SaveAlt,
+                        contentDescription = "Export $label data",
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+        
+        // Data display
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    RoundedCornerShape(4.dp)
+                )
+                .padding(8.dp)
+        ) {
+            Text(
+                text = if (showFormatted) formatHexData(data) else data,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.fillMaxWidth(),
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+private fun formatHexData(hexString: String): String {
+    if (hexString.isEmpty()) return ""
+    
+    return buildString {
+        hexString.chunked(32).forEachIndexed { lineIndex, line ->
+            val address = String.format("%04X", lineIndex * 16)
+            append("$address: ")
+            
+            // Add hex bytes with spaces
+            line.chunked(2).forEachIndexed { byteIndex, byte ->
+                append(byte)
+                if (byteIndex < 15) append(" ")
+                if (byteIndex == 7) append(" ") // Extra space in middle
+            }
+            
+            // Pad to consistent width
+            val currentLength = line.length / 2
+            if (currentLength < 16) {
+                repeat(16 - currentLength) { 
+                    append("   ")
+                    if (it == 7) append(" ")
+                }
+            }
+            
+            // Add ASCII representation
+            append("  |")
+            line.chunked(2).forEach { byte ->
+                val byteValue = byte.toIntOrNull(16) ?: 0
+                val char = if (byteValue in 32..126) byteValue.toChar() else '.'
+                append(char)
+            }
+            append("|")
+            
+            if (lineIndex < hexString.length / 32 - 1) appendLine()
+        }
+    }
+}
+
+private fun exportRawData(context: Context, hexData: String, label: String) {
+    try {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val filename = "bscan_${label.lowercase().replace(" ", "_")}_${timestamp}.bin"
+        
+        // Convert hex string to bytes
+        val bytes = hexData.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        
+        // Save to Downloads directory
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val file = File(downloadsDir, filename)
+        
+        FileOutputStream(file).use { output ->
+            output.write(bytes)
+        }
+        
+        Toast.makeText(context, "Exported to Downloads/$filename", Toast.LENGTH_LONG).show()
+        
+    } catch (e: Exception) {
+        Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }
