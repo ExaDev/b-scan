@@ -150,8 +150,12 @@ object BambuTagDecoder {
                 bytes(data.bytes, 16, 4, 4) // Second color in reverse ABGR format
             } else null
             
-            // Block 17: Unknown data (first 2 bytes)
-            val unknownBlock17 = bytes(data.bytes, 17, 0, 2)
+            // Block 17: Unknown data (capture all 16 bytes for research per official guide)
+            val unknownBlock17 = bytes(data.bytes, 17, 0, 16)
+            val unknownBlock17Hex = hexstring(data.bytes, 17, 0, 16)
+            val unknownBlock17FirstTwoBytes = bytes(data.bytes, 17, 0, 2) // Keep original 2-byte field for compatibility
+            Log.d(TAG, "Block 17 full data: $unknownBlock17Hex")
+            Log.d(TAG, "Block 17 first 2 bytes: ${unknownBlock17FirstTwoBytes.joinToString("") { "%02X".format(it) }}")
             
             // Convert RGBA color bytes to hex for display (ignore alpha channel)
             val colorHex = if (colorBytes.size >= 3) {
@@ -188,6 +192,8 @@ object BambuTagDecoder {
             debugCollector?.recordParsingDetail("formatIdentifier", formatIdentifier)
             debugCollector?.recordParsingDetail("shortProductionDate", shortProductionDate)
             debugCollector?.recordParsingDetail("shortProductionDateHex", shortProductionDateHex)
+            debugCollector?.recordParsingDetail("unknownBlock17Hex", unknownBlock17Hex)
+            debugCollector?.recordParsingDetail("filamentLength", filamentLength)
             
             // Debug: Record temperature parsing details
             debugCollector?.recordParsingDetail("bedTemperature", bedTemperature)
