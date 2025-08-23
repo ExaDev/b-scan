@@ -29,9 +29,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanProgress
 import com.bscan.repository.UniqueSpool
+import com.bscan.repository.InterpretedScan
+import com.bscan.ui.screens.DetailType
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -44,7 +45,7 @@ fun DataBrowserScreen(
     filterState: FilterState,
     spools: List<UniqueSpool>,
     individualTags: List<UniqueSpool>,
-    allScans: List<ScanHistory>,
+    allScans: List<InterpretedScan>,
     availableFilamentTypes: Set<String>,
     availableColors: Set<String>,
     availableBaseMaterials: Set<String>,
@@ -63,7 +64,7 @@ fun DataBrowserScreen(
     onShowFilterMenu: (Boolean) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
-    onNavigateToDetails: ((String) -> Unit)? = null,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -466,9 +467,9 @@ fun DataBrowserScreen(
             val actualPage = page % tabCount
             when (ViewMode.values()[actualPage]) {
                 ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
                 ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
             }
         }
         }

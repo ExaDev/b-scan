@@ -9,9 +9,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.bscan.model.ScanDebugInfo
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.DecryptedScanData
 import com.bscan.repository.UniqueSpool
+import com.bscan.repository.InterpretedScan
+import com.bscan.ui.screens.DetailType
 import java.time.LocalDateTime
 
 @Composable
@@ -22,7 +25,7 @@ fun SpoolsList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onSpoolClick: ((String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
 ) {
     val filteredGroupedAndSortedSpools = remember(spools, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = spools.filter { spool ->
@@ -143,7 +146,9 @@ fun SpoolsList(
             items(groupSpools, key = { it.uid }) { spool ->
                 SpoolCard(
                     spool = spool,
-                    onClick = onSpoolClick
+                    onClick = { trayUid ->
+                        onNavigateToDetails?.invoke(DetailType.SPOOL, trayUid)
+                    }
                 )
             }
         }
@@ -152,17 +157,19 @@ fun SpoolsList(
 
 @Composable
 fun SkusList(
-    allScans: List<ScanHistory>,
+    allScans: List<InterpretedScan>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
 ) {
     // Group scans by SKU (filament type + color combination)
+    // Include ALL scans with filament info to show incomplete/failed scans as separate SKUs
     val uniqueSkus = remember(allScans) {
         allScans
-            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+            .filter { it.filamentInfo != null }
             .groupBy { "${it.filamentInfo!!.filamentType}-${it.filamentInfo.colorName}" }
             .mapNotNull { (skuKey, scans) ->
                 val mostRecentScan = scans.maxByOrNull { it.timestamp }
@@ -303,7 +310,12 @@ fun SkusList(
             
             // Show SKUs in the group
             items(groupSkus, key = { it.skuKey }) { sku ->
-                SkuCard(sku = sku)
+                SkuCard(
+                    sku = sku,
+                    onClick = { skuKey ->
+                        onNavigateToDetails?.invoke(DetailType.SKU, skuKey)
+                    }
+                )
             }
         }
     }
@@ -317,31 +329,38 @@ fun TagsList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onNavigateToDetails: ((String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
 ) {
     // Convert UniqueSpool data to the format expected by the rest of the function
     val uniqueTags = remember(individualTags) {
         individualTags.map { spool ->
-            // Create a dummy scan history with the spool's information for display
-            val dummyScan = ScanHistory(
-                uid = spool.uid, // This is the tag UID for individual tags
+            // Create a dummy InterpretedScan with the spool's information for display
+            val dummyEncrypted = EncryptedScanData(
                 timestamp = spool.lastScanned,
+                tagUid = spool.uid,
+                technology = "NFC",
+                encryptedData = ByteArray(0),
+                tagSizeBytes = 1024,
+                sectorCount = 16
+            )
+            val dummyDecrypted = DecryptedScanData(
+                timestamp = spool.lastScanned,
+                tagUid = spool.uid,
                 technology = "NFC",
                 scanResult = ScanResult.SUCCESS,
-                filamentInfo = spool.filamentInfo,
-                debugInfo = ScanDebugInfo(
-                    uid = spool.uid,
-                    tagSizeBytes = 0,
-                    sectorCount = 0,
-                    authenticatedSectors = emptyList(),
-                    failedSectors = emptyList(),
-                    usedKeyTypes = emptyMap(),
-                    blockData = emptyMap(),
-                    derivedKeys = emptyList(),
-                    rawColorBytes = "",
-                    errorMessages = emptyList(),
-                    parsingDetails = emptyMap()
-                )
+                decryptedBlocks = emptyMap(),
+                authenticatedSectors = emptyList(),
+                failedSectors = emptyList(),
+                usedKeys = emptyMap(),
+                derivedKeys = emptyList(),
+                tagSizeBytes = 1024,
+                sectorCount = 16,
+                errors = emptyList()
+            )
+            val dummyScan = InterpretedScan(
+                encryptedData = dummyEncrypted,
+                decryptedData = dummyDecrypted,
+                filamentInfo = spool.filamentInfo
             )
             Triple(spool.uid, dummyScan, spool.filamentInfo)
         }
@@ -478,10 +497,8 @@ fun TagsList(
                     filamentInfo = filamentInfo,
                     allScans = listOf(mostRecentScan), // Pass just this tag's scan data
                     modifier = Modifier.clickable {
-                        // Navigate to details using the tray UID from filament info
-                        filamentInfo?.trayUid?.let { trayUid ->
-                            onNavigateToDetails?.invoke(trayUid)
-                        }
+                        // Navigate to tag details using the tag UID
+                        onNavigateToDetails?.invoke(DetailType.TAG, uid)
                     }
                 )
             }
@@ -491,12 +508,13 @@ fun TagsList(
 
 @Composable
 fun ScansList(
-    allScans: List<ScanHistory>,
+    allScans: List<InterpretedScan>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
 ) {
     val filteredGroupedAndSortedScans = remember(allScans, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = allScans.filter { scan ->
@@ -615,7 +633,13 @@ fun ScansList(
             
             // Show scans in the group
             items(groupScans, key = { "${it.uid}_${it.timestamp}" }) { scan ->
-                ScanCard(scan = scan)
+                ScanCard(
+                    scan = scan,
+                    onClick = { scanHistory ->
+                        val scanId = "${scanHistory.timestamp.toString().replace(":", "-").replace(".", "-")}_${scanHistory.uid}"
+                        onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
+                    }
+                )
             }
         }
     }

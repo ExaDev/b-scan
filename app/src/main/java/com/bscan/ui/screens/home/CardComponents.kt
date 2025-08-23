@@ -2,6 +2,7 @@ package com.bscan.ui.screens.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -17,10 +18,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanProgress
 import com.bscan.model.ScanResult
 import com.bscan.repository.UniqueSpool
+import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.ScanStateIndicator
 import java.time.format.DateTimeFormatter
 
@@ -120,9 +121,9 @@ fun SpoolCard(
 @Composable
 fun TagCard(
     uid: String,
-    mostRecentScan: ScanHistory,
+    mostRecentScan: InterpretedScan,
     filamentInfo: com.bscan.model.FilamentInfo?,
-    allScans: List<ScanHistory>,
+    allScans: List<InterpretedScan>,
     modifier: Modifier = Modifier
 ) {
     val tagScans = allScans.filter { it.uid == uid }
@@ -216,11 +217,20 @@ fun TagCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanCard(
-    scan: ScanHistory,
-    modifier: Modifier = Modifier
+    scan: InterpretedScan,
+    modifier: Modifier = Modifier,
+    onClick: ((InterpretedScan) -> Unit)? = null
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable { onClick(scan) }
+                } else {
+                    Modifier
+                }
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -292,10 +302,19 @@ fun ScanCard(
 @Composable
 fun SkuCard(
     sku: SkuInfo,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: ((String) -> Unit)? = null
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable { onClick(sku.skuKey) }
+                } else {
+                    Modifier
+                }
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
