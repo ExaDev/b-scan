@@ -249,9 +249,7 @@ jobs:
           echo "No changes to commit"
         else
           # Create the documentation commit
-          git commit -m "chore(release): update version to ${{ steps.semantic_version.outputs.version }} [skip ci]
-
-Update version files with semantic release information."
+          git commit -m "chore(release): update version to ${{ steps.semantic_version.outputs.version }} [skip ci]"
           
           # Push the changes
           git push origin main
