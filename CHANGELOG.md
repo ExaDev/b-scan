@@ -1,3 +1,23 @@
+# [3.6.0](https://github.com/Mearman/b-scan/compare/v3.5.0...v3.6.0) (2025-08-23)
+
+
+### Bug Fixes
+
+* **ci:** resolve YAML syntax error in commit message ([08d678c](https://github.com/Mearman/b-scan/commit/08d678c951e11332b7c215364d4c916394168f41))
+* **ci:** resolve YAML syntax error in workflow commit message ([d6bb663](https://github.com/Mearman/b-scan/commit/d6bb663a9d6fe33fa1ee66d53162e521a7d9c5f6))
+* **ci:** simplify commit message to resolve YAML syntax error ([2e08c6b](https://github.com/Mearman/b-scan/commit/2e08c6bd857eda9e320882cf3089b55e42828b0b))
+* **ci:** update job dependencies and references ([fb2b174](https://github.com/Mearman/b-scan/commit/fb2b174821e1dcde10f54094853f756e9f8370cf))
+* **ci:** use single-line commit message to resolve YAML parsing ([f84ed57](https://github.com/Mearman/b-scan/commit/f84ed57be37f79ecb7dab9fdbd44f31fbca48f45))
+
+
+### Features
+
+* **ci:** add semantic-release execution and post-release commit ([64c8ceb](https://github.com/Mearman/b-scan/commit/64c8ceb229bf560f1ade246a0108571e87b7223d))
+* **ci:** add semantic-release setup to build job ([ed7b4a7](https://github.com/Mearman/b-scan/commit/ed7b4a77f506c31c54881defd2be05b735f1f31a))
+* **ci:** add version file updates before build ([321b160](https://github.com/Mearman/b-scan/commit/321b1603d889df7ba7d46d4fe83b2f9d5c9d6a41))
+* **ci:** replace static version with semantic-release dry-run ([e6bed68](https://github.com/Mearman/b-scan/commit/e6bed689cf8bb678cec55587eafc618a2f735999))
+* **ui:** implement vertical mirror for sort direction icon ([c978f6c](https://github.com/Mearman/b-scan/commit/c978f6cf5627590e05393f3ab37540240453c0a7))
+
 # [3.5.0](https://github.com/Mearman/b-scan/compare/v3.4.0...v3.5.0) (2025-08-23)
 
 
