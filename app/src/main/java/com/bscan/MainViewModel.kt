@@ -5,9 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.*
-import com.bscan.decoder.BambuTagDecoder
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TrayTrackingRepository
+import com.bscan.repository.MappingsRepository
+import com.bscan.interpreter.FilamentInterpreter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     private val scanHistoryRepository = ScanHistoryRepository(application)
     private val trayTrackingRepository = TrayTrackingRepository(application)
+    private val mappingsRepository = MappingsRepository(application)
+    
+    // FilamentInterpreter for runtime interpretation
+    private var filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
     
     fun onTagDetected() {
         _uiState.value = _uiState.value.copy(
@@ -46,7 +51,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    fun processTag(tagData: NfcTagData, debugCollector: DebugDataCollector) {
+    /**
+     * New method to process scan data using the FilamentInterpreter
+     */
+    fun processScanData(encryptedData: EncryptedScanData, decryptedData: DecryptedScanData) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 scanState = ScanState.PROCESSING,
@@ -55,40 +63,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _scanProgress.value = ScanProgress(
                 stage = ScanStage.PARSING,
                 percentage = 0.9f,
-                statusMessage = "Parsing tag data"
+                statusMessage = "Interpreting filament data"
             )
             
-            val result = try {
-                val filamentInfo = BambuTagDecoder.parseTagDetails(tagData, debugCollector)
-                if (filamentInfo != null) {
-                    TagReadResult.Success(filamentInfo)
-                } else {
-                    TagReadResult.InvalidTag
+            // Store the raw scan data first
+            scanHistoryRepository.saveScan(encryptedData, decryptedData)
+            trayTrackingRepository.recordScan(decryptedData)
+            
+            val result = if (decryptedData.scanResult == ScanResult.SUCCESS) {
+                try {
+                    // Use FilamentInterpreter to convert decrypted data to FilamentInfo
+                    val filamentInfo = filamentInterpreter.interpret(decryptedData)
+                    if (filamentInfo != null) {
+                        TagReadResult.Success(filamentInfo)
+                    } else {
+                        TagReadResult.InvalidTag
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    TagReadResult.ReadError
                 }
-            } catch (e: Exception) {
-                debugCollector.recordError("Exception in parseTagDetails: ${e.message}")
-                e.printStackTrace()
-                TagReadResult.ReadError
+            } else {
+                // Map scan result to TagReadResult
+                when (decryptedData.scanResult) {
+                    ScanResult.AUTHENTICATION_FAILED -> TagReadResult.ReadError
+                    ScanResult.INSUFFICIENT_DATA -> TagReadResult.InsufficientData
+                    ScanResult.PARSING_FAILED -> TagReadResult.InvalidTag
+                    else -> TagReadResult.ReadError
+                }
             }
-            
-            // Save scan to history
-            val scanResult = when (result) {
-                is TagReadResult.Success -> ScanResult.SUCCESS
-                is TagReadResult.InvalidTag -> ScanResult.PARSING_FAILED
-                is TagReadResult.ReadError -> ScanResult.UNKNOWN_ERROR
-                is TagReadResult.InsufficientData -> ScanResult.INSUFFICIENT_DATA
-                else -> ScanResult.UNKNOWN_ERROR
-            }
-            
-            val scanHistory = debugCollector.createScanHistory(
-                uid = tagData.uid,
-                technology = tagData.technology,
-                result = scanResult,
-                filamentInfo = if (result is TagReadResult.Success) result.filamentInfo else null
-            )
-            
-            scanHistoryRepository.saveScan(scanHistory)
-            trayTrackingRepository.recordScan(scanHistory)
             
             _uiState.value = when (result) {
                 is TagReadResult.Success -> {
@@ -100,7 +103,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         filamentInfo = result.filamentInfo,
                         scanState = ScanState.SUCCESS,
-                        debugInfo = scanHistory.debugInfo
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 is TagReadResult.InvalidTag -> {
@@ -112,19 +115,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Invalid or unsupported tag",
                         scanState = ScanState.ERROR,
-                        debugInfo = scanHistory.debugInfo
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 is TagReadResult.ReadError -> {
                     _scanProgress.value = ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
-                        statusMessage = "Error reading tag"
+                        statusMessage = "Error reading or authenticating tag"
                     )
                     BScanUiState(
-                        error = "Error reading tag", 
+                        error = "Error reading or authenticating tag", 
                         scanState = ScanState.ERROR,
-                        debugInfo = scanHistory.debugInfo
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 is TagReadResult.InsufficientData -> {
@@ -136,7 +139,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Insufficient data on tag",
                         scanState = ScanState.ERROR,
-                        debugInfo = scanHistory.debugInfo
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 else -> {
@@ -148,12 +151,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Unknown error occurred",
                         scanState = ScanState.ERROR,
-                        debugInfo = scanHistory.debugInfo
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
             }
         }
     }
+    
+    /**
+     * Helper method to create ScanDebugInfo from DecryptedScanData
+     */
+    private fun createDebugInfoFromDecryptedData(decryptedData: DecryptedScanData): ScanDebugInfo {
+        return ScanDebugInfo(
+            uid = decryptedData.tagUid,
+            tagSizeBytes = decryptedData.tagSizeBytes,
+            sectorCount = decryptedData.sectorCount,
+            authenticatedSectors = decryptedData.authenticatedSectors,
+            failedSectors = decryptedData.failedSectors,
+            usedKeyTypes = decryptedData.usedKeys,
+            blockData = decryptedData.decryptedBlocks,
+            derivedKeys = decryptedData.derivedKeys,
+            rawColorBytes = "", // TODO: Extract from block data if needed
+            errorMessages = decryptedData.errors,
+            parsingDetails = mapOf(), // Empty for now
+            fullRawHex = "", // Not available in DecryptedScanData
+            decryptedHex = "" // Could reconstruct from blocks if needed
+        )
+    }
+    
     
     fun setScanning() {
         _uiState.value = _uiState.value.copy(
@@ -174,24 +199,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun setAuthenticationFailed(tagData: NfcTagData, debugCollector: DebugDataCollector) {
-        // Create scan history for failed authentication
-        val scanHistory = debugCollector.createScanHistory(
+        // Create scan data for failed authentication
+        val encryptedData = debugCollector.createEncryptedScanData(
+            uid = tagData.uid,
+            technology = tagData.technology,
+            scanDurationMs = 0
+        )
+        
+        val decryptedData = debugCollector.createDecryptedScanData(
             uid = tagData.uid,
             technology = tagData.technology,
             result = ScanResult.AUTHENTICATION_FAILED,
-            filamentInfo = null
+            keyDerivationTimeMs = 0,
+            authenticationTimeMs = 0
         )
         
         // Save to history even for failed scans
         viewModelScope.launch {
-            scanHistoryRepository.saveScan(scanHistory)
-            trayTrackingRepository.recordScan(scanHistory)
+            scanHistoryRepository.saveScan(encryptedData, decryptedData)
+            trayTrackingRepository.recordScan(decryptedData)
         }
         
         _uiState.value = _uiState.value.copy(
             error = "Authentication failed - see debug info below",
             scanState = ScanState.ERROR,
-            debugInfo = scanHistory.debugInfo
+            debugInfo = createDebugInfoFromDecryptedData(decryptedData)
         )
     }
     
@@ -286,8 +318,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // Expose tray tracking repository for UI access
+    // Expose repositories for UI access
     fun getTrayTrackingRepository(): TrayTrackingRepository = trayTrackingRepository
+    fun getMappingsRepository(): MappingsRepository = mappingsRepository
+    
+    /**
+     * Refresh the FilamentInterpreter with updated mappings
+     */
+    fun refreshMappings() {
+        filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+    }
     
 }
 
