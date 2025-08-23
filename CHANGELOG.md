@@ -1,3 +1,10 @@
+# [3.4.0](https://github.com/Mearman/b-scan/compare/v3.3.0...v3.4.0) (2025-08-23)
+
+
+### Features
+
+* **ui:** improve controls layout with compact buttons and fix dropdown positioning ([3bf539f](https://github.com/Mearman/b-scan/commit/3bf539f5f6fdc2aa1ce3c17ee44b3fa17630fba6))
+
 # [3.3.0](https://github.com/Mearman/b-scan/compare/v3.2.0...v3.3.0) (2025-08-23)
 
 
