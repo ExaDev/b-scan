@@ -1,0 +1,361 @@
+package com.bscan.ui.screens
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.SpoolDetails
+import com.bscan.repository.UniqueSpool
+import com.bscan.repository.InterpretedScan
+import com.bscan.ui.screens.home.SkuInfo
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+
+enum class DetailType {
+    SCAN, TAG, SPOOL, SKU
+}
+
+data class DetailUiState(
+    val isLoading: Boolean = true,
+    val detailType: DetailType = DetailType.SPOOL,
+    val identifier: String = "",
+    val error: String? = null,
+    // Primary entity data
+    val primaryScan: InterpretedScan? = null,
+    val primaryTag: InterpretedScan? = null, // Most recent scan for this tag UID
+    val primarySpool: SpoolDetails? = null,
+    val primarySku: SkuInfo? = null,
+    // Related data
+    val relatedScans: List<InterpretedScan> = emptyList(),
+    val relatedTags: List<String> = emptyList(), // Tag UIDs
+    val relatedSpools: List<UniqueSpool> = emptyList(),
+    val relatedSkus: List<SkuInfo> = emptyList()
+)
+
+class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel() {
+    
+    private val _uiState = MutableStateFlow(DetailUiState())
+    val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
+    
+    fun loadDetails(detailType: DetailType, identifier: String) {
+        _uiState.value = _uiState.value.copy(
+            isLoading = true,
+            detailType = detailType,
+            identifier = identifier,
+            error = null
+        )
+        
+        viewModelScope.launch {
+            try {
+                when (detailType) {
+                    DetailType.SCAN -> loadScanDetails(identifier)
+                    DetailType.TAG -> loadTagDetails(identifier)
+                    DetailType.SPOOL -> loadSpoolDetails(identifier)
+                    DetailType.SKU -> loadSkuDetails(identifier)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Failed to load details: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    private suspend fun loadScanDetails(scanIdentifier: String) {
+        // Scan identifier format: "formatted_timestamp_uid"
+        val parts = scanIdentifier.split("_")
+        if (parts.size < 2) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Invalid scan identifier"
+            )
+            return
+        }
+        
+        val uid = parts.last()
+        val timestampStr = parts.dropLast(1).joinToString("_")
+        
+        val allScans = repository.getAllScans()
+        
+        // Try to find scan by generating the same ID format and comparing
+        val primaryScan = allScans.find { scan ->
+            val generatedId = "${scan.timestamp.toString().replace(":", "-").replace(".", "-")}_${scan.uid}"
+            generatedId == scanIdentifier
+        } ?: allScans.find { scan ->
+            // Fallback: match by UID only if exact match fails
+            scan.uid == uid
+        }
+        
+        if (primaryScan == null) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Scan not found: $scanIdentifier"
+            )
+            return
+        }
+        
+        // Get related data
+        val trayUid = primaryScan.filamentInfo?.trayUid
+        val relatedSpools = if (trayUid != null) {
+            repository.getSpoolDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+        } else {
+            emptyList()
+        }
+        
+        val relatedTags = if (trayUid != null) {
+            allScans
+                .filter { it.filamentInfo?.trayUid == trayUid }
+                .map { it.uid }
+                .distinct()
+        } else {
+            listOf(uid)
+        }
+        
+        val relatedScans = allScans.filter { it.uid == uid }
+        val relatedSkus = getRelatedSkus(primaryScan.filamentInfo)
+        
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            primaryScan = primaryScan,
+            relatedScans = relatedScans,
+            relatedTags = relatedTags,
+            relatedSpools = relatedSpools.map { spoolDetailsToUniqueSpool(it) },
+            relatedSkus = relatedSkus
+        )
+    }
+    
+    private suspend fun loadTagDetails(tagUid: String) {
+        val allScans = repository.getAllScans()
+        val tagScans = repository.getScansByTagUid(tagUid)
+        val primaryTag = tagScans.maxByOrNull { it.timestamp }
+        
+        if (primaryTag == null) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Tag not found"
+            )
+            return
+        }
+        
+        // Get related data
+        val trayUid = primaryTag.filamentInfo?.trayUid
+        val relatedSpools = if (trayUid != null) {
+            repository.getSpoolDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+        } else {
+            emptyList()
+        }
+        
+        val relatedTags = if (trayUid != null) {
+            allScans
+                .filter { it.filamentInfo?.trayUid == trayUid }
+                .map { it.uid }
+                .distinct()
+        } else {
+            listOf(tagUid)
+        }
+        
+        val relatedSkus = getRelatedSkus(primaryTag.filamentInfo)
+        
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            primaryTag = primaryTag,
+            relatedScans = tagScans,
+            relatedTags = relatedTags,
+            relatedSpools = relatedSpools.map { spoolDetailsToUniqueSpool(it) },
+            relatedSkus = relatedSkus
+        )
+    }
+    
+    private suspend fun loadSpoolDetails(trayUid: String) {
+        val spoolDetails = repository.getSpoolDetails(trayUid)
+        
+        if (spoolDetails == null) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Spool not found"
+            )
+            return
+        }
+        
+        val relatedSkus = getRelatedSkus(spoolDetails.filamentInfo)
+        
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            primarySpool = spoolDetails,
+            relatedScans = spoolDetails.allScans,
+            relatedTags = spoolDetails.tagUids,
+            relatedSpools = listOf(spoolDetailsToUniqueSpool(spoolDetails)),
+            relatedSkus = relatedSkus
+        )
+    }
+    
+    private suspend fun loadSkuDetails(skuKey: String) {
+        val allScans = repository.getAllScans()
+        
+        // Parse the SKU key to understand what we're looking for
+        val parts = skuKey.split("-")
+        val filamentType = parts.getOrNull(0) ?: ""
+        val colorName = parts.getOrNull(1) ?: ""
+        
+        // Find scans that match this SKU pattern - include ALL scans, not just successful ones
+        // This ensures we show actual scanned data even for incomplete/failed scans
+        var skuScans = allScans.filter { scan ->
+            scan.filamentInfo?.let { info ->
+                val scanKey = "${info.filamentType}-${info.colorName}"
+                scanKey == skuKey
+            } ?: false
+        }
+        
+        // If still no exact matches, try more flexible matching for incomplete data
+        if (skuScans.isEmpty()) {
+            skuScans = allScans.filter { scan ->
+                scan.filamentInfo?.let { info ->
+                    // Match if filament type matches and color is empty/null (for cases like "PLA-")
+                    if (colorName.isEmpty() || colorName.isBlank()) {
+                        info.filamentType == filamentType && (info.colorName.isEmpty() || info.colorName.isBlank())
+                    } else {
+                        // Try partial matching
+                        info.filamentType.contains(filamentType, ignoreCase = true) ||
+                        info.colorName.contains(colorName, ignoreCase = true)
+                    }
+                } ?: false
+            }
+        }
+        
+        // Even broader search - try to find any scan with similar filament type
+        if (skuScans.isEmpty() && filamentType.isNotEmpty()) {
+            skuScans = allScans.filter { scan ->
+                scan.filamentInfo?.filamentType?.contains(filamentType, ignoreCase = true) == true
+            }
+        }
+        
+        // Final fallback - if we still have nothing, create a synthetic entry from the SKU key itself
+        if (skuScans.isEmpty()) {
+            // We'll create a minimal SkuInfo based on the parsed key information
+            val syntheticFilamentInfo = createSyntheticFilamentInfo(filamentType, colorName)
+            val primarySku = SkuInfo(
+                skuKey = skuKey,
+                filamentInfo = syntheticFilamentInfo,
+                spoolCount = 0,
+                totalScans = 0,
+                successfulScans = 0,
+                lastScanned = LocalDateTime.now(),
+                successRate = 0f
+            )
+            
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                primarySku = primarySku,
+                relatedScans = emptyList(),
+                relatedTags = emptyList(),
+                relatedSpools = emptyList(),
+                relatedSkus = listOf(primarySku)
+            )
+            return
+        }
+        
+        val mostRecentScan = skuScans.maxByOrNull { it.timestamp }!!
+        val filamentInfo = mostRecentScan.filamentInfo!!
+        
+        val uniqueSpools = skuScans.groupBy { it.filamentInfo!!.trayUid }.size
+        val totalScans = skuScans.size
+        val successfulScans = skuScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+        val lastScanned = skuScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+        
+        val primarySku = SkuInfo(
+            skuKey = skuKey,
+            filamentInfo = filamentInfo,
+            spoolCount = uniqueSpools,
+            totalScans = totalScans,
+            successfulScans = successfulScans,
+            lastScanned = lastScanned,
+            successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f
+        )
+        
+        // Get related spools and tags
+        val relatedSpools = skuScans
+            .groupBy { it.filamentInfo!!.trayUid }
+            .mapNotNull { (trayUid, scans) ->
+                repository.getSpoolDetails(trayUid)
+            }
+        
+        val relatedTags = skuScans.map { it.uid }.distinct()
+        
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            primarySku = primarySku,
+            relatedScans = skuScans,
+            relatedTags = relatedTags,
+            relatedSpools = relatedSpools.map { spoolDetailsToUniqueSpool(it) },
+            relatedSkus = listOf(primarySku)
+        )
+    }
+    
+    private fun getRelatedSkus(filamentInfo: com.bscan.model.FilamentInfo?): List<SkuInfo> {
+        if (filamentInfo == null) return emptyList()
+        
+        val allScans = repository.getAllScans()
+        val relatedScans = allScans.filter { 
+            it.filamentInfo?.filamentType == filamentInfo.filamentType
+        }
+        
+        return relatedScans
+            .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+            .groupBy { "${it.filamentInfo!!.filamentType}-${it.filamentInfo.colorName}" }
+            .mapNotNull { (skuKey, scans) ->
+                val mostRecentScan = scans.maxByOrNull { it.timestamp }
+                val info = mostRecentScan?.filamentInfo
+                if (info != null) {
+                    val uniqueSpools = scans.groupBy { it.filamentInfo!!.trayUid }.size
+                    val totalScans = scans.size
+                    val successfulScans = scans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+                    val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
+                    
+                    SkuInfo(
+                        skuKey = skuKey,
+                        filamentInfo = info,
+                        spoolCount = uniqueSpools,
+                        totalScans = totalScans,
+                        successfulScans = successfulScans,
+                        lastScanned = lastScanned ?: LocalDateTime.now(),
+                        successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f
+                    )
+                } else null
+            }
+    }
+    
+    private fun spoolDetailsToUniqueSpool(spoolDetails: SpoolDetails): UniqueSpool {
+        return UniqueSpool(
+            uid = spoolDetails.trayUid, // Use tray UID as the identifier
+            filamentInfo = spoolDetails.filamentInfo,
+            scanCount = spoolDetails.totalScans,
+            successCount = spoolDetails.successfulScans,
+            lastScanned = spoolDetails.lastScanned,
+            successRate = if (spoolDetails.totalScans > 0) 
+                spoolDetails.successfulScans.toFloat() / spoolDetails.totalScans else 0f
+        )
+    }
+    
+    private fun createSyntheticFilamentInfo(filamentType: String, colorName: String): com.bscan.model.FilamentInfo {
+        return com.bscan.model.FilamentInfo(
+            tagUid = "unknown",
+            trayUid = "unknown",
+            filamentType = filamentType.ifEmpty { "Unknown Material" },
+            detailedFilamentType = filamentType.ifEmpty { "Unknown Material" },
+            colorHex = "#808080", // Grey for unknown
+            colorName = colorName.ifEmpty { "Unknown Colour" },
+            spoolWeight = 0,
+            filamentDiameter = 1.75f,
+            filamentLength = 0,
+            productionDate = "",
+            minTemperature = 0,
+            maxTemperature = 0,
+            bedTemperature = 0,
+            dryingTemperature = 0,
+            dryingTime = 0
+        )
+    }
+}
