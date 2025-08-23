@@ -8,10 +8,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.bscan.ScanState
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanProgress
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.UniqueSpool
+import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.home.*
 
 @Composable
@@ -21,7 +21,7 @@ fun HomeScreen(
     onSimulateScan: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
-    onNavigateToDetails: ((String) -> Unit)? = null,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -38,7 +38,7 @@ fun HomeScreen(
     // Data state
     var spools by remember { mutableStateOf(listOf<UniqueSpool>()) }
     var individualTags by remember { mutableStateOf(listOf<UniqueSpool>()) }
-    var allScans by remember { mutableStateOf(listOf<ScanHistory>()) }
+    var allScans by remember { mutableStateOf(listOf<InterpretedScan>()) }
     var availableFilamentTypes by remember { mutableStateOf(setOf<String>()) }
     var availableColors by remember { mutableStateOf(setOf<String>()) }
     var availableBaseMaterials by remember { mutableStateOf(setOf<String>()) }

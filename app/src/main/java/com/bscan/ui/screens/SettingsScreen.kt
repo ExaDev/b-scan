@@ -43,7 +43,7 @@ fun SettingsScreen(
     
     // Load generated count on composition
     LaunchedEffect(Unit) {
-        generatedCount = repository.getGeneratedDataCount()
+        generatedCount = repository.getHistoryCount()
     }
     
     Scaffold(
@@ -96,7 +96,7 @@ fun SettingsScreen(
                                 val max = maxScans.toIntOrNull() ?: 10
                                 val generator = SampleDataGenerator()
                                 generator.generateSampleData(repository, count, min, max)
-                                generatedCount = repository.getGeneratedDataCount()
+                                generatedCount = repository.getHistoryCount()
                                 successMessage = "Generated $count spools with sample data!"
                                 showSuccessMessage = true
                             } finally {
@@ -115,7 +115,7 @@ fun SettingsScreen(
                         scope.launch {
                             isClearing = true
                             try {
-                                repository.clearGeneratedData()
+                                repository.clearHistory()
                                 generatedCount = 0
                                 successMessage = "Generated data cleared successfully!"
                                 showSuccessMessage = true

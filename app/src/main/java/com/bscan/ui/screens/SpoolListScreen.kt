@@ -18,7 +18,7 @@ import com.bscan.ui.screens.spool.*
 @Composable
 fun SpoolListScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToDetails: ((String) -> Unit)? = null,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -55,7 +55,10 @@ fun SpoolListScreen(
     // Get unique filament types for filter
     val availableTypes = remember(repository) {
         try {
-            val types = repository.getFilamentTypes()
+            val types = repository.getAllScans()
+                .mapNotNull { it.filamentInfo?.filamentType }
+                .distinct()
+                .sorted()
             listOf("All Types") + types
         } catch (e: Exception) {
             listOf("All Types")
@@ -101,7 +104,9 @@ fun SpoolListScreen(
             items(filteredSpools) { spool ->
                 SpoolCard(
                     spool = spool,
-                    onClick = onNavigateToDetails
+                    onClick = { trayUid ->
+                        onNavigateToDetails?.invoke(DetailType.SPOOL, trayUid)
+                    }
                 )
             }
             

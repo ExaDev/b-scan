@@ -14,10 +14,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.common.EmptyStateView
+import com.bscan.ui.screens.DetailType
 import com.bscan.ui.components.common.StatisticDisplay
 import com.bscan.ui.components.common.StatisticGrid
 import java.time.format.DateTimeFormatter
@@ -25,7 +26,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ScanStatisticsCard(
     repository: ScanHistoryRepository, 
-    scans: List<ScanHistory>,
+    scans: List<InterpretedScan>,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -88,18 +89,17 @@ fun ScanHistoryFilters(
 
 @Composable
 fun ScanHistoryCard(
-    scan: ScanHistory,
+    scan: InterpretedScan,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
     modifier: Modifier = Modifier,
-    onScanClick: ((String) -> Unit)? = null
+    onScanClick: ((DetailType, String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         onClick = { 
-            scan.filamentInfo?.trayUid?.let { trayUid ->
-                onScanClick?.invoke(trayUid)
-            }
+            val scanId = "${scan.timestamp.toString().replace(":", "-").replace(".", "-")}_${scan.uid}"
+            onScanClick?.invoke(DetailType.SCAN, scanId)
         },
         colors = CardDefaults.cardColors(
             containerColor = when (scan.scanResult) {
@@ -218,7 +218,7 @@ fun ScanResultBadge(
 
 @Composable
 fun ScanDebugSection(
-    scan: ScanHistory,
+    scan: InterpretedScan,
     modifier: Modifier = Modifier
 ) {
     Column(

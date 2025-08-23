@@ -10,20 +10,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.history.*
+import com.bscan.ui.screens.DetailType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanHistoryScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToDetails: ((String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
-    var scans by remember { mutableStateOf(listOf<ScanHistory>()) }
+    var scans by remember { mutableStateOf(listOf<InterpretedScan>()) }
     var selectedFilter by remember { mutableStateOf("All") }
     var expandedItems by remember { mutableStateOf(setOf<Long>()) }
     
