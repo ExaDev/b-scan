@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import com.bscan.model.ScanProgress
 import com.bscan.repository.UniqueSpool
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.DetailType
+import com.bscan.ui.screens.ScanPromptScreen
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -100,19 +102,30 @@ fun DataBrowserScreen(
     }
     
     // Scan prompt dimensions
-    val scanPromptHeightDp = 100.dp
-    val scanPromptHeightPx = with(density) { scanPromptHeightDp.toPx() }
+    val configuration = LocalConfiguration.current
+    val compactPromptHeightDp = 100.dp
+    val fullPromptHeightDp = configuration.screenHeightDp.dp
+    val compactPromptHeightPx = with(density) { compactPromptHeightDp.toPx() }
+    val fullPromptHeightPx = with(density) { fullPromptHeightDp.toPx() }
     
     // Overscroll reveal state - start hidden for data view
     var overscrollOffset by remember { mutableFloatStateOf(0f) }
     var isRevealing by remember { mutableStateOf(false) }
+    var isShowingFullPrompt by remember { mutableStateOf(false) }
+    
+    // Function to dismiss the scan prompt
+    val dismissScanPrompt = {
+        isRevealing = false
+        isShowingFullPrompt = false
+        overscrollOffset = 0f
+    }
     
     // Animated offset for smooth transitions
     val animatedOffset by animateFloatAsState(
-        targetValue = if (isRevealing && overscrollOffset > scanPromptHeightPx * 0.4f) {
-            scanPromptHeightPx // Fully revealed
-        } else {
-            0f // Hidden
+        targetValue = when {
+            !isRevealing -> 0f // Hidden
+            isShowingFullPrompt -> fullPromptHeightPx // Full page height
+            else -> compactPromptHeightPx // Compact height
         },
         animationSpec = SpringSpec(
             stiffness = 300f,
@@ -134,7 +147,7 @@ fun DataBrowserScreen(
         if (scanState == ScanState.TAG_DETECTED || scanState == ScanState.PROCESSING) {
             // Reveal scan prompt
             isRevealing = true
-            overscrollOffset = scanPromptHeightPx
+            overscrollOffset = compactPromptHeightPx
             
             // Scroll to top of current list
             val currentPageIndex = pagerState.currentPage % tabCount
@@ -143,42 +156,34 @@ fun DataBrowserScreen(
         }
     }
     
-    // NestedScrollConnection for scan prompt reveal/hide
-    val nestedScrollConnection = remember(pagerState.currentPage) {
+    // Pull-to-refresh style NestedScrollConnection - persistent when activated
+    val nestedScrollConnection = remember {
         object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                // Handle hiding scan prompt when scrolling up
-                if (available.y < 0 && overscrollOffset > 0) {
-                    val consumed = minOf(-available.y, overscrollOffset)
-                    overscrollOffset -= consumed
-                    if (overscrollOffset <= scanPromptHeightPx * 0.1f) {
-                        isRevealing = false
-                        overscrollOffset = 0f
-                    }
-                    return Offset(0f, -consumed)
-                }
-                
-                return Offset.Zero
-            }
-            
             override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // Handle scan prompt reveal when pulling down from top
-                if (available.y > 0) {
+                // Handle overscroll reveal when pulling down at top
+                if (available.y > 0 && source == NestedScrollSource.UserInput) {
                     val currentPageIndex = pagerState.currentPage % tabCount
                     val currentListState = lazyListStates[currentPageIndex]
-                    val isAtTop = currentListState.firstVisibleItemIndex == 0 && currentListState.firstVisibleItemScrollOffset == 0
+                    val isAtTop = currentListState.firstVisibleItemIndex == 0 && 
+                                  currentListState.firstVisibleItemScrollOffset == 0
                     
-                    if (isAtTop && overscrollOffset < scanPromptHeightPx) {
-                        // Reveal scan prompt when pulling down from top
-                        isRevealing = true
-                        val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
-                        val consumed = newOffset - overscrollOffset
+                    // Handle pull reveal - true overscroll only (consumed nothing)
+                    if (isAtTop && consumed.y == 0f) {
+                        val newOffset = (overscrollOffset + available.y * 0.5f).coerceAtMost(fullPromptHeightPx)
+                        val consumedOffset = newOffset - overscrollOffset
                         overscrollOffset = newOffset
-                        return Offset(0f, consumed)
+                        
+                        // Update revealing state and determine which prompt to show
+                        if (overscrollOffset > 0f) {
+                            isRevealing = true
+                            isShowingFullPrompt = overscrollOffset > compactPromptHeightPx * 1.5f
+                        }
+                        
+                        return Offset(0f, consumedOffset)
                     }
                 }
                 
@@ -186,10 +191,17 @@ fun DataBrowserScreen(
             }
             
             override suspend fun onPreFling(available: Velocity): Velocity {
-                // Handle fling to snap open/closed based on pull distance
-                if (overscrollOffset > 0 && overscrollOffset < scanPromptHeightPx) {
-                    isRevealing = overscrollOffset > scanPromptHeightPx * 0.3f
-                    if (!isRevealing) {
+                // Pull-to-refresh style snapping: once pulled enough, it stays visible
+                if (overscrollOffset > 0f) {
+                    if (overscrollOffset > compactPromptHeightPx * 0.4f) {
+                        // Snap to visible state and make it persistent
+                        isRevealing = true
+                        isShowingFullPrompt = overscrollOffset > compactPromptHeightPx * 1.2f
+                        overscrollOffset = if (isShowingFullPrompt) fullPromptHeightPx else compactPromptHeightPx
+                    } else {
+                        // Snap back to hidden
+                        isRevealing = false
+                        isShowingFullPrompt = false
                         overscrollOffset = 0f
                     }
                 }
@@ -220,30 +232,16 @@ fun DataBrowserScreen(
         },
         modifier = modifier.systemBarsPadding()
     ) { paddingValues ->
-        Column(
+        // Use Box to overlay scan prompt on top of main content
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .nestedScroll(nestedScrollConnection)
         ) {
-        // Scan prompt that slides down from above
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(with(LocalDensity.current) { animatedOffset.toDp() })
-                .graphicsLayer {
-                    alpha = (animatedOffset / scanPromptHeightPx).coerceIn(0f, 1f)
-                }
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            if (animatedOffset > 0) {
-                CompactScanPrompt(
-                    scanState = scanState,
-                    scanProgress = scanProgress,
-                    onLongPress = onSimulateScan
-                )
-            }
-        }
+            // Main content column
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
         
         // Tab row for view modes (synced with pager)
         TabRow(
@@ -459,19 +457,95 @@ fun DataBrowserScreen(
             onFilterStateChange = onFilterStateChange
         )
         
-        // Swipeable content pager
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            val actualPage = page % tabCount
-            when (ViewMode.values()[actualPage]) {
-                ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                // Swipeable content pager with nested scroll connection
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(nestedScrollConnection)
+                ) { page ->
+                    val actualPage = page % tabCount
+                    when (ViewMode.values()[actualPage]) {
+                        ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                        ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                        ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                        ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                    }
+                }
             }
-        }
+            
+            // Scan prompt overlay - starts hidden above screen and slides down
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        // Start above screen and slide down
+                        val maxHeight = if (isShowingFullPrompt) fullPromptHeightPx else compactPromptHeightPx
+                        translationY = -maxHeight + animatedOffset
+                        alpha = if (isRevealing && animatedOffset > 0f) 1f else 0f
+                    }
+            ) {
+                if (animatedOffset > 0) {
+                    if (isShowingFullPrompt) {
+                        // Full scan prompt
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(with(LocalDensity.current) { fullPromptHeightDp })
+                                .background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            ScanPromptScreen(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp)
+                            )
+                            
+                            // Dismiss button for full prompt
+                            IconButton(
+                                onClick = dismissScanPrompt,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        // Compact scan prompt
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(compactPromptHeightDp)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .clickable { dismissScanPrompt() }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            CompactScanPrompt(
+                                scanState = scanState,
+                                scanProgress = scanProgress,
+                                onLongPress = onSimulateScan
+                            )
+                            
+                            // Dismiss button
+                            IconButton(
+                                onClick = dismissScanPrompt,
+                                modifier = Modifier.align(Alignment.TopEnd)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
