@@ -1,0 +1,422 @@
+package com.bscan.ui.screens.home
+
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
+import com.bscan.ScanState
+import com.bscan.model.ScanHistory
+import com.bscan.model.ScanProgress
+import com.bscan.repository.UniqueSpool
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun DataBrowserScreen(
+    viewMode: ViewMode,
+    sortOption: SortOption,
+    groupByOption: GroupByOption,
+    filterState: FilterState,
+    spools: List<UniqueSpool>,
+    allScans: List<ScanHistory>,
+    availableFilamentTypes: Set<String>,
+    availableColors: Set<String>,
+    availableBaseMaterials: Set<String>,
+    availableMaterialSeries: Set<String>,
+    showSortMenu: Boolean,
+    showFilterMenu: Boolean,
+    scanState: ScanState,
+    scanProgress: ScanProgress?,
+    onSimulateScan: () -> Unit,
+    onViewModeChange: (ViewMode) -> Unit,
+    onSortOptionChange: (SortOption) -> Unit,
+    onGroupByOptionChange: (GroupByOption) -> Unit,
+    onFilterStateChange: (FilterState) -> Unit,
+    onShowSortMenu: (Boolean) -> Unit,
+    onShowFilterMenu: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    
+    // Local state for GroupBy menu
+    var showGroupByMenu by remember { mutableStateOf(false) }
+    
+    // Pager state for swipeable tabs with wrap-around
+    val tabCount = ViewMode.values().size
+    val virtualPageCount = tabCount * 1000 // Large number for infinite scrolling effect
+    val startPage = virtualPageCount / 2 + viewMode.ordinal // Start in middle to allow wrapping both ways
+    
+    val pagerState = rememberPagerState(
+        initialPage = startPage,
+        pageCount = { virtualPageCount }
+    )
+    
+    // Sync pager state with view mode
+    LaunchedEffect(viewMode) {
+        val targetPage = pagerState.currentPage - (pagerState.currentPage % tabCount) + viewMode.ordinal
+        if (targetPage != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+    
+    LaunchedEffect(pagerState.currentPage) {
+        val actualPage = pagerState.currentPage % tabCount
+        val currentMode = ViewMode.values()[actualPage]
+        if (currentMode != viewMode) {
+            onViewModeChange(currentMode)
+        }
+    }
+    
+    // Scan prompt dimensions
+    val scanPromptHeightDp = 100.dp
+    val scanPromptHeightPx = with(density) { scanPromptHeightDp.toPx() }
+    
+    // Overscroll reveal state - start hidden for data view
+    var overscrollOffset by remember { mutableFloatStateOf(0f) }
+    var isRevealing by remember { mutableStateOf(false) }
+    
+    // Animated offset for smooth transitions
+    val animatedOffset by animateFloatAsState(
+        targetValue = if (isRevealing && overscrollOffset > scanPromptHeightPx * 0.4f) {
+            scanPromptHeightPx // Fully revealed
+        } else {
+            0f // Hidden
+        },
+        animationSpec = SpringSpec(
+            stiffness = 300f,
+            dampingRatio = 0.8f
+        ),
+        label = "scan_prompt_reveal"
+    )
+    
+    // Store LazyListState for each page
+    val lazyListStates = listOf(
+        rememberLazyListState(), // SPOOLS
+        rememberLazyListState(), // SKUS
+        rememberLazyListState(), // TAGS  
+        rememberLazyListState()  // SCANS
+    )
+    
+    // Auto-scroll to top and reveal scan prompt when scanning starts
+    LaunchedEffect(scanState) {
+        if (scanState == ScanState.TAG_DETECTED || scanState == ScanState.PROCESSING) {
+            // Reveal scan prompt
+            isRevealing = true
+            overscrollOffset = scanPromptHeightPx
+            
+            // Scroll to top of current list
+            val currentPageIndex = pagerState.currentPage % tabCount
+            val currentListState = lazyListStates[currentPageIndex]
+            currentListState.animateScrollToItem(0)
+        }
+    }
+    
+    // NestedScrollConnection for scan prompt reveal/hide
+    val nestedScrollConnection = remember(pagerState.currentPage) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Handle hiding scan prompt when scrolling up
+                if (available.y < 0 && overscrollOffset > 0) {
+                    val consumed = minOf(-available.y, overscrollOffset)
+                    overscrollOffset -= consumed
+                    if (overscrollOffset <= scanPromptHeightPx * 0.1f) {
+                        isRevealing = false
+                        overscrollOffset = 0f
+                    }
+                    return Offset(0f, -consumed)
+                }
+                
+                return Offset.Zero
+            }
+            
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Handle scan prompt reveal when pulling down from top
+                if (available.y > 0) {
+                    val currentPageIndex = pagerState.currentPage % tabCount
+                    val currentListState = lazyListStates[currentPageIndex]
+                    val isAtTop = currentListState.firstVisibleItemIndex == 0 && currentListState.firstVisibleItemScrollOffset == 0
+                    
+                    if (isAtTop && overscrollOffset < scanPromptHeightPx) {
+                        // Reveal scan prompt when pulling down from top
+                        isRevealing = true
+                        val newOffset = (overscrollOffset + available.y).coerceAtMost(scanPromptHeightPx)
+                        val consumed = newOffset - overscrollOffset
+                        overscrollOffset = newOffset
+                        return Offset(0f, consumed)
+                    }
+                }
+                
+                return Offset.Zero
+            }
+            
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                // Handle fling to snap open/closed based on pull distance
+                if (overscrollOffset > 0 && overscrollOffset < scanPromptHeightPx) {
+                    isRevealing = overscrollOffset > scanPromptHeightPx * 0.3f
+                    if (!isRevealing) {
+                        overscrollOffset = 0f
+                    }
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+    
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(nestedScrollConnection)
+    ) {
+        // Scan prompt that slides down from above
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(with(LocalDensity.current) { animatedOffset.toDp() })
+                .graphicsLayer {
+                    alpha = (animatedOffset / scanPromptHeightPx).coerceIn(0f, 1f)
+                }
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            if (animatedOffset > 0) {
+                CompactScanPrompt(
+                    scanState = scanState,
+                    scanProgress = scanProgress,
+                    onLongPress = onSimulateScan
+                )
+            }
+        }
+        
+        // Tab row for view modes (synced with pager)
+        TabRow(
+            selectedTabIndex = pagerState.currentPage % tabCount,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            ViewMode.values().forEachIndexed { index, mode ->
+                Tab(
+                    selected = (pagerState.currentPage % tabCount) == index,
+                    onClick = { 
+                        scope.launch {
+                            val targetPage = pagerState.currentPage - (pagerState.currentPage % tabCount) + index
+                            pagerState.animateScrollToPage(targetPage)
+                        }
+                    },
+                    text = { 
+                        Text(
+                            when (mode) {
+                                ViewMode.SPOOLS -> "Spools"
+                                ViewMode.SKUS -> "SKUs"
+                                ViewMode.TAGS -> "Tags"
+                                ViewMode.SCANS -> "Scans"
+                            }
+                        )
+                    },
+                    icon = { 
+                        Icon(
+                            imageVector = when (mode) {
+                                ViewMode.SPOOLS -> Icons.Default.Storage
+                                ViewMode.SKUS -> Icons.Default.Inventory
+                                ViewMode.TAGS -> Icons.Default.Tag
+                                ViewMode.SCANS -> Icons.Default.History
+                            },
+                            contentDescription = null
+                        )
+                    }
+                )
+            }
+        }
+        
+        // Controls row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Sort by:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Box {
+                OutlinedButton(
+                    onClick = { onShowSortMenu(true) }
+                ) {
+                    Text(
+                        text = when (sortOption) {
+                            SortOption.MOST_RECENT -> "Most Recent"
+                            SortOption.OLDEST -> "Oldest"
+                            SortOption.NAME -> "Name"
+                            SortOption.SUCCESS_RATE -> "Success Rate"
+                            SortOption.COLOR -> "Color"
+                            SortOption.MATERIAL_TYPE -> "Material"
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+                
+                DropdownMenu(
+                    expanded = showSortMenu,
+                    onDismissRequest = { onShowSortMenu(false) }
+                ) {
+                    SortOption.values().forEach { option ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    when (option) {
+                                        SortOption.MOST_RECENT -> "Most Recent"
+                                        SortOption.OLDEST -> "Oldest"
+                                        SortOption.NAME -> "Name"
+                                        SortOption.SUCCESS_RATE -> "Success Rate"
+                                        SortOption.COLOR -> "Color"
+                                        SortOption.MATERIAL_TYPE -> "Material"
+                                    }
+                                )
+                            },
+                            onClick = {
+                                onSortOptionChange(option)
+                                onShowSortMenu(false)
+                            }
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // Filter button
+            OutlinedButton(
+                onClick = { onShowFilterMenu(true) }
+            ) {
+                Icon(
+                    Icons.Default.FilterList,
+                    contentDescription = "Filter",
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Filter")
+                // Show badge if filters are active
+                if (filterState.filamentTypes.isNotEmpty() || 
+                    filterState.colors.isNotEmpty() ||
+                    filterState.baseMaterials.isNotEmpty() ||
+                    filterState.materialSeries.isNotEmpty() ||
+                    filterState.minSuccessRate > 0f || 
+                    filterState.showSuccessOnly || 
+                    filterState.showFailuresOnly || 
+                    filterState.dateRangeDays != null) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Badge(
+                        modifier = Modifier.size(8.dp)
+                    ) {}
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            // GroupBy dropdown
+            Text(
+                text = "Group by:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Box {
+                OutlinedButton(
+                    onClick = { showGroupByMenu = true }
+                ) {
+                    Text(
+                        text = when (groupByOption) {
+                            GroupByOption.NONE -> "None"
+                            GroupByOption.COLOR -> "Color"
+                            GroupByOption.BASE_MATERIAL -> "Material"
+                            GroupByOption.MATERIAL_SERIES -> "Series"
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                }
+                
+                DropdownMenu(
+                    expanded = showGroupByMenu,
+                    onDismissRequest = { showGroupByMenu = false }
+                ) {
+                    GroupByOption.values().forEach { option ->
+                        DropdownMenuItem(
+                            text = { 
+                                Text(
+                                    when (option) {
+                                        GroupByOption.NONE -> "None"
+                                        GroupByOption.COLOR -> "Color"
+                                        GroupByOption.BASE_MATERIAL -> "Material"
+                                        GroupByOption.MATERIAL_SERIES -> "Series"
+                                    }
+                                )
+                            },
+                            onClick = {
+                                onGroupByOptionChange(option)
+                                showGroupByMenu = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Filter chips
+        FilterChips(
+            filterState = filterState,
+            onFilterStateChange = onFilterStateChange
+        )
+        
+        // Swipeable content pager
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val actualPage = page % tabCount
+            when (ViewMode.values()[actualPage]) {
+                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SKUS -> SkusList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.TAGS -> TagsList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SCANS -> ScansList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+            }
+        }
+    }
+    
+    // Filter dialog
+    if (showFilterMenu) {
+        FilterDialog(
+            filterState = filterState,
+            availableFilamentTypes = availableFilamentTypes,
+            availableColors = availableColors,
+            availableBaseMaterials = availableBaseMaterials,
+            availableMaterialSeries = availableMaterialSeries,
+            onFilterStateChange = onFilterStateChange,
+            onDismiss = { onShowFilterMenu(false) }
+        )
+    }
+}
