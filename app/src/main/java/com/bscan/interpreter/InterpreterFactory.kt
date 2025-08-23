@@ -31,14 +31,23 @@ class InterpreterFactory(
      * Interpret decrypted scan data using the appropriate format interpreter
      */
     fun interpret(decryptedData: DecryptedScanData): FilamentInfo? {
-        val interpreter = getInterpreter(decryptedData.tagFormat)
-            ?: return null
-            
-        return if (interpreter.canInterpret(decryptedData)) {
-            interpreter.interpret(decryptedData)
-        } else {
-            null
+        // First, try the tagged format
+        if (decryptedData.tagFormat != TagFormat.UNKNOWN) {
+            val interpreter = getInterpreter(decryptedData.tagFormat)
+            if (interpreter != null && interpreter.canInterpret(decryptedData)) {
+                return interpreter.interpret(decryptedData)
+            }
         }
+        
+        // If format is UNKNOWN or tagged interpreter failed, try all interpreters
+        // This handles legacy scan data that was stored with UNKNOWN format
+        for ((_, interpreter) in interpreters) {
+            if (interpreter.canInterpret(decryptedData)) {
+                return interpreter.interpret(decryptedData)
+            }
+        }
+        
+        return null
     }
     
     /**
