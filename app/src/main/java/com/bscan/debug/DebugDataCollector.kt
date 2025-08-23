@@ -19,6 +19,8 @@ class DebugDataCollector {
     private var tagSizeBytes = 0
     private var sectorCount = 0
     private var cacheHit = false
+    private var fullRawData: ByteArray = ByteArray(0)
+    private var decryptedData: ByteArray = ByteArray(0)
     
     fun recordTagInfo(sizeBytes: Int, sectors: Int) {
         tagSizeBytes = sizeBytes
@@ -61,6 +63,14 @@ class DebugDataCollector {
         cacheHit = true
     }
     
+    fun recordFullRawData(rawData: ByteArray) {
+        fullRawData = rawData.copyOf()
+    }
+    
+    fun recordDecryptedData(decryptedData: ByteArray) {
+        this.decryptedData = decryptedData.copyOf()
+    }
+    
     fun hasAuthenticatedSectors(): Boolean {
         return authenticatedSectors.isNotEmpty()
     }
@@ -89,7 +99,9 @@ class DebugDataCollector {
                 derivedKeys = derivedKeys.toList(),
                 rawColorBytes = rawColorBytes,
                 errorMessages = errorMessages.toList(),
-                parsingDetails = parsingDetails.toMap()
+                parsingDetails = parsingDetails.toMap(),
+                fullRawHex = fullRawData.joinToString("") { "%02X".format(it) },
+                decryptedHex = decryptedData.joinToString("") { "%02X".format(it) }
             )
         )
     }
@@ -106,5 +118,7 @@ class DebugDataCollector {
         tagSizeBytes = 0
         sectorCount = 0
         cacheHit = false
+        fullRawData = ByteArray(0)
+        decryptedData = ByteArray(0)
     }
 }

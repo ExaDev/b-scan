@@ -32,5 +32,7 @@ data class ScanDebugInfo(
     val derivedKeys: List<String>, // KDF-derived keys in hex
     val rawColorBytes: String,
     val errorMessages: List<String>,
-    val parsingDetails: Map<String, Any?> // flexible debug data
+    val parsingDetails: Map<String, Any?>, // flexible debug data
+    val fullRawHex: String = "", // Complete 768-byte raw encrypted data
+    val decryptedHex: String = "" // Complete decrypted data after authentication
 )
