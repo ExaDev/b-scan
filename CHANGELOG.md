@@ -1,12 +1,10 @@
 # [3.4.0](https://github.com/Mearman/b-scan/compare/v3.3.0...v3.4.0) (2025-08-23)
 
-
 ### Features
 
 * **ui:** improve controls layout with compact buttons and fix dropdown positioning ([3bf539f](https://github.com/Mearman/b-scan/commit/3bf539f5f6fdc2aa1ce3c17ee44b3fa17630fba6))
 
 # [3.3.0](https://github.com/Mearman/b-scan/compare/v3.2.0...v3.3.0) (2025-08-23)
-
 
 ### Features
 
@@ -23,11 +21,9 @@
 
 # [3.2.0](https://github.com/Mearman/b-scan/compare/v3.1.0...v3.2.0) (2025-08-23)
 
-
 ### Bug Fixes
 
 * **decoder:** correct filament diameter parsing to 8-byte float ([bb7c556](https://github.com/Mearman/b-scan/commit/bb7c55622b473dd2e4cf5320cf9f048c6d628446))
-
 
 ### Features
 
@@ -36,7 +32,6 @@
 * **model:** add research fields for unknown RFID data blocks ([00e4c72](https://github.com/Mearman/b-scan/commit/00e4c72b91ad15a7a9b81bef9269b128f2f2810d))
 
 # [3.1.0](https://github.com/Mearman/b-scan/compare/v3.0.0...v3.1.0) (2025-08-22)
-
 
 ### Bug Fixes
 
@@ -47,7 +42,6 @@
 * **ui:** make scrolling behavior more realistic and natural ([058ba46](https://github.com/Mearman/b-scan/commit/058ba464eb81cf9c5f4302f5c59357ff392105e4))
 * **ui:** make spool items move down when scan prompt is revealed ([0747240](https://github.com/Mearman/b-scan/commit/07472407c34834f510582860a5bacff5970e207c))
 * **ui:** update FilamentDetailsScreen to use tagUid property ([71cc8a3](https://github.com/Mearman/b-scan/commit/71cc8a32ab1ba6ad1acdc10bb13cd5fdc26f5770))
-
 
 ### Features
 
@@ -72,11 +66,9 @@
 
 # [3.0.0](https://github.com/Mearman/b-scan/compare/v2.0.2...v3.0.0) (2025-08-22)
 
-
 ### Bug Fixes
 
 * **update:** implement real-time download progress monitoring ([b8ab203](https://github.com/Mearman/b-scan/commit/b8ab20336eb9bdb820e73733260cbf3afa03911e))
-
 
 ### BREAKING CHANGES
 
@@ -84,30 +76,25 @@
 
 ## [2.0.2](https://github.com/Mearman/b-scan/compare/v2.0.1...v2.0.2) (2025-08-22)
 
-
 ### Bug Fixes
 
 * **ci:** remove custom release body template ([566460c](https://github.com/Mearman/b-scan/commit/566460ce5099c672aa1c3ed449488797df05a40a))
 
 ## [2.0.1](https://github.com/Mearman/b-scan/compare/v2.0.0...v2.0.1) (2025-08-22)
 
-
 ### Performance Improvements
 
-* **ci:** optimize semantic-release build performance ([9d42eaf](https://github.com/Mearman/b-scan/commit/9d42eaf1cf0b67541ed87cee43bfd88d71375d95))
+* **ci:** optimise semantic-release build performance ([9d42eaf](https://github.com/Mearman/b-scan/commit/9d42eaf1cf0b67541ed87cee43bfd88d71375d95))
 
 # [2.0.0](https://github.com/Mearman/b-scan/compare/v1.2.0...v2.0.0) (2025-08-22)
-
 
 ### Bug Fixes
 
 * **ci:** remove npm cache from semantic-release workflow ([11b6c90](https://github.com/Mearman/b-scan/commit/11b6c90955a04d80daa784ce0b9f23ab6c26be3e))
 
-
 ### Features
 
 * replace custom bash solution with semantic-release ([48aaea1](https://github.com/Mearman/b-scan/commit/48aaea15dee624fb8129cb0baca3cf654b45684a))
-
 
 ### BREAKING CHANGES
 
@@ -147,6 +134,232 @@
 
 * **release:** hybrid approach using .github/release.yml template with build information ([80954bd](https://github.com/Mearman/b-scan/commit/80954bdd9bdb059d00c37aa6138b26c56449428f))
 
+## [1.0.155](https://github.com/Mearman/b-scan/compare/v1.0.154...v1.0.155) (2025-08-22)
+
+### Features
+
+* **release:** use .github/release.yml template for automated changelog categorisation ([df0674b](https://github.com/Mearman/b-scan/commit/df0674b6a4b6d96e3e5b300f0273f09f7be55b0b))
+
+## [1.0.154](https://github.com/Mearman/b-scan/compare/v1.0.131...v1.0.154) (2025-08-22)
+
+### Bug Fixes
+
+* **ci:** add artifact validation and improved error handling for release creation ([5eb3c85](https://github.com/Mearman/b-scan/commit/5eb3c8576c044bef0ed92599e41a9462a95593fb))
+* **ci:** correct artifact paths in release creation ([d71d981](https://github.com/Mearman/b-scan/commit/d71d98190b5e2508a0e4048dd637c0eb268e9858))
+* **ci:** migrate from deprecated gradle-build-action to setup-gradle ([da56a59](https://github.com/Mearman/b-scan/commit/da56a592ea8e45b8b3bf00d08d1775286f92b21f))
+* **ci:** resolve build scan terms and lint reports path issues ([a1a7898](https://github.com/Mearman/b-scan/commit/a1a789808105a052cb196fcb6b0ea4f33213e680))
+* **ci:** update deprecated gradle-home-cache-cleanup to cache-cleanup ([214a290](https://github.com/Mearman/b-scan/commit/214a290a6294eb6a377ad0d656b53fcb2bd7fdcd))
+* **ci:** use correct full artifact paths for release ([468e7ed](https://github.com/Mearman/b-scan/commit/468e7ed3c3d9ea2d03353cfb5fa544f1cf1f8ae5))
+* improve tray UID display formatting to prevent garbled text ([68b9b25](https://github.com/Mearman/b-scan/commit/68b9b255b0f8fe256ddf39e0897a08a704d8e126))
+* resolve compilation errors in tray tracking implementation ([0bf93ce](https://github.com/Mearman/b-scan/commit/0bf93cec3a138e849a89d0b57f4a2430b618fd3a))
+
+### Features
+
+* add reactive data refresh to tray tracking screen ([de78578](https://github.com/Mearman/b-scan/commit/de78578afe92977f8f4e6b47ed047538c3678365))
+* add comprehensive tray UID tracking system ([5ec092b](https://github.com/Mearman/b-scan/commit/5ec092bd892cbc1aa438c78cad548cec1d5083a0))
+* **ci:** enhance gradle-build-action with build scans and job summaries ([dad4813](https://github.com/Mearman/b-scan/commit/dad48134fa7316e16b5c936be4b3d0b6021b5cde))
+
+### Performance Improvements
+
+* **android:** enable R8 full mode and incremental build optimisations ([ccd1ba7](https://github.com/Mearman/b-scan/commit/ccd1ba76257e7301e100cc42856c90b8d2bd0c2b))
+* **cache:** enable remote build cache for cross-run persistence ([d94d3bf](https://github.com/Mearman/b-scan/commit/d94d3bf20eb63a0d2c62488e8825989fa011fd0b))
+* **ci:** add multi-tier build output caching for incremental builds ([8a5e0eb](https://github.com/Mearman/b-scan/commit/8a5e0eb92e38a5a137adda9c2ee65b60be065cde))
+* **ci:** optimise Gradle environment variables for performance ([2898b21](https://github.com/Mearman/b-scan/commit/2898b21bc1fafef30ccafd67a380548c982366db))
+* **ci:** remove unnecessary job dependencies for parallel execution ([9f28079](https://github.com/Mearman/b-scan/commit/9f28079c2b500ee115fc992216c0ba360c41be98))
+* **ci:** upgrade Android emulator configuration for better performance ([ab61f99](https://github.com/Mearman/b-scan/commit/ab61f999e4597f1e304bd2cbd9365d5767274f64))
+* enable stable configuration cache and Kotlin incremental compilation ([e774f71](https://github.com/Mearman/b-scan/commit/e774f71111d89022087e15e09cff9c6370dfd280))
+
+## [1.0.131](https://github.com/Mearman/b-scan/compare/v1.0.129...v1.0.131) (2025-08-22)
+
+### Bug Fixes
+
+* **build:** configure explicit debug keystore for consistent CI/local signing ([2533d6e](https://github.com/Mearman/b-scan/commit/2533d6e6fe38504ae1f24ec2d715e8b6dbf2abc0))
+
+### Features
+
+* **ci:** add keystore verification logging to build action ([96bd847](https://github.com/Mearman/b-scan/commit/96bd847dbe77aa2bbd885359785e6161b9ce60de))
+
+## [1.0.129](https://github.com/Mearman/b-scan/compare/v1.0.120...v1.0.129) (2025-08-22)
+
+### Features
+
+* migrate to Navigation Compose from conditional rendering ([109dd19](https://github.com/Mearman/b-scan/commit/109dd196917b74fd7433d0a67a40b08e89a24963))
+
+## [1.0.120](https://github.com/Mearman/b-scan/compare/v1.0.118...v1.0.120) (2025-08-22)
+
+### Bug Fixes
+
+* **ci:** allow merge commits to bypass conventional commit validation ([f99f2d7](https://github.com/Mearman/b-scan/commit/f99f2d70fdf68ecf4e3aed599be0ef35f008d95a))
+* **ci:** resolve shell command substitution in release messages ([2119db7](https://github.com/Mearman/b-scan/commit/2119db7ba71b5c2dbd70c4595dd62b8b2f1e2b23))
+* resolve ArrowBack icon deprecation in SpoolListScreen ([d81cf03](https://github.com/Mearman/b-scan/commit/d81cf0391609eb3fc527a36116ff84fac08e77db))
+* resolve deprecation warnings in MainActivity ([e250bd5](https://github.com/Mearman/b-scan/commit/e250bd518943f7e12d0f5283abf81ba8ca64182e))
+* resolve getParcelableExtra deprecation in NfcManager ([9ecc8d6](https://github.com/Mearman/b-scan/commit/9ecc8d65737a8ea2173df928d61422c29fc0f79f))
+
+### Features
+
+* optimise NFC sector authentication with smart key ordering (#7) ([4c7c0b9](https://github.com/Mearman/b-scan/commit/4c7c0b997c0ab2756413025e57e3c11cd05f70a6))
+
+## [1.0.118](https://github.com/Mearman/b-scan/compare/v1.0.106...v1.0.118) (2025-08-22)
+
+### Features
+
+* **build:** add automatic git hooks installation ([effde50](https://github.com/Mearman/b-scan/commit/effde50d0221b86fb6f6e0f9a50b300ae5821017))
+* **build:** add git commit template for conventional commits ([f75ed51](https://github.com/Mearman/b-scan/commit/f75ed516c01a25249feaaf237be088fe73676703))
+* **ci:** add automatic changelog generation from conventional commits ([3163bfd](https://github.com/Mearman/b-scan/commit/3163bfd20574e2ae6a788e1a4057429d963b14dc))
+* **debug:** add bed temperature debugging helper ([4bf3695](https://github.com/Mearman/b-scan/commit/4bf3695384dbd9bb63d694f4c08928ebf103d8cc))
+* **decoder:** add comprehensive bed temperature debugging ([6331f03](https://github.com/Mearman/b-scan/commit/6331f0321220d6ba18fac4cb7c46c6a188cfc676))
+* **nfc:** enable fallback keys and improve sector 1 debugging ([a3d44c2](https://github.com/Mearman/b-scan/commit/a3d44c2c5a26d8da2256d34140ed2adcef279492))
+* **repository:** add unique spool aggregation methods ([a838047](https://github.com/Mearman/b-scan/commit/a8380471a5fcc7ea11416b3fc5a4a4d1f96f1ae6))
+* **ui:** add SpoolListScreen with collection statistics and filtering ([d6577ce](https://github.com/Mearman/b-scan/commit/d6577ce91307c5b8cf9fda513041985a7065daa2))
+* **ui:** integrate spool list navigation in MainActivity ([8be3e8d](https://github.com/Mearman/b-scan/commit/8be3e8da956a9d30a843a2a4ec2a278a689fe63f))
+* **viewmodel:** add spool list navigation state management ([529e19e](https://github.com/Mearman/b-scan/commit/529e19e47fc348d2a327e576eb5cac6a053c409a))
+
+### Performance Improvements
+
+* IDE Config & Admin Structure Change (#6) ([342899c](https://github.com/Mearman/b-scan/commit/342899ce4e1906f8daa61c87c72549ec79b6f842))
+
+## [1.0.106](https://github.com/Mearman/b-scan/compare/v1.0.88...v1.0.106) (2025-08-22)
+
+### Bug Fixes
+
+* **test:** replace assertDoesNotThrow with try-catch in cache tests ([b5d15cd](https://github.com/Mearman/b-scan/commit/b5d15cdd493abc54e0eec50e3fa8ac7b455977ac))
+* resolve assertion inconsistencies in CachedBambuKeyDerivationTest ([4b34802](https://github.com/Mearman/b-scan/commit/4b348027ba84519647bc12b698be6779de13520b))
+* resolve assertion inconsistencies in DerivedKeyCacheTest ([57db558](https://github.com/Mearman/b-scan/commit/57db55807ecb4b888a7fe3e07052a0ed59476dde))
+
+### Features
+
+* test: add ColorPreviewCard parseColor function test coverage ([e28fc6c](https://github.com/Mearman/b-scan/commit/e28fc6caa646a7f0676e5b4bb1cb11d1df2b7234))
+* test: add comprehensive NfcManager test coverage ([45f7695](https://github.com/Mearman/b-scan/commit/45f76956784339c05906a07b7d296385061f4164))
+* test: add comprehensive tests for key derivation algorithm changes ([9f09ee7](https://github.com/Mearman/b-scan/commit/9f09ee746135a9a27943b0bcdbb0ce53f89596a4))
+* test: add comprehensive transparency detection tests ([e1db1c8](https://github.com/Mearman/b-scan/commit/e1db1c83ebc54f4f95ed5bdfefd784f06d0ca2e9))
+* test: add transparency handling tests to decoder error handling ([ee74a63](https://github.com/Mearman/b-scan/commit/ee74a633e889651bc8e3aeafeba94dd5235f6d6a))
+
+## [1.0.88](https://github.com/Mearman/b-scan/compare/v1.0.84...v1.0.88) (2025-08-22)
+
+### Features
+
+* Merge pull request #4 from srleach/feature/purge-from-cache ([6ddef11](https://github.com/Mearman/b-scan/commit/6ddef1140082c17b8903d02c45fb6d255ec2b501))
+* Merge pull request #3 from srleach/feature/cache-derived-keys ([c1d6263](https://github.com/Mearman/b-scan/commit/c1d626b321690199b175e6faa368f1f9f6dec917))
+* Merge pull request #2 from srleach/bugfix/resolve-colour-preview ([14affa7](https://github.com/Mearman/b-scan/commit/14affa7baa314bc3c06883997cdadffd4fab9d60))
+* Merge pull request #1 from srleach/bugfix/resolve-bad-read ([341370a](https://github.com/Mearman/b-scan/commit/341370a2418d7c5b096495ef20a653ab5dbb2ae4))
+* Add cache invalidation ([4e33ae8](https://github.com/Mearman/b-scan/commit/4e33ae8784e0f2aaac8cc0234b40b75695b96c99))
+* Caching implementation ([4848bba](https://github.com/Mearman/b-scan/commit/4848bba90377eb3d50b06838b9577b049a951f99))
+* Resolve transparent filament identification ([8f777b5](https://github.com/Mearman/b-scan/commit/8f777b51d9d3afef5ad7b1cafc1b79b8b3647c5f))
+* Resolve colour hex name issue ([4c21797](https://github.com/Mearman/b-scan/commit/4c217977ec43e836e28cb90251c4b76a3c72693c))
+* Convert RGBA format (from the tag data) to AARRGGBB format ([a261484](https://github.com/Mearman/b-scan/commit/a26148419cda297e829d836d10ec0ddcec9a3f7e))
+* Modify key derivation process ([49939d6](https://github.com/Mearman/b-scan/commit/49939d6ed51134b5951e692bab7255c47d8f6f47))
+
+## [1.0.84](https://github.com/Mearman/b-scan/compare/v1.0.82...v1.0.84) (2025-08-22)
+
+Note: Same content as v1.0.88 due to duplicate tagging
+
+## [1.0.82](https://github.com/Mearman/b-scan/compare/v1.0.81...v1.0.82) (2025-08-14)
+
+### Features
+
+* add UID to debug info for NFC authentication troubleshooting ([e24b121](https://github.com/Mearman/b-scan/commit/e24b121492564c282ad46f48d5fba2883bc34fa8))
+
+## [1.0.81](https://github.com/Mearman/b-scan/compare/v1.0.80...v1.0.81) (2025-08-14)
+
+### Bug Fixes
+
+* display actual app version instead of hardcoded "1.0" ([a06ab27](https://github.com/Mearman/b-scan/commit/a06ab276095def6e3afbb0f25be75bd5647b6b44))
+
+## [1.0.80](https://github.com/Mearman/b-scan/compare/v1.0.79...v1.0.80) (2025-08-14)
+
+### Bug Fixes
+
+* improve NFC authentication error logging and debugging ([1cebc1c](https://github.com/Mearman/b-scan/commit/1cebc1c54d85a501a4917a1487f78533519667c1))
+
+## [1.0.79](https://github.com/Mearman/b-scan/compare/v1.0.70...v1.0.79) (2025-08-14)
+
+### Features
+
+* integrate debug information throughout MainActivity UI flow ([2851af2](https://github.com/Mearman/b-scan/commit/2851af26d184898dc659c7265af41dd679c01bac))
+* integrate debug information display in FilamentDetailsScreen ([1f6b160](https://github.com/Mearman/b-scan/commit/1f6b160496993cd864f577009e89d5360bbc352e))
+* add comprehensive DebugInfoCard with copy-to-clipboard functionality ([0f1b80f](https://github.com/Mearman/b-scan/commit/0f1b80fad322b72f99e3a8b203cf3f122b7ed9ee))
+* create ErrorScreen component with debug information display ([22f9ebe](https://github.com/Mearman/b-scan/commit/22f9ebee716e7aeed99358612d5ef68fd22621d1))
+* integrate debug information into UI state management ([a0304f8](https://github.com/Mearman/b-scan/commit/a0304f8279bcbe61de82c918be315a1775e4bd76))
+
+## [1.0.70](https://github.com/Mearman/b-scan/compare/v1.0.63...v1.0.70) (2025-08-14)
+
+### Features
+
+* add comprehensive HKDF key derivation tests ([b240613](https://github.com/Mearman/b-scan/commit/b24061360bff38d998b6c91ab19f8c491d83db86))
+* enhance RFID authentication with comprehensive fallback keys ([4052404](https://github.com/Mearman/b-scan/commit/40524ab5ae493414b13be5f51a97ef0a9b680cb9))
+* add authentication status check to DebugDataCollector ([d9f3da7](https://github.com/Mearman/b-scan/commit/d9f3da7ad28e75501161c0f552370b0f209d56ea))
+* enhance HKDF key derivation with validation and logging ([18acd82](https://github.com/Mearman/b-scan/commit/18acd82c6ff5bcdc5e17ed2b88b6ff44bf6ef792))
+* add simple RFID decoder validation tests ([dc942e4](https://github.com/Mearman/b-scan/commit/dc942e4cb67f57dc05ad9f7bcf81454139253f3d))
+* add integration tests for real-world RFID tag scenarios ([571d3e2](https://github.com/Mearman/b-scan/commit/571d3e2e3f91465854f8d6b16e854069452b998a))
+* add comprehensive error handling tests for RFID decoder ([24711041](https://github.com/Mearman/b-scan/commit/24711041546514167fd0d382073cfba4016a9ddc))
+* add comprehensive RFID decoder tests with real example data ([22222398](https://github.com/Mearman/b-scan/commit/22222398661e42438ee29b0133dcdd2f821a56ab))
+* implement comprehensive RFID tag decoding per RFID-Tag-Guide ([82256fa](https://github.com/Mearman/b-scan/commit/82256fa049b1b9f7b335a1ded6b6c37017d76430))
+* extend FilamentInfo model with comprehensive RFID fields ([2c53626](https://github.com/Mearman/b-scan/commit/2c53626f60cf3e4f3c2f09b760fef67808ae45b2))
+
+## [1.0.63](https://github.com/Mearman/b-scan/compare/v1.0.62...v1.0.63) (2025-08-14)
+
+### Bug Fixes
+
+* correct version fallback in build.gradle.kts ([6307faa](https://github.com/Mearman/b-scan/commit/6307faa766addb717dd01f6421f05db429dc747a))
+
+## [1.0.62](https://github.com/Mearman/b-scan/compare/v1.0.61...v1.0.62) (2025-08-14)
+
+### Bug Fixes
+
+* resolve Compose state issue in CI navigation test ([92a657e](https://github.com/Mearman/b-scan/commit/92a657ed9cf05e9dfac532a65bd324f07b9f847a))
+
+## [1.0.61](https://github.com/Mearman/b-scan/compare/v1.0.60...v1.0.61) (2025-08-14)
+
+### Bug Fixes
+
+* resolve compilation error in CI test ([ddd338f](https://github.com/Mearman/b-scan/commit/ddd338fbfe5b32cb9cf9c74f8fd03f936199d7b8))
+
+## [1.0.60](https://github.com/Mearman/b-scan/compare/v1.0.59...v1.0.60) (2025-08-14)
+
+### Bug Fixes
+
+* resolve NFC dependency issues in CI instrumented tests ([84da765](https://github.com/Mearman/b-scan/commit/84da7657ab49ec48138e426b4b56adc533962f15))
+
+## [1.0.59](https://github.com/Mearman/b-scan/compare/v1.0.58...v1.0.59) (2025-08-14)
+
+### Bug Fixes
+
+* resolve CI instrumented test timing issues ([19effd9](https://github.com/Mearman/b-scan/commit/19effd9f65d9af8afd6586c1a62de87ab95f1e7e))
+
+## [1.0.58](https://github.com/Mearman/b-scan/compare/v1.0.55...v1.0.58) (2025-08-14)
+
+### Features
+
+* enhance test runner with CI mode support ([d3aa356](https://github.com/Mearman/b-scan/commit/d3aa356da0cb4fbe57de037c6a8f69ed28069278))
+* add CI-optimised instrumented tests ([dd29b94](https://github.com/Mearman/b-scan/commit/dd29b948a20168d57c7ed2ec618d26ad37afa2ac))
+
+## [1.0.55](https://github.com/Mearman/b-scan/compare/v1.0.51...v1.0.55) (2025-08-14)
+
+### Bug Fixes
+
+* optimise CI pipeline for reliability and resource constraints ([ec33eb4](https://github.com/Mearman/b-scan/commit/ec33eb4b68d8c528dcd9f7b22eb9a198aa95a3e6))
+* resolve CI linting task failures ([169439d](https://github.com/Mearman/b-scan/commit/169439d45591926b8246a3bf5adb7557be8a3ed0))
+
+### Features
+
+* comprehensive e2e testing infrastructure ([4c6f853](https://github.com/Mearman/b-scan/commit/4c6f853a01ab4275fa20c58f1bd83617e0d1a680))
+
+## [1.0.51](https://github.com/Mearman/b-scan/compare/v1.0.50...v1.0.51) (2025-08-14)
+
+### Features
+
+* comprehensive improvements and testing infrastructure ([86a527a](https://github.com/Mearman/b-scan/commit/86a527ab5adc578285b18a0b27fb9998ab0229c7))
+
+## [1.0.50](https://github.com/Mearman/b-scan/compare/v1.0.49...v1.0.50) (2025-08-14)
+
+### Bug Fixes
+
+* resolve history page crash with LocalDateTime serialization ([565c00a](https://github.com/Mearman/b-scan/commit/565c00abe2993edd3f07756e43b9e1917f8a0711))
+
+## [1.0.49](https://github.com/Mearman/b-scan/compare/v1.13...v1.0.49) (2025-08-14)
+
+Note: This release has the same content as v1.13 due to parallel development
+
 # [1.13](https://github.com/Mearman/b-scan/compare/v1.10...v1.13) (2025-08-14)
 
 ### Bug Fixes
@@ -183,3 +396,16 @@
 
 * enable R8 full mode and incremental build optimisations ([ccd1ba7](https://github.com/Mearman/b-scan/commit/ccd1ba76257e7301e100cc42856c90b8d2bd0c2b))
 * optimise NFC sector authentication with smart key ordering ([4c7c0b9](https://github.com/Mearman/b-scan/commit/4c7c0b997c0ab2756413025e57e3c11cd05f70a6))
+
+## [1.0.0-clean](https://github.com/Mearman/b-scan/releases/tag/v1.0.0-clean) (2025-08-13)
+
+Initial clean release with basic NFC tag reading functionality and Android app foundation.
+
+### Development Tags (2025-08-13)
+
+* **v2025.08.13-df3ce16:** fix: use default debug signing config instead of creating duplicate
+* **v2025.08.13-8b6f016:** fix: replace deprecated GitHub Actions with modern GitHub CLI
+* **v2025.08.13-7f252dc:** fix: add missing FilamentInfo parameters
+* **v2025.08.13-6defddd:** feat: significantly improve CI build caching strategy
+* **v2025.08.13-5105bac:** fix: add contents write permission to release workflow
+* **v2025.08.13-017a76f:** debug: add comprehensive logging to diagnose NFC colour issue
