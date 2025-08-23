@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import com.bscan.model.FilamentInfo
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.ScanResult
-import com.bscan.interpreter.FilamentInterpreter
+import com.bscan.interpreter.InterpreterFactory
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
@@ -20,9 +20,9 @@ class TrayTrackingRepository(private val context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("tray_tracking", Context.MODE_PRIVATE)
     
-    // FilamentInterpreter for runtime interpretation
+    // InterpreterFactory for runtime interpretation
     private val mappingsRepository by lazy { MappingsRepository(context) }
-    private var filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+    private var interpreterFactory = InterpreterFactory(mappingsRepository)
     
     // Custom LocalDateTime adapter for Gson (copied from ScanHistoryRepository)
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -64,7 +64,7 @@ class TrayTrackingRepository(private val context: Context) {
         if (decryptedScanData.scanResult == ScanResult.SUCCESS) {
             // Use FilamentInterpreter to get FilamentInfo at runtime
             val filamentInfo = try {
-                filamentInterpreter.interpret(decryptedScanData)
+                interpreterFactory.interpret(decryptedScanData)
             } catch (e: Exception) {
                 null
             }
@@ -84,7 +84,7 @@ class TrayTrackingRepository(private val context: Context) {
      * Refresh the FilamentInterpreter with updated mappings
      */
     fun refreshMappings() {
-        filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+        interpreterFactory.refreshMappings()
     }
     
     /**

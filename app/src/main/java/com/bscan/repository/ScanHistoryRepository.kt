@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.ScanResult
-import com.bscan.interpreter.FilamentInterpreter
+import com.bscan.interpreter.InterpreterFactory
 import com.bscan.repository.MappingsRepository
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
@@ -18,9 +18,9 @@ class ScanHistoryRepository(private val context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE)
     
-    // FilamentInterpreter for runtime interpretation
+    // InterpreterFactory for runtime interpretation
     private val mappingsRepository by lazy { MappingsRepository(context) }
-    private var filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+    private var interpreterFactory = InterpreterFactory(mappingsRepository)
     
     // Custom LocalDateTime adapter for Gson
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -238,7 +238,7 @@ class ScanHistoryRepository(private val context: Context) {
      * Refresh the FilamentInterpreter with updated mappings
      */
     fun refreshMappings() {
-        filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+        interpreterFactory.refreshMappings()
     }
     
     /**
@@ -247,7 +247,7 @@ class ScanHistoryRepository(private val context: Context) {
     private fun interpretScanData(decryptedData: DecryptedScanData): com.bscan.model.FilamentInfo? {
         return if (decryptedData.scanResult == ScanResult.SUCCESS) {
             try {
-                filamentInterpreter.interpret(decryptedData)
+                interpreterFactory.interpret(decryptedData)
             } catch (e: Exception) {
                 null
             }

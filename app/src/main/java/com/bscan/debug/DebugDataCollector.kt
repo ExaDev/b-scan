@@ -3,6 +3,8 @@ package com.bscan.debug
 import com.bscan.model.ScanResult
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
+import com.bscan.model.TagFormat
+import com.bscan.detector.TagDetector
 import java.time.LocalDateTime
 
 class DebugDataCollector {
@@ -19,6 +21,8 @@ class DebugDataCollector {
     private var cacheHit = false
     private var fullRawData: ByteArray = ByteArray(0)
     private var decryptedData: ByteArray = ByteArray(0)
+    
+    private val tagDetector = TagDetector()
     
     fun recordTagInfo(sizeBytes: Int, sectors: Int) {
         tagSizeBytes = sizeBytes
@@ -110,11 +114,16 @@ class DebugDataCollector {
         technology: String,
         scanDurationMs: Long = 0
     ): EncryptedScanData {
+        // Detect format from raw data
+        val detection = tagDetector.detectFromData(technology, getFullRawData())
+        
         return EncryptedScanData(
             id = System.currentTimeMillis(),
             timestamp = LocalDateTime.now(),
             tagUid = uid,
             technology = technology,
+            tagFormat = detection.tagFormat,
+            manufacturerName = detection.manufacturerName,
             encryptedData = getFullRawData(),
             tagSizeBytes = tagSizeBytes,
             sectorCount = sectorCount,
@@ -132,11 +141,16 @@ class DebugDataCollector {
         keyDerivationTimeMs: Long = 0,
         authenticationTimeMs: Long = 0
     ): DecryptedScanData {
+        // Detect format from raw data
+        val detection = tagDetector.detectFromData(technology, getFullRawData())
+        
         return DecryptedScanData(
             id = System.currentTimeMillis() + 1, // Ensure different ID from encrypted
             timestamp = LocalDateTime.now(),
             tagUid = uid,
             technology = technology,
+            tagFormat = detection.tagFormat,
+            manufacturerName = detection.manufacturerName,
             scanResult = result,
             decryptedBlocks = getBlockData(),
             authenticatedSectors = getAuthenticatedSectors(),

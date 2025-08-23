@@ -8,7 +8,7 @@ import com.bscan.model.*
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TrayTrackingRepository
 import com.bscan.repository.MappingsRepository
-import com.bscan.interpreter.FilamentInterpreter
+import com.bscan.interpreter.InterpreterFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,8 +27,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val trayTrackingRepository = TrayTrackingRepository(application)
     private val mappingsRepository = MappingsRepository(application)
     
-    // FilamentInterpreter for runtime interpretation
-    private var filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+    // InterpreterFactory for runtime interpretation
+    private var interpreterFactory = InterpreterFactory(mappingsRepository)
     
     fun onTagDetected() {
         _uiState.value = _uiState.value.copy(
@@ -73,7 +73,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val result = if (decryptedData.scanResult == ScanResult.SUCCESS) {
                 try {
                     // Use FilamentInterpreter to convert decrypted data to FilamentInfo
-                    val filamentInfo = filamentInterpreter.interpret(decryptedData)
+                    val filamentInfo = interpreterFactory.interpret(decryptedData)
                     if (filamentInfo != null) {
                         TagReadResult.Success(filamentInfo)
                     } else {
@@ -326,7 +326,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Refresh the FilamentInterpreter with updated mappings
      */
     fun refreshMappings() {
-        filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+        interpreterFactory.refreshMappings()
     }
     
 }
