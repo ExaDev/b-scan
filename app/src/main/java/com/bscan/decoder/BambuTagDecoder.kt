@@ -257,7 +257,10 @@ object BambuTagDecoder {
                 spoolWidth = spoolWidth,
                 bedTemperatureType = bedTemperatureType,
                 shortProductionDate = shortProductionDate,
-                colorCount = colorCount
+                colorCount = colorCount,
+                // Research fields for unknown data blocks
+                shortProductionDateHex = shortProductionDateHex,
+                unknownBlock17Hex = unknownBlock17Hex
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing tag data", e)

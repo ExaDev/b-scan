@@ -24,5 +24,9 @@ data class FilamentInfo(
     val spoolWidth: Float = 0f, // in mm
     val bedTemperatureType: Int = 0,
     val shortProductionDate: String = "",
-    val colorCount: Int = 1 // 1 = single color, 2 = dual color
+    val colorCount: Int = 1, // 1 = single color, 2 = dual color
+    
+    // Research fields for unknown data blocks
+    val shortProductionDateHex: String = "", // Block 13 raw hex data
+    val unknownBlock17Hex: String = "" // Block 17 full raw hex data for research
 )
