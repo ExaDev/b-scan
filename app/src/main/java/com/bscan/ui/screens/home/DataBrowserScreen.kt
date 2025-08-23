@@ -5,10 +5,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -273,36 +275,26 @@ fun DataBrowserScreen(
             }
         }
         
-        // Controls row
+        // Compact controls row with icon-only buttons
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Sort by:",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
+            // Sort button with dropdown
             Box {
                 OutlinedButton(
                     onClick = { onShowSortMenu(true) }
                 ) {
-                    Text(
-                        text = when (sortOption) {
-                            SortOption.MOST_RECENT -> "Most Recent"
-                            SortOption.OLDEST -> "Oldest"
-                            SortOption.NAME -> "Name"
-                            SortOption.SUCCESS_RATE -> "Success Rate"
-                            SortOption.COLOR -> "Color"
-                            SortOption.MATERIAL_TYPE -> "Material"
-                        }
+                    Icon(
+                        Icons.AutoMirrored.Filled.Sort,
+                        contentDescription = "Sort",
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    Text("Sort")
                 }
                 
                 DropdownMenu(
@@ -332,8 +324,6 @@ fun DataBrowserScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.width(8.dp))
-            
             // Filter button
             OutlinedButton(
                 onClick = { onShowFilterMenu(true) }
@@ -361,29 +351,18 @@ fun DataBrowserScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.width(8.dp))
-            
-            // GroupBy dropdown
-            Text(
-                text = "Group by:",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
+            // Group button with dropdown
             Box {
                 OutlinedButton(
                     onClick = { showGroupByMenu = true }
                 ) {
-                    Text(
-                        text = when (groupByOption) {
-                            GroupByOption.NONE -> "None"
-                            GroupByOption.COLOR -> "Color"
-                            GroupByOption.BASE_MATERIAL -> "Material"
-                            GroupByOption.MATERIAL_SERIES -> "Series"
-                        }
+                    Icon(
+                        Icons.Default.GroupWork,
+                        contentDescription = "Group",
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    Text("Group")
                 }
                 
                 DropdownMenu(
@@ -411,6 +390,7 @@ fun DataBrowserScreen(
                 }
             }
         }
+        
         
         // Filter chips
         FilterChips(
