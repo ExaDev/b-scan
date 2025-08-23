@@ -28,7 +28,8 @@ fun HomeScreen(
     
     // View state
     var viewMode by remember { mutableStateOf(ViewMode.SPOOLS) }
-    var sortOption by remember { mutableStateOf(SortOption.MOST_RECENT) }
+    var sortProperty by remember { mutableStateOf(SortProperty.LAST_SCAN) }
+    var sortDirection by remember { mutableStateOf(SortDirection.DESCENDING) }
     var groupByOption by remember { mutableStateOf(GroupByOption.NONE) }
     var isLoading by remember { mutableStateOf(true) }
     var filterState by remember { mutableStateOf(FilterState()) }
@@ -94,7 +95,8 @@ fun HomeScreen(
         // Show data browser
         DataBrowserScreen(
             viewMode = viewMode,
-            sortOption = sortOption,
+            sortProperty = sortProperty,
+            sortDirection = sortDirection,
             groupByOption = groupByOption,
             filterState = filterState,
             spools = spools,
@@ -109,7 +111,13 @@ fun HomeScreen(
             scanProgress = scanProgress,
             onSimulateScan = onSimulateScan,
             onViewModeChange = { viewMode = it },
-            onSortOptionChange = { sortOption = it },
+            onSortPropertyChange = { sortProperty = it },
+            onSortDirectionToggle = { 
+                sortDirection = if (sortDirection == SortDirection.ASCENDING) 
+                    SortDirection.DESCENDING 
+                else 
+                    SortDirection.ASCENDING 
+            },
             onGroupByOptionChange = { groupByOption = it },
             onFilterStateChange = { filterState = it },
             onShowSortMenu = { showSortMenu = it },
