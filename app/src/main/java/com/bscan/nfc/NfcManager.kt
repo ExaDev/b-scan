@@ -320,20 +320,22 @@ class NfcManager(private val activity: Activity) {
                         }
                         System.arraycopy(blockData, 0, allData, dataOffset, 16)
                         
-                        // Log block data for key blocks (0-6) and Block 6 specifically for bed temperature debugging
-                        if (sector <= 1 || absoluteBlock <= 6 || absoluteBlock == 6) {
-                            val hexData = blockData.joinToString("") { "%02X".format(it) }
-                            debugCollector.recordBlockData(absoluteBlock, hexData)
+                        // Log all block data for complete raw data capture
+                        val hexData = blockData.joinToString("") { "%02X".format(it) }
+                        debugCollector.recordBlockData(absoluteBlock, hexData)
+                        
+                        // Enhanced logging for key blocks and temperature data
+                        if (sector <= 1 || absoluteBlock <= 6) {
                             Log.d(TAG, "Block $absoluteBlock (sector $sector, block $blockInSector): $hexData")
-                            
-                            // Special logging for Block 6 (temperature data)
-                            if (absoluteBlock == 6) {
-                                Log.i(TAG, "*** BLOCK 6 DATA (Temperature Block): $hexData ***")
-                                val isAllZeros = blockData.all { it == 0.toByte() }
-                                if (isAllZeros) {
-                                    Log.w(TAG, "*** WARNING: Block 6 contains only zeros - bed temperature will show as 0°C ***")
-                                    debugCollector.recordError("Block 6 read as all zeros - authentication may have failed for sector containing temperature data")
-                                }
+                        }
+                        
+                        // Special logging for Block 6 (temperature data)
+                        if (absoluteBlock == 6) {
+                            Log.i(TAG, "*** BLOCK 6 DATA (Temperature Block): $hexData ***")
+                            val isAllZeros = blockData.all { it == 0.toByte() }
+                            if (isAllZeros) {
+                                Log.w(TAG, "*** WARNING: Block 6 contains only zeros - bed temperature will show as 0°C ***")
+                                debugCollector.recordError("Block 6 read as all zeros - authentication may have failed for sector containing temperature data")
                             }
                         }
                     } catch (e: IOException) {
@@ -356,6 +358,13 @@ class NfcManager(private val activity: Activity) {
             ))
             
             mifareClassic.close()
+            
+            // Record complete raw data for debug analysis
+            debugCollector.recordFullRawData(allData)
+            
+            // Create decrypted data array (same as allData since blocks are read post-authentication)
+            // In the future, this could be enhanced to store pre-authentication data separately
+            debugCollector.recordDecryptedData(allData)
             
             // Check if we have any successful authentications
             if (!debugCollector.hasAuthenticatedSectors()) {
