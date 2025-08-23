@@ -177,15 +177,38 @@ jobs:
         
         echo "Next release version: $NEXT_VERSION (code: $VERSION_CODE)"
       
+    - name: Create version.txt with semantic version
+      if: steps.semantic_version.outputs.should_release == 'true'
+      run: |
+        echo "${{ steps.semantic_version.outputs.version }}" > version.txt
+        echo "Created version.txt with version: ${{ steps.semantic_version.outputs.version }}"
+        
+    - name: Update Android app version in build.gradle.kts
+      if: steps.semantic_version.outputs.should_release == 'true'
+      run: |
+        VERSION="${{ steps.semantic_version.outputs.version }}"
+        VERSION_CODE="${{ steps.semantic_version.outputs.version_code }}"
+        
+        # Update versionCode and versionName in build.gradle.kts
+        sed -i.bak "s/versionCode = .*/versionCode = $VERSION_CODE/" app/build.gradle.kts
+        sed -i.bak "s/versionName = .*/versionName = \"$VERSION\"/" app/build.gradle.kts
+        
+        # Remove backup files
+        rm -f app/build.gradle.kts.bak
+        
+        echo "Updated app/build.gradle.kts:"
+        echo "  versionCode = $VERSION_CODE"
+        echo "  versionName = \"$VERSION\""
+        
     - name: Build release APK and AAB
+      if: steps.semantic_version.outputs.should_release == 'true'
       uses: ./.github/actions/build-android
       with:
         build-type: Release
         build-aab: 'true'
-        version-code: ${{ steps.calculate_version.outputs.version_code }}
-        version-name: ${{ steps.calculate_version.outputs.version_name }}
         
-    - name: Upload release artifacts
+    - name: Upload release artifacts for other jobs
+      if: steps.semantic_version.outputs.should_release == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: release-artifacts
