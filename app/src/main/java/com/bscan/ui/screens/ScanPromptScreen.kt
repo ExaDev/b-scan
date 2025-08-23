@@ -1,6 +1,7 @@
 package com.bscan.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,6 +17,7 @@ fun ScanPromptScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
