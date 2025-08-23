@@ -37,6 +37,7 @@ fun HomeScreen(
     
     // Data state
     var spools by remember { mutableStateOf(listOf<UniqueSpool>()) }
+    var individualTags by remember { mutableStateOf(listOf<UniqueSpool>()) }
     var allScans by remember { mutableStateOf(listOf<ScanHistory>()) }
     var availableFilamentTypes by remember { mutableStateOf(setOf<String>()) }
     var availableColors by remember { mutableStateOf(setOf<String>()) }
@@ -48,7 +49,8 @@ fun HomeScreen(
     // Load data
     LaunchedEffect(Unit) {
         try {
-            spools = repository.getUniqueSpoolsByTray() // Group by tray UID instead of tag UID
+            spools = repository.getUniqueSpoolsByTray() // Group by tray UID for spools tab
+            individualTags = repository.getUniqueSpools() // Individual tags for tags tab
             allScans = repository.getAllScans()
             availableFilamentTypes = allScans
                 .mapNotNull { it.filamentInfo?.detailedFilamentType }
@@ -101,6 +103,7 @@ fun HomeScreen(
             groupByOption = groupByOption,
             filterState = filterState,
             spools = spools,
+            individualTags = individualTags,
             allScans = allScans,
             availableFilamentTypes = availableFilamentTypes,
             availableColors = availableColors,
