@@ -48,7 +48,7 @@ fun HomeScreen(
     // Load data
     LaunchedEffect(Unit) {
         try {
-            spools = repository.getUniqueSpools()
+            spools = repository.getUniqueSpoolsByTray() // Group by tray UID instead of tag UID
             allScans = repository.getAllScans()
             availableFilamentTypes = allScans
                 .mapNotNull { it.filamentInfo?.detailedFilamentType }
