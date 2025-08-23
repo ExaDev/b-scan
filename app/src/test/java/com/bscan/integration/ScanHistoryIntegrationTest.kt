@@ -79,19 +79,22 @@ class ScanHistoryIntegrationTest {
             dryingTime = 8
         )
         
-        val scanHistory = debugCollector.createScanHistory(
+        val encryptedScan = debugCollector.createEncryptedScanData(
+            uid = "A1B2C3D4",
+            technology = "MifareClassic"
+        )
+        val decryptedScan = debugCollector.createDecryptedScanData(
             uid = "A1B2C3D4",
             technology = "MifareClassic",
-            result = ScanResult.SUCCESS,
-            filamentInfo = filamentInfo
+            result = ScanResult.SUCCESS
         )
         
         // When - save the scan
-        repository.saveScan(scanHistory)
+        repository.saveScan(encryptedScan, decryptedScan)
         
-        // Then - verify save was called with correct data
-        verify(mockEditor).putString(eq("scans"), any())
-        verify(mockEditor).apply()
+        // Then - verify save was called with correct data for both encrypted and decrypted
+        verify(mockEditor, times(2)).putString(any(), any()) // Called for both encrypted and decrypted
+        verify(mockEditor, times(2)).apply() // Called for both encrypted and decrypted
     }
 
     @Test
@@ -106,24 +109,26 @@ class ScanHistoryIntegrationTest {
         debugCollector.recordParsingDetail("authenticatedSectors", 1)
         debugCollector.recordParsingDetail("requiredSectors", 3)
         
-        val scanHistory = debugCollector.createScanHistory(
+        val encryptedScan = debugCollector.createEncryptedScanData(
+            uid = "E5F6A7B8",
+            technology = "MifareClassic"
+        )
+        val decryptedScan = debugCollector.createDecryptedScanData(
             uid = "E5F6A7B8",
             technology = "MifareClassic", 
-            result = ScanResult.AUTHENTICATION_FAILED,
-            filamentInfo = null // No filament info for failed scan
+            result = ScanResult.AUTHENTICATION_FAILED
         )
         
         // When
-        repository.saveScan(scanHistory)
+        repository.saveScan(encryptedScan, decryptedScan)
         
         // Then
-        assertEquals("Should record failed result", ScanResult.AUTHENTICATION_FAILED, scanHistory.scanResult)
-        assertNull("Should have no filament info for failed scan", scanHistory.filamentInfo)
+        assertEquals("Should record failed result", ScanResult.AUTHENTICATION_FAILED, decryptedScan.scanResult)
         assertTrue("Should record authentication error", 
-            scanHistory.debugInfo.errorMessages.any { it.contains("Authentication failed") })
+            decryptedScan.errors.any { it.contains("Authentication failed") })
         assertTrue("Should record insufficient data error",
-            scanHistory.debugInfo.errorMessages.any { it.contains("Insufficient authenticated sectors") })
-        verify(mockEditor).putString(eq("scans"), any())
+            decryptedScan.errors.any { it.contains("Insufficient authenticated sectors") })
+        verify(mockEditor, times(2)).putString(any(), any()) // Called for both encrypted and decrypted
     }
 
     @Test
@@ -139,40 +144,58 @@ class ScanHistoryIntegrationTest {
         
         // When - save all scans
         scans.forEach { scanData ->
-            val scanHistory = debugCollector.createScanHistory(
+            val encryptedScan = debugCollector.createEncryptedScanData(
+                uid = scanData.uid,
+                technology = "MifareClassic"
+            )
+            val decryptedScan = debugCollector.createDecryptedScanData(
                 uid = scanData.uid,
                 technology = "MifareClassic",
-                result = scanData.result,
-                filamentInfo = if (scanData.result == ScanResult.SUCCESS) createTestFilamentInfo() else null
+                result = scanData.result
             )
-            repository.saveScan(scanHistory)
+            repository.saveScan(encryptedScan, decryptedScan)
         }
         
-        // Then - verify all saves occurred
-        verify(mockEditor, times(5)).putString(eq("scans"), any())
-        verify(mockEditor, times(5)).apply()
+        // Then - verify all saves occurred (2 saves per scan: encrypted + decrypted)
+        verify(mockEditor, times(10)).putString(any(), any()) // 5 scans × 2 saves each
+        verify(mockEditor, times(10)).apply() // 5 scans × 2 applies each
     }
 
     @Test
     fun `LocalDateTime serialization workflow works correctly`() {
         // Given - scan with specific timestamp
         val specificTime = LocalDateTime.of(2025, 8, 14, 10, 30, 0)
-        val scanHistory = ScanHistory(
+        val encryptedScan = EncryptedScanData(
             id = 1,
             timestamp = specificTime,
-            uid = "12345678",
+            tagUid = "12345678",
+            technology = "MifareClassic",
+            encryptedData = ByteArray(1024),
+            tagSizeBytes = 1024,
+            sectorCount = 16
+        )
+        val decryptedScan = DecryptedScanData(
+            id = 2,
+            timestamp = specificTime,
+            tagUid = "12345678",
             technology = "MifareClassic",
             scanResult = ScanResult.SUCCESS,
-            filamentInfo = createTestFilamentInfo(),
-            debugInfo = createTestDebugInfo()
+            decryptedBlocks = mapOf(4 to "DEADBEEFCAFEBABE0123456789ABCDEF"),
+            authenticatedSectors = listOf(1, 2, 3),
+            failedSectors = emptyList(),
+            usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
+            derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
+            tagSizeBytes = 1024,
+            sectorCount = 16,
+            errors = emptyList()
         )
         
         // When
-        repository.saveScan(scanHistory)
+        repository.saveScan(encryptedScan, decryptedScan)
         
         // Then - should save without serialization errors
-        verify(mockEditor).putString(eq("scans"), any())
-        verify(mockEditor).apply()
+        verify(mockEditor, times(2)).putString(any(), any())
+        verify(mockEditor, times(2)).apply()
         
         // The actual JSON should contain the ISO timestamp
         // We can't easily verify this without more complex mocking, but the test
@@ -182,13 +205,14 @@ class ScanHistoryIntegrationTest {
     @Test
     fun `repository statistics methods handle empty data`() {
         // Given - empty repository
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
         
         // When & Then
         assertEquals("Success rate should be 0.0", 0.0, repository.getSuccessRate().toDouble(), 0.001)
         assertEquals("History count should be 0", 0, repository.getHistoryCount())
-        assertTrue("Successful scans should be empty", repository.getSuccessfulScans().isEmpty())
-        assertTrue("Failed scans should be empty", repository.getFailedScans().isEmpty())
+        assertTrue("Successful scans should be empty", repository.getSuccessfulDecryptedScans().isEmpty())
+        assertTrue("Failed scans should be empty", repository.getFailedDecryptedScans().isEmpty())
         assertTrue("All scans should be empty", repository.getAllScans().isEmpty())
     }
 
