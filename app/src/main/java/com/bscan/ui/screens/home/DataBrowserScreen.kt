@@ -4,6 +4,7 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -51,6 +52,8 @@ fun DataBrowserScreen(
     onFilterStateChange: (FilterState) -> Unit,
     onShowSortMenu: (Boolean) -> Unit,
     onShowFilterMenu: (Boolean) -> Unit,
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -184,11 +187,34 @@ fun DataBrowserScreen(
         }
     }
     
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
-    ) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("B-Scan") },
+                actions = {
+                    IconButton(onClick = onNavigateToHistory) {
+                        Icon(
+                            Icons.Default.History,
+                            contentDescription = "Scan History"
+                        )
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                }
+            )
+        },
+        modifier = modifier.systemBarsPadding()
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .nestedScroll(nestedScrollConnection)
+        ) {
         // Scan prompt that slides down from above
         Box(
             modifier = Modifier
@@ -404,6 +430,7 @@ fun DataBrowserScreen(
                 ViewMode.TAGS -> TagsList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
                 ViewMode.SCANS -> ScansList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
             }
+        }
         }
     }
     
