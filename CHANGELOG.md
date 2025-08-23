@@ -1,3 +1,16 @@
+# [3.8.0](https://github.com/Mearman/b-scan/compare/v3.7.0...v3.8.0) (2025-08-23)
+
+
+### Bug Fixes
+
+* **ui:** refactor TagsList to display individual tag UIDs with navigation ([6459386](https://github.com/Mearman/b-scan/commit/645938696e2da681106f777678e709cd9ed4ff8b))
+
+
+### Features
+
+* **ui:** add individualTags parameter to DataBrowserScreen ([5b8bde0](https://github.com/Mearman/b-scan/commit/5b8bde02643ed5837bce503742e35a972727f95f))
+* **ui:** load separate datasets for spools and individual tags ([ccc1e08](https://github.com/Mearman/b-scan/commit/ccc1e084cde4133f7aeaf5fab18d2482e8cc32fa))
+
 # [3.7.0](https://github.com/Mearman/b-scan/compare/v3.6.0...v3.7.0) (2025-08-23)
 
 
