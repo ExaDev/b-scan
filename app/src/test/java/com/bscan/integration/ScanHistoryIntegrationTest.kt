@@ -11,13 +11,15 @@ import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.*
-import org.mockito.junit.MockitoJUnitRunner
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.LocalDateTime
 
 /**
  * Integration tests for the complete scan history workflow
  */
-@RunWith(MockitoJUnitRunner.Silent::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29])
 class ScanHistoryIntegrationTest {
 
     @Mock
@@ -34,14 +36,20 @@ class ScanHistoryIntegrationTest {
     
     @Before
     fun setup() {
-        // Mock SharedPreferences chain
-        `when`(mockContext.getSharedPreferences("scan_history", Context.MODE_PRIVATE))
+        // Mock SharedPreferences chain for ScanHistoryRepository
+        `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
+        // Mock SharedPreferences for MappingsRepository (needed by ScanHistoryRepository constructor)
+        `when`(mockContext.getSharedPreferences("filament_mappings", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
         `when`(mockEditor.remove(any())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("mappings", null)).thenReturn(null)
         
         repository = ScanHistoryRepository(mockContext)
         debugCollector = DebugDataCollector()

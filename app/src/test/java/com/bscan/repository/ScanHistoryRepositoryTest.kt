@@ -9,13 +9,15 @@ import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.*
-import org.mockito.junit.MockitoJUnitRunner
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.LocalDateTime
 
 /**
  * Unit tests for ScanHistoryRepository
  */
-@RunWith(MockitoJUnitRunner.Silent::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29])
 class ScanHistoryRepositoryTest {
 
     @Mock
@@ -31,12 +33,18 @@ class ScanHistoryRepositoryTest {
     
     @Before
     fun setup() {
+        // Mock SharedPreferences for ScanHistoryRepository
         `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
+        // Mock SharedPreferences for MappingsRepository (needed by ScanHistoryRepository constructor)
+        `when`(mockContext.getSharedPreferences("filament_mappings", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
         `when`(mockEditor.remove(any())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
+        `when`(mockSharedPreferences.getString("mappings", null)).thenReturn(null)
         
         repository = ScanHistoryRepository(mockContext)
     }
@@ -199,6 +207,8 @@ class ScanHistoryRepositoryTest {
             timestamp = timestamp,
             tagUid = uid,
             technology = "MifareClassic",
+            tagFormat = TagFormat.BAMBU_PROPRIETARY,
+            manufacturerName = "Bambu Lab",
             encryptedData = ByteArray(1024),
             tagSizeBytes = 1024,
             sectorCount = 16
@@ -215,6 +225,8 @@ class ScanHistoryRepositoryTest {
             timestamp = timestamp,
             tagUid = uid,
             technology = "MifareClassic",
+            tagFormat = TagFormat.BAMBU_PROPRIETARY,
+            manufacturerName = "Bambu Lab",
             scanResult = result,
             decryptedBlocks = mapOf(4 to "00112233445566778899AABBCCDDEEFF"),
             authenticatedSectors = listOf(1, 2, 3),
