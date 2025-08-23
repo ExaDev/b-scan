@@ -1,6 +1,11 @@
 package com.bscan.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -49,15 +54,22 @@ fun AppNavigation(
         }
     }
     
-    NavHost(
-        navController = navController,
-        startDestination = "main"
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        NavHost(
+            navController = navController,
+            startDestination = "main"
+        ) {
         composable("main") {
             HomeScreen(
                 scanState = viewModel.uiState.collectAsStateWithLifecycle().value.scanState,
                 scanProgress = viewModel.scanProgress.collectAsStateWithLifecycle().value,
-                onSimulateScan = { /* TODO: Add simulate scan functionality if needed */ }
+                onSimulateScan = { /* TODO: Add simulate scan functionality if needed */ },
+                onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToHistory = { navController.navigate("history") }
             )
         }
         
@@ -84,6 +96,7 @@ fun AppNavigation(
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
         }
     }
 }
