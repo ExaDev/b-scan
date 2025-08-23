@@ -15,12 +15,13 @@ import java.time.LocalDateTime
 @Composable
 fun SpoolsList(
     spools: List<UniqueSpool>,
-    sortOption: SortOption,
+    sortProperty: SortProperty,
+    sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
 ) {
-    val filteredGroupedAndSortedSpools = remember(spools, sortOption, groupByOption, filterState) {
+    val filteredGroupedAndSortedSpools = remember(spools, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = spools.filter { spool ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
@@ -73,13 +74,38 @@ fun SpoolsList(
             matchesSuccessRate && matchesResultFilter && matchesDateRange
         }
         
-        val sorted = when (sortOption) {
-            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.lastScanned }
-            SortOption.OLDEST -> filtered.sortedBy { it.lastScanned }
-            SortOption.NAME -> filtered.sortedBy { it.filamentInfo.colorName }
-            SortOption.SUCCESS_RATE -> filtered.sortedByDescending { it.successRate }
-            SortOption.COLOR -> filtered.sortedBy { it.filamentInfo.colorName }
-            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.filamentInfo.filamentType }
+        val sorted = when (sortProperty) {
+            SortProperty.FIRST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                // For now, use lastScanned - we'll need to calculate first scan from scan history
+                filtered.sortedBy { it.lastScanned }
+            } else {
+                filtered.sortedByDescending { it.lastScanned }
+            }
+            SortProperty.LAST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.lastScanned }
+            } else {
+                filtered.sortedByDescending { it.lastScanned }
+            }
+            SortProperty.NAME -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo.colorName }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo.colorName }
+            }
+            SortProperty.SUCCESS_RATE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.successRate }
+            } else {
+                filtered.sortedByDescending { it.successRate }
+            }
+            SortProperty.COLOR -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo.colorName }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo.colorName }
+            }
+            SortProperty.MATERIAL_TYPE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo.filamentType }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo.filamentType }
+            }
         }
         
         // Group the sorted spools if grouping is enabled
@@ -121,7 +147,8 @@ fun SpoolsList(
 @Composable
 fun SkusList(
     allScans: List<ScanHistory>,
-    sortOption: SortOption,
+    sortProperty: SortProperty,
+    sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
@@ -153,7 +180,7 @@ fun SkusList(
             }
     }
     
-    val filteredGroupedAndSortedSkus = remember(uniqueSkus, sortOption, groupByOption, filterState) {
+    val filteredGroupedAndSortedSkus = remember(uniqueSkus, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = uniqueSkus.filter { sku ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
@@ -206,13 +233,38 @@ fun SkusList(
             matchesSuccessRate && matchesResultFilter && matchesDateRange
         }
         
-        val sorted = when (sortOption) {
-            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.lastScanned }
-            SortOption.OLDEST -> filtered.sortedBy { it.lastScanned }
-            SortOption.NAME -> filtered.sortedBy { it.filamentInfo.colorName }
-            SortOption.SUCCESS_RATE -> filtered.sortedByDescending { it.successRate }
-            SortOption.COLOR -> filtered.sortedBy { it.filamentInfo.colorName }
-            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.filamentInfo.filamentType }
+        val sorted = when (sortProperty) {
+            SortProperty.FIRST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                // For now, use lastScanned - we'll need to calculate first scan from scan history
+                filtered.sortedBy { it.lastScanned }
+            } else {
+                filtered.sortedByDescending { it.lastScanned }
+            }
+            SortProperty.LAST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.lastScanned }
+            } else {
+                filtered.sortedByDescending { it.lastScanned }
+            }
+            SortProperty.NAME -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo.colorName }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo.colorName }
+            }
+            SortProperty.SUCCESS_RATE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.successRate }
+            } else {
+                filtered.sortedByDescending { it.successRate }
+            }
+            SortProperty.COLOR -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo.colorName }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo.colorName }
+            }
+            SortProperty.MATERIAL_TYPE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo.filamentType }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo.filamentType }
+            }
         }
         
         // Group the sorted SKUs if grouping is enabled
@@ -254,7 +306,8 @@ fun SkusList(
 @Composable
 fun TagsList(
     allScans: List<ScanHistory>,
-    sortOption: SortOption,
+    sortProperty: SortProperty,
+    sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
@@ -271,7 +324,7 @@ fun TagsList(
             }
     }
     
-    val filteredGroupedAndSortedTags = remember(uniqueTags, sortOption, groupByOption, filterState, allScans) {
+    val filteredGroupedAndSortedTags = remember(uniqueTags, sortProperty, sortDirection, groupByOption, filterState, allScans) {
         val tagSuccessRates = allScans.groupBy { it.uid }.mapValues { (_, scans) ->
             scans.count { it.scanResult == ScanResult.SUCCESS }.toFloat() / scans.size
         }
@@ -332,13 +385,38 @@ fun TagsList(
             matchesSuccessRate && matchesResultFilter && matchesDateRange
         }
         
-        val sorted = when (sortOption) {
-            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.second.timestamp }
-            SortOption.OLDEST -> filtered.sortedBy { it.second.timestamp }
-            SortOption.NAME -> filtered.sortedBy { it.third?.colorName ?: it.first }
-            SortOption.SUCCESS_RATE -> filtered.sortedByDescending { tagSuccessRates[it.first] ?: 0f }
-            SortOption.COLOR -> filtered.sortedBy { it.third?.colorName ?: it.first }
-            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.third?.filamentType ?: "" }
+        val sorted = when (sortProperty) {
+            SortProperty.FIRST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                // Use most recent scan timestamp for now - would need earliest scan from history
+                filtered.sortedBy { it.second.timestamp }
+            } else {
+                filtered.sortedByDescending { it.second.timestamp }
+            }
+            SortProperty.LAST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.second.timestamp }
+            } else {
+                filtered.sortedByDescending { it.second.timestamp }
+            }
+            SortProperty.NAME -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.third?.colorName ?: it.first }
+            } else {
+                filtered.sortedByDescending { it.third?.colorName ?: it.first }
+            }
+            SortProperty.SUCCESS_RATE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { tagSuccessRates[it.first] ?: 0f }
+            } else {
+                filtered.sortedByDescending { tagSuccessRates[it.first] ?: 0f }
+            }
+            SortProperty.COLOR -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.third?.colorName ?: it.first }
+            } else {
+                filtered.sortedByDescending { it.third?.colorName ?: it.first }
+            }
+            SortProperty.MATERIAL_TYPE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.third?.filamentType ?: "" }
+            } else {
+                filtered.sortedByDescending { it.third?.filamentType ?: "" }
+            }
         }
         
         // Group the sorted tags if grouping is enabled
@@ -385,12 +463,13 @@ fun TagsList(
 @Composable
 fun ScansList(
     allScans: List<ScanHistory>,
-    sortOption: SortOption,
+    sortProperty: SortProperty,
+    sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState
 ) {
-    val filteredGroupedAndSortedScans = remember(allScans, sortOption, groupByOption, filterState) {
+    val filteredGroupedAndSortedScans = remember(allScans, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = allScans.filter { scan ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
@@ -443,13 +522,38 @@ fun ScansList(
             matchesResultFilter && matchesDateRange
         }
         
-        val sorted = when (sortOption) {
-            SortOption.MOST_RECENT -> filtered.sortedByDescending { it.timestamp }
-            SortOption.OLDEST -> filtered.sortedBy { it.timestamp }
-            SortOption.NAME -> filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
-            SortOption.SUCCESS_RATE -> filtered.sortedBy { it.scanResult != ScanResult.SUCCESS }
-            SortOption.COLOR -> filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
-            SortOption.MATERIAL_TYPE -> filtered.sortedBy { it.filamentInfo?.filamentType ?: "" }
+        val sorted = when (sortProperty) {
+            SortProperty.FIRST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                // Individual scans - FIRST_SCAN and LAST_SCAN mean the same thing
+                filtered.sortedBy { it.timestamp }
+            } else {
+                filtered.sortedByDescending { it.timestamp }
+            }
+            SortProperty.LAST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.timestamp }
+            } else {
+                filtered.sortedByDescending { it.timestamp }
+            }
+            SortProperty.NAME -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo?.colorName ?: it.uid }
+            }
+            SortProperty.SUCCESS_RATE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.scanResult != ScanResult.SUCCESS }
+            } else {
+                filtered.sortedByDescending { it.scanResult != ScanResult.SUCCESS }
+            }
+            SortProperty.COLOR -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo?.colorName ?: it.uid }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo?.colorName ?: it.uid }
+            }
+            SortProperty.MATERIAL_TYPE -> if (sortDirection == SortDirection.ASCENDING) {
+                filtered.sortedBy { it.filamentInfo?.filamentType ?: "" }
+            } else {
+                filtered.sortedByDescending { it.filamentInfo?.filamentType ?: "" }
+            }
         }
         
         // Group the sorted scans if grouping is enabled
