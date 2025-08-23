@@ -54,10 +54,10 @@ object BambuTagDecoder {
             // Block 4: Detailed Filament Type (16 bytes) 
             val detailedFilamentType = string(data.bytes, 4, 0, 16)
             
-            // Block 5: Color RGBA (bytes 0-3), Spool Weight (bytes 4-5), Filament Diameter (bytes 8-11)
+            // Block 5: Color RGBA (bytes 0-3), Spool Weight (bytes 4-5), Filament Diameter (bytes 8-15)
             val colorBytes = bytes(data.bytes, 5, 0, 4) // RGBA format
             val spoolWeight = int(data.bytes, 5, 4, 2) // uint16 LE
-            val filamentDiameter = float(data.bytes, 5, 8, 4)?.let { if (it == 0.0f) 1.75f else it } ?: 1.75f // float LE
+            val filamentDiameter = float(data.bytes, 5, 8, 8)?.let { if (it == 0.0f) 1.75f else it } ?: 1.75f // 8-byte float LE per official guide
             
             val rawColorHex = colorBytes.joinToString("") { "%02X".format(it) }
             debugCollector?.recordColorBytes(colorBytes)
