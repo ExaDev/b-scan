@@ -19,6 +19,8 @@ fun HomeScreen(
     scanState: ScanState = ScanState.IDLE,
     scanProgress: ScanProgress? = null,
     onSimulateScan: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -112,6 +114,8 @@ fun HomeScreen(
             onFilterStateChange = { filterState = it },
             onShowSortMenu = { showSortMenu = it },
             onShowFilterMenu = { showFilterMenu = it },
+            onNavigateToSettings = onNavigateToSettings,
+            onNavigateToHistory = onNavigateToHistory,
             modifier = modifier
         )
     }
