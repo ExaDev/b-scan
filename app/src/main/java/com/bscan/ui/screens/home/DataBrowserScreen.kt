@@ -3,7 +3,11 @@ package com.bscan.ui.screens.home
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -285,27 +289,70 @@ fun DataBrowserScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Sort property button with dropdown
+            // Split sort button with direction on left, property on right
             Box {
                 OutlinedButton(
-                    onClick = { onShowSortMenu(true) }
+                    onClick = { },
+                    modifier = Modifier.height(40.dp)
                 ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Sort,
-                        contentDescription = "Sort Property",
-                        modifier = Modifier.size(18.dp)
+                    // Left section - Sort direction (clickable)
+                    Box(
+                        modifier = Modifier
+                            .clickable { onSortDirectionToggle() }
+                            .padding(end = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = if (sortDirection == SortDirection.ASCENDING) 
+                                "Sort ascending" 
+                            else 
+                                "Sort descending",
+                            modifier = Modifier
+                                .size(18.dp)
+                                .then(
+                                    if (sortDirection == SortDirection.ASCENDING)
+                                        Modifier.scale(scaleY = -1f, scaleX = 1f)
+                                    else
+                                        Modifier
+                                )
+                        )
+                    }
+                    
+                    // Divider
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(24.dp)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        when (sortProperty) {
-                            SortProperty.FIRST_SCAN -> "First Scan"
-                            SortProperty.LAST_SCAN -> "Last Scan"
-                            SortProperty.NAME -> "Name"
-                            SortProperty.SUCCESS_RATE -> "Success"
-                            SortProperty.COLOR -> "Color"
-                            SortProperty.MATERIAL_TYPE -> "Material"
+                    
+                    // Right section - Sort property (clickable)
+                    Box(
+                        modifier = Modifier
+                            .clickable { onShowSortMenu(true) }
+                            .padding(start = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                when (sortProperty) {
+                                    SortProperty.FIRST_SCAN -> "First Scan"
+                                    SortProperty.LAST_SCAN -> "Last Scan"
+                                    SortProperty.NAME -> "Name"
+                                    SortProperty.SUCCESS_RATE -> "Success"
+                                    SortProperty.COLOR -> "Color"
+                                    SortProperty.MATERIAL_TYPE -> "Material"
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = "Sort options",
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
-                    )
+                    }
                 }
                 
                 DropdownMenu(
@@ -333,23 +380,6 @@ fun DataBrowserScreen(
                         )
                     }
                 }
-            }
-            
-            // Sort direction toggle button
-            OutlinedButton(
-                onClick = onSortDirectionToggle
-            ) {
-                Icon(
-                    if (sortDirection == SortDirection.ASCENDING) 
-                        Icons.Default.KeyboardArrowUp 
-                    else 
-                        Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (sortDirection == SortDirection.ASCENDING) 
-                        "Ascending order" 
-                    else 
-                        "Descending order",
-                    modifier = Modifier.size(18.dp)
-                )
             }
             
             // Filter button
