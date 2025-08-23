@@ -10,6 +10,9 @@ import android.nfc.tech.NfcA
 import android.util.Log
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.NfcTagData
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.DecryptedScanData
+import com.bscan.model.ScanResult
 import com.bscan.model.ScanProgress
 import com.bscan.model.ScanStage
 import com.bscan.nfc.BambuKeyDerivation
@@ -82,6 +85,24 @@ class NfcManager(private val activity: Activity) {
                 intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
             }
             return@withContext tag?.let { readTagData(it, progressCallback) }
+        }
+        return@withContext null
+    }
+    
+    /**
+     * New method that returns both encrypted and decrypted scan data
+     */
+    suspend fun handleIntentWithFullData(intent: Intent, progressCallback: ((ScanProgress) -> Unit)? = null): Pair<EncryptedScanData, DecryptedScanData>? = withContext(Dispatchers.IO) {
+        if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
+            NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
+            
+            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+            }
+            return@withContext tag?.let { readTagDataFull(it, progressCallback) }
         }
         return@withContext null
     }
@@ -188,6 +209,9 @@ class NfcManager(private val activity: Activity) {
             
             // Record debug info
             debugCollector.recordTagInfo(mifareClassic.size, sectors)
+            
+            // We'll capture raw data during the authentication process instead
+            // to avoid interfering with authentication
             
             // Report key derivation progress
             progressCallback?.invoke(ScanProgress(
@@ -399,6 +423,108 @@ class NfcManager(private val activity: Activity) {
             
             null
         }
+    }
+    
+    /**
+     * Read tag data and return both encrypted and decrypted data
+     */
+    private suspend fun readTagDataFull(tag: Tag, progressCallback: ((ScanProgress) -> Unit)? = null): Pair<EncryptedScanData, DecryptedScanData>? = withContext(Dispatchers.IO) {
+        debugCollector.reset()
+        
+        val uid = bytesToHex(tag.id)
+        val timestamp = java.time.LocalDateTime.now()
+        val technology = "MifareClassic"
+        val scanStartTime = System.currentTimeMillis()
+        
+        Log.d(TAG, "Starting full tag read for UID: $uid")
+        
+        // First read the existing way to get decrypted data
+        val nfcTagData = readTagData(tag, progressCallback)
+        if (nfcTagData == null) {
+            Log.w(TAG, "Tag read returned null - may be authentication failure, continuing to create scan data")
+            // Don't return null here - we still want to save the failed scan data
+        } else {
+            // If we got cached data, we need to populate the debugCollector with the block data
+            // so that FilamentInterpreter can access it properly
+            populateDebugCollectorFromCachedData(nfcTagData, uid)
+        }
+        
+        val scanDuration = System.currentTimeMillis() - scanStartTime
+        
+        // Determine scan result
+        val scanResult = if (nfcTagData != null) {
+            // If readTagData returned actual data (either from physical read or cache), it's successful
+            ScanResult.SUCCESS
+        } else {
+            // Only if readTagData returned null (complete failure) do we mark as failed
+            ScanResult.AUTHENTICATION_FAILED
+        }
+        
+        // Create scan data objects using DebugDataCollector factory methods
+        val encryptedScanData = debugCollector.createEncryptedScanData(
+            uid = uid,
+            technology = technology,
+            scanDurationMs = scanDuration
+        )
+        
+        val decryptedScanData = debugCollector.createDecryptedScanData(
+            uid = uid,
+            technology = technology,
+            result = scanResult,
+            keyDerivationTimeMs = 0, // TODO: Add timing
+            authenticationTimeMs = 0  // TODO: Add timing
+        )
+        
+        Log.d(TAG, "Created scan data pair for UID: $uid")
+        return@withContext Pair(encryptedScanData, decryptedScanData)
+    }
+    
+    /**
+     * Populate debugCollector with cached data so FilamentInterpreter can access block data
+     */
+    private fun populateDebugCollectorFromCachedData(nfcTagData: NfcTagData, uid: String) {
+        Log.d(TAG, "Populating debugCollector with cached data for UID: $uid")
+        
+        // Convert raw bytes back to block structure to match the original reading logic
+        val blockData = mutableMapOf<Int, String>()
+        val bytes = nfcTagData.bytes
+        
+        // The cached bytes contain data from sectors read during authentication
+        // Each sector contributes 48 bytes (3 data blocks * 16 bytes, trailer block excluded)
+        var byteOffset = 0
+        for (sector in 0 until minOf(16, bytes.size / 48)) { // 16 sectors max for MIFARE Classic 1K
+            // Match the original loop: blocksInSector - 1 (skip trailer block)
+            val blocksInSector = if (sector < 32) 4 else 16 // Standard MIFARE Classic 1K has 4 blocks per sector
+            for (blockInSector in 0 until blocksInSector - 1) { // Skip trailer block
+                if (byteOffset + 16 <= bytes.size) {
+                    // Use the same calculation as original: sectorToBlock(sector) + blockInSector
+                    val absoluteBlock = (sector * 4) + blockInSector // sectorToBlock equivalent for MIFARE Classic 1K
+                    val blockBytes = bytes.sliceArray(byteOffset until byteOffset + 16)
+                    val hexData = blockBytes.joinToString("") { "%02X".format(it) }
+                    blockData[absoluteBlock] = hexData
+                    byteOffset += 16
+                    
+                    // Log key blocks for debugging
+                    if (sector <= 1 || absoluteBlock <= 6) {
+                        Log.d(TAG, "Reconstructed Block $absoluteBlock (sector $sector, block $blockInSector): $hexData")
+                    }
+                }
+            }
+        }
+        
+        // Populate debugCollector with reconstructed data
+        debugCollector.recordFullRawData(bytes)
+        debugCollector.recordDecryptedData(bytes)
+        
+        // Record block data for FilamentInterpreter - this is crucial for interpretation
+        blockData.forEach { (absoluteBlock, hexData) ->
+            debugCollector.recordBlockData(absoluteBlock, hexData)
+        }
+        
+        // Mark as cache hit for debugging
+        debugCollector.recordCacheHit()
+        
+        Log.d(TAG, "Populated debugCollector with ${blockData.size} blocks from cached data")
     }
     
     private fun bytesToHex(bytes: ByteArray): String {
