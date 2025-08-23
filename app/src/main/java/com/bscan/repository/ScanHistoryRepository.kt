@@ -137,8 +137,93 @@ class ScanHistoryRepository(context: Context) {
         }.sortedByDescending { it.lastScanned } // Most recently scanned first
     }
     
+    /**
+     * Groups scans by tray UID (spool) instead of tag UID.
+     * Each physical spool has 2 tags with the same tray UID.
+     * Returns one entry per physical spool.
+     */
+    fun getUniqueSpoolsByTray(): List<UniqueSpool> {
+        val allScans = getAllScans()
+        
+        // Group scans by tray UID instead of tag UID
+        val scansByTrayUid = allScans
+            .filter { it.filamentInfo?.trayUid?.isNotEmpty() == true }
+            .groupBy { it.filamentInfo!!.trayUid }
+        
+        return scansByTrayUid.mapNotNull { (trayUid, scans) ->
+            // Find the most recent successful scan with filament info from this tray
+            val mostRecentSuccessfulScan = scans
+                .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+                .maxByOrNull { it.timestamp }
+                ?: return@mapNotNull null // Skip if no successful scans with filament info
+            
+            val scanCount = scans.size
+            val successCount = scans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+            val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+            val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
+            
+            // Get all tag UIDs for this tray
+            val tagUidsForTray = scans
+                .mapNotNull { it.filamentInfo?.tagUid }
+                .distinct()
+            
+            UniqueSpool(
+                uid = trayUid, // Use tray UID instead of tag UID
+                filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
+                scanCount = scanCount,
+                successCount = successCount,
+                lastScanned = lastScanned,
+                successRate = successRate
+            )
+        }.sortedByDescending { it.lastScanned } // Most recently scanned first
+    }
+    
     fun getSpoolByTagUid(tagUid: String): UniqueSpool? {
         return getUniqueSpools().firstOrNull { it.uid == tagUid }
+    }
+    
+    fun getSpoolByTrayUid(trayUid: String): UniqueSpool? {
+        return getUniqueSpoolsByTray().firstOrNull { it.uid == trayUid }
+    }
+    
+    /**
+     * Gets detailed information about a spool by tray UID, including all associated tags and scans
+     */
+    fun getSpoolDetails(trayUid: String): SpoolDetails? {
+        val allScans = getAllScans()
+        
+        // Get all scans for this tray
+        val spoolScans = allScans.filter { 
+            it.filamentInfo?.trayUid == trayUid 
+        }
+        
+        if (spoolScans.isEmpty()) return null
+        
+        // Get the most recent successful scan for filament info
+        val mostRecentSuccessfulScan = spoolScans
+            .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+            .maxByOrNull { it.timestamp }
+            ?: return null
+        
+        // Get all unique tag UIDs for this spool
+        val tagUids = spoolScans
+            .mapNotNull { it.filamentInfo?.tagUid }
+            .distinct()
+        
+        // Get scans grouped by tag UID
+        val scansByTag = spoolScans.groupBy { it.filamentInfo?.tagUid ?: "" }
+            .filter { it.key.isNotEmpty() }
+        
+        return SpoolDetails(
+            trayUid = trayUid,
+            filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
+            tagUids = tagUids,
+            allScans = spoolScans.sortedByDescending { it.timestamp },
+            scansByTag = scansByTag,
+            totalScans = spoolScans.size,
+            successfulScans = spoolScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS },
+            lastScanned = spoolScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+        )
     }
     
     fun getFilamentTypes(): List<String> {
@@ -182,4 +267,19 @@ data class UniqueSpool(
     val successCount: Int,
     val lastScanned: LocalDateTime,
     val successRate: Float
+)
+
+/**
+ * Represents detailed information about a physical spool (identified by tray UID).
+ * Contains all associated tags, scans, and filament information.
+ */
+data class SpoolDetails(
+    val trayUid: String, // Tray UID (shared across both tags on the spool)
+    val filamentInfo: com.bscan.model.FilamentInfo,
+    val tagUids: List<String>, // All tag UIDs associated with this spool
+    val allScans: List<ScanHistory>, // All scans for this spool, sorted by timestamp desc
+    val scansByTag: Map<String, List<ScanHistory>>, // Scans grouped by tag UID
+    val totalScans: Int,
+    val successfulScans: Int,
+    val lastScanned: LocalDateTime
 )
