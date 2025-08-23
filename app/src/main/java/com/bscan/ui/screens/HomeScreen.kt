@@ -91,12 +91,8 @@ fun HomeScreen(
         return
     }
     
-    if (spools.isEmpty() && allScans.isEmpty()) {
-        // Show full scan prompt for first-time users
-        ScanPromptScreen(modifier = modifier)
-    } else {
-        // Show data browser
-        DataBrowserScreen(
+    // Always show data browser - empty state handled via overscroll
+    DataBrowserScreen(
             viewMode = viewMode,
             sortProperty = sortProperty,
             sortDirection = sortDirection,
@@ -131,5 +127,4 @@ fun HomeScreen(
             onNavigateToDetails = onNavigateToDetails,
             modifier = modifier
         )
-    }
 }
