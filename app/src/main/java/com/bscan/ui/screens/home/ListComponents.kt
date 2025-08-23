@@ -143,31 +143,6 @@ fun SpoolsList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Scan prompt items at the top
-        item(key = "full_scan_prompt") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(fullPromptHeightDp)
-                    .padding(horizontal = 0.dp) // Reset padding for full screen prompt
-            ) {
-                ScanPromptScreen()
-            }
-        }
-        
-        item(key = "compact_scan_prompt") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(compactPromptHeightDp)
-            ) {
-                CompactScanPrompt(
-                    scanState = scanState,
-                    scanProgress = scanProgress,
-                    onLongPress = onSimulateScan
-                )
-            }
-        }
         
         filteredGroupedAndSortedSpools.forEach { (groupKey, groupSpools) ->
             // Show group header if grouping is enabled
