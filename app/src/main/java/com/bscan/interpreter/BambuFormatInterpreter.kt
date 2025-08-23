@@ -21,6 +21,27 @@ class BambuFormatInterpreter(
     override fun getDisplayName(): String = "Bambu Lab Proprietary Format"
     
     /**
+     * Check if this interpreter can handle the given decrypted data.
+     * Accepts both explicitly tagged BAMBU_PROPRIETARY data and UNKNOWN data that looks like Bambu format.
+     */
+    override fun canInterpret(decryptedData: DecryptedScanData): Boolean {
+        // Accept explicitly tagged Bambu data
+        if (decryptedData.tagFormat == TagFormat.BAMBU_PROPRIETARY) {
+            return true
+        }
+        
+        // For UNKNOWN format, check if it looks like Mifare Classic 1K with typical Bambu structure
+        if (decryptedData.tagFormat == TagFormat.UNKNOWN) {
+            return decryptedData.technology.contains("MifareClassic", ignoreCase = true) &&
+                   decryptedData.sectorCount == 16 &&
+                   decryptedData.tagSizeBytes == 1024 &&
+                   decryptedData.decryptedBlocks.isNotEmpty()
+        }
+        
+        return false
+    }
+    
+    /**
      * Interpret decrypted scan data into FilamentInfo using current mappings
      */
     override fun interpret(decryptedData: DecryptedScanData): FilamentInfo? {
