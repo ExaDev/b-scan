@@ -18,6 +18,7 @@ import com.bscan.ui.screens.spool.*
 @Composable
 fun SpoolListScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToDetails: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -28,7 +29,7 @@ fun SpoolListScreen(
     
     LaunchedEffect(Unit) {
         try {
-            spools = repository.getUniqueSpools()
+            spools = repository.getUniqueSpoolsByTray() // Group by tray UID instead of tag UID
         } catch (e: Exception) {
             spools = emptyList()
         }
@@ -98,7 +99,10 @@ fun SpoolListScreen(
             
             // Spools List
             items(filteredSpools) { spool ->
-                SpoolCard(spool = spool)
+                SpoolCard(
+                    spool = spool,
+                    onClick = onNavigateToDetails
+                )
             }
             
             // Empty state
