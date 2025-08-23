@@ -8,13 +8,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import com.bscan.ScanState
 import com.bscan.model.ScanDebugInfo
+import com.bscan.model.ScanProgress
 import com.bscan.model.ScanResult
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
 import com.bscan.repository.UniqueSpool
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.DetailType
+import com.bscan.ui.screens.ScanPromptScreen
 import java.time.LocalDateTime
 
 @Composable
@@ -25,7 +29,12 @@ fun SpoolsList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
+    compactPromptHeightDp: Dp = 100.dp,
+    fullPromptHeightDp: Dp = 400.dp
 ) {
     val filteredGroupedAndSortedSpools = remember(spools, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = spools.filter { spool ->
@@ -134,6 +143,32 @@ fun SpoolsList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Scan prompt items at the top
+        item(key = "full_scan_prompt") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(fullPromptHeightDp)
+                    .padding(horizontal = 0.dp) // Reset padding for full screen prompt
+            ) {
+                ScanPromptScreen()
+            }
+        }
+        
+        item(key = "compact_scan_prompt") {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(compactPromptHeightDp)
+            ) {
+                CompactScanPrompt(
+                    scanState = scanState,
+                    scanProgress = scanProgress,
+                    onLongPress = onSimulateScan
+                )
+            }
+        }
+        
         filteredGroupedAndSortedSpools.forEach { (groupKey, groupSpools) ->
             // Show group header if grouping is enabled
             if (groupByOption != GroupByOption.NONE) {
