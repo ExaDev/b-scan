@@ -1,10 +1,8 @@
 package com.bscan.debug
 
-import com.bscan.model.FilamentInfo
-import com.bscan.model.NfcTagData
-import com.bscan.model.ScanDebugInfo
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.DecryptedScanData
 import java.time.LocalDateTime
 
 class DebugDataCollector {
@@ -75,36 +73,6 @@ class DebugDataCollector {
         return authenticatedSectors.isNotEmpty()
     }
     
-    fun createScanHistory(
-        uid: String,
-        technology: String,
-        result: ScanResult,
-        filamentInfo: FilamentInfo?
-    ): ScanHistory {
-        return ScanHistory(
-            id = System.currentTimeMillis(), // Simple ID generation
-            timestamp = LocalDateTime.now(),
-            uid = uid,
-            technology = technology,
-            scanResult = result,
-            filamentInfo = filamentInfo,
-            debugInfo = ScanDebugInfo(
-                uid = uid,
-                tagSizeBytes = tagSizeBytes,
-                sectorCount = sectorCount,
-                authenticatedSectors = authenticatedSectors.toList(),
-                failedSectors = failedSectors.toList(),
-                usedKeyTypes = usedKeyTypes.toMap(),
-                blockData = blockData.toMap(),
-                derivedKeys = derivedKeys.toList(),
-                rawColorBytes = rawColorBytes,
-                errorMessages = errorMessages.toList(),
-                parsingDetails = parsingDetails.toMap(),
-                fullRawHex = fullRawData.joinToString("") { "%02X".format(it) },
-                decryptedHex = decryptedData.joinToString("") { "%02X".format(it) }
-            )
-        )
-    }
     
     fun reset() {
         authenticatedSectors.clear()
@@ -120,5 +88,66 @@ class DebugDataCollector {
         cacheHit = false
         fullRawData = ByteArray(0)
         decryptedData = ByteArray(0)
+    }
+    
+    // Getter methods for accessing collected data
+    fun getFullRawData(): ByteArray = fullRawData.copyOf()
+    fun getDecryptedData(): ByteArray = decryptedData.copyOf()
+    fun getBlockData(): Map<Int, String> = blockData.toMap()
+    fun getAuthenticatedSectors(): List<Int> = authenticatedSectors.toList()
+    fun getFailedSectors(): List<Int> = failedSectors.toList()
+    fun getUsedKeyTypes(): Map<Int, String> = usedKeyTypes.toMap()
+    fun getDerivedKeys(): List<String> = derivedKeys.toList()
+    fun getErrorMessages(): List<String> = errorMessages.toList()
+    fun getTagSizeBytes(): Int = tagSizeBytes
+    fun getSectorCount(): Int = sectorCount
+    
+    /**
+     * Create EncryptedScanData from collected information
+     */
+    fun createEncryptedScanData(
+        uid: String,
+        technology: String,
+        scanDurationMs: Long = 0
+    ): EncryptedScanData {
+        return EncryptedScanData(
+            id = System.currentTimeMillis(),
+            timestamp = LocalDateTime.now(),
+            tagUid = uid,
+            technology = technology,
+            encryptedData = getFullRawData(),
+            tagSizeBytes = tagSizeBytes,
+            sectorCount = sectorCount,
+            scanDurationMs = scanDurationMs
+        )
+    }
+    
+    /**
+     * Create DecryptedScanData from collected information
+     */
+    fun createDecryptedScanData(
+        uid: String,
+        technology: String,
+        result: ScanResult,
+        keyDerivationTimeMs: Long = 0,
+        authenticationTimeMs: Long = 0
+    ): DecryptedScanData {
+        return DecryptedScanData(
+            id = System.currentTimeMillis() + 1, // Ensure different ID from encrypted
+            timestamp = LocalDateTime.now(),
+            tagUid = uid,
+            technology = technology,
+            scanResult = result,
+            decryptedBlocks = getBlockData(),
+            authenticatedSectors = getAuthenticatedSectors(),
+            failedSectors = getFailedSectors(),
+            usedKeys = getUsedKeyTypes(),
+            derivedKeys = getDerivedKeys(),
+            tagSizeBytes = tagSizeBytes,
+            sectorCount = sectorCount,
+            errors = getErrorMessages(),
+            keyDerivationTimeMs = keyDerivationTimeMs,
+            authenticationTimeMs = authenticationTimeMs
+        )
     }
 }
