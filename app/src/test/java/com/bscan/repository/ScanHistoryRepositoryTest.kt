@@ -31,7 +31,7 @@ class ScanHistoryRepositoryTest {
     
     @Before
     fun setup() {
-        `when`(mockContext.getSharedPreferences("scan_history", Context.MODE_PRIVATE))
+        `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
@@ -44,60 +44,71 @@ class ScanHistoryRepositoryTest {
     @Test
     fun `saveScan adds timestamp when missing`() {
         // Given
-        val scanHistory = createTestScanHistory(timestamp = LocalDateTime.MIN)
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        val encryptedScan = createTestEncryptedScanData(timestamp = LocalDateTime.MIN)
+        val decryptedScan = createTestDecryptedScanData(timestamp = LocalDateTime.MIN)
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // When
-        repository.saveScan(scanHistory)
+        repository.saveScan(encryptedScan, decryptedScan)
         
         // Then
-        verify(mockEditor).putString(eq("scans"), any())
-        verify(mockEditor).apply()
+        verify(mockEditor, times(2)).putString(any(), any()) // Both encrypted and decrypted
+        verify(mockEditor, times(2)).apply()
     }
 
     @Test
     fun `saveScan maintains chronological order`() {
         // Given
-        val scan1 = createTestScanHistory(
+        val encrypted1 = createTestEncryptedScanData(
             uid = "tag1", 
             timestamp = LocalDateTime.now().minusMinutes(10)
         )
-        val scan2 = createTestScanHistory(
+        val decrypted1 = createTestDecryptedScanData(
+            uid = "tag1", 
+            timestamp = LocalDateTime.now().minusMinutes(10)
+        )
+        val encrypted2 = createTestEncryptedScanData(
             uid = "tag2", 
             timestamp = LocalDateTime.now().minusMinutes(5)
         )
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        val decrypted2 = createTestDecryptedScanData(
+            uid = "tag2", 
+            timestamp = LocalDateTime.now().minusMinutes(5)
+        )
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // When
-        repository.saveScan(scan1)
-        repository.saveScan(scan2)
+        repository.saveScan(encrypted1, decrypted1)
+        repository.saveScan(encrypted2, decrypted2)
         
-        // Then - newer scans should be first
-        verify(mockEditor, times(2)).putString(eq("scans"), any())
+        // Then - newer scans should be first (4 saves total: 2 encrypted + 2 decrypted)
+        verify(mockEditor, times(4)).putString(any(), any())
     }
 
     @Test
     fun `saveScan enforces maximum history size`() {
         // Given - simulate having 100 scans already
-        val existingScans = (1..100).map { 
-            createTestScanHistory(uid = "tag$it") 
-        }
-        val existingJson = """[${existingScans.joinToString(",") { "\"test\"" }}]"""
-        `when`(mockSharedPreferences.getString("scans", "[]")).thenReturn(existingJson)
+        val existingScansJson = """[${(1..100).joinToString(",") { "\"test\"" }}]"""
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(existingScansJson)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(existingScansJson)
         
-        val newScan = createTestScanHistory(uid = "tag101")
+        val encryptedScan = createTestEncryptedScanData(uid = "tag101")
+        val decryptedScan = createTestDecryptedScanData(uid = "tag101")
         
         // When
-        repository.saveScan(newScan)
+        repository.saveScan(encryptedScan, decryptedScan)
         
         // Then - should save and maintain size limit
-        verify(mockEditor).putString(eq("scans"), any())
+        verify(mockEditor, times(2)).putString(any(), any())
     }
 
     @Test
     fun `getAllScans handles empty preferences`() {
         // Given - return null for empty preferences
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // When
         val result = repository.getAllScans()
@@ -108,40 +119,42 @@ class ScanHistoryRepositoryTest {
 
     @Test
     fun `getAllScans handles corrupted JSON gracefully`() {
-        // Given - return null initially, then corrupted JSON
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn("{invalid json}")
+        // Given - return corrupted JSON
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn("{invalid json}")
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn("{invalid json}")
         
         // When
         val result = repository.getAllScans()
         
         // Then
         assertTrue("Should return empty list for corrupted data", result.isEmpty())
-        verify(mockEditor).remove("scans") // Should clear corrupted data
-        verify(mockEditor).apply()
+        verify(mockEditor, times(2)).remove(any()) // Should clear both encrypted and decrypted corrupted data
+        verify(mockEditor, times(2)).apply()
     }
 
     @Test
-    fun `getSuccessfulScans filters correctly`() {
+    fun `getSuccessfulDecryptedScans filters correctly`() {
         // This is a basic test - in practice we'd mock the JSON parsing
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
-        val result = repository.getSuccessfulScans()
+        val result = repository.getSuccessfulDecryptedScans()
         
         assertTrue("Should return empty list", result.isEmpty())
     }
 
     @Test
-    fun `getFailedScans filters correctly`() {
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+    fun `getFailedDecryptedScans filters correctly`() {
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
-        val result = repository.getFailedScans()
+        val result = repository.getFailedDecryptedScans()
         
         assertTrue("Should return empty list", result.isEmpty())
     }
 
     @Test
     fun `getScansByTagUid filters correctly`() {
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         val result = repository.getScansByTagUid("test-uid")
         
@@ -154,13 +167,13 @@ class ScanHistoryRepositoryTest {
         repository.clearHistory()
         
         // Then
-        verify(mockEditor).remove("scans")
-        verify(mockEditor).apply()
+        verify(mockEditor, times(2)).remove(any()) // Both encrypted and decrypted
+        verify(mockEditor, times(2)).apply()
     }
 
     @Test
     fun `getHistoryCount returns zero for empty history`() {
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         val result = repository.getHistoryCount()
         
@@ -169,27 +182,48 @@ class ScanHistoryRepositoryTest {
 
     @Test
     fun `getSuccessRate handles division by zero`() {
-        `when`(mockSharedPreferences.getString("scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         val result = repository.getSuccessRate()
         
         assertEquals("Should return 0.0 for empty history", 0.0, result.toDouble(), 0.001)
     }
 
-    // Helper method to create test data
-    private fun createTestScanHistory(
+    // Helper methods to create test data
+    private fun createTestEncryptedScanData(
+        uid: String = "12345678",
+        timestamp: LocalDateTime = LocalDateTime.now()
+    ): EncryptedScanData {
+        return EncryptedScanData(
+            id = 1,
+            timestamp = timestamp,
+            tagUid = uid,
+            technology = "MifareClassic",
+            encryptedData = ByteArray(1024),
+            tagSizeBytes = 1024,
+            sectorCount = 16
+        )
+    }
+    
+    private fun createTestDecryptedScanData(
         uid: String = "12345678",
         timestamp: LocalDateTime = LocalDateTime.now(),
         result: ScanResult = ScanResult.SUCCESS
-    ): ScanHistory {
-        return ScanHistory(
-            id = 1,
+    ): DecryptedScanData {
+        return DecryptedScanData(
+            id = 2,
             timestamp = timestamp,
-            uid = uid,
+            tagUid = uid,
             technology = "MifareClassic",
             scanResult = result,
-            filamentInfo = if (result == ScanResult.SUCCESS) createTestFilamentInfo() else null,
-            debugInfo = createTestDebugInfo()
+            decryptedBlocks = mapOf(4 to "00112233445566778899AABBCCDDEEFF"),
+            authenticatedSectors = listOf(1, 2, 3),
+            failedSectors = emptyList(),
+            usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
+            derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
+            tagSizeBytes = 1024,
+            sectorCount = 16,
+            errors = emptyList()
         )
     }
     
