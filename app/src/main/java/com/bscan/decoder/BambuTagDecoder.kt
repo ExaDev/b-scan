@@ -13,6 +13,9 @@ import java.time.format.DateTimeFormatter
 /**
  * Bambu Lab RFID Tag Decoder
  * 
+ * Decodes Mifare Classic 1K tags following the official RFID-Tag-Guide specification.
+ * All numbers are encoded as Little Endian (LE) as per the official documentation.
+ * 
  * TERMINOLOGY CLARIFICATION:
  * - Tag UID: Unique identifier for each individual RFID tag (unique per tag)
  * - Tray UID: Identifier for the filament spool tray (shared between both tags on a spool)
@@ -22,6 +25,22 @@ import java.time.format.DateTimeFormatter
  * - Different tag UIDs (unique per physical tag)
  * - Same tray UID (identifying the spool/tray)
  * - Same filament information encoded on both tags
+ * 
+ * BLOCK STRUCTURE (per official RFID-Tag-Guide):
+ * Block 0:  Tag UID and Manufacturer Data (read-only)
+ * Block 1:  Tray Info Index - Material Variant ID (0-7) + Material ID (8-15)
+ * Block 2:  Filament Type (16 bytes string)
+ * Block 4:  Detailed Filament Type (16 bytes string) 
+ * Block 5:  Color RGBA (0-3) + Spool Weight uint16 (4-5) + Filament Diameter float64 (8-15)
+ * Block 6:  Drying Temp uint16 (0-1) + Drying Time uint16 (2-3) + Bed Temp Type uint16 (4-5) + Bed Temp uint16 (6-7) + Max Temp uint16 (8-9) + Min Temp uint16 (10-11)
+ * Block 8:  X Cam Info (0-11) + Nozzle Diameter float32 (12-15)
+ * Block 9:  Tray UID (16 bytes string)
+ * Block 10: Spool Width uint16 mm*100 (4-5)
+ * Block 12: Production Date/Time string format: yyyy_MM_dd_HH_mm (16 bytes)
+ * Block 13: Short Production Date/Time (unknown format, 16 bytes)
+ * Block 14: Filament Length uint16 meters (4-5)
+ * Block 16: Format Identifier uint16 (0-1) + Color Count uint16 (2-3) + Second Color ABGR (4-7)
+ * Block 17: Unknown data (16 bytes)
  */
 object BambuTagDecoder {
     private const val TAG = "BambuTagDecoder"
