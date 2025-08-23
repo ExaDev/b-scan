@@ -36,7 +36,9 @@ data class EncryptedScanData(
     val timestamp: LocalDateTime,
     val tagUid: String, // Individual tag UID (unique per tag)
     val technology: String,
-    val encryptedData: ByteArray, // Complete 1024-byte dump from the tag
+    val tagFormat: TagFormat = TagFormat.UNKNOWN,
+    val manufacturerName: String = "Unknown", // Manufacturer name from tag data
+    val encryptedData: ByteArray, // Complete raw dump from the tag (varies by format)
     val tagSizeBytes: Int,
     val sectorCount: Int,
     val scanDurationMs: Long = 0
@@ -51,6 +53,8 @@ data class EncryptedScanData(
         if (timestamp != other.timestamp) return false
         if (tagUid != other.tagUid) return false
         if (technology != other.technology) return false
+        if (tagFormat != other.tagFormat) return false
+        if (manufacturerName != other.manufacturerName) return false
         if (!encryptedData.contentEquals(other.encryptedData)) return false
         if (tagSizeBytes != other.tagSizeBytes) return false
         if (sectorCount != other.sectorCount) return false
@@ -64,6 +68,8 @@ data class EncryptedScanData(
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + tagUid.hashCode()
         result = 31 * result + technology.hashCode()
+        result = 31 * result + tagFormat.hashCode()
+        result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + encryptedData.contentHashCode()
         result = 31 * result + tagSizeBytes
         result = 31 * result + sectorCount
@@ -82,6 +88,8 @@ data class DecryptedScanData(
     val timestamp: LocalDateTime,
     val tagUid: String, // Individual tag UID (unique per tag)
     val technology: String,
+    val tagFormat: TagFormat = TagFormat.UNKNOWN,
+    val manufacturerName: String = "Unknown", // Manufacturer name from tag data
     val scanResult: ScanResult,
     
     // Decrypted block data (after successful authentication)
@@ -115,6 +123,8 @@ data class DecryptedScanData(
         if (timestamp != other.timestamp) return false
         if (tagUid != other.tagUid) return false
         if (technology != other.technology) return false
+        if (tagFormat != other.tagFormat) return false
+        if (manufacturerName != other.manufacturerName) return false
         if (scanResult != other.scanResult) return false
         if (decryptedBlocks != other.decryptedBlocks) return false
         if (authenticatedSectors != other.authenticatedSectors) return false
@@ -135,6 +145,8 @@ data class DecryptedScanData(
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + tagUid.hashCode()
         result = 31 * result + technology.hashCode()
+        result = 31 * result + tagFormat.hashCode()
+        result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + scanResult.hashCode()
         result = 31 * result + decryptedBlocks.hashCode()
         result = 31 * result + authenticatedSectors.hashCode()
