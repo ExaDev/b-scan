@@ -3,8 +3,9 @@ package com.bscan.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.FilamentInfo
-import com.bscan.model.ScanHistory
+import com.bscan.model.DecryptedScanData
 import com.bscan.model.ScanResult
+import com.bscan.interpreter.FilamentInterpreter
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
@@ -14,10 +15,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class TrayTrackingRepository(context: Context) {
+class TrayTrackingRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("tray_tracking", Context.MODE_PRIVATE)
+    
+    // FilamentInterpreter for runtime interpretation
+    private val mappingsRepository by lazy { MappingsRepository(context) }
+    private var filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
     
     // Custom LocalDateTime adapter for Gson (copied from ScanHistoryRepository)
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -55,15 +60,31 @@ class TrayTrackingRepository(context: Context) {
     /**
      * Records a successful scan with tray UID tracking
      */
-    fun recordScan(scanHistory: ScanHistory) {
-        if (scanHistory.scanResult == ScanResult.SUCCESS && scanHistory.filamentInfo != null) {
-            val trayUid = scanHistory.filamentInfo.trayUid
-            val tagUid = scanHistory.uid
+    fun recordScan(decryptedScanData: DecryptedScanData) {
+        if (decryptedScanData.scanResult == ScanResult.SUCCESS) {
+            // Use FilamentInterpreter to get FilamentInfo at runtime
+            val filamentInfo = try {
+                filamentInterpreter.interpret(decryptedScanData)
+            } catch (e: Exception) {
+                null
+            }
             
-            if (trayUid.isNotBlank()) {
-                addTagToTray(trayUid, tagUid, scanHistory.timestamp, scanHistory.filamentInfo)
+            if (filamentInfo != null) {
+                val trayUid = filamentInfo.trayUid
+                val tagUid = decryptedScanData.tagUid
+                
+                if (trayUid.isNotBlank()) {
+                    addTagToTray(trayUid, tagUid, decryptedScanData.timestamp, filamentInfo)
+                }
             }
         }
+    }
+    
+    /**
+     * Refresh the FilamentInterpreter with updated mappings
+     */
+    fun refreshMappings() {
+        filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
     }
     
     /**

@@ -37,8 +37,8 @@ fun AppNavigation(
         if (scanUiState.scanState == ScanState.SUCCESS) {
             scanUiState.filamentInfo?.let { filamentInfo ->
                 val trayUid = filamentInfo.trayUid
-                // Navigate to details page after successful scan
-                navController.navigate("details/$trayUid") {
+                // Navigate to spool details page after successful scan
+                navController.navigate("details/spool/$trayUid") {
                     // Optional: clear the back stack to prevent going back to scanning state
                     // popUpTo("main") { inclusive = false }
                 }
@@ -86,8 +86,8 @@ fun AppNavigation(
                 onSimulateScan = { /* TODO: Add simulate scan functionality if needed */ },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToHistory = { navController.navigate("history") },
-                onNavigateToDetails = { trayUid ->
-                    navController.navigate("details/$trayUid")
+                onNavigateToDetails = { detailType, identifier ->
+                    navController.navigate("details/${detailType.name.lowercase()}/$identifier")
                 }
             )
         }
@@ -95,8 +95,8 @@ fun AppNavigation(
         composable("history") {
             ScanHistoryScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToDetails = { trayUid ->
-                    navController.navigate("details/$trayUid")
+                onNavigateToDetails = { detailType, identifier ->
+                    navController.navigate("details/${detailType.name.lowercase()}/$identifier")
                 }
             )
         }
@@ -104,8 +104,8 @@ fun AppNavigation(
         composable("spoolList") {
             SpoolListScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToDetails = { trayUid ->
-                    navController.navigate("details/$trayUid")
+                onNavigateToDetails = { detailType, identifier ->
+                    navController.navigate("details/${detailType.name.lowercase()}/$identifier")
                 }
             )
         }
@@ -123,11 +123,25 @@ fun AppNavigation(
             )
         }
         
-        composable("details/{trayUid}") { backStackEntry ->
-            val trayUid = backStackEntry.arguments?.getString("trayUid") ?: return@composable
-            SpoolDetailsScreen(
-                trayUid = trayUid,
+        composable("details/{type}/{identifier}") { backStackEntry ->
+            val typeStr = backStackEntry.arguments?.getString("type") ?: return@composable
+            val identifier = backStackEntry.arguments?.getString("identifier") ?: return@composable
+            
+            val detailType = when (typeStr.lowercase()) {
+                "scan" -> DetailType.SCAN
+                "tag" -> DetailType.TAG
+                "spool" -> DetailType.SPOOL
+                "sku" -> DetailType.SKU
+                else -> return@composable
+            }
+            
+            DetailScreen(
+                detailType = detailType,
+                identifier = identifier,
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetails = { newDetailType, newIdentifier ->
+                    navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                },
                 onPurgeCache = { tagUid ->
                     // Handle cache purging if needed
                     // This could call the existing cache management functionality

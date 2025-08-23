@@ -27,18 +27,9 @@ class NfcIntentProcessor(
             // Provide haptic feedback
             hapticFeedbackProvider.provideFeedback()
             
-            // First try quick cache check for immediate response
-            val quickTagData = nfcManager.handleIntent(intent)
-            if (quickTagData != null) {
-                // Cache hit - immediate response
-                lifecycleScope.launch {
-                    delay(300) // Brief delay to show detection
-                    viewModel.processTag(quickTagData, nfcManager.debugCollector)
-                }
-            } else {
-                // Cache miss - need background read
-                processSlowTagRead(intent)
-            }
+            // Skip cache for now and go directly to full read
+            // TODO: Implement caching for new data model
+            processSlowTagRead(intent)
         }
     }
     
@@ -48,14 +39,15 @@ class NfcIntentProcessor(
         
         lifecycleScope.launch {
             try {
-                // Perform heavy read operation on background thread with progress callback
-                val tagData = nfcManager.handleIntentAsync(intent) { progress ->
+                // Try the new full data method first
+                val scanDataPair = nfcManager.handleIntentWithFullData(intent) { progress ->
                     viewModel.updateScanProgress(progress)
                 }
                 
-                if (tagData != null) {
-                    // Successful read
-                    viewModel.processTag(tagData, nfcManager.debugCollector)
+                if (scanDataPair != null) {
+                    val (encryptedData, decryptedData) = scanDataPair
+                    // Use the new processing method
+                    viewModel.processScanData(encryptedData, decryptedData)
                 } else {
                     handleTagReadFailure(intent)
                 }
