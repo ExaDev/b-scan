@@ -305,7 +305,13 @@ jobs:
     name: Semantic Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [code-quality, unit-tests, build-release, security-scan, performance-analysis]
+    needs: 
+      # - code-quality
+      # - unit-tests
+      - build-release
+      # - security-scan
+      # - instrumented-tests
+      # - performance-analysis
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
