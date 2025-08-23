@@ -146,21 +146,36 @@ jobs:
           @semantic-release/commit-analyzer \
           @semantic-release/release-notes-generator
       
-    - name: Calculate version
-      id: calculate_version
+    - name: Calculate next version from semantic-release
+      id: semantic_version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        # Calculate version code from git commit count (deterministic)
+        # Run semantic-release dry-run to get next version
+        DRY_RUN_OUTPUT=$(npx semantic-release --dry-run --no-ci 2>&1 || true)
+        
+        # Extract version from dry-run output
+        NEXT_VERSION=$(echo "$DRY_RUN_OUTPUT" | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+        
+        # If no new version, check if we should skip
+        if [ -z "$NEXT_VERSION" ]; then
+          echo "No new version to release - checking for existing version"
+          # Get current version from git tags
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          echo "No new release needed, current version: $CURRENT_VERSION"
+          echo "should_release=false" >> $GITHUB_OUTPUT
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Calculate version code from git commit count
         VERSION_CODE=$(git rev-list --count HEAD)
         
-        # Calculate version name from git commit count and short hash
-        SHORT_HASH=$(git rev-parse --short HEAD)
-        VERSION_NAME="1.0.$VERSION_CODE"
-        
+        echo "should_release=true" >> $GITHUB_OUTPUT
+        echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
         echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-        echo "short_hash=$SHORT_HASH" >> $GITHUB_OUTPUT
         
-        echo "Calculated version: $VERSION_NAME (code: $VERSION_CODE, hash: $SHORT_HASH)"
+        echo "Next release version: $NEXT_VERSION (code: $VERSION_CODE)"
       
     - name: Build release APK and AAB
       uses: ./.github/actions/build-android
