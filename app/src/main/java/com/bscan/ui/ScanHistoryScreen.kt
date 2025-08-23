@@ -18,7 +18,8 @@ import com.bscan.ui.components.history.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanHistoryScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToDetails: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
@@ -98,7 +99,8 @@ fun ScanHistoryScreen(
                             } else {
                                 expandedItems + scan.id
                             }
-                        }
+                        },
+                        onScanClick = onNavigateToDetails
                     )
                 }
                 

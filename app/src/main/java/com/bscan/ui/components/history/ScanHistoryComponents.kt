@@ -91,10 +91,16 @@ fun ScanHistoryCard(
     scan: ScanHistory,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onScanClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
+        onClick = { 
+            scan.filamentInfo?.trayUid?.let { trayUid ->
+                onScanClick?.invoke(trayUid)
+            }
+        },
         colors = CardDefaults.cardColors(
             containerColor = when (scan.scanResult) {
                 ScanResult.SUCCESS -> MaterialTheme.colorScheme.surface
