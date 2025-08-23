@@ -1,0 +1,65 @@
+package com.bscan.interpreter
+
+import com.bscan.model.DecryptedScanData
+import com.bscan.model.FilamentInfo
+import com.bscan.model.TagFormat
+import com.bscan.repository.MappingsRepository
+
+/**
+ * Factory for creating and managing tag interpreters for different formats
+ */
+class InterpreterFactory(
+    private val mappingsRepository: MappingsRepository
+) {
+    private val interpreters = mutableMapOf<TagFormat, TagInterpreter>()
+    
+    init {
+        // Initialize interpreters for each supported format
+        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(mappingsRepository.getCurrentMappings())
+        interpreters[TagFormat.CREALITY_ASCII] = CrealityFormatInterpreter()
+        interpreters[TagFormat.OPENTAG_V1] = OpenTagInterpreter()
+    }
+    
+    /**
+     * Get appropriate interpreter for the given tag format
+     */
+    fun getInterpreter(tagFormat: TagFormat): TagInterpreter? {
+        return interpreters[tagFormat]
+    }
+    
+    /**
+     * Interpret decrypted scan data using the appropriate format interpreter
+     */
+    fun interpret(decryptedData: DecryptedScanData): FilamentInfo? {
+        val interpreter = getInterpreter(decryptedData.tagFormat)
+            ?: return null
+            
+        return if (interpreter.canInterpret(decryptedData)) {
+            interpreter.interpret(decryptedData)
+        } else {
+            null
+        }
+    }
+    
+    /**
+     * Refresh mappings for interpreters that use them (like Bambu format)
+     */
+    fun refreshMappings() {
+        val updatedMappings = mappingsRepository.getCurrentMappings()
+        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(updatedMappings)
+    }
+    
+    /**
+     * Get all supported tag formats
+     */
+    fun getSupportedFormats(): List<TagFormat> {
+        return interpreters.keys.toList()
+    }
+    
+    /**
+     * Get display names for all supported interpreters
+     */
+    fun getSupportedInterpreterNames(): Map<TagFormat, String> {
+        return interpreters.mapValues { it.value.getDisplayName() }
+    }
+}

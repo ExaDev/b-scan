@@ -7,19 +7,23 @@ import java.nio.ByteOrder
 import kotlin.math.*
 
 /**
- * Interprets raw scan data into meaningful filament information using current mappings.
+ * Interprets Bambu Lab's proprietary RFID format using current mappings.
  * This allows the same raw scan data to be re-interpreted as mappings improve,
  * without needing to rescan the NFC tags.
  */
-class FilamentInterpreter(
+class BambuFormatInterpreter(
     private val mappings: FilamentMappings = FilamentMappings()
-) {
-    private val TAG = "FilamentInterpreter"
+) : TagInterpreter {
+    
+    override val tagFormat = TagFormat.BAMBU_PROPRIETARY
+    private val TAG = "BambuFormatInterpreter"
+    
+    override fun getDisplayName(): String = "Bambu Lab Proprietary Format"
     
     /**
      * Interpret decrypted scan data into FilamentInfo using current mappings
      */
-    fun interpret(decryptedData: DecryptedScanData): FilamentInfo? {
+    override fun interpret(decryptedData: DecryptedScanData): FilamentInfo? {
         if (decryptedData.scanResult != ScanResult.SUCCESS) {
             Log.d(TAG, "Skipping interpretation of failed scan: ${decryptedData.scanResult}")
             return null
@@ -84,6 +88,8 @@ class FilamentInterpreter(
         return FilamentInfo(
             tagUid = decryptedData.tagUid,
             trayUid = trayUid,
+            tagFormat = TagFormat.BAMBU_PROPRIETARY,
+            manufacturerName = decryptedData.manufacturerName,
             filamentType = filamentType,
             detailedFilamentType = detailedFilamentType,
             colorHex = colorHex,
