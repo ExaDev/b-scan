@@ -14,8 +14,8 @@ android {
         targetSdk = 35
         
         // Use provided version or sensible defaults
-        versionCode = 268
-        versionName = "3.6.0"
+        versionCode = 279
+        versionName = "3.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

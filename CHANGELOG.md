@@ -1,3 +1,18 @@
+# [3.7.0](https://github.com/Mearman/b-scan/compare/v3.6.0...v3.7.0) (2025-08-23)
+
+
+### Features
+
+* **data:** add tray-based spool grouping and details retrieval ([705a4a1](https://github.com/Mearman/b-scan/commit/705a4a1acfb56653221c3db5ff2c83ec20d4853e))
+* **navigation:** add spool details navigation and auto-navigation after scan ([fbbbc96](https://github.com/Mearman/b-scan/commit/fbbbc96f26bb14617402d1c21862f23720ec2a46))
+* **repository:** add backward compatibility for tag UID lookups ([324a9b2](https://github.com/Mearman/b-scan/commit/324a9b2aef788b53c1bc7e6382df4b7c79420841))
+* **ui:** add click functionality to spool cards ([64f4c02](https://github.com/Mearman/b-scan/commit/64f4c02d2bc8b44b7760e19a233dcc29df080bb6))
+* **ui:** add navigation from scan history to spool details ([a740f8c](https://github.com/Mearman/b-scan/commit/a740f8ca8e1a6a19d8fd5198632947d41bc89353))
+* **ui:** add spool details screen and components ([796e4c1](https://github.com/Mearman/b-scan/commit/796e4c1e8ac7a68a368264c10ea93b5ca51d75f4))
+* **ui:** integrate details navigation in home screens ([1b7131a](https://github.com/Mearman/b-scan/commit/1b7131ad36c614c4ad2687e7c20dfbb7739184c2))
+* **ui:** switch home screen to tray-based spool grouping ([5950ec5](https://github.com/Mearman/b-scan/commit/5950ec50fd2a5a994e98262d3f86302d116c36c6))
+* **ui:** update spool list to use tray-based grouping and navigation ([f6fc320](https://github.com/Mearman/b-scan/commit/f6fc320c73307d3f947688a9465b2d97f297ae5d))
+
 # [3.6.0](https://github.com/Mearman/b-scan/compare/v3.5.0...v3.6.0) (2025-08-23)
 
 
