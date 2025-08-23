@@ -1,3 +1,19 @@
+# [3.3.0](https://github.com/Mearman/b-scan/compare/v3.2.0...v3.3.0) (2025-08-23)
+
+
+### Features
+
+* **debug:** enhance data collection with complete raw and decrypted data capture ([ebfe2ed](https://github.com/Mearman/b-scan/commit/ebfe2edcf826aab8643b9c2994559e62cf2c6f50))
+* **navigation:** add navigation callbacks to HomeScreen ([69557d4](https://github.com/Mearman/b-scan/commit/69557d490599f60cdafb42785e3ecc4db602c099))
+* **navigation:** wrap NavHost in background Box and connect navigation actions ([4980e32](https://github.com/Mearman/b-scan/commit/4980e32e814428a0495480d9f8fff38954e14e1b))
+* **nfc:** improve block data logging and complete raw data capture ([c6d60ce](https://github.com/Mearman/b-scan/commit/c6d60ce978963bcdebee6738c9958823eebdf935))
+* **permissions:** add storage permissions for debug data export ([9d42884](https://github.com/Mearman/b-scan/commit/9d42884be7dbc98cf20574805a925f296efb8b6b))
+* **scan:** add system bar padding to ScanPromptScreen ([f1f8b83](https://github.com/Mearman/b-scan/commit/f1f8b834accd8a1db9145b4dbbbc0df2c5b553a6))
+* **theme:** implement transparent system bars for edge-to-edge design ([569d91a](https://github.com/Mearman/b-scan/commit/569d91ad5bf734d66a25b5d3af7b3eadb9b38730))
+* **ui:** add raw data display and export functionality to debug card ([599fa4e](https://github.com/Mearman/b-scan/commit/599fa4e2e55fc4c10b7c1c27d6adde711cefb551))
+* **ui:** add TopAppBar with navigation actions to DataBrowserScreen ([ca979b0](https://github.com/Mearman/b-scan/commit/ca979b060e3261526b79c9ebb9944a7c47c2aee3))
+* **ui:** enable edge-to-edge display in MainActivity ([e7b52ee](https://github.com/Mearman/b-scan/commit/e7b52ee8e49f669fe6ad21111c2ce5cb03176130))
+
 # [3.2.0](https://github.com/Mearman/b-scan/compare/v3.1.0...v3.2.0) (2025-08-23)
 
 
