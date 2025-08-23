@@ -38,11 +38,13 @@ data class SkuInfo(
 @Composable
 fun SpoolCard(
     spool: UniqueSpool,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = { onClick?.invoke(spool.filamentInfo.trayUid) }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

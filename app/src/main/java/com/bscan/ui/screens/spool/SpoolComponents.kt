@@ -121,11 +121,13 @@ fun SpoolFilterSection(
 @Composable
 fun SpoolCard(
     spool: UniqueSpool,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = { onClick?.invoke(spool.filamentInfo.trayUid) }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
