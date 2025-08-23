@@ -19,7 +19,8 @@ fun SpoolsList(
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    onSpoolClick: ((String) -> Unit)? = null
 ) {
     val filteredGroupedAndSortedSpools = remember(spools, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = spools.filter { spool ->
@@ -138,7 +139,10 @@ fun SpoolsList(
             
             // Show spools in the group
             items(groupSpools, key = { it.uid }) { spool ->
-                SpoolCard(spool = spool)
+                SpoolCard(
+                    spool = spool,
+                    onClick = onSpoolClick
+                )
             }
         }
     }

@@ -62,6 +62,7 @@ fun DataBrowserScreen(
     onShowFilterMenu: (Boolean) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToDetails: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -463,7 +464,7 @@ fun DataBrowserScreen(
         ) { page ->
             val actualPage = page % tabCount
             when (ViewMode.values()[actualPage]) {
-                ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
                 ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
                 ViewMode.TAGS -> TagsList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
                 ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
