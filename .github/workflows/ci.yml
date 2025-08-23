@@ -132,6 +132,20 @@ jobs:
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
       
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 'lts/*'
+        
+    - name: Install semantic-release and plugins
+      run: |
+        npm install --save-dev \
+          semantic-release \
+          @semantic-release/changelog \
+          @semantic-release/github \
+          @semantic-release/commit-analyzer \
+          @semantic-release/release-notes-generator
+      
     - name: Calculate version
       id: calculate_version
       run: |
