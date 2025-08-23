@@ -179,7 +179,12 @@ class ScanHistoryRepository(context: Context) {
     }
     
     fun getSpoolByTagUid(tagUid: String): UniqueSpool? {
-        return getUniqueSpools().firstOrNull { it.uid == tagUid }
+        // First try to find by tag UID in the old method for backward compatibility
+        val byTag = getUniqueSpools().firstOrNull { it.uid == tagUid }
+        if (byTag != null) return byTag
+        
+        // If not found, try to find by tray UID (since we might be looking for tray-grouped spools)
+        return getUniqueSpoolsByTray().firstOrNull { it.uid == tagUid }
     }
     
     fun getSpoolByTrayUid(trayUid: String): UniqueSpool? {
