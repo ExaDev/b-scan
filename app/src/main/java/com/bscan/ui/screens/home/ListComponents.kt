@@ -1,5 +1,6 @@
 package com.bscan.ui.screens.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -7,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.bscan.model.ScanDebugInfo
 import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
 import com.bscan.repository.UniqueSpool
@@ -309,28 +311,45 @@ fun SkusList(
 
 @Composable
 fun TagsList(
-    allScans: List<ScanHistory>,
+    individualTags: List<UniqueSpool>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    lazyListState: LazyListState
+    lazyListState: LazyListState,
+    onNavigateToDetails: ((String) -> Unit)? = null
 ) {
-    // Group scans by tag UID to show unique tags
-    val uniqueTags = remember(allScans) {
-        allScans.groupBy { it.uid }
-            .mapNotNull { (uid, scans) ->
-                val mostRecentScan = scans.maxByOrNull { it.timestamp }
-                val successfulScan = scans.firstOrNull { it.scanResult == ScanResult.SUCCESS }
-                if (mostRecentScan != null) {
-                    Triple(uid, mostRecentScan, successfulScan?.filamentInfo)
-                } else null
-            }
+    // Convert UniqueSpool data to the format expected by the rest of the function
+    val uniqueTags = remember(individualTags) {
+        individualTags.map { spool ->
+            // Create a dummy scan history with the spool's information for display
+            val dummyScan = ScanHistory(
+                uid = spool.uid, // This is the tag UID for individual tags
+                timestamp = spool.lastScanned,
+                technology = "NFC",
+                scanResult = ScanResult.SUCCESS,
+                filamentInfo = spool.filamentInfo,
+                debugInfo = ScanDebugInfo(
+                    uid = spool.uid,
+                    tagSizeBytes = 0,
+                    sectorCount = 0,
+                    authenticatedSectors = emptyList(),
+                    failedSectors = emptyList(),
+                    usedKeyTypes = emptyMap(),
+                    blockData = emptyMap(),
+                    derivedKeys = emptyList(),
+                    rawColorBytes = "",
+                    errorMessages = emptyList(),
+                    parsingDetails = emptyMap()
+                )
+            )
+            Triple(spool.uid, dummyScan, spool.filamentInfo)
+        }
     }
     
-    val filteredGroupedAndSortedTags = remember(uniqueTags, sortProperty, sortDirection, groupByOption, filterState, allScans) {
-        val tagSuccessRates = allScans.groupBy { it.uid }.mapValues { (_, scans) ->
-            scans.count { it.scanResult == ScanResult.SUCCESS }.toFloat() / scans.size
+    val filteredGroupedAndSortedTags = remember(uniqueTags, sortProperty, sortDirection, groupByOption, filterState, individualTags) {
+        val tagSuccessRates = individualTags.associate { spool ->
+            spool.uid to spool.successRate
         }
         
         val filtered = uniqueTags.filter { (uid, mostRecentScan, filamentInfo) ->
@@ -457,7 +476,13 @@ fun TagsList(
                     uid = uid,
                     mostRecentScan = mostRecentScan,
                     filamentInfo = filamentInfo,
-                    allScans = allScans
+                    allScans = listOf(mostRecentScan), // Pass just this tag's scan data
+                    modifier = Modifier.clickable {
+                        // Navigate to details using the tray UID from filament info
+                        filamentInfo?.trayUid?.let { trayUid ->
+                            onNavigateToDetails?.invoke(trayUid)
+                        }
+                    }
                 )
             }
         }
