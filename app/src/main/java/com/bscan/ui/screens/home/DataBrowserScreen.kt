@@ -43,6 +43,7 @@ fun DataBrowserScreen(
     groupByOption: GroupByOption,
     filterState: FilterState,
     spools: List<UniqueSpool>,
+    individualTags: List<UniqueSpool>,
     allScans: List<ScanHistory>,
     availableFilamentTypes: Set<String>,
     availableColors: Set<String>,
@@ -466,7 +467,7 @@ fun DataBrowserScreen(
             when (ViewMode.values()[actualPage]) {
                 ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
                 ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
-                ViewMode.TAGS -> TagsList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
                 ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
             }
         }
