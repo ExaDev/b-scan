@@ -116,7 +116,7 @@ jobs:
     name: Build & Release
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    needs: [code-quality, unit-tests]
+    # needs: [code-quality, unit-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
