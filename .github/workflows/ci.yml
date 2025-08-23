@@ -111,11 +111,11 @@ jobs:
         path: app/build/outputs/apk/debug/*.apk
         retention-days: 7
 
-  # Job 4: Build Release (only on main branch)
-  build-release:
-    name: Build Release
+  # Job 4: Build and Release (only on main branch)
+  build-and-release:
+    name: Build & Release
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     needs: [code-quality, unit-tests]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     outputs:
@@ -126,7 +126,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 0  # Fetch full history for semantic-release
+        token: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
