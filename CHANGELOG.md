@@ -1,3 +1,17 @@
+# [3.5.0](https://github.com/Mearman/b-scan/compare/v3.4.0...v3.5.0) (2025-08-23)
+
+
+### Bug Fixes
+
+* **ui:** make filter dialog scrollable ([71ccbdb](https://github.com/Mearman/b-scan/commit/71ccbdba5c5c96fb1d543392d317ea778a209d6b))
+
+
+### Features
+
+* **ui:** add separate sort direction toggle button with property labels ([723ffb6](https://github.com/Mearman/b-scan/commit/723ffb6e37e8187a7cae8f2fe8ce42e2294d51e7))
+* **ui:** implement directional sorting logic across all list components ([452c710](https://github.com/Mearman/b-scan/commit/452c710e3d9600eee59a1855901eae1cb5f9cd6f))
+* **ui:** implement separate sort property and direction state management ([a302591](https://github.com/Mearman/b-scan/commit/a3025916a6fcfe59778f6b25df2824366769412f))
+
 # [3.4.0](https://github.com/Mearman/b-scan/compare/v3.3.0...v3.4.0) (2025-08-23)
 
 ### Features
