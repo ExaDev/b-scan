@@ -2,17 +2,25 @@ package com.bscan.repository
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.bscan.model.ScanHistory
+import com.bscan.model.DecryptedScanData
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.ScanResult
+import com.bscan.interpreter.FilamentInterpreter
+import com.bscan.repository.MappingsRepository
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-class ScanHistoryRepository(context: Context) {
+class ScanHistoryRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
-        context.getSharedPreferences("scan_history", Context.MODE_PRIVATE)
+        context.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE)
+    
+    // FilamentInterpreter for runtime interpretation
+    private val mappingsRepository by lazy { MappingsRepository(context) }
+    private var filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
     
     // Custom LocalDateTime adapter for Gson
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -31,20 +39,47 @@ class ScanHistoryRepository(context: Context) {
         }
     }
     
+    // Custom ByteArray adapter for Gson (for encrypted data)
+    private val byteArrayAdapter = object : JsonSerializer<ByteArray>, JsonDeserializer<ByteArray> {
+        override fun serialize(src: ByteArray?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
+            return JsonPrimitive(src?.let { android.util.Base64.encodeToString(it, android.util.Base64.DEFAULT) })
+        }
+        
+        override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): ByteArray? {
+            return try {
+                json?.asString?.let { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    
     private val gson = GsonBuilder()
         .registerTypeAdapter(LocalDateTime::class.java, localDateTimeAdapter)
+        .registerTypeAdapter(ByteArray::class.java, byteArrayAdapter)
         .create()
     
     private val maxHistorySize = 100 // Keep last 100 scans
     
-    fun saveScan(scanHistory: ScanHistory) {
-        val scans = getAllScans().toMutableList()
+    /**
+     * Save both encrypted and decrypted scan data
+     */
+    fun saveScan(encryptedScan: EncryptedScanData, decryptedScan: DecryptedScanData) {
+        saveEncryptedScan(encryptedScan)
+        saveDecryptedScan(decryptedScan)
+    }
+    
+    /**
+     * Save encrypted scan data
+     */
+    fun saveEncryptedScan(encryptedScan: EncryptedScanData) {
+        val scans = getAllEncryptedScans().toMutableList()
         
         // Add new scan with current timestamp if not set
-        val scanWithTimestamp = if (scanHistory.timestamp == LocalDateTime.MIN) {
-            scanHistory.copy(timestamp = LocalDateTime.now())
+        val scanWithTimestamp = if (encryptedScan.timestamp == LocalDateTime.MIN) {
+            encryptedScan.copy(timestamp = LocalDateTime.now())
         } else {
-            scanHistory
+            encryptedScan
         }
         
         scans.add(0, scanWithTimestamp) // Add to beginning (most recent first)
@@ -57,72 +92,214 @@ class ScanHistoryRepository(context: Context) {
         // Save to SharedPreferences
         val scansJson = gson.toJson(scans)
         sharedPreferences.edit()
-            .putString("scans", scansJson)
+            .putString("encrypted_scans", scansJson)
             .apply()
     }
     
-    fun getAllScans(): List<ScanHistory> {
-        val scansJson = sharedPreferences.getString("scans", null) ?: return emptyList()
+    /**
+     * Save decrypted scan data
+     */
+    fun saveDecryptedScan(decryptedScan: DecryptedScanData) {
+        val scans = getAllDecryptedScans().toMutableList()
+        
+        // Add new scan with current timestamp if not set
+        val scanWithTimestamp = if (decryptedScan.timestamp == LocalDateTime.MIN) {
+            decryptedScan.copy(timestamp = LocalDateTime.now())
+        } else {
+            decryptedScan
+        }
+        
+        scans.add(0, scanWithTimestamp) // Add to beginning (most recent first)
+        
+        // Keep only the most recent scans
+        if (scans.size > maxHistorySize) {
+            scans.subList(maxHistorySize, scans.size).clear()
+        }
+        
+        // Save to SharedPreferences
+        val scansJson = gson.toJson(scans)
+        sharedPreferences.edit()
+            .putString("decrypted_scans", scansJson)
+            .apply()
+    }
+    
+    /**
+     * Get all encrypted scan data
+     */
+    fun getAllEncryptedScans(): List<EncryptedScanData> {
+        val scansJson = sharedPreferences.getString("encrypted_scans", null) ?: return emptyList()
         
         return try {
-            val type = object : TypeToken<List<ScanHistory>>() {}.type
+            val type = object : TypeToken<List<EncryptedScanData>>() {}.type
             gson.fromJson(scansJson, type) ?: emptyList()
         } catch (e: JsonSyntaxException) {
             // If data is corrupted, return empty list and clear storage
-            clearHistory()
+            clearEncryptedHistory()
             emptyList()
         }
     }
     
-    fun getScansByResult(result: com.bscan.model.ScanResult): List<ScanHistory> {
-        return getAllScans().filter { it.scanResult == result }
+    /**
+     * Get all decrypted scan data
+     */
+    fun getAllDecryptedScans(): List<DecryptedScanData> {
+        val scansJson = sharedPreferences.getString("decrypted_scans", null) ?: return emptyList()
+        
+        return try {
+            val type = object : TypeToken<List<DecryptedScanData>>() {}.type
+            gson.fromJson(scansJson, type) ?: emptyList()
+        } catch (e: JsonSyntaxException) {
+            // If data is corrupted, return empty list and clear storage
+            clearDecryptedHistory()
+            emptyList()
+        }
     }
     
-    fun getSuccessfulScans(): List<ScanHistory> {
-        return getScansByResult(com.bscan.model.ScanResult.SUCCESS)
+    /**
+     * Get decrypted scans by result type
+     */
+    fun getDecryptedScansByResult(result: ScanResult): List<DecryptedScanData> {
+        return getAllDecryptedScans().filter { it.scanResult == result }
     }
     
-    fun getFailedScans(): List<ScanHistory> {
-        return getAllScans().filter { it.scanResult != com.bscan.model.ScanResult.SUCCESS }
+    /**
+     * Get successful decrypted scans
+     */
+    fun getSuccessfulDecryptedScans(): List<DecryptedScanData> {
+        return getDecryptedScansByResult(ScanResult.SUCCESS)
     }
     
-    fun getScansByTagUid(tagUid: String): List<ScanHistory> {
-        return getAllScans().filter { it.uid == tagUid }
+    /**
+     * Get failed decrypted scans
+     */
+    fun getFailedDecryptedScans(): List<DecryptedScanData> {
+        return getAllDecryptedScans().filter { it.scanResult != ScanResult.SUCCESS }
     }
     
+    /**
+     * Get decrypted scans by tag UID
+     */
+    fun getDecryptedScansByTagUid(tagUid: String): List<DecryptedScanData> {
+        return getAllDecryptedScans().filter { it.tagUid == tagUid }
+    }
+    
+    /**
+     * Get encrypted scan by tag UID
+     */
+    fun getEncryptedScansByTagUid(tagUid: String): List<EncryptedScanData> {
+        return getAllEncryptedScans().filter { it.tagUid == tagUid }
+    }
+    
+    /**
+     * Clear all history
+     */
     fun clearHistory() {
+        clearEncryptedHistory()
+        clearDecryptedHistory()
+    }
+    
+    /**
+     * Clear encrypted history
+     */
+    fun clearEncryptedHistory() {
         sharedPreferences.edit()
-            .remove("scans")
+            .remove("encrypted_scans")
             .apply()
     }
     
-    fun getHistoryCount(): Int {
-        return getAllScans().size
+    /**
+     * Clear decrypted history
+     */
+    fun clearDecryptedHistory() {
+        sharedPreferences.edit()
+            .remove("decrypted_scans")
+            .apply()
     }
     
+    /**
+     * Get history count
+     */
+    fun getHistoryCount(): Int {
+        return getAllDecryptedScans().size
+    }
+    
+    /**
+     * Get success rate
+     */
     fun getSuccessRate(): Float {
-        val allScans = getAllScans()
+        val allScans = getAllDecryptedScans()
         if (allScans.isEmpty()) return 0f
         
-        val successfulScans = allScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+        val successfulScans = allScans.count { it.scanResult == ScanResult.SUCCESS }
         return successfulScans.toFloat() / allScans.size
     }
     
+    /**
+     * Refresh the FilamentInterpreter with updated mappings
+     */
+    fun refreshMappings() {
+        filamentInterpreter = FilamentInterpreter(mappingsRepository.getCurrentMappings())
+    }
+    
+    /**
+     * Helper method to interpret DecryptedScanData to FilamentInfo
+     */
+    private fun interpretScanData(decryptedData: DecryptedScanData): com.bscan.model.FilamentInfo? {
+        return if (decryptedData.scanResult == ScanResult.SUCCESS) {
+            try {
+                filamentInterpreter.interpret(decryptedData)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+    
+    /**
+     * UI compatibility method: Get all scans as InterpretedScan objects
+     */
+    fun getAllScans(): List<InterpretedScan> {
+        val decryptedScans = getAllDecryptedScans()
+        val encryptedScans = getAllEncryptedScans()
+        val encryptedByUid = encryptedScans.groupBy { it.tagUid }
+        
+        return decryptedScans.mapNotNull { decrypted ->
+            val encrypted = encryptedByUid[decrypted.tagUid]?.firstOrNull()
+            if (encrypted != null) {
+                val filamentInfo = interpretScanData(decrypted)
+                InterpretedScan(encrypted, decrypted, filamentInfo)
+            } else {
+                null
+            }
+        }
+    }
+    
+    /**
+     * UI compatibility method: Get scans by tag UID
+     */
+    fun getScansByTagUid(tagUid: String): List<InterpretedScan> {
+        return getAllScans().filter { it.uid == tagUid }
+    }
+    
+    /**
+     * UI compatibility method: Get unique spools grouped by tag UID
+     */
     fun getUniqueSpools(): List<UniqueSpool> {
         val allScans = getAllScans()
         
-        // Group scans by UID
+        // Group by tag UID
         val scansByUid = allScans.groupBy { it.uid }
         
         return scansByUid.mapNotNull { (uid, scans) ->
             // Find the most recent successful scan with filament info
             val mostRecentSuccessfulScan = scans
-                .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+                .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
                 .maxByOrNull { it.timestamp }
-                ?: return@mapNotNull null // Skip if no successful scans with filament info
+                ?: return@mapNotNull null
             
             val scanCount = scans.size
-            val successCount = scans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+            val successCount = scans.count { it.scanResult == ScanResult.SUCCESS }
             val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
             val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
             
@@ -134,18 +311,16 @@ class ScanHistoryRepository(context: Context) {
                 lastScanned = lastScanned,
                 successRate = successRate
             )
-        }.sortedByDescending { it.lastScanned } // Most recently scanned first
+        }.sortedByDescending { it.lastScanned }
     }
     
     /**
-     * Groups scans by tray UID (spool) instead of tag UID.
-     * Each physical spool has 2 tags with the same tray UID.
-     * Returns one entry per physical spool.
+     * UI compatibility method: Get unique spools grouped by tray UID
      */
     fun getUniqueSpoolsByTray(): List<UniqueSpool> {
         val allScans = getAllScans()
         
-        // Group scans by tray UID instead of tag UID
+        // Group by tray UID
         val scansByTrayUid = allScans
             .filter { it.filamentInfo?.trayUid?.isNotEmpty() == true }
             .groupBy { it.filamentInfo!!.trayUid }
@@ -153,19 +328,14 @@ class ScanHistoryRepository(context: Context) {
         return scansByTrayUid.mapNotNull { (trayUid, scans) ->
             // Find the most recent successful scan with filament info from this tray
             val mostRecentSuccessfulScan = scans
-                .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+                .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
                 .maxByOrNull { it.timestamp }
-                ?: return@mapNotNull null // Skip if no successful scans with filament info
+                ?: return@mapNotNull null
             
             val scanCount = scans.size
-            val successCount = scans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+            val successCount = scans.count { it.scanResult == ScanResult.SUCCESS }
             val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
             val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
-            
-            // Get all tag UIDs for this tray
-            val tagUidsForTray = scans
-                .mapNotNull { it.filamentInfo?.tagUid }
-                .distinct()
             
             UniqueSpool(
                 uid = trayUid, // Use tray UID instead of tag UID
@@ -175,24 +345,11 @@ class ScanHistoryRepository(context: Context) {
                 lastScanned = lastScanned,
                 successRate = successRate
             )
-        }.sortedByDescending { it.lastScanned } // Most recently scanned first
-    }
-    
-    fun getSpoolByTagUid(tagUid: String): UniqueSpool? {
-        // First try to find by tag UID in the old method for backward compatibility
-        val byTag = getUniqueSpools().firstOrNull { it.uid == tagUid }
-        if (byTag != null) return byTag
-        
-        // If not found, try to find by tray UID (since we might be looking for tray-grouped spools)
-        return getUniqueSpoolsByTray().firstOrNull { it.uid == tagUid }
-    }
-    
-    fun getSpoolByTrayUid(trayUid: String): UniqueSpool? {
-        return getUniqueSpoolsByTray().firstOrNull { it.uid == trayUid }
+        }.sortedByDescending { it.lastScanned }
     }
     
     /**
-     * Gets detailed information about a spool by tray UID, including all associated tags and scans
+     * UI compatibility method: Get spool details by tray UID
      */
     fun getSpoolDetails(trayUid: String): SpoolDetails? {
         val allScans = getAllScans()
@@ -206,7 +363,7 @@ class ScanHistoryRepository(context: Context) {
         
         // Get the most recent successful scan for filament info
         val mostRecentSuccessfulScan = spoolScans
-            .filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS && it.filamentInfo != null }
+            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
             .maxByOrNull { it.timestamp }
             ?: return null
         
@@ -226,65 +383,82 @@ class ScanHistoryRepository(context: Context) {
             allScans = spoolScans.sortedByDescending { it.timestamp },
             scansByTag = scansByTag,
             totalScans = spoolScans.size,
-            successfulScans = spoolScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS },
+            successfulScans = spoolScans.count { it.scanResult == ScanResult.SUCCESS },
             lastScanned = spoolScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
         )
     }
     
-    fun getFilamentTypes(): List<String> {
-        return getSuccessfulScans()
-            .mapNotNull { it.filamentInfo?.filamentType }
-            .distinct()
-            .sorted()
-    }
-    
-    fun clearGeneratedData() {
-        val allScans = getAllScans()
-        val realScans = allScans.filter { scan ->
-            val isGenerated = scan.debugInfo.parsingDetails["sampleData"] as? Boolean ?: false
-            !isGenerated
-        }
+    /**
+     * UI compatibility method: Get spool by tag UID (backward compatibility)
+     */
+    fun getSpoolByTagUid(tagUid: String): UniqueSpool? {
+        // First try to find by tag UID in the old method for backward compatibility
+        val byTag = getUniqueSpools().firstOrNull { it.uid == tagUid }
+        if (byTag != null) return byTag
         
-        // Save only the real scans back to SharedPreferences
-        val scansJson = gson.toJson(realScans)
-        sharedPreferences.edit()
-            .putString("scans", scansJson)
-            .apply()
+        // If not found, try to find by tray UID (since we might be looking for tray-grouped spools)
+        return getUniqueSpoolsByTray().firstOrNull { it.uid == tagUid }
     }
     
-    fun getGeneratedDataCount(): Int {
-        return getAllScans().count { scan ->
-            scan.debugInfo.parsingDetails["sampleData"] as? Boolean ?: false
-        }
+    /**
+     * UI compatibility method: Get spool by tray UID
+     */
+    fun getSpoolByTrayUid(trayUid: String): UniqueSpool? {
+        return getUniqueSpoolsByTray().firstOrNull { it.uid == trayUid }
     }
 }
 
 /**
- * Represents a unique scanned tag and its associated filament information.
- * Note: Despite the name "UniqueSpool", this actually represents unique tags.
- * Each physical spool has 2 tags, so there can be 2 UniqueSpool entries per physical spool.
- * The uid field contains the tag UID (unique per tag).
+ * Adapter data classes for UI compatibility
  */
+data class InterpretedScan(
+    val encryptedData: EncryptedScanData,
+    val decryptedData: DecryptedScanData,
+    val filamentInfo: com.bscan.model.FilamentInfo? // Interpreted at runtime
+) {
+    // Convenience properties for UI backward compatibility
+    val id: Long get() = decryptedData.id
+    val timestamp: java.time.LocalDateTime get() = decryptedData.timestamp
+    val uid: String get() = decryptedData.tagUid
+    val technology: String get() = decryptedData.technology
+    val scanResult: ScanResult get() = decryptedData.scanResult
+    val debugInfo: com.bscan.model.ScanDebugInfo get() = createDebugInfo()
+    
+    private fun createDebugInfo(): com.bscan.model.ScanDebugInfo {
+        return com.bscan.model.ScanDebugInfo(
+            uid = decryptedData.tagUid,
+            tagSizeBytes = decryptedData.tagSizeBytes,
+            sectorCount = decryptedData.sectorCount,
+            authenticatedSectors = decryptedData.authenticatedSectors,
+            failedSectors = decryptedData.failedSectors,
+            usedKeyTypes = decryptedData.usedKeys,
+            blockData = decryptedData.decryptedBlocks,
+            derivedKeys = decryptedData.derivedKeys,
+            rawColorBytes = "", // Could extract from blocks if needed
+            errorMessages = decryptedData.errors,
+            parsingDetails = mapOf(), // Empty for now
+            fullRawHex = "", // Would need encrypted data converted to hex
+            decryptedHex = "" // Could reconstruct from blocks if needed
+        )
+    }
+}
+
 data class UniqueSpool(
-    val uid: String, // Tag UID (unique per individual tag)
+    val uid: String, // Tag UID or Tray UID depending on context
     val filamentInfo: com.bscan.model.FilamentInfo,
     val scanCount: Int,
     val successCount: Int,
-    val lastScanned: LocalDateTime,
+    val lastScanned: java.time.LocalDateTime,
     val successRate: Float
 )
 
-/**
- * Represents detailed information about a physical spool (identified by tray UID).
- * Contains all associated tags, scans, and filament information.
- */
 data class SpoolDetails(
-    val trayUid: String, // Tray UID (shared across both tags on the spool)
+    val trayUid: String,
     val filamentInfo: com.bscan.model.FilamentInfo,
-    val tagUids: List<String>, // All tag UIDs associated with this spool
-    val allScans: List<ScanHistory>, // All scans for this spool, sorted by timestamp desc
-    val scansByTag: Map<String, List<ScanHistory>>, // Scans grouped by tag UID
+    val tagUids: List<String>,
+    val allScans: List<InterpretedScan>,
+    val scansByTag: Map<String, List<InterpretedScan>>,
     val totalScans: Int,
     val successfulScans: Int,
-    val lastScanned: LocalDateTime
+    val lastScanned: java.time.LocalDateTime
 )
