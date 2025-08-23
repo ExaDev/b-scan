@@ -132,8 +132,11 @@ object BambuTagDecoder {
             // Block 12: Production Date/Time (16 bytes)
             val productionDate = datetime(data.bytes, 12, 0)?.toString() ?: "Unknown"
             
-            // Block 13: Short Production Date/Time (alternative format)
+            // Block 13: Short Production Date/Time (unknown format - capture both string and hex for analysis)
             val shortProductionDate = string(data.bytes, 13, 0, 16)
+            val shortProductionDateHex = hexstring(data.bytes, 13, 0, 16)
+            Log.d(TAG, "Block 13 string: '$shortProductionDate'")
+            Log.d(TAG, "Block 13 hex: $shortProductionDateHex")
             
             // Block 14: Filament Length (bytes 4-5) 
             val filamentLength = int(data.bytes, 14, 4, 2) // uint16 LE in meters
@@ -183,6 +186,8 @@ object BambuTagDecoder {
             debugCollector?.recordParsingDetail("spoolWidth", spoolWidth)
             debugCollector?.recordParsingDetail("colorCount", colorCount)
             debugCollector?.recordParsingDetail("formatIdentifier", formatIdentifier)
+            debugCollector?.recordParsingDetail("shortProductionDate", shortProductionDate)
+            debugCollector?.recordParsingDetail("shortProductionDateHex", shortProductionDateHex)
             
             // Debug: Record temperature parsing details
             debugCollector?.recordParsingDetail("bedTemperature", bedTemperature)
