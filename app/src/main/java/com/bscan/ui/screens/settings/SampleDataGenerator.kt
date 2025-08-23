@@ -1,8 +1,9 @@
 package com.bscan.ui.screens.settings
 
 import com.bscan.model.FilamentInfo
-import com.bscan.model.ScanHistory
 import com.bscan.model.ScanResult
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.DecryptedScanData
 import com.bscan.repository.ScanHistoryRepository
 import java.time.LocalDateTime
 import kotlin.random.Random
@@ -47,16 +48,34 @@ class SampleDataGenerator {
                     val isSuccess = scanIndex < successCount
                     val scanTime = LocalDateTime.now().minusDays(Random.nextLong(0, 30))
                     
-                    val scanHistory = ScanHistory(
-                        uid = tagUid,
+                    val encryptedData = EncryptedScanData(
                         timestamp = scanTime,
+                        tagUid = tagUid,
                         technology = "MifareClassic",
-                        scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
-                        filamentInfo = if (isSuccess) filamentInfo else null,
-                        debugInfo = createSampleDebugInfo(tagUid, isSuccess)
+                        encryptedData = ByteArray(1024) { Random.nextInt(256).toByte() },
+                        tagSizeBytes = 1024,
+                        sectorCount = 16,
+                        scanDurationMs = Random.nextLong(1000, 5000)
                     )
                     
-                    repository.saveScan(scanHistory)
+                    val decryptedData = DecryptedScanData(
+                        timestamp = scanTime,
+                        tagUid = tagUid,
+                        technology = "MifareClassic",
+                        scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
+                        decryptedBlocks = if (isSuccess) createSampleBlocks() else emptyMap(),
+                        authenticatedSectors = if (isSuccess) (0..15).toList() else emptyList(),
+                        failedSectors = if (isSuccess) emptyList() else (0..15).toList(),
+                        usedKeys = createSampleUsedKeys(isSuccess),
+                        derivedKeys = listOf("KEY1", "KEY2", "KEY3"),
+                        tagSizeBytes = 1024,
+                        sectorCount = 16,
+                        errors = if (isSuccess) emptyList() else listOf("Authentication failed"),
+                        keyDerivationTimeMs = Random.nextLong(100, 500),
+                        authenticationTimeMs = Random.nextLong(500, 2000)
+                    )
+                    
+                    repository.saveScan(encryptedData, decryptedData)
                 }
             }
         }
@@ -89,39 +108,24 @@ class SampleDataGenerator {
         )
     }
     
-    private fun createSampleDebugInfo(tagUid: String, isSuccess: Boolean): com.bscan.model.ScanDebugInfo {
-        return com.bscan.model.ScanDebugInfo(
-            uid = tagUid,
-            tagSizeBytes = 1024,
-            sectorCount = 16,
-            authenticatedSectors = if (isSuccess) listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15) else listOf(0),
-            failedSectors = if (isSuccess) emptyList() else listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
-            usedKeyTypes = if (isSuccess) {
-                mapOf(
-                    0 to "KeyA", 1 to "KeyB", 2 to "KeyA", 3 to "KeyB", 4 to "KeyA",
-                    5 to "KeyB", 6 to "KeyA", 7 to "KeyB", 8 to "KeyA", 9 to "KeyB",
-                    10 to "KeyA", 11 to "KeyB", 12 to "KeyA", 13 to "KeyB", 14 to "KeyA", 15 to "KeyB"
-                )
-            } else {
-                mapOf(0 to "KeyA")
-            },
-            blockData = if (isSuccess) {
-                mapOf(
-                    0 to tagUid,
-                    1 to "00112233445566778899AABBCCDDEEFF",
-                    2 to "FF00FF00FF00FF00FF00FF00FF00FF00"
-                )
-            } else {
-                mapOf(0 to tagUid)
-            },
-            derivedKeys = listOf("A1B2C3D4E5F6", "123456789ABC"),
-            rawColorBytes = "FF4444",
-            errorMessages = if (isSuccess) emptyList() else listOf("Authentication failed for sectors 1-15"),
-            parsingDetails = mapOf(
-                "timestamp" to System.currentTimeMillis(),
-                "success" to isSuccess,
-                "sampleData" to true
-            )
+    private fun createSampleBlocks(): Map<Int, String> {
+        return mapOf(
+            0 to "00112233445566778899AABBCCDDEEFF",
+            1 to "FF00FF00FF00FF00FF00FF00FF00FF00",
+            2 to "AA55AA55AA55AA55AA55AA55AA55AA55",
+            4 to "1234567890ABCDEF1234567890ABCDEF"
         )
+    }
+    
+    private fun createSampleUsedKeys(isSuccess: Boolean): Map<Int, String> {
+        return if (isSuccess) {
+            mapOf(
+                0 to "KeyA", 1 to "KeyB", 2 to "KeyA", 3 to "KeyB", 4 to "KeyA",
+                5 to "KeyB", 6 to "KeyA", 7 to "KeyB", 8 to "KeyA", 9 to "KeyB",
+                10 to "KeyA", 11 to "KeyB", 12 to "KeyA", 13 to "KeyB", 14 to "KeyA", 15 to "KeyB"
+            )
+        } else {
+            mapOf(0 to "KeyA")
+        }
     }
 }
