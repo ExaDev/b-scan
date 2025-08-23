@@ -34,7 +34,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun DataBrowserScreen(
     viewMode: ViewMode,
-    sortOption: SortOption,
+    sortProperty: SortProperty,
+    sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
     spools: List<UniqueSpool>,
@@ -49,7 +50,8 @@ fun DataBrowserScreen(
     scanProgress: ScanProgress?,
     onSimulateScan: () -> Unit,
     onViewModeChange: (ViewMode) -> Unit,
-    onSortOptionChange: (SortOption) -> Unit,
+    onSortPropertyChange: (SortProperty) -> Unit,
+    onSortDirectionToggle: () -> Unit,
     onGroupByOptionChange: (GroupByOption) -> Unit,
     onFilterStateChange: (FilterState) -> Unit,
     onShowSortMenu: (Boolean) -> Unit,
@@ -283,45 +285,71 @@ fun DataBrowserScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Sort button with dropdown
+            // Sort property button with dropdown
             Box {
                 OutlinedButton(
                     onClick = { onShowSortMenu(true) }
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.Sort,
-                        contentDescription = "Sort",
+                        contentDescription = "Sort Property",
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Sort")
+                    Text(
+                        when (sortProperty) {
+                            SortProperty.FIRST_SCAN -> "First Scan"
+                            SortProperty.LAST_SCAN -> "Last Scan"
+                            SortProperty.NAME -> "Name"
+                            SortProperty.SUCCESS_RATE -> "Success"
+                            SortProperty.COLOR -> "Color"
+                            SortProperty.MATERIAL_TYPE -> "Material"
+                        }
+                    )
                 }
                 
                 DropdownMenu(
                     expanded = showSortMenu,
                     onDismissRequest = { onShowSortMenu(false) }
                 ) {
-                    SortOption.values().forEach { option ->
+                    SortProperty.values().forEach { property ->
                         DropdownMenuItem(
                             text = { 
                                 Text(
-                                    when (option) {
-                                        SortOption.MOST_RECENT -> "Most Recent"
-                                        SortOption.OLDEST -> "Oldest"
-                                        SortOption.NAME -> "Name"
-                                        SortOption.SUCCESS_RATE -> "Success Rate"
-                                        SortOption.COLOR -> "Color"
-                                        SortOption.MATERIAL_TYPE -> "Material"
+                                    when (property) {
+                                        SortProperty.FIRST_SCAN -> "First Scan"
+                                        SortProperty.LAST_SCAN -> "Last Scan"
+                                        SortProperty.NAME -> "Name"
+                                        SortProperty.SUCCESS_RATE -> "Success Rate"
+                                        SortProperty.COLOR -> "Color"
+                                        SortProperty.MATERIAL_TYPE -> "Material Type"
                                     }
                                 )
                             },
                             onClick = {
-                                onSortOptionChange(option)
+                                onSortPropertyChange(property)
                                 onShowSortMenu(false)
                             }
                         )
                     }
                 }
+            }
+            
+            // Sort direction toggle button
+            OutlinedButton(
+                onClick = onSortDirectionToggle
+            ) {
+                Icon(
+                    if (sortDirection == SortDirection.ASCENDING) 
+                        Icons.Default.KeyboardArrowUp 
+                    else 
+                        Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (sortDirection == SortDirection.ASCENDING) 
+                        "Ascending order" 
+                    else 
+                        "Descending order",
+                    modifier = Modifier.size(18.dp)
+                )
             }
             
             // Filter button
@@ -405,10 +433,10 @@ fun DataBrowserScreen(
         ) { page ->
             val actualPage = page % tabCount
             when (ViewMode.values()[actualPage]) {
-                ViewMode.SPOOLS -> SpoolsList(spools, sortOption, groupByOption, filterState, lazyListStates[actualPage])
-                ViewMode.SKUS -> SkusList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
-                ViewMode.TAGS -> TagsList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
-                ViewMode.SCANS -> ScansList(allScans, sortOption, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SPOOLS -> SpoolsList(spools, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.TAGS -> TagsList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
+                ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage])
             }
         }
         }
