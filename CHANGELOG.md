@@ -1,3 +1,17 @@
+# [3.2.0](https://github.com/Mearman/b-scan/compare/v3.1.0...v3.2.0) (2025-08-23)
+
+
+### Bug Fixes
+
+* **decoder:** correct filament diameter parsing to 8-byte float ([bb7c556](https://github.com/Mearman/b-scan/commit/bb7c55622b473dd2e4cf5320cf9f048c6d628446))
+
+
+### Features
+
+* **decoder:** enhance Block 13 analysis for unknown format ([9a0eb8e](https://github.com/Mearman/b-scan/commit/9a0eb8e93b04175bfb8841b4549b7e8d203e9dc7))
+* **decoder:** expand Block 17 data capture for research ([2db21c2](https://github.com/Mearman/b-scan/commit/2db21c2449be37e0578f42e7acf78277c3d24e12))
+* **model:** add research fields for unknown RFID data blocks ([00e4c72](https://github.com/Mearman/b-scan/commit/00e4c72b91ad15a7a9b81bef9269b128f2f2810d))
+
 # [3.1.0](https://github.com/Mearman/b-scan/compare/v3.0.0...v3.1.0) (2025-08-22)
 
 
