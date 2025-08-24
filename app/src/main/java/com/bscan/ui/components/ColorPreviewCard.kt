@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 fun ColorPreviewCard(
     colorHex: String,
     colorName: String,
+    filamentType: String = "",
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -28,11 +29,11 @@ fun ColorPreviewCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Color preview box
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(parseColor(colorHex))
+            FilamentColorBox(
+                colorHex = colorHex,
+                filamentType = filamentType,
+                size = 60.dp,
+                shape = RoundedCornerShape(8.dp)
             )
             
             Spacer(modifier = Modifier.width(16.dp))
@@ -57,45 +58,16 @@ fun ColorPreviewCard(
 @Composable
 fun ColorPreviewDot(
     colorHex: String,
+    filamentType: String = "",
     size: androidx.compose.ui.unit.Dp = 32.dp,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    FilamentColorBox(
+        colorHex = colorHex,
+        filamentType = filamentType,
+        size = size,
+        shape = RoundedCornerShape(size / 2),
         modifier = modifier
-            .size(size)
-            .clip(RoundedCornerShape(size / 2))
-            .background(parseColor(colorHex))
     )
 }
 
-private fun parseColor(colorHex: String): Color {
-    return try {
-        val cleanHex = colorHex.removePrefix("#")
-        
-        // Handle different hex formats
-        val colorLong = when (cleanHex.length) {
-            6 -> {
-                // RGB format - add full alpha
-                ("FF" + cleanHex).toLong(16)
-            }
-            8 -> {
-                // Check if this is RGBA or AARRGGBB format
-                // If it looks like RGBA (common from tag data), convert to AARRGGBB
-                val r = cleanHex.substring(0, 2)
-                val g = cleanHex.substring(2, 4)
-                val b = cleanHex.substring(4, 6)
-                val a = cleanHex.substring(6, 8)
-                // Convert RGBA to AARRGGBB for Android
-                (a + r + g + b).toLong(16)
-            }
-            else -> {
-                // Default to gray
-                0xFFAAAAAA
-            }
-        }
-        
-        Color(colorLong)
-    } catch (e: Exception) {
-        Color.Gray
-    }
-}
