@@ -1,3 +1,12 @@
+# [3.13.0](https://github.com/Mearman/b-scan/compare/v3.12.0...v3.13.0) (2025-08-24)
+
+
+### Features
+
+* **preferences:** add material display mode setting system ([c9b7f7f](https://github.com/Mearman/b-scan/commit/c9b7f7ffe4b7cbbae1a6e45e5c5447659bb6f29d))
+* **settings:** add material display mode preference UI ([75b1e79](https://github.com/Mearman/b-scan/commit/75b1e793c799f1815a422a7e304b672d089a8260))
+* **ui:** enhance FilamentColorBox with material display mode toggle ([1586b3e](https://github.com/Mearman/b-scan/commit/1586b3ef2fd4872e2d78bb91bea93918c94d3e1e))
+
 # [3.12.0](https://github.com/Mearman/b-scan/compare/v3.11.0...v3.12.0) (2025-08-24)
 
 
