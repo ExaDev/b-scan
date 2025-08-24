@@ -67,7 +67,7 @@ For developers looking to contribute or understand the codebase, start with the 
 ## Screenshots
 
 *Screenshots will be added once the app is implemented*
-
+ble scale
 ## Privacy & Security
 
 - **No data collection**: App reads tags locally and doesn't transmit any information

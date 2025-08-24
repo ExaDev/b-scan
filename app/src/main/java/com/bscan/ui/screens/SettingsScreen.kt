@@ -202,6 +202,20 @@ fun SettingsScreen(
             
             item {
                 Text(
+                    text = "BLE Scales",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            item {
+                BleScalesPreferenceCard(
+                    userPrefsRepository = userPrefsRepository
+                )
+            }
+            
+            item {
+                Text(
                     text = "Data Management",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Medium
@@ -805,6 +819,154 @@ private fun MaterialDisplayPreferenceCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BleScalesPreferenceCard(
+    userPrefsRepository: UserPreferencesRepository
+) {
+    var isScalesEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesEnabled()) }
+    var preferredScaleName by remember { mutableStateOf(userPrefsRepository.getPreferredScaleName()) }
+    var autoConnectEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesAutoConnectEnabled()) }
+    var showScanning by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Weight Tracking",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "Connect a Bluetooth scale to automatically track filament weight after NFC scans",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Current scale status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (preferredScaleName != null) "Connected Scale" else "No Scale Connected",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (preferredScaleName != null) {
+                        Text(
+                            text = preferredScaleName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Text(
+                            text = "Tap to connect a BLE scale",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                if (preferredScaleName != null) {
+                    // Disconnect button
+                    OutlinedButton(
+                        onClick = {
+                            userPrefsRepository.clearBleScalesConfiguration()
+                            isScalesEnabled = false
+                            preferredScaleName = null
+                        }
+                    ) {
+                        Text("Disconnect")
+                    }
+                } else {
+                    // Connect button
+                    Button(
+                        onClick = {
+                            showScanning = true
+                            // TODO: Start BLE scanning
+                        },
+                        enabled = !showScanning
+                    ) {
+                        if (showScanning) {
+                            Text("Scanning...")
+                        } else {
+                            Text("Connect Scale")
+                        }
+                    }
+                }
+            }
+            
+            // Auto-connect setting (only shown when scale is configured)
+            if (preferredScaleName != null) {
+                HorizontalDivider()
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auto-connect",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Automatically connect to scale when app starts",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = autoConnectEnabled,
+                        onCheckedChange = { enabled ->
+                            autoConnectEnabled = enabled
+                            userPrefsRepository.setBleScalesAutoConnectEnabled(enabled)
+                        }
+                    )
+                }
+            }
+            
+            // Scanning indicator
+            if (showScanning) {
+                HorizontalDivider()
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Looking for BLE scales...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Auto-cancel scanning after 30 seconds
+                LaunchedEffect(showScanning) {
+                    if (showScanning) {
+                        kotlinx.coroutines.delay(30000)
+                        showScanning = false
                     }
                 }
             }
