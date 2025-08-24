@@ -28,7 +28,7 @@ fun HomeScreen(
     val repository = remember { ScanHistoryRepository(context) }
     
     // View state
-    var viewMode by remember { mutableStateOf(ViewMode.SPOOLS) }
+    var viewMode by remember { mutableStateOf(ViewMode.INVENTORY) }
     var sortProperty by remember { mutableStateOf(SortProperty.LAST_SCAN) }
     var sortDirection by remember { mutableStateOf(SortDirection.DESCENDING) }
     var groupByOption by remember { mutableStateOf(GroupByOption.NONE) }
@@ -49,7 +49,7 @@ fun HomeScreen(
     // Load data
     LaunchedEffect(Unit) {
         try {
-            spools = repository.getUniqueSpoolsByTray() // Group by tray UID for spools tab
+            spools = repository.getUniqueSpoolsByTray() // Group by tray UID for inventory tab
             individualTags = repository.getUniqueSpools() // Individual tags for tags tab
             allScans = repository.getAllScans()
             availableFilamentTypes = allScans

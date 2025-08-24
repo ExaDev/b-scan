@@ -101,7 +101,7 @@ fun DataBrowserScreen(
     
     // Store LazyListState for each page
     val lazyListStates = listOf(
-        rememberLazyListState(), // SPOOLS
+        rememberLazyListState(), // INVENTORY
         rememberLazyListState(), // SKUS
         rememberLazyListState(), // TAGS  
         rememberLazyListState()  // SCANS
@@ -164,7 +164,7 @@ fun DataBrowserScreen(
                     text = { 
                         Text(
                             when (mode) {
-                                ViewMode.SPOOLS -> "Inventory"
+                                ViewMode.INVENTORY -> "Inventory"
                                 ViewMode.SKUS -> "SKUs"
                                 ViewMode.TAGS -> "Tags"
                                 ViewMode.SCANS -> "Scans"
@@ -174,7 +174,7 @@ fun DataBrowserScreen(
                     icon = { 
                         Icon(
                             imageVector = when (mode) {
-                                ViewMode.SPOOLS -> Icons.Default.Inventory
+                                ViewMode.INVENTORY -> Icons.Default.Inventory
                                 ViewMode.SKUS -> Icons.Default.Category
                                 ViewMode.TAGS -> Icons.Default.Tag
                                 ViewMode.SCANS -> Icons.Default.History
@@ -368,7 +368,7 @@ fun DataBrowserScreen(
             ) { page ->
                 val actualPage = page % tabCount
                 when (ViewMode.values()[actualPage]) {
-                    ViewMode.SPOOLS -> SpoolsList(
+                    ViewMode.INVENTORY -> SpoolsList(
                         spools = spools, 
                         sortProperty = sortProperty, 
                         sortDirection = sortDirection, 

@@ -1,6 +1,6 @@
 package com.bscan.ui.screens.home
 
-enum class ViewMode { SPOOLS, SKUS, TAGS, SCANS }
+enum class ViewMode { INVENTORY, SKUS, TAGS, SCANS }
 enum class SortProperty { FIRST_SCAN, LAST_SCAN, NAME, SUCCESS_RATE, COLOR, MATERIAL_TYPE }
 enum class SortDirection { ASCENDING, DESCENDING }
 enum class GroupByOption { NONE, COLOR, BASE_MATERIAL, MATERIAL_SERIES }
