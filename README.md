@@ -48,15 +48,50 @@ The app will automatically decode the RFID data and present it in an easy-to-rea
 
 - **Platform**: Android (Kotlin)
 - **UI Framework**: Jetpack Compose
-- **Target SDK**: Android 14 (API 34)
+- **Target SDK**: Android 14 (API 35)
 - **Minimum SDK**: Android 10 (API 29)
 - **NFC Protocol**: ISO 14443-A (Mifare Classic 1K)
 - **Tag Format**: Bambu Lab proprietary RFID data structure
+
+### Terminology & Architecture
+
+B-Scan uses precise terminology to distinguish between physical and logical inventory concepts:
+
+#### Core Concepts
+- **FilamentReel**: The consumable filament material identified by its unique tray UID
+  - Contains the actual filament that gets printed
+  - Has exactly 2 RFID tags attached sharing the same tray UID
+  - Represented by the `FilamentReel` model class
+- **SpoolHardware**: The reusable plastic reel/bobbin that holds filament
+  - Physical hardware component that can be reused across multiple FilamentReels
+  - Has its own unique spool ID (separate from tray UID)
+  - Represented by the `SpoolHardware` model class (future inventory features)
+- **Tray UID**: Unique identifier for a FilamentReel (shared between its 2 RFID tags)
+- **Tag UID**: Unique identifier for each individual RFID tag
+
+#### Physical vs Logical Structure
+Each Bambu Lab purchase contains:
+- **1 FilamentReel** (consumable filament with unique tray UID)
+- **1 SpoolHardware** (reusable plastic reel with unique spool ID)
+- **2 RFID Tags** (attached to filament, sharing the same tray UID)
+
+#### Key Relationships
+- Tray UID identifies the FilamentReel (stays with the filament)
+- Spool ID identifies the SpoolHardware (stays with the plastic reel)
+- FilamentReel can be mounted/unmounted from SpoolHardware
+- Multiple FilamentReels can use the same SpoolHardware over time
+
+#### Code Conventions
+- Use `FilamentReel` for consumable filament material
+- Use `SpoolHardware` for reusable plastic reels
+- Avoid ambiguous "spool" references without qualification
+- Apply proper identification: `trayUid` for filament, `spoolId` for hardware
 
 ## Documentation
 
 Comprehensive documentation is available in the [docs/](docs/) directory:
 
+- **[CLAUDE.md](CLAUDE.md)** - Development guidance and project architecture 
 - **[Cache Design](docs/CACHE_DESIGN.md)** - Architecture and implementation of the high-performance caching system
 - **[Development Guide](docs/DEVELOPMENT.md)** - Development setup, building, and testing instructions
 - **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Detailed technical implementation overview
