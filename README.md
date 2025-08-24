@@ -93,6 +93,22 @@ This app is part of a larger ecosystem of Bambu Lab RFID tools:
 - **[Filaman](https://www.filaman.app/)**: Filament tracking and management application
 - **[MyFilametrics](https://www.myfilametrics.com/)**: Advanced filament analytics and monitoring platform
 
+### RFID Tag Database Resources
+
+For researchers and developers working with Bambu Lab RFID tags, several community-maintained databases exist:
+
+- **[Bambu-Research-Group/RFID-Tag-Guide](https://github.com/Bambu-Research-Group/RFID-Tag-Guide)**: Primary research repository with tools and methodology for reading Bambu Lab RFID tags
+- **[queengooborg/Bambu-Lab-RFID-Library](https://github.com/queengooborg/Bambu-Lab-RFID-Library)**: Most comprehensive collection (~100+ variants) of actual tag dump files organised by material/colour
+- **[ImNoahDev/Bambu-RFID-Database](https://github.com/ImNoahDev/Bambu-RFID-Database)**: Community project for collecting tag data (early stage)
+
+**Note**: No repository contains data for ALL Bambu Lab RFID tags due to:
+- RSA signature protection preventing tag modification
+- Physical collection requirements (expensive to acquire all variants)  
+- Ongoing product releases with new colours/materials
+- Community-dependent data collection efforts
+
+The queengooborg library provides the most complete public collection but still has significant gaps across the full product line.
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.

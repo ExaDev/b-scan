@@ -122,3 +122,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Generated catalog data (copied at build time from tools/catalog-updater/)
+app/src/main/assets/filament_mappings.json
