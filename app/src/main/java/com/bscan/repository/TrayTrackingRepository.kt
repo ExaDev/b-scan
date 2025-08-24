@@ -15,6 +15,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/**
+ * Repository for tracking filament reels identified by their tray UID.
+ * 
+ * Each FilamentReel has a unique tray UID that is shared between its 2 RFID tags.
+ * This repository tracks when tags are scanned and associates them with their
+ * corresponding filament reel.
+ * 
+ * Note: "Tray" refers to the filament reel/coil, not the physical spool hardware.
+ * The tray UID uniquely identifies a specific reel of filament material.
+ */
 class TrayTrackingRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
@@ -58,7 +68,8 @@ class TrayTrackingRepository(private val context: Context) {
     }
     
     /**
-     * Records a successful scan with tray UID tracking
+     * Records a successful scan with tray UID tracking.
+     * Associates the scanned tag with its filament reel (identified by tray UID).
      */
     fun recordScan(decryptedScanData: DecryptedScanData) {
         if (decryptedScanData.scanResult == ScanResult.SUCCESS) {
@@ -243,7 +254,8 @@ class TrayTrackingRepository(private val context: Context) {
 }
 
 /**
- * Data class representing a tracked tray and its associated tags
+ * Data class representing a tracked filament reel and its associated RFID tags.
+ * The trayUid uniquely identifies the filament reel (not the physical spool hardware).
  */
 data class TrayData(
     val trayUid: String,
@@ -258,7 +270,7 @@ data class TrayData(
 }
 
 /**
- * Data class representing a tag entry within a tray
+ * Data class representing an RFID tag entry associated with a filament reel
  */
 data class TrayTagEntry(
     val tagUid: String,
@@ -269,7 +281,7 @@ data class TrayTagEntry(
 )
 
 /**
- * Statistics summary for all tray tracking
+ * Statistics summary for all filament reel tracking
  */
 data class TrayStatistics(
     val totalTrays: Int,
