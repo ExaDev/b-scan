@@ -16,7 +16,7 @@ import org.junit.runner.RunWith
 class HistoryE2ETest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<MainActivity>()
+    val composeTestRule = createAndroidComposeRule<TestActivity>()
 
     @Test
     fun historyScreenLayoutAndNavigation() {
@@ -35,7 +35,7 @@ class HistoryE2ETest {
         composeTestRule.waitForIdle()
         
         // Should return to main screen
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
+        composeTestRule.onNodeWithText("Ready to scan NFC tags").assertExists()
     }
 
     @Test
@@ -45,12 +45,7 @@ class HistoryE2ETest {
         composeTestRule.waitForIdle()
         
         // Should display empty state
-        composeTestRule.onNode(
-            hasText("No scans yet") or
-            hasText("No scan history") or 
-            hasText("Your scan history will appear here") or
-            hasText("Start scanning to see results")
-        ).assertExists()
+        composeTestRule.onNodeWithText("No scans yet").assertExists()
     }
 
     @Test

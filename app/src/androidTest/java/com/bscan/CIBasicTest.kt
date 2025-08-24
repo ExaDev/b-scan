@@ -44,6 +44,7 @@ class CIBasicTest {
             }
         }
         
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("B-Scan CI Test").assertIsDisplayed()
     }
 

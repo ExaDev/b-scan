@@ -14,7 +14,7 @@ import org.junit.runner.RunWith
 class MainActivityTest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<MainActivity>()
+    val composeTestRule = createAndroidComposeRule<TestActivity>()
 
     @Test
     fun appLaunchesSuccessfully() {
@@ -25,7 +25,7 @@ class MainActivityTest {
         composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
         
         // Check that some scan prompt content is displayed
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
+        composeTestRule.onNodeWithText("Ready to scan NFC tags").assertExists()
     }
 
     @Test
@@ -53,6 +53,6 @@ class MainActivityTest {
         composeTestRule.onNodeWithContentDescription("Navigate back", ignoreCase = true).performClick()
         
         // Should be back to main screen
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
+        composeTestRule.onNodeWithText("Ready to scan NFC tags").assertExists()
     }
 }
