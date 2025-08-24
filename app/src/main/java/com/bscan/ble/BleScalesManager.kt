@@ -333,6 +333,16 @@ class BleScalesManager(private val context: Context) {
     }
     
     /**
+     * Enable passive monitoring for unit detection (notifications only - no reads)
+     */
+    suspend fun enableUnitDetectionMonitoring(): ScaleCommandResult {
+        val controller = currentScaleController as? FFE0ScaleController
+            ?: return ScaleCommandResult.Error("Not connected to FFE0 scale")
+        
+        return controller.enableUnitDetectionMonitoring()
+    }
+    
+    /**
      * Check if currently connected to a scale
      */
     fun isConnectedToScale(): Boolean {

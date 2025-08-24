@@ -22,10 +22,18 @@ class FFE0ScaleController(
         private const val TAG = "FFE0ScaleController"
         private const val FFE0_SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb"
         private const val FFE0_CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+        private const val FFE1_CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
+        private const val FFE2_CHARACTERISTIC_UUID = "0000ffe2-0000-1000-8000-00805f9b34fb"
+        private const val FFE3_CHARACTERISTIC_UUID = "0000ffe3-0000-1000-8000-00805f9b34fb"
+        private const val FFE4_CHARACTERISTIC_UUID = "0000ffe4-0000-1000-8000-00805f9b34fb"
+        private const val FFE5_CHARACTERISTIC_UUID = "0000ffe5-0000-1000-8000-00805f9b34fb"
         private const val BATTERY_SERVICE_UUID = "0000180f-0000-1000-8000-00805f9b34fb"
         private const val BATTERY_CHARACTERISTIC_UUID = "00002a19-0000-1000-8000-00805f9b34fb"
         
-        // Tare command for commodity scales (common pattern)
+        // Discovered tare command from TomBastable's Salter scales research
+        private val SALTER_TARE_COMMAND = byteArrayOf(9.toByte(), 3.toByte(), 5.toByte()) // [9,3,5] to FFE3 characteristic
+        
+        // Tare command for commodity scales (common pattern) 
         private val TARE_COMMAND = byteArrayOf(0x54.toByte(), 0x41.toByte(), 0x52.toByte(), 0x45.toByte()) // "TARE" in ASCII
         // Alternative tare commands to try (expanded based on common BLE scale protocols)
         private val TARE_COMMANDS = listOf(
@@ -58,7 +66,22 @@ class FFE0ScaleController(
     
     private var bluetoothGatt: BluetoothGatt? = null
     private var weightCharacteristic: BluetoothGattCharacteristic? = null
+    private var tareCharacteristic: BluetoothGattCharacteristic? = null
     private var batteryCharacteristic: BluetoothGattCharacteristic? = null
+    
+    // All FFE characteristics for comprehensive monitoring
+    private val allFfeCharacteristics = mutableMapOf<String, BluetoothGattCharacteristic>()
+    private val ffeCharacteristicUUIDs = listOf(
+        FFE1_CHARACTERISTIC_UUID,
+        FFE2_CHARACTERISTIC_UUID, 
+        FFE3_CHARACTERISTIC_UUID,
+        FFE4_CHARACTERISTIC_UUID,
+        FFE5_CHARACTERISTIC_UUID
+    )
+    
+    // Unit detection state
+    private var currentDetectedUnit: WeightUnit = WeightUnit.UNKNOWN
+    private var currentUnitValid: Boolean = false
     
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -120,6 +143,7 @@ class FFE0ScaleController(
             bluetoothGatt?.close()
             bluetoothGatt = null
             weightCharacteristic = null
+            tareCharacteristic = null
             batteryCharacteristic = null
             _connectionState.value = ScaleConnectionState.DISCONNECTED
             _currentReading.value = null
@@ -134,22 +158,41 @@ class FFE0ScaleController(
         val characteristic = weightCharacteristic ?: return ScaleCommandResult.Error("Not connected")
         
         return try {
-            Log.i(TAG, "Starting continuous weight reading")
-            val success = bluetoothGatt?.setCharacteristicNotification(characteristic, true) ?: false
+            Log.i(TAG, "Starting comprehensive characteristic monitoring...")
             
-            if (success) {
-                // Enable notifications on the characteristic
-                val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
-                if (descriptor != null) {
-                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    bluetoothGatt?.writeDescriptor(descriptor)
+            var subscriptionCount = 0
+            
+            // Subscribe to notifications from ALL available FFE characteristics
+            for ((name, char) in allFfeCharacteristics) {
+                try {
+                    val success = bluetoothGatt?.setCharacteristicNotification(char, true) ?: false
+                    if (success) {
+                        // Enable notifications on the characteristic
+                        val descriptor = char.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+                        if (descriptor != null) {
+                            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            bluetoothGatt?.writeDescriptor(descriptor)
+                            subscriptionCount++
+                            Log.d(TAG, "Subscribed to $name notifications")
+                        } else {
+                            Log.w(TAG, "$name has no notification descriptor")
+                        }
+                    } else {
+                        Log.w(TAG, "Failed to subscribe to $name notifications")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error subscribing to $name: ${e.message}")
                 }
-                
+            }
+            
+            Log.i(TAG, "Subscribed to $subscriptionCount/${allFfeCharacteristics.size} characteristics")
+            
+            if (subscriptionCount > 0) {
                 _isReading.value = true
                 _connectionState.value = ScaleConnectionState.READING
                 ScaleCommandResult.Success
             } else {
-                ScaleCommandResult.Error("Failed to enable notifications")
+                ScaleCommandResult.Error("Failed to subscribe to any characteristics")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error starting continuous reading", e)
@@ -175,19 +218,38 @@ class FFE0ScaleController(
     }
     
     override suspend fun tareScale(): ScaleCommandResult {
-        val characteristic = weightCharacteristic ?: return ScaleCommandResult.Error("Not connected")
-        
         Log.i(TAG, "Attempting to tare scale")
         
-        // Try different tare commands until one works
+        // First try the discovered Salter approach: [9,3,5] to FFE3 characteristic
+        tareCharacteristic?.let { ffe3Char ->
+            try {
+                Log.d(TAG, "Trying Salter tare command [9,3,5] to FFE3 characteristic")
+                ffe3Char.value = SALTER_TARE_COMMAND
+                val success = bluetoothGatt?.writeCharacteristic(ffe3Char) ?: false
+                
+                if (success) {
+                    Log.i(TAG, "Salter tare command sent successfully")
+                    delay(1000)
+                    return ScaleCommandResult.Success
+                } else {
+                    Log.w(TAG, "Failed to write Salter tare command to FFE3")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Salter tare command failed: ${e.message}")
+            }
+        } ?: Log.w(TAG, "FFE3 tare characteristic not available")
+        
+        // Fallback: try traditional tare commands to FFE1 (weight) characteristic
+        val weightChar = weightCharacteristic ?: return ScaleCommandResult.Error("Not connected")
+        
+        Log.d(TAG, "Fallback: trying traditional tare commands to FFE1 characteristic")
         for ((index, command) in TARE_COMMANDS.withIndex()) {
             try {
                 Log.d(TAG, "Trying tare command ${index + 1}: ${command.joinToString(" ") { "%02X".format(it) }}")
-                characteristic.value = command
-                val success = bluetoothGatt?.writeCharacteristic(characteristic) ?: false
+                weightChar.value = command
+                val success = bluetoothGatt?.writeCharacteristic(weightChar) ?: false
                 
                 if (success) {
-                    // Wait a moment for the tare to take effect
                     delay(1000)
                     return ScaleCommandResult.Success
                 }
@@ -216,6 +278,66 @@ class FFE0ScaleController(
         } catch (e: Exception) {
             Log.e(TAG, "Error getting single reading", e)
             null
+        }
+    }
+    
+    /**
+     * Enable comprehensive monitoring without triggering legacy pairing
+     * Only subscribes to notifications - no direct reads to avoid pairing attempts
+     */
+    suspend fun enableUnitDetectionMonitoring(): ScaleCommandResult {
+        return try {
+            Log.i(TAG, "🔍 UNIT_DETECTION: Enabling passive monitoring (notifications only)...")
+            
+            var subscriptionCount = 0
+            
+            // Only subscribe to notifications - avoid read operations that trigger pairing
+            for ((name, char) in allFfeCharacteristics) {
+                try {
+                    // Check if characteristic supports notifications
+                    val properties = char.properties
+                    val supportsNotify = (properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0
+                    val supportsIndicate = (properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0
+                    
+                    if (supportsNotify || supportsIndicate) {
+                        val success = bluetoothGatt?.setCharacteristicNotification(char, true) ?: false
+                        if (success) {
+                            val descriptor = char.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+                            if (descriptor != null) {
+                                descriptor.value = if (supportsNotify) {
+                                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                } else {
+                                    BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+                                }
+                                bluetoothGatt?.writeDescriptor(descriptor)
+                                subscriptionCount++
+                                Log.d(TAG, "🔍 Subscribed to $name (${if (supportsNotify) "notify" else "indicate"})")
+                            } else {
+                                Log.w(TAG, "$name has no notification descriptor")
+                            }
+                        } else {
+                            Log.w(TAG, "Failed to subscribe to $name")
+                        }
+                    } else {
+                        Log.d(TAG, "$name doesn't support notifications (properties: $properties)")
+                    }
+                    
+                    delay(50) // Small delay between subscriptions
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error subscribing to $name: ${e.message}")
+                }
+            }
+            
+            Log.i(TAG, "🔍 UNIT_DETECTION: Subscribed to $subscriptionCount/${allFfeCharacteristics.size} characteristics for passive monitoring")
+            
+            if (subscriptionCount > 0) {
+                ScaleCommandResult.Success
+            } else {
+                ScaleCommandResult.Error("No characteristics support notifications")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error enabling unit detection monitoring", e)
+            ScaleCommandResult.Error("Unit detection setup failed: ${e.message}", e)
         }
     }
     
@@ -257,11 +379,32 @@ class FFE0ScaleController(
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.i(TAG, "Services discovered")
                 
-                // Find FFE0 service and characteristic
+                // Find FFE0 service and all characteristics
                 val ffe0Service = gatt.getService(UUID.fromString(FFE0_SERVICE_UUID))
                 if (ffe0Service != null) {
-                    weightCharacteristic = ffe0Service.getCharacteristic(UUID.fromString(FFE0_CHARACTERISTIC_UUID))
-                    Log.d(TAG, "Found FFE0 weight characteristic")
+                    Log.i(TAG, "FFE0 Service found - discovering all characteristics...")
+                    
+                    // Discover all FFE characteristics for comprehensive monitoring
+                    allFfeCharacteristics.clear()
+                    for (uuid in ffeCharacteristicUUIDs) {
+                        val characteristic = ffe0Service.getCharacteristic(UUID.fromString(uuid))
+                        if (characteristic != null) {
+                            val shortName = uuid.substring(4, 8).uppercase() // Extract "FFE1", "FFE2", etc.
+                            allFfeCharacteristics[shortName] = characteristic
+                            Log.d(TAG, "Found characteristic: $shortName")
+                            
+                            // Set up specific references
+                            when (shortName) {
+                                "FFE1" -> weightCharacteristic = characteristic
+                                "FFE3" -> tareCharacteristic = characteristic
+                            }
+                        } else {
+                            val shortName = uuid.substring(4, 8).uppercase()
+                            Log.w(TAG, "Characteristic not found: $shortName")
+                        }
+                    }
+                    
+                    Log.i(TAG, "Total FFE characteristics found: ${allFfeCharacteristics.size}")
                 }
                 
                 // Find battery service if available
@@ -279,13 +422,39 @@ class FFE0ScaleController(
         }
         
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-            when (characteristic.uuid.toString().lowercase()) {
-                FFE0_CHARACTERISTIC_UUID.lowercase() -> {
-                    val data = characteristic.value
-                    if (data != null) {
-                        val hexData = data.joinToString(" ") { "%02X".format(it) }
-                        Log.d(TAG, "BLE Data Received: $hexData")
-                        
+            val characteristicUuid = characteristic.uuid.toString().lowercase()
+            val data = characteristic.value
+            
+            if (data != null) {
+                val hexData = data.joinToString(" ") { "%02X".format(it) }
+                val timestamp = System.currentTimeMillis()
+                
+                // Identify which characteristic this is
+                val charName = when (characteristicUuid) {
+                    FFE1_CHARACTERISTIC_UUID.lowercase() -> "FFE1"
+                    FFE2_CHARACTERISTIC_UUID.lowercase() -> "FFE2"
+                    FFE3_CHARACTERISTIC_UUID.lowercase() -> "FFE3"
+                    FFE4_CHARACTERISTIC_UUID.lowercase() -> "FFE4"
+                    FFE5_CHARACTERISTIC_UUID.lowercase() -> "FFE5"
+                    BATTERY_CHARACTERISTIC_UUID.lowercase() -> "BATTERY"
+                    else -> "UNKNOWN"
+                }
+                
+                // LOG ALL CHARACTERISTIC DATA for unit detection analysis
+                Log.i(TAG, "🔍 CHARACTERISTIC_DATA: $charName | $hexData | Time: $timestamp | Length: ${data.size}")
+                
+                // For non-FFE1 characteristics, log more detailed analysis
+                if (charName != "FFE1" && charName != "BATTERY") {
+                    Log.w(TAG, "🔍 NON_WEIGHT_DATA: $charName sent data - could be unit info!")
+                    for (i in data.indices) {
+                        val byteVal = data[i].toInt() and 0xFF
+                        Log.d(TAG, "🔍 $charName Byte[$i]: 0x${"%02X".format(byteVal)} (${byteVal})")
+                    }
+                }
+                
+                // Handle specific characteristics
+                when (characteristicUuid) {
+                    FFE0_CHARACTERISTIC_UUID.lowercase(), FFE1_CHARACTERISTIC_UUID.lowercase() -> {
                         // Check for power-off message
                         if (data.size >= 4 && 
                             data[0] == 0x08.toByte() && 
@@ -293,21 +462,24 @@ class FFE0ScaleController(
                             data[2] == 0xAF.toByte() && 
                             data[3] == 0x01.toByte()) {
                             Log.i(TAG, "Scale power-off message detected: $hexData")
-                            // Scale is powering down, connection will be lost
                             return
                         }
                         
+                        // Parse weight data from FFE1
                         parseWeightData(data)
                     }
-                }
-                BATTERY_CHARACTERISTIC_UUID.lowercase() -> {
-                    val batteryLevel = if (characteristic.value.isNotEmpty()) {
-                        characteristic.value[0].toInt() and 0xFF
-                    } else null
-                    
-                    // Update current reading with battery info
-                    _currentReading.value?.let { reading ->
-                        _currentReading.value = reading.copy(batteryLevel = batteryLevel)
+                    BATTERY_CHARACTERISTIC_UUID.lowercase() -> {
+                        val batteryLevel = if (data.isNotEmpty()) {
+                            data[0].toInt() and 0xFF
+                        } else null
+                        
+                        _currentReading.value?.let { reading ->
+                            _currentReading.value = reading.copy(batteryLevel = batteryLevel)
+                        }
+                    }
+                    // For FFE2, FFE3, FFE4, FFE5 - just log for now (unit detection research)
+                    else -> {
+                        Log.d(TAG, "Data from $charName: $hexData (length: ${data.size})")
                     }
                 }
             }
@@ -335,7 +507,8 @@ class FFE0ScaleController(
                 val reading = ScaleReading(
                     weight = weight,
                     isStable = isStable,
-                    unit = WeightUnit.GRAMS,
+                    unit = currentDetectedUnit,
+                    isUnitValid = currentUnitValid,
                     batteryLevel = _currentReading.value?.batteryLevel,
                     signalStrength = device.rssi,
                     rawData = data.clone(),
@@ -357,7 +530,8 @@ class FFE0ScaleController(
                 val reading = ScaleReading(
                     weight = weight,
                     isStable = isStable,
-                    unit = WeightUnit.GRAMS,
+                    unit = WeightUnit.GRAMS, // Fallback assumes grams
+                    isUnitValid = true, // Assume valid for fallback
                     batteryLevel = _currentReading.value?.batteryLevel,
                     signalStrength = device.rssi,
                     rawData = data.clone(),
@@ -390,9 +564,8 @@ class FFE0ScaleController(
     }
     
     /**
-     * Parse weight from new 08 07 03 protocol
-     * Format: 08 07 03 [stability] [sign_byte] [magnitude_byte] 00
-     * Uses sign bit + magnitude format, NOT two's complement
+     * Parse weight from new 08 07 03 protocol with comprehensive unit analysis
+     * Format: 08 07 03 [stability] [sign_byte] [magnitude_byte] [unit_info?]
      */
     private fun parseFFE0Protocol_08_07_03(data: ByteArray): Float {
         if (data.size < 6) {
@@ -400,31 +573,57 @@ class FFE0ScaleController(
             return 0f
         }
         
+        // COMPREHENSIVE ANALYSIS: Log every single byte for unit detection
+        val fullHex = data.joinToString(" ") { "%02X".format(it) }
+        Log.i(TAG, "🔍 WEIGHT_DATA_ANALYSIS: Full packet: $fullHex")
+        
+        // Analyze each byte position for potential unit information
+        for (i in data.indices) {
+            val byteValue = data[i].toInt() and 0xFF
+            Log.d(TAG, "🔍 Byte[$i]: 0x${"%02X".format(byteValue)} (${byteValue}) ${if (byteValue in 32..126) "ASCII:'${byteValue.toChar()}'" else ""}")
+        }
+        
         val signByte = data[4].toInt() and 0xFF
         val magnitudeByte = data[5].toInt() and 0xFF
+        val byte6 = if (data.size > 6) data[6].toInt() and 0xFF else 0
         
         // Check if sign bit is set (0x80 = negative)
         val isNegative = (signByte and 0x80) != 0
         
-        // For weights > 255g, the overflow goes into the lower bits of signByte
-        // But for now, let's focus on the basic case where magnitude is in byte 5
-        val magnitude = magnitudeByte
-        
-        // Handle potential overflow into signByte lower bits
+        // Calculate weight magnitude
         val overflowBits = signByte and 0x7F // Remove sign bit
         val totalMagnitude = if (overflowBits > 0) {
             // Weight > 255g: combine overflow + magnitude
-            (overflowBits * 256) + magnitude
+            (overflowBits * 256) + magnitudeByte
         } else {
             // Weight <= 255g: just the magnitude
-            magnitude
+            magnitudeByte
         }
         
-        val weightFloat = if (isNegative) -totalMagnitude.toFloat() else totalMagnitude.toFloat()
+        // UNIT DETECTION: Parse byte 6 for unit information first
+        val detectedUnit = WeightUnit.fromScaleByte(byte6)
+        val isUnitValid = WeightUnit.isExpectedUnit(detectedUnit)
         
-        Log.d(TAG, "08 07 03 parsing: sign=0x${"%02X".format(data[4])}, mag=0x${"%02X".format(data[5])}, negative=$isNegative, overflow=$overflowBits, totalMag=$totalMagnitude, weight=${weightFloat}g")
+        // Apply unit-specific scaling to raw weight
+        val scaledWeight = when (detectedUnit) {
+            WeightUnit.OUNCES, WeightUnit.FLUID_OUNCES -> totalMagnitude.toFloat() / 10f // Scale sends oz * 10
+            else -> totalMagnitude.toFloat() // Grams and other units are 1:1
+        }
         
-        // Sanity check: reject unreasonable weights
-        return if (weightFloat >= -5000f && weightFloat <= 10000f) weightFloat else 0f
+        val rawWeight = if (isNegative) -scaledWeight else scaledWeight
+        
+        // Log unit detection results
+        Log.i(TAG, "🎯 UNIT_DETECTED: raw=${rawWeight} | unit=${detectedUnit.displayName} (byte6=0x${"%02X".format(byte6)}) | valid=$isUnitValid | sign=0x${"%02X".format(data[4])} | mag=0x${"%02X".format(data[5])} | stability=0x${"%02X".format(data[3])}")
+        
+        if (!isUnitValid) {
+            Log.w(TAG, "⚠ UNIT_WARNING: Scale is in ${detectedUnit.displayName}, expected ${WeightUnit.GRAMS.displayName}")
+        }
+        
+        // Store unit detection info for ScaleReading creation
+        currentDetectedUnit = detectedUnit
+        currentUnitValid = isUnitValid
+        
+        return if (rawWeight >= -5000f && rawWeight <= 10000f) rawWeight else 0f
     }
+    
 }

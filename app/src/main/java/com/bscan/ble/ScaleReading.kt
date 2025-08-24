@@ -7,9 +7,10 @@ import java.time.LocalDateTime
  * Includes weight data, stability information, and metadata
  */
 data class ScaleReading(
-    val weight: Float,                    // Weight in grams
+    val weight: Float,                    // Weight value from scale
     val isStable: Boolean,                // Stability flag from scale
-    val unit: WeightUnit,                 // Unit of measurement
+    val unit: WeightUnit,                 // Unit detected from scale (GRAMS, OUNCES, etc.)
+    val isUnitValid: Boolean,             // True if unit matches app expectations
     val batteryLevel: Int? = null,        // Battery percentage (if available)
     val signalStrength: Int? = null,      // RSSI in dBm
     val timestamp: LocalDateTime = LocalDateTime.now(),
@@ -18,17 +19,28 @@ data class ScaleReading(
 ) {
     
     /**
-     * Format weight for display with appropriate precision
+     * Format weight for display with appropriate precision and unit
      */
     fun getDisplayWeight(): String {
         val absWeight = kotlin.math.abs(weight)
         val sign = if (weight < 0) "-" else ""
+        val unitSuffix = unit.abbreviation
         
-        return when {
-            absWeight < 10 -> "${sign}%.2fg".format(absWeight)
-            absWeight < 100 -> "${sign}%.1fg".format(absWeight) 
-            else -> "${sign}%.0fg".format(absWeight)
+        val formattedWeight = when {
+            absWeight < 10 -> "${sign}%.2f".format(absWeight)
+            absWeight < 100 -> "${sign}%.1f".format(absWeight) 
+            else -> "${sign}%.0f".format(absWeight)
         }
+        
+        return "$formattedWeight$unitSuffix"
+    }
+    
+    /**
+     * Get display weight with unit validation warning
+     */
+    fun getDisplayWeightWithValidation(): String {
+        val baseDisplay = getDisplayWeight()
+        return if (!isUnitValid) "⚠ $baseDisplay" else baseDisplay
     }
     
     /**
@@ -47,9 +59,10 @@ data class ScaleReading(
     
     /**
      * Check if reading is valid for capture
+     * Requires stable reading, valid unit, and reasonable weight
      */
     fun isValidForCapture(): Boolean {
-        return isStable && weight >= 0 && weight <= 10000 // 10kg max
+        return isStable && isUnitValid && weight >= 0 && weight <= 10000 // 10kg max
     }
     
     /**
@@ -75,6 +88,7 @@ data class ScaleReading(
         if (weight != other.weight) return false
         if (isStable != other.isStable) return false
         if (unit != other.unit) return false
+        if (isUnitValid != other.isUnitValid) return false
         if (batteryLevel != other.batteryLevel) return false
         if (timestamp != other.timestamp) return false
         if (!rawData.contentEquals(other.rawData)) return false
@@ -87,6 +101,7 @@ data class ScaleReading(
         var result = weight.hashCode()
         result = 31 * result + isStable.hashCode()
         result = 31 * result + unit.hashCode()
+        result = 31 * result + isUnitValid.hashCode()
         result = 31 * result + (batteryLevel ?: 0)
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + rawData.contentHashCode()
@@ -98,11 +113,31 @@ data class ScaleReading(
 /**
  * Weight units supported by scales
  */
-enum class WeightUnit(val displayName: String, val abbreviation: String) {
-    GRAMS("Grams", "g"),
-    OUNCES("Ounces", "oz"),
-    POUNDS("Pounds", "lb"),
-    KILOGRAMS("Kilograms", "kg");
+enum class WeightUnit(val displayName: String, val abbreviation: String, val scaleByteValue: Int? = null) {
+    GRAMS("Grams", "g", 0x00),
+    OUNCES("Ounces", "oz", 0x01),
+    POUNDS("Pounds", "lb", null),
+    KILOGRAMS("Kilograms", "kg", null),
+    MILLILITERS("Milliliters", "ml", 0x02),
+    FLUID_OUNCES("Fluid Ounces", "fl oz", 0x03),
+    UNKNOWN("Unknown", "?", null);
+    
+    companion object {
+        /**
+         * Get unit from scale byte value (byte 6 in FFE0 protocol)
+         */
+        fun fromScaleByte(byteValue: Int): WeightUnit {
+            return values().find { it.scaleByteValue == byteValue } ?: UNKNOWN
+        }
+        
+        /**
+         * Check if a unit is expected/valid for the app configuration
+         * Currently hardcoded to GRAMS, but can be extended for user preferences
+         */
+        fun isExpectedUnit(unit: WeightUnit): Boolean {
+            return unit == GRAMS // TODO: Make configurable per user preferences
+        }
+    }
     
     /**
      * Convert weight from this unit to grams
@@ -113,6 +148,9 @@ enum class WeightUnit(val displayName: String, val abbreviation: String) {
             OUNCES -> weight * 28.3495f
             POUNDS -> weight * 453.592f
             KILOGRAMS -> weight * 1000f
+            MILLILITERS -> weight // Volume unit, treat as 1:1 with grams for liquids
+            FLUID_OUNCES -> weight * 29.5735f // 1 fl oz ≈ 29.57g for water
+            UNKNOWN -> weight // Pass through unknown units
         }
     }
     
@@ -125,6 +163,9 @@ enum class WeightUnit(val displayName: String, val abbreviation: String) {
             OUNCES -> weightInGrams / 28.3495f
             POUNDS -> weightInGrams / 453.592f
             KILOGRAMS -> weightInGrams / 1000f
+            MILLILITERS -> weightInGrams // Volume unit, treat as 1:1 with grams for liquids
+            FLUID_OUNCES -> weightInGrams / 29.5735f // 1 fl oz ≈ 29.57g for water
+            UNKNOWN -> weightInGrams // Pass through unknown units
         }
     }
 }

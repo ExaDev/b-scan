@@ -1115,10 +1115,14 @@ private fun BleScalesPreferenceCard(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = reading.getDisplayWeight(),
+                                        text = reading.getDisplayWeightWithValidation(),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = if (reading.isUnitValid) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.error
+                                        }
                                     )
                                     Text(
                                         text = reading.getStabilityIcon(),
@@ -1183,6 +1187,15 @@ private fun BleScalesPreferenceCard(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
+                                            text = "Unit: ${reading.unit.displayName} ${if (reading.isUnitValid) "✓" else "⚠"}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (reading.isUnitValid) {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            } else {
+                                                MaterialTheme.colorScheme.error
+                                            }
+                                        )
+                                        Text(
                                             text = "Age: ${reading.getAgeString()}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1236,6 +1249,34 @@ private fun BleScalesPreferenceCard(
                                     Text("Tare")
                                 }
                             }
+                        }
+                        
+                        // Unit detection tools
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Enable unit detection monitoring button
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        val result = bleScalesManager.enableUnitDetectionMonitoring()
+                                        Log.i("BleScalesSettings", "Unit detection monitoring result: $result")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = connectionState in listOf(ScaleConnectionState.CONNECTED, ScaleConnectionState.READING)
+                            ) {
+                                Text("🔍 Monitor All")
+                            }
+                            
+                            // Instructions text
+                            Text(
+                                text = "Enable monitoring, then change units",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
