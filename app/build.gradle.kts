@@ -144,36 +144,36 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     executionData.setFrom(fileTree(layout.buildDirectory).include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
 }
 
-// Task to copy latest catalog data into app assets at build time
-tasks.register<Copy>("copyFilamentMappings") {
-    group = "build setup"
-    description = "Copy latest bambu_filament_mappings.json from tools to app assets"
-    
-    val toolsJsonFile = file("../tools/catalog-updater/bambu_filament_mappings.json")
-    val assetsDir = file("src/main/assets")
-    
-    from(toolsJsonFile)
-    into(assetsDir)
-    rename { "filament_mappings.json" }
-    
-    // Only copy if source file exists and is newer than destination
-    onlyIf {
-        toolsJsonFile.exists()
-    }
-    
-    doFirst {
-        assetsDir.mkdirs()
-        if (toolsJsonFile.exists()) {
-            println("📦 Copying catalog data: ${toolsJsonFile.name} -> assets/filament_mappings.json")
-        } else {
-            println("⚠️ Catalog file not found at ${toolsJsonFile.absolutePath}")
-        }
-    }
-}
+// Disabled: Using exact-only RFID mappings instead of old catalog system
+// tasks.register<Copy>("copyFilamentMappings") {
+//     group = "build setup"
+//     description = "Copy latest bambu_filament_mappings.json from tools to app assets"
+//     
+//     val toolsJsonFile = file("../tools/catalog-updater/bambu_filament_mappings.json")
+//     val assetsDir = file("src/main/assets")
+//     
+//     from(toolsJsonFile)
+//     into(assetsDir)
+//     rename { "filament_mappings.json" }
+//     
+//     // Only copy if source file exists and is newer than destination
+//     onlyIf {
+//         toolsJsonFile.exists()
+//     }
+//     
+//     doFirst {
+//         assetsDir.mkdirs()
+//         if (toolsJsonFile.exists()) {
+//             println("📦 Copying catalog data: ${toolsJsonFile.name} -> assets/filament_mappings.json")
+//         } else {
+//             println("⚠️ Catalog file not found at ${toolsJsonFile.absolutePath}")
+//         }
+//     }
+// }
 
-// Ensure catalog data is copied before assets are merged
-tasks.whenTaskAdded {
-    if (name.startsWith("merge") && name.endsWith("Assets")) {
-        dependsOn("copyFilamentMappings")
-    }
-}
+// Disabled: No longer copying old catalog files
+// tasks.whenTaskAdded {
+//     if (name.startsWith("merge") && name.endsWith("Assets")) {
+//         dependsOn("copyFilamentMappings")
+//     }
+// }
