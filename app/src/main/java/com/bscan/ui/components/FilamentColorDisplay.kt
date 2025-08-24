@@ -7,16 +7,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.bscan.repository.UserPreferencesRepository
 
 enum class FilamentFinish {
     BASIC,
@@ -54,6 +61,24 @@ fun detectMaterialType(filamentType: String): MaterialType {
         filamentType.contains("PA", ignoreCase = true) || 
         filamentType.contains("Nylon", ignoreCase = true) -> MaterialType.PA
         else -> MaterialType.UNKNOWN
+    }
+}
+
+/**
+ * Gets the material abbreviation for text overlay display
+ */
+fun getMaterialAbbreviation(materialType: MaterialType): String {
+    return when (materialType) {
+        MaterialType.PLA -> "PLA"
+        MaterialType.ABS -> "ABS"
+        MaterialType.ASA -> "ASA"
+        MaterialType.PETG -> "PETG"
+        MaterialType.TPU -> "TPU"
+        MaterialType.PC -> "PC"
+        MaterialType.PA -> "PA"
+        MaterialType.PVA -> "PVA"
+        MaterialType.SUPPORT -> "SUP"
+        MaterialType.UNKNOWN -> "?"
     }
 }
 
@@ -135,14 +160,24 @@ fun FilamentColorBox(
     filamentType: String,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
-    shape: Shape? = null // Allow override, but default to material-based shape
+    shape: Shape? = null, // Allow override, but default to material-based shape
+    displayMode: MaterialDisplayMode? = null // Allow override of display mode
 ) {
+    val context = LocalContext.current
+    val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    
+    // Get display mode from parameter or user preferences
+    val actualDisplayMode = displayMode ?: userPrefsRepository.getMaterialDisplayMode()
+    
     val originalColor = parseColorWithAlpha(colorHex)
     val finish = detectFilamentFinish(colorHex, filamentType)
     val materialType = detectMaterialType(filamentType)
     
-    // Use provided shape or determine from material type
-    val actualShape = shape ?: getMaterialShape(materialType)
+    // For text mode, always use rounded rectangle; for shape mode, use material-specific shapes
+    val actualShape = when (actualDisplayMode) {
+        MaterialDisplayMode.TEXT_LABELS -> shape ?: RoundedCornerShape(8.dp)
+        MaterialDisplayMode.SHAPES -> shape ?: getMaterialShape(materialType)
+    }
     
     // Apply automatic alpha to translucent materials that don't have alpha in their hex
     val color = if (finish == FilamentFinish.TRANSLUCENT && originalColor.alpha == 1f) {
@@ -231,6 +266,28 @@ fun FilamentColorBox(
             }
             else -> {
                 // No additional effects for basic or translucent
+            }
+        }
+        
+        // Text overlay for TEXT_LABELS mode
+        if (actualDisplayMode == MaterialDisplayMode.TEXT_LABELS) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                val materialAbbreviation = getMaterialAbbreviation(materialType)
+                val textColor = if (isColorLight(color)) Color.Black else Color.White
+                
+                Text(
+                    text = materialAbbreviation,
+                    color = textColor,
+                    fontSize = (size.value * 0.25f).sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(2.dp)
+                )
             }
         }
     }
