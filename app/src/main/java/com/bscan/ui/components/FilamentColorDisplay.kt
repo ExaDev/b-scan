@@ -200,17 +200,7 @@ fun FilamentColorBox(
         )
         
         // Material-specific patterns (Support materials)
-        if (materialType == MaterialType.SUPPORT) {
-            Canvas(
-                modifier = Modifier.matchParentSize()
-            ) {
-                drawSupportStripes(
-                    size = this.size,
-                    color = color,
-                    density = density
-                )
-            }
-        }
+        // Support materials use StripedShape which handles the pattern in the shape itself
         
         // Finish-specific overlay effects
         when (finish) {
