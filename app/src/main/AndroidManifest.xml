@@ -43,6 +43,7 @@
             android:name="com.bscan.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.BScan">
             
             <intent-filter>
