@@ -182,7 +182,7 @@ fun SpoolsList(
                 
                 // Track if user is actively dragging (not momentum)
                 val wasDragging = isUserDragging
-                isUserDragging = source == NestedScrollSource.Drag
+                isUserDragging = source == NestedScrollSource.UserInput
                 
                 // Only handle deliberate drag gestures at the top
                 if (isAtTop && available.y > 0 && isUserDragging) {
@@ -225,7 +225,7 @@ fun SpoolsList(
                 // Reset states when actively scrolling down or significantly away from top
                 // Use moderate tolerance to account for scan prompt height but still allow collapsing
                 val tolerancePixels = 200 // Reduced tolerance to make collapsing more responsive
-                if ((available.y < 0 && source == NestedScrollSource.Drag) || 
+                if ((available.y < 0 && source == NestedScrollSource.UserInput) || 
                     (!isAtTop && lazyListState.firstVisibleItemScrollOffset > tolerancePixels)) {
                     promptState = 0
                     overscrollAccumulated = 0f
@@ -234,7 +234,7 @@ fun SpoolsList(
                 }
                 
                 // Reset dragging flag when momentum stops
-                if (source != NestedScrollSource.Drag) {
+                if (source != NestedScrollSource.UserInput) {
                     isUserDragging = false
                     overscrollAccumulated = 0f
                 }
