@@ -12,7 +12,7 @@ import kotlin.math.*
  * without needing to rescan the NFC tags.
  */
 class BambuFormatInterpreter(
-    private val mappings: FilamentMappings = FilamentMappings()
+    private val mappings: FilamentMappings
 ) : TagInterpreter {
     
     override val tagFormat = TagFormat.BAMBU_PROPRIETARY
