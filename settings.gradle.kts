@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "B-Scan"
 include(":app")
+include(":tools:catalog-updater")
