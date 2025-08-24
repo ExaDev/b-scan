@@ -24,6 +24,7 @@ import com.bscan.model.ScanResult
 import com.bscan.repository.UniqueSpool
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.ScanStateIndicator
+import com.bscan.ui.components.FilamentColorBox
 import java.time.format.DateTimeFormatter
 
 data class SkuInfo(
@@ -54,13 +55,11 @@ fun SpoolCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Color preview
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = parseColor(spool.filamentInfo.colorHex),
-                        shape = CircleShape
-                    )
+            FilamentColorBox(
+                colorHex = spool.filamentInfo.colorHex,
+                filamentType = spool.filamentInfo.filamentType,
+                size = 48.dp,
+                shape = CircleShape
             )
             
             // Filament info
@@ -142,14 +141,15 @@ fun TagCard(
             // Tag icon with color if available
             if (filamentInfo != null) {
                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = parseColor(filamentInfo.colorHex),
-                            shape = RoundedCornerShape(8.dp)
-                        ),
+                    modifier = Modifier.size(40.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    FilamentColorBox(
+                        colorHex = filamentInfo.colorHex,
+                        filamentType = filamentInfo.filamentType,
+                        size = 40.dp,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                     Icon(
                         imageVector = Icons.Default.Tag,
                         contentDescription = null,
@@ -324,13 +324,11 @@ fun SkuCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Color preview
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = parseColor(sku.filamentInfo.colorHex),
-                        shape = CircleShape
-                    )
+            FilamentColorBox(
+                colorHex = sku.filamentInfo.colorHex,
+                filamentType = sku.filamentInfo.filamentType,
+                size = 48.dp,
+                shape = CircleShape
             )
             
             // SKU info
