@@ -112,7 +112,7 @@ dependencies {
 
 // JaCoCo Configuration for Code Coverage
 tasks.register<JacocoReport>("jacocoTestReport") {
-    dependsOn("testDebugUnitTest")
+    mustRunAfter("testDebugUnitTest")
     group = "Reporting"
     description = "Generate Jacoco coverage reports for the debug build"
     
@@ -135,11 +135,11 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/ui/theme/**" // Exclude UI themes from coverage
     )
     
-    val debugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug")
-    val mainSrc = "${project.projectDir}/src/main/java"
+    val debugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug"))
+    val mainSrc = layout.projectDirectory.dir("src/main/java")
     
     sourceDirectories.setFrom(files(mainSrc))
-    classDirectories.setFrom(fileTree(debugTree).exclude(fileFilter))
+    classDirectories.setFrom(debugTree.exclude(fileFilter))
     
     executionData.setFrom(fileTree(layout.buildDirectory).include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
 }
