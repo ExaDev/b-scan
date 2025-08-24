@@ -25,6 +25,38 @@ enum class FilamentFinish {
     TRANSLUCENT
 }
 
+enum class MaterialType {
+    PLA,      // Circle
+    ABS,      // Triangle  
+    ASA,      // Inverted Triangle
+    PETG,     // Hexagon
+    TPU,      // Rounded Square
+    PC,       // Octagon
+    PA,       // Diamond/Rhombus
+    PVA,      // Teardrop
+    SUPPORT,  // Vertical Lines
+    UNKNOWN   // Dodecagon (12-sided)
+}
+
+/**
+ * Detects the base material type from filament type string
+ */
+fun detectMaterialType(filamentType: String): MaterialType {
+    return when {
+        filamentType.contains("Support", ignoreCase = true) -> MaterialType.SUPPORT
+        filamentType.contains("PVA", ignoreCase = true) -> MaterialType.PVA
+        filamentType.contains("PLA", ignoreCase = true) -> MaterialType.PLA
+        filamentType.contains("ASA", ignoreCase = true) -> MaterialType.ASA
+        filamentType.contains("ABS", ignoreCase = true) -> MaterialType.ABS
+        filamentType.contains("PETG", ignoreCase = true) -> MaterialType.PETG
+        filamentType.contains("TPU", ignoreCase = true) -> MaterialType.TPU
+        filamentType.contains("PC", ignoreCase = true) -> MaterialType.PC
+        filamentType.contains("PA", ignoreCase = true) || 
+        filamentType.contains("Nylon", ignoreCase = true) -> MaterialType.PA
+        else -> MaterialType.UNKNOWN
+    }
+}
+
 /**
  * Detects the finish type of filament based on color alpha channel and filament type
  */
@@ -103,10 +135,14 @@ fun FilamentColorBox(
     filamentType: String,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
-    shape: Shape = CircleShape
+    shape: Shape? = null // Allow override, but default to material-based shape
 ) {
     val originalColor = parseColorWithAlpha(colorHex)
     val finish = detectFilamentFinish(colorHex, filamentType)
+    val materialType = detectMaterialType(filamentType)
+    
+    // Use provided shape or determine from material type
+    val actualShape = shape ?: getMaterialShape(materialType)
     
     // Apply automatic alpha to translucent materials that don't have alpha in their hex
     val color = if (finish == FilamentFinish.TRANSLUCENT && originalColor.alpha == 1f) {
@@ -131,7 +167,7 @@ fun FilamentColorBox(
     Box(
         modifier = modifier
             .size(size)
-            .clip(shape)
+            .clip(actualShape)
     ) {
         // Background effects based on finish type
         when (finish) {
@@ -151,7 +187,7 @@ fun FilamentColorBox(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .background(MaterialTheme.colorScheme.surface, shape)
+                        .background(MaterialTheme.colorScheme.surface, actualShape)
                 )
             }
         }
@@ -160,8 +196,21 @@ fun FilamentColorBox(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(color, shape)
+                .background(color, actualShape)
         )
+        
+        // Material-specific patterns (Support materials)
+        if (materialType == MaterialType.SUPPORT) {
+            Canvas(
+                modifier = Modifier.matchParentSize()
+            ) {
+                drawSupportStripes(
+                    size = this.size,
+                    color = color,
+                    density = density
+                )
+            }
+        }
         
         // Finish-specific overlay effects
         when (finish) {
@@ -173,7 +222,7 @@ fun FilamentColorBox(
                     drawSilkShimmer(
                         size = this.size,
                         offset = shimmerOffset,
-                        shape = shape
+                        shape = actualShape
                     )
                 }
             }
@@ -185,7 +234,7 @@ fun FilamentColorBox(
                     drawMatteStippling(
                         size = this.size,
                         isColorLight = isColorLight(color),
-                        shape = shape,
+                        shape = actualShape,
                         density = density
                     )
                 }
@@ -340,6 +389,36 @@ private fun DrawScope.drawMatteStippling(
                     )
                 )
             }
+        }
+    }
+}
+
+/**
+ * Draws vertical stripes pattern for Support materials
+ */
+private fun DrawScope.drawSupportStripes(
+    size: androidx.compose.ui.geometry.Size,
+    color: Color,
+    density: androidx.compose.ui.unit.Density
+) {
+    val stripeWidth = with(density) { 3.dp.toPx() }
+    val stripeSpacing = with(density) { 6.dp.toPx() }
+    val darkerColor = color.copy(alpha = color.alpha * 0.6f)
+    
+    // Create circular clipping path
+    val path = Path().apply {
+        addOval(androidx.compose.ui.geometry.Rect(androidx.compose.ui.geometry.Offset.Zero, size))
+    }
+    
+    clipPath(path) {
+        var x = 0f
+        while (x < size.width) {
+            drawRect(
+                color = darkerColor,
+                topLeft = androidx.compose.ui.geometry.Offset(x, 0f),
+                size = androidx.compose.ui.geometry.Size(stripeWidth, size.height)
+            )
+            x += stripeSpacing
         }
     }
 }
