@@ -220,8 +220,8 @@ class TrayTrackingRepository(private val context: Context) {
             val type = object : TypeToken<Map<String, TrayData>>() {}.type
             gson.fromJson(trayJson, type) ?: emptyMap()
         } catch (e: JsonSyntaxException) {
-            // If data is corrupted, clear and return empty
-            clearAllData()
+            // If data is corrupted, clear without refreshing flows to prevent recursion
+            sharedPreferences.edit().clear().apply()
             emptyMap()
         }
     }
