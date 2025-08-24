@@ -101,9 +101,9 @@ class OctagonShape : Shape {
             val centerY = size.height / 2f
             val radius = minOf(size.width, size.height) / 2f
             
-            // Create regular octagon
+            // Create regular octagon rotated so flat edge is horizontal at bottom
             for (i in 0..7) {
-                val angle = PI / 4 * i
+                val angle = PI / 4 * i + PI / 8  // Rotate by 22.5 degrees (π/8)
                 val x = centerX + radius * cos(angle).toFloat()
                 val y = centerY + radius * sin(angle).toFloat()
                 if (i == 0) {
@@ -182,6 +182,7 @@ class TeardropShape : Shape {
 
 /**
  * Vertical lines pattern shape for Support materials
+ * Creates a square shape made of vertical lines with gaps
  */
 class StripedShape : Shape {
     override fun createOutline(
@@ -189,10 +190,32 @@ class StripedShape : Shape {
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        // For striped pattern, we'll use a circular outline
-        // The stripes will be drawn as a pattern overlay
         val path = Path().apply {
-            addOval(Rect(Offset.Zero, size))
+            val centerX = size.width / 2f
+            val centerY = size.height / 2f
+            val squareSize = minOf(size.width, size.height) * 0.8f // 80% of container
+            val left = centerX - squareSize / 2f
+            val right = centerX + squareSize / 2f
+            val top = centerY - squareSize / 2f
+            val bottom = centerY + squareSize / 2f
+            
+            // Create vertical lines with gaps
+            val lineWidth = squareSize / 12f // Each line is 1/12th of square width
+            val gapWidth = lineWidth * 0.6f   // Gap is 60% of line width
+            val totalWidth = lineWidth + gapWidth
+            
+            var currentX = left
+            while (currentX < right) {
+                val lineRight = minOf(currentX + lineWidth, right)
+                
+                // Add vertical line rectangle
+                addRect(Rect(
+                    offset = Offset(currentX, top),
+                    size = Size(lineRight - currentX, squareSize)
+                ))
+                
+                currentX += totalWidth
+            }
         }
         return Outline.Generic(path)
     }
@@ -235,11 +258,11 @@ class DodecagonShape : Shape {
 fun getMaterialShape(materialType: MaterialType): Shape {
     return when (materialType) {
         MaterialType.PLA -> CircleShape
-        MaterialType.ABS -> TriangleShape()
+        MaterialType.ABS -> HexagonShape()
         MaterialType.ASA -> InvertedTriangleShape()
-        MaterialType.PETG -> HexagonShape()
+        MaterialType.PETG -> OctagonShape()
         MaterialType.TPU -> RoundedCornerShape(35) // Very rounded square
-        MaterialType.PC -> OctagonShape()
+        MaterialType.PC -> TriangleShape()
         MaterialType.PA -> DiamondShape()
         MaterialType.PVA -> TeardropShape()
         MaterialType.SUPPORT -> StripedShape()
