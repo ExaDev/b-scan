@@ -295,20 +295,25 @@ fun PrimarySpoolSection(
             filamentType = spool.filamentInfo.filamentType
         )
         
-        // Weight Management Section
-        val currentInventoryItem = inventoryItem
-        val currentFilamentStatus = filamentStatus
-        if (currentInventoryItem != null && currentFilamentStatus != null) {
-            FilamentStatusCard(
-                inventoryItem = currentInventoryItem,
-                filamentStatus = currentFilamentStatus,
-                preferredWeightUnit = preferredWeightUnit,
-                onRecordWeight = { showWeightDialog = true },
-                onSetConfiguration = {
-                    // TODO: Implement configuration selection dialog
-                }
-            )
-        }
+        // Weight Management Section - Always show for all spools
+        val currentInventoryItem = inventoryItem ?: InventoryItem(
+            trayUid = spool.trayUid,
+            currentConfigurationId = null,
+            expectedFilamentWeightGrams = null,
+            measurements = emptyList(),
+            lastUpdated = java.time.LocalDateTime.now()
+        )
+        val currentFilamentStatus = filamentStatus ?: inventoryRepository.calculateFilamentStatus(spool.trayUid)
+        
+        FilamentStatusCard(
+            inventoryItem = currentInventoryItem,
+            filamentStatus = currentFilamentStatus,
+            preferredWeightUnit = preferredWeightUnit,
+            onRecordWeight = { showWeightDialog = true },
+            onSetConfiguration = {
+                // TODO: Implement configuration selection dialog
+            }
+        )
         
         // Filament Type Info
         InfoCard(
