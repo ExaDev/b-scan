@@ -58,8 +58,13 @@ class MappingsRepository(private val context: Context) {
                 loadFromAssetsOrDefault()
             }
         } else {
-            // First run - load from bundled assets
-            loadFromAssetsOrDefault()
+            // First run or no cached data - load from bundled assets
+            val assetsMappings = loadFromAssetsOrDefault()
+            // Save to preferences for future use
+            if (assetsMappings.colorMappings.isNotEmpty()) {
+                saveMappings(assetsMappings)
+            }
+            assetsMappings
         }
     }
     
@@ -68,7 +73,6 @@ class MappingsRepository(private val context: Context) {
      */
     private fun loadFromAssetsOrDefault(): FilamentMappings {
         return try {
-            // Use the stored context
             val assetsInputStream = context.assets.open("filament_mappings.json")
             val jsonString = assetsInputStream.bufferedReader().use { it.readText() }
             
@@ -84,18 +88,17 @@ class MappingsRepository(private val context: Context) {
                 temperatureMappings = parseTemperatureMappings(jsonObject.getAsJsonObject("temperatureMappings"))
             )
             
-            // Save to preferences for future use
-            saveMappings(mappings)
-            
-            Log.i(TAG, "Loaded mappings from assets: version ${mappings.version}")
+            Log.i(TAG, "Loaded mappings from assets: version ${mappings.version}, " +
+                      "${mappings.colorMappings.size} colors, " +
+                      "${mappings.materialMappings.size} materials")
             mappings
             
         } catch (e: IOException) {
-            Log.w(TAG, "Failed to load from assets, using defaults", e)
-            FilamentMappings()
+            Log.w(TAG, "Assets file not found, creating empty mappings", e)
+            FilamentMappings.empty()
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing assets mappings, using defaults", e)
-            FilamentMappings()
+            Log.e(TAG, "Error parsing assets mappings, creating empty mappings", e)
+            FilamentMappings.empty()
         }
     }
     
@@ -172,10 +175,23 @@ class MappingsRepository(private val context: Context) {
     }
     
     /**
-     * Reset mappings to defaults
+     * Reset mappings by reloading from assets
      */
     fun resetToDefaults() {
-        saveMappings(FilamentMappings())
+        clearMappings()
+        // This will trigger loading from assets again
+        getCurrentMappings()
+    }
+    
+    /**
+     * Force reload from assets (useful for development)
+     */
+    fun reloadFromAssets(): FilamentMappings {
+        val mappings = loadFromAssetsOrDefault()
+        if (mappings.colorMappings.isNotEmpty()) {
+            saveMappings(mappings)
+        }
+        return mappings
     }
     
     /**
