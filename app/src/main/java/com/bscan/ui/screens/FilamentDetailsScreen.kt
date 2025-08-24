@@ -32,7 +32,8 @@ fun FilamentDetailsScreen(
         item {
             ColorPreviewCard(
                 colorHex = filamentInfo.colorHex,
-                colorName = filamentInfo.colorName
+                colorName = filamentInfo.colorName,
+                filamentType = filamentInfo.filamentType
             )
         }
         
