@@ -157,7 +157,7 @@ fun DetailScreen(
                 
                 if (detailType != DetailType.SKU && uiState.relatedSkus.isNotEmpty()) {
                     item {
-                        RelatedSkusSection(
+                        AssociatedSkuSection(
                             skus = uiState.relatedSkus,
                             onNavigateToDetails = onNavigateToDetails
                         )
@@ -405,13 +405,13 @@ fun RelatedTagsSection(
 }
 
 @Composable
-fun RelatedSkusSection(
+fun AssociatedSkuSection(
     skus: List<com.bscan.ui.screens.home.SkuInfo>,
     onNavigateToDetails: ((DetailType, String) -> Unit)?
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Related SKUs (${skus.size})",
+            text = "Associated SKU",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
