@@ -32,6 +32,10 @@ data class FilamentInfo(
     val shortProductionDateHex: String = "", // Block 13 raw hex data
     val unknownBlock17Hex: String = "", // Block 17 full raw hex data for research
     
+    // Exact SKU identification from RFID mappings
+    val exactSku: String? = null, // 5-digit SKU number (e.g., "10101") from exact RFID mapping
+    val rfidCode: String? = null, // Full RFID code (e.g., "GFA00:A00-K0") for debugging
+    
     // Purchase information
     val bambuProduct: BambuProduct? = null // Product information for purchase links
 )

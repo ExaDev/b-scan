@@ -10,18 +10,33 @@ import java.time.LocalDateTime
 data class FilamentMappings(
     val version: Int = 1,
     val lastUpdated: LocalDateTime = LocalDateTime.now(),
-    val colorMappings: Map<String, String> = emptyMap(),
     val materialMappings: Map<String, String> = emptyMap(),
     val brandMappings: Map<String, String> = emptyMap(),
-    val temperatureMappings: Map<String, TemperatureRange> = emptyMap()
+    val temperatureMappings: Map<String, TemperatureRange> = emptyMap(),
+    val productCatalog: List<ProductEntry> = emptyList() // SKU-specific product entries with embedded color information
 ) {
     
     /**
-     * Get color mapping with fallback to basic color name if not found
+     * Find products matching the given hex color and material type
      */
-    fun getColorName(hex: String): String {
-        return colorMappings[hex.uppercase()] ?: hex.removePrefix("#").let { hexCode ->
-            // Basic color fallback based on hex value patterns
+    fun findProductsByColor(hex: String, materialType: String? = null): List<ProductEntry> {
+        return productCatalog.filter { product ->
+            product.matchesColorAndMaterial(hex, materialType)
+        }
+    }
+    
+    /**
+     * Get color name from product catalog with fallback to basic color name if not found
+     */
+    fun getColorName(hex: String, materialType: String? = null): String {
+        // First try to find in product catalog
+        val matchingProducts = findProductsByColor(hex, materialType)
+        if (matchingProducts.isNotEmpty()) {
+            return matchingProducts.first().getDisplayColorName()
+        }
+        
+        // Fallback to basic color name based on hex value patterns
+        return hex.removePrefix("#").let { hexCode ->
             when {
                 hexCode.equals("000000", ignoreCase = true) -> "Black"
                 hexCode.equals("FFFFFF", ignoreCase = true) -> "White"
@@ -64,7 +79,7 @@ data class FilamentMappings(
          * Check if mappings are populated (not empty)
          */
         fun FilamentMappings.isPopulated(): Boolean {
-            return colorMappings.isNotEmpty() || 
+            return productCatalog.isNotEmpty() || 
                    materialMappings.isNotEmpty() || 
                    brandMappings.isNotEmpty() || 
                    temperatureMappings.isNotEmpty()
