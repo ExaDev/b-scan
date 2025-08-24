@@ -5,13 +5,12 @@ Simple Kotlin script to scrape current Bambu Lab product data and update the map
 ## Usage
 
 ```bash
-# Run the updater
-cd developer-tools/catalog-updater
-./gradlew run
+# Run the updater (from project root)
+./gradlew :developer-tools:catalog-updater:run
 
 # Or build and run JAR
-./gradlew jar
-java -jar build/libs/catalog-updater-1.0.0.jar
+./gradlew :developer-tools:catalog-updater:jar
+java -jar developer-tools/catalog-updater/build/libs/catalog-updater-1.0.0.jar
 ```
 
 ## What it does

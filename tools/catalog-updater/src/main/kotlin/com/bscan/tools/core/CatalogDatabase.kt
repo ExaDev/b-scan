@@ -169,7 +169,7 @@ class CatalogDatabase(
             appendLine()
             
             appendLine("## Active Products")
-            appendLine("=" * 50)
+            appendLine("=".repeat(50))
             
             val groupedProducts = catalog.products.groupBy { it.productHandle }
             
@@ -184,7 +184,7 @@ class CatalogDatabase(
             
             if (catalog.discontinuedProducts.isNotEmpty()) {
                 appendLine("\n## Discontinued Products")
-                appendLine("=" * 50)
+                appendLine("=".repeat(50))
                 
                 catalog.discontinuedProducts.forEach { product ->
                     appendLine("- ${product.name} - ${product.colorName ?: "Unknown Color"} (${product.variantId ?: "No Variant ID"})")
@@ -202,7 +202,7 @@ class CatalogDatabase(
         val summary = buildString {
             appendLine("Bambu Lab Catalog Summary")
             appendLine("Generated: ${catalog.metadata.generatedAt}")
-            appendLine("=" * 40)
+            appendLine("=".repeat(40))
             appendLine()
             
             appendLine("Statistics:")
@@ -238,7 +238,7 @@ class CatalogDatabase(
         val content = buildString {
             appendLine("Product Catalog Changes")
             appendLine("Generated: ${LocalDateTime.now()}")
-            appendLine("=" * 40)
+            appendLine("=".repeat(40))
             appendLine()
             
             val groupedChanges = changes.groupBy { it.changeType }

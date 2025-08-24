@@ -14,7 +14,6 @@ import java.time.format.DateTimeFormatter
 
 data class FilamentMappings(
     val version: Int,
-    val lastUpdated: String,
     val colorMappings: Map<String, String>,
     val materialMappings: Map<String, String>,
     val brandMappings: Map<String, String>,
@@ -36,17 +35,29 @@ data class ProductEntry(
     val colorHex: String?,
     val colorCode: String,
     val price: Double,
-    val available: Boolean,
+    val available: Boolean, // true = product line is active, false = discontinued/retired
     val url: String,
     val manufacturer: String,
     val materialType: String,
-    val internalCode: String
+    val internalCode: String,
+    val lastUpdated: String
 )
 
 fun main() = runBlocking {
     println("🔍 Updating Bambu Lab product catalog...")
+    println("ℹ️  Using 3-second delays with exponential backoff for rate limiting")
+    println()
     
-    val scraper = BambuStoreScraper()
+    // Load existing data if available
+    val outputFile = File("bambu_filament_mappings.json")
+    val existingMappings = loadExistingMappings(outputFile)
+    val allProducts = existingMappings?.productCatalog?.toMutableList() ?: mutableListOf<ProductEntry>()
+    
+    val scraper = BambuStoreScraper(
+        requestDelayMs = 3000, // Start with 3-second delays
+        maxRetries = 5,        // Allow more retries
+        backoffMultiplier = 2.5 // More aggressive backoff
+    )
     
     try {
         // Fetch product URLs
@@ -54,17 +65,29 @@ fun main() = runBlocking {
         val urls = scraper.fetchProductUrls()
         println("Found ${urls.size} product URLs")
         
-        // Extract product data
-        val allProducts = mutableListOf<ProductEntry>()
+        // Extract product data (continue with existing list)
         var processed = 0
         
         println("📊 Extracting product data...")
+        println("⚠️  This may take 5-10 minutes due to rate limiting...")
+        println()
+        
+        val overallStartTime = System.currentTimeMillis()
+        
         for ((index, url) in urls.withIndex()) {
             val progress = "${index + 1}/${urls.size}"
-            println("[$progress] Processing: ${url.substringAfterLast("/")}")
+            val productName = url.substringAfterLast("/")
+            println("[$progress] Processing: $productName")
             
+            val itemStartTime = System.currentTimeMillis()
             val products = scraper.extractProductData(url)
+            val duration = System.currentTimeMillis() - itemStartTime
+            val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            
             products.forEach { product ->
+                // Remove existing entries for this variant to avoid duplicates
+                allProducts.removeAll { it.variantId == product.variantId }
+                
                 allProducts.add(
                     ProductEntry(
                         variantId = product.variantId,
@@ -78,11 +101,38 @@ fun main() = runBlocking {
                         url = product.url,
                         manufacturer = "Bambu Lab",
                         materialType = extractMaterialType(product.productHandle),
-                        internalCode = generateInternalCode(product.productHandle)
+                        internalCode = generateInternalCode(product.productHandle),
+                        lastUpdated = timestamp
                     )
                 )
             }
+            
+            // Save incrementally after each product
+            if (products.isNotEmpty()) {
+                saveIncrementalUpdate(allProducts, outputFile)
+            }
             processed++
+            
+            val durationSeconds = duration / 1000.0
+            if (products.isEmpty()) {
+                println("  ❌ No products extracted (${durationSeconds}s)")
+            } else {
+                println("  ✅ Found ${products.size} SKUs (${durationSeconds}s)")
+            }
+            
+            // Show overall progress every 5 items
+            if (processed % 5 == 0 || processed == urls.size) {
+                val totalSKUs = allProducts.size
+                val elapsedSeconds = (System.currentTimeMillis() - overallStartTime) / 1000.0
+                val avgTimePerItem = if (processed > 0) elapsedSeconds / processed else 0.0
+                val remaining = urls.size - processed
+                val etaMinutes = (remaining * avgTimePerItem / 60).toInt()
+                println("  📊 Progress: $processed/${urls.size} products, $totalSKUs total SKUs")
+                if (remaining > 0) {
+                    println("  ⏱️  ETA: ~${etaMinutes} minutes remaining")
+                }
+                println()
+            }
         }
         
         println("✅ Extraction complete: ${allProducts.size} SKUs found")
@@ -91,10 +141,9 @@ fun main() = runBlocking {
         val colorMappings = generateColorMappings(allProducts)
         val materialMappings = generateMaterialMappings(allProducts)
         
-        // Create FilamentMappings structure
+        // Create final FilamentMappings structure
         val mappings = FilamentMappings(
             version = (System.currentTimeMillis() / 1000).toInt(), // Unix timestamp as version
-            lastUpdated = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             colorMappings = colorMappings,
             materialMappings = materialMappings,
             brandMappings = mapOf("BAMBU" to "Bambu Lab", "BL" to "Bambu Lab"),
@@ -102,13 +151,8 @@ fun main() = runBlocking {
             productCatalog = allProducts
         )
         
-        // Save to JSON file
-        val gson = GsonBuilder()
-            .setPrettyPrinting()
-            .create()
-        
-        val outputFile = File("bambu_filament_mappings.json")
-        outputFile.writeText(gson.toJson(mappings))
+        // Final save to JSON file
+        saveIncrementalUpdate(allProducts.toList(), outputFile, mappings)
         
         println("💾 Saved ${allProducts.size} products to ${outputFile.name}")
         println("📈 Generated ${colorMappings.size} color mappings")
@@ -251,5 +295,38 @@ private fun getDefaultTemperatureMappings(): Map<String, TemperatureRange> {
         "SUPPORT" to TemperatureRange(190, 220, 60),
         "PVA" to TemperatureRange(180, 200, 60)
     )
+}
+
+private fun loadExistingMappings(outputFile: File): FilamentMappings? {
+    if (!outputFile.exists()) return null
+    
+    return try {
+        val gson = GsonBuilder().create()
+        val json = outputFile.readText()
+        gson.fromJson(json, FilamentMappings::class.java)
+    } catch (e: Exception) {
+        println("⚠️  Could not load existing mappings: ${e.message}")
+        null
+    }
+}
+
+private fun saveIncrementalUpdate(products: List<ProductEntry>, outputFile: File, finalMappings: FilamentMappings? = null) {
+    val colorMappings = generateColorMappings(products)
+    val materialMappings = generateMaterialMappings(products)
+    
+    val mappings = finalMappings ?: FilamentMappings(
+        version = (System.currentTimeMillis() / 1000).toInt(),
+        colorMappings = colorMappings,
+        materialMappings = materialMappings,
+        brandMappings = mapOf("BAMBU" to "Bambu Lab", "BL" to "Bambu Lab"),
+        temperatureMappings = getDefaultTemperatureMappings(),
+        productCatalog = products
+    )
+    
+    val gson = GsonBuilder()
+        .setPrettyPrinting()
+        .create()
+    
+    outputFile.writeText(gson.toJson(mappings))
 }
 
