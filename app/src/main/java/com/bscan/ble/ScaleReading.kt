@@ -21,11 +21,13 @@ data class ScaleReading(
      * Format weight for display with appropriate precision
      */
     fun getDisplayWeight(): String {
+        val absWeight = kotlin.math.abs(weight)
+        val sign = if (weight < 0) "-" else ""
+        
         return when {
-            weight < 0 -> "-.--g"  // Negative weight (after tare)
-            weight < 10 -> "%.2fg".format(weight)
-            weight < 100 -> "%.1fg".format(weight) 
-            else -> "%.0fg".format(weight)
+            absWeight < 10 -> "${sign}%.2fg".format(absWeight)
+            absWeight < 100 -> "${sign}%.1fg".format(absWeight) 
+            else -> "${sign}%.0fg".format(absWeight)
         }
     }
     

@@ -27,11 +27,31 @@ class FFE0ScaleController(
         
         // Tare command for commodity scales (common pattern)
         private val TARE_COMMAND = byteArrayOf(0x54.toByte(), 0x41.toByte(), 0x52.toByte(), 0x45.toByte()) // "TARE" in ASCII
-        // Alternative tare commands to try
+        // Alternative tare commands to try (expanded based on common BLE scale protocols)
         private val TARE_COMMANDS = listOf(
-            byteArrayOf(0x54.toByte(), 0x41.toByte(), 0x52.toByte(), 0x45.toByte()), // "TARE"
-            byteArrayOf(0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte()), // Zero bytes
-            byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte()), // Max bytes
+            // Common single-byte commands
+            byteArrayOf(0x54.toByte()), // 'T' for Tare
+            byteArrayOf(0x5A.toByte()), // 'Z' for Zero
+            byteArrayOf(0x30.toByte()), // '0' for Zero
+            byteArrayOf(0x00.toByte()), // Null byte
+            
+            // Protocol-specific commands (08 07 03 format)
+            byteArrayOf(0x08.toByte(), 0x07.toByte(), 0x03.toByte(), 0x02.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte()), // Tare command in same format
+            byteArrayOf(0x08.toByte(), 0x05.toByte(), 0x03.toByte(), 0x02.toByte()), // Shorter tare command
+            
+            // Original ASCII commands  
+            byteArrayOf(0x54.toByte(), 0x41.toByte(), 0x52.toByte(), 0x45.toByte()), // "TARE" in ASCII
+            byteArrayOf(0x5A.toByte(), 0x45.toByte(), 0x52.toByte(), 0x4F.toByte()), // "ZERO" in ASCII
+            
+            // Common hex patterns
+            byteArrayOf(0x02.toByte()), // STX (Start of Text) - common command prefix
+            byteArrayOf(0x0A.toByte()), // Line Feed
+            byteArrayOf(0x0D.toByte()), // Carriage Return
+            byteArrayOf(0xFF.toByte()), // Max byte
+            
+            // Multi-byte patterns
+            byteArrayOf(0x00.toByte(), 0x00.toByte()), // Double zero
+            byteArrayOf(0xFF.toByte(), 0xFF.toByte()), // Double max
             byteArrayOf(0x30.toByte(), 0x30.toByte(), 0x30.toByte(), 0x30.toByte())  // "0000"
         )
     }
@@ -263,6 +283,20 @@ class FFE0ScaleController(
                 FFE0_CHARACTERISTIC_UUID.lowercase() -> {
                     val data = characteristic.value
                     if (data != null) {
+                        val hexData = data.joinToString(" ") { "%02X".format(it) }
+                        Log.d(TAG, "BLE Data Received: $hexData")
+                        
+                        // Check for power-off message
+                        if (data.size >= 4 && 
+                            data[0] == 0x08.toByte() && 
+                            data[1] == 0x04.toByte() && 
+                            data[2] == 0xAF.toByte() && 
+                            data[3] == 0x01.toByte()) {
+                            Log.i(TAG, "Scale power-off message detected: $hexData")
+                            // Scale is powering down, connection will be lost
+                            return
+                        }
+                        
                         parseWeightData(data)
                     }
                 }
@@ -288,26 +322,52 @@ class FFE0ScaleController(
     
     private fun parseWeightData(data: ByteArray) {
         try {
-            // Use our discovered 24-bit little-endian parsing
-            val weight = parseFFE0Bytes4_5_6LittleEndian(data)
-            
-            // Determine stability - for now, assume stable if weight hasn't changed much
-            val lastWeight = _currentReading.value?.weight ?: 0f
-            val isStable = kotlin.math.abs(weight - lastWeight) < 1.0f // Within 1g = stable
-            
-            val reading = ScaleReading(
-                weight = weight,
-                isStable = isStable,
-                unit = WeightUnit.GRAMS,
-                batteryLevel = _currentReading.value?.batteryLevel,
-                signalStrength = device.rssi,
-                rawData = data.clone(),
-                parsingMethod = "FFE0_BYTES_4_5_6_LITTLE_ENDIAN"
-            )
-            
-            _currentReading.value = reading
-            
-            Log.d(TAG, "Weight reading: ${reading.getDisplayWeight()} ${if (isStable) "[STABLE]" else "[UNSTABLE]"}")
+            // Check if this matches the new 08 07 03 protocol
+            if (data.size >= 7 && 
+                data[0] == 0x08.toByte() && 
+                data[1] == 0x07.toByte() && 
+                data[2] == 0x03.toByte()) {
+                
+                // Parse using new 08 07 03 protocol
+                val weight = parseFFE0Protocol_08_07_03(data)
+                val isStable = data[3] == 0x01.toByte() // Byte 3: 01 = stable, 00 = unstable
+                
+                val reading = ScaleReading(
+                    weight = weight,
+                    isStable = isStable,
+                    unit = WeightUnit.GRAMS,
+                    batteryLevel = _currentReading.value?.batteryLevel,
+                    signalStrength = device.rssi,
+                    rawData = data.clone(),
+                    parsingMethod = "FFE0_PROTOCOL_08_07_03"
+                )
+                
+                _currentReading.value = reading
+                
+                Log.d(TAG, "Weight reading: ${reading.getDisplayWeight()} ${if (isStable) "[STABLE]" else "[UNSTABLE]"} | Raw: ${reading.getRawDataHex()}")
+                
+            } else {
+                // Fallback to old 24-bit little-endian parsing for compatibility
+                val weight = parseFFE0Bytes4_5_6LittleEndian(data)
+                
+                // Determine stability - assume stable if weight hasn't changed much
+                val lastWeight = _currentReading.value?.weight ?: 0f
+                val isStable = kotlin.math.abs(weight - lastWeight) < 1.0f // Within 1g = stable
+                
+                val reading = ScaleReading(
+                    weight = weight,
+                    isStable = isStable,
+                    unit = WeightUnit.GRAMS,
+                    batteryLevel = _currentReading.value?.batteryLevel,
+                    signalStrength = device.rssi,
+                    rawData = data.clone(),
+                    parsingMethod = "FFE0_BYTES_4_5_6_LITTLE_ENDIAN"
+                )
+                
+                _currentReading.value = reading
+                
+                Log.d(TAG, "Weight reading: ${reading.getDisplayWeight()} ${if (isStable) "[STABLE]" else "[UNSTABLE]"} | Raw: ${reading.getRawDataHex()}")
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing weight data", e)
@@ -327,5 +387,44 @@ class FFE0ScaleController(
         val weightRaw = byte4 or (byte5 shl 8) or (byte6 shl 16)
         
         return if (weightRaw in 0..10000) weightRaw.toFloat() else 0f
+    }
+    
+    /**
+     * Parse weight from new 08 07 03 protocol
+     * Format: 08 07 03 [stability] [sign_byte] [magnitude_byte] 00
+     * Uses sign bit + magnitude format, NOT two's complement
+     */
+    private fun parseFFE0Protocol_08_07_03(data: ByteArray): Float {
+        if (data.size < 6) {
+            Log.w(TAG, "Insufficient data for 08 07 03 protocol: ${data.size} bytes")
+            return 0f
+        }
+        
+        val signByte = data[4].toInt() and 0xFF
+        val magnitudeByte = data[5].toInt() and 0xFF
+        
+        // Check if sign bit is set (0x80 = negative)
+        val isNegative = (signByte and 0x80) != 0
+        
+        // For weights > 255g, the overflow goes into the lower bits of signByte
+        // But for now, let's focus on the basic case where magnitude is in byte 5
+        val magnitude = magnitudeByte
+        
+        // Handle potential overflow into signByte lower bits
+        val overflowBits = signByte and 0x7F // Remove sign bit
+        val totalMagnitude = if (overflowBits > 0) {
+            // Weight > 255g: combine overflow + magnitude
+            (overflowBits * 256) + magnitude
+        } else {
+            // Weight <= 255g: just the magnitude
+            magnitude
+        }
+        
+        val weightFloat = if (isNegative) -totalMagnitude.toFloat() else totalMagnitude.toFloat()
+        
+        Log.d(TAG, "08 07 03 parsing: sign=0x${"%02X".format(data[4])}, mag=0x${"%02X".format(data[5])}, negative=$isNegative, overflow=$overflowBits, totalMag=$totalMagnitude, weight=${weightFloat}g")
+        
+        // Sanity check: reject unreasonable weights
+        return if (weightFloat >= -5000f && weightFloat <= 10000f) weightFloat else 0f
     }
 }

@@ -14,6 +14,7 @@ import com.bscan.model.BleScalesConfigs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.*
 import java.util.UUID
 
 /**
@@ -28,6 +29,7 @@ class BleScalesManager(private val context: Context) {
     
     private val handler = Handler(Looper.getMainLooper())
     private val scanTimeoutMs = 30000L // 30 seconds
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
     // Discovered devices
     private val _discoveredDevices = MutableStateFlow<List<DiscoveredBleDevice>>(emptyList())
@@ -37,9 +39,20 @@ class BleScalesManager(private val context: Context) {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
     
-    // Connection state
-    private val _connectionState = MutableStateFlow(BleConnectionState.DISCONNECTED)
-    val connectionState: StateFlow<BleConnectionState> = _connectionState.asStateFlow()
+    // Current connected scale controller
+    private var currentScaleController: ScaleController? = null
+    
+    // Current weight reading
+    private val _currentReading = MutableStateFlow<ScaleReading?>(null)
+    val currentReading: StateFlow<ScaleReading?> = _currentReading.asStateFlow()
+    
+    // Connection state - maintain our own state flow for consistency
+    private val _connectionState = MutableStateFlow(ScaleConnectionState.DISCONNECTED)
+    val connectionState: StateFlow<ScaleConnectionState> = _connectionState.asStateFlow()
+    
+    // Reading state - maintain our own state flow for consistency  
+    private val _isReading = MutableStateFlow(false)
+    val isReading: StateFlow<Boolean> = _isReading.asStateFlow()
     
     private var scanTimeoutRunnable: Runnable? = null
     
@@ -216,10 +229,176 @@ class BleScalesManager(private val context: Context) {
     }
     
     /**
+     * Connect to a discovered BLE scale device
+     */
+    suspend fun connectToScale(device: DiscoveredBleDevice): ScaleCommandResult {
+        if (currentScaleController != null) {
+            Log.w(TAG, "Already connected to a scale, disconnecting first")
+            disconnectFromScale()
+        }
+        
+        Log.i(TAG, "Connecting to scale: ${device.displayName} (${device.address})")
+        
+        val controller = ScaleControllerFactory.createController(device)
+        currentScaleController = controller
+        
+        val result = controller.connect(device)
+        
+        if (result is ScaleCommandResult.Success) {
+            // Start monitoring weight readings
+            scope.launch {
+                controller.currentReading.collect { reading ->
+                    _currentReading.value = reading
+                }
+            }
+            
+            // Start monitoring connection state
+            scope.launch {
+                controller.connectionState.collect { state ->
+                    _connectionState.value = state
+                }
+            }
+            
+            // Start monitoring reading state
+            scope.launch {
+                controller.isReading.collect { reading ->
+                    _isReading.value = reading
+                }
+            }
+            
+            Log.i(TAG, "Successfully connected to scale: ${device.displayName}")
+        } else {
+            Log.w(TAG, "Failed to connect to scale: $result")
+            currentScaleController = null
+            _connectionState.value = ScaleConnectionState.DISCONNECTED
+            _isReading.value = false
+        }
+        
+        return result
+    }
+    
+    /**
+     * Disconnect from current scale
+     */
+    suspend fun disconnectFromScale(): ScaleCommandResult {
+        val controller = currentScaleController ?: return ScaleCommandResult.Success
+        
+        Log.i(TAG, "Disconnecting from scale")
+        val result = controller.disconnect()
+        
+        currentScaleController = null
+        _currentReading.value = null
+        _connectionState.value = ScaleConnectionState.DISCONNECTED
+        _isReading.value = false
+        
+        return result
+    }
+    
+    /**
+     * Start continuous weight reading from connected scale
+     */
+    suspend fun startWeightReading(): ScaleCommandResult {
+        val controller = currentScaleController ?: return ScaleCommandResult.Error("No scale connected")
+        return controller.startContinuousReading()
+    }
+    
+    /**
+     * Stop continuous weight reading
+     */
+    suspend fun stopWeightReading(): ScaleCommandResult {
+        val controller = currentScaleController ?: return ScaleCommandResult.Success
+        return controller.stopContinuousReading()
+    }
+    
+    /**
+     * Send tare (zero) command to connected scale
+     */
+    suspend fun tareScale(): ScaleCommandResult {
+        val controller = currentScaleController ?: return ScaleCommandResult.Error("No scale connected")
+        
+        if (!controller.supportsCommand(ScaleCommand.Tare)) {
+            return ScaleCommandResult.NotSupported
+        }
+        
+        Log.i(TAG, "Sending tare command to scale")
+        return controller.tareScale()
+    }
+    
+    /**
+     * Get single weight reading from connected scale
+     */
+    suspend fun getSingleReading(): ScaleReading? {
+        val controller = currentScaleController ?: return null
+        return controller.getSingleReading()
+    }
+    
+    /**
+     * Check if currently connected to a scale
+     */
+    fun isConnectedToScale(): Boolean {
+        return currentScaleController != null && 
+               _connectionState.value in listOf(ScaleConnectionState.CONNECTED, ScaleConnectionState.READING)
+    }
+    
+    /**
+     * Get currently connected scale device info
+     */
+    fun getConnectedScaleInfo(): DiscoveredBleDevice? {
+        return currentScaleController?.getDeviceInfo()
+    }
+    
+    /**
+     * Attempt to reconnect to previously configured scale
+     */
+    suspend fun reconnectToStoredScale(
+        storedAddress: String,
+        storedName: String,
+        permissionHandler: BlePermissionHandler
+    ): ScaleCommandResult {
+        if (!permissionHandler.hasAllPermissions()) {
+            return ScaleCommandResult.Error("Missing BLE permissions")
+        }
+        
+        if (bluetoothAdapter?.isEnabled != true) {
+            return ScaleCommandResult.Error("Bluetooth is not enabled")
+        }
+        
+        try {
+            // Try to get the device directly by address (works for previously discovered devices)
+            val bluetoothDevice = bluetoothAdapter?.getRemoteDevice(storedAddress)
+                ?: return ScaleCommandResult.Error("Cannot create device from stored address")
+            
+            // Create a DiscoveredBleDevice from the stored info
+            val discoveredDevice = DiscoveredBleDevice(
+                name = storedName,
+                address = storedAddress,
+                rssi = -50, // Placeholder RSSI for stored device
+                advertisedServices = emptyList(), // Will be discovered during connection
+                scaleConfig = BleScalesConfigs.ALL_CONFIGS.firstOrNull { it.id == "generic_ffe0" }, // Default to FFE0
+                device = bluetoothDevice
+            )
+            
+            Log.i(TAG, "Attempting to reconnect to stored scale: $storedName ($storedAddress)")
+            return connectToScale(discoveredDevice)
+            
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Security exception during reconnection: ${e.message}")
+            return ScaleCommandResult.Error("Permission denied during reconnection")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during reconnection: ${e.message}", e)
+            return ScaleCommandResult.Error("Reconnection failed: ${e.message}")
+        }
+    }
+    
+    /**
      * Cleanup resources
      */
     fun cleanup() {
         stopScanning()
+        scope.launch {
+            disconnectFromScale()
+        }
+        scope.cancel()
     }
     
     companion object {
@@ -249,13 +428,3 @@ data class DiscoveredBleDevice(
         }
 }
 
-/**
- * BLE connection states
- */
-enum class BleConnectionState {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED,
-    DISCONNECTING,
-    ERROR
-}

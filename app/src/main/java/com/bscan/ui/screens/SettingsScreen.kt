@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import android.util.Log
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.DataExportManager
 import com.bscan.repository.ExportScope
@@ -31,6 +32,8 @@ import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ble.BlePermissionHandler
 import com.bscan.ble.BleScalesManager
+import com.bscan.ble.ScaleConnectionState
+import com.bscan.ble.ScaleCommandResult
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -849,8 +852,43 @@ private fun BleScalesPreferenceCard(
     val isScanning by bleScalesManager.isScanning.collectAsStateWithLifecycle()
     val discoveredDevices by bleScalesManager.discoveredDevices.collectAsStateWithLifecycle()
     val permissionState by blePermissionHandler.permissionState.collectAsStateWithLifecycle()
+    val currentReading by bleScalesManager.currentReading.collectAsStateWithLifecycle()
+    val connectionState by bleScalesManager.connectionState.collectAsStateWithLifecycle()
+    val isReading by bleScalesManager.isReading.collectAsStateWithLifecycle()
     
     var showDeviceSelection by remember { mutableStateOf(false) }
+    var isTaring by remember { mutableStateOf(false) }
+    
+    val scope = rememberCoroutineScope()
+    
+    // Auto-connect to stored scale on first load
+    LaunchedEffect(bleScalesManager, preferredScaleName) {
+        // Always attempt to reconnect if we have stored scale info and aren't connected
+        val storedAddress = userPrefsRepository.getPreferredScaleAddress()
+        val storedName = userPrefsRepository.getPreferredScaleName()
+        
+        if (storedAddress != null && storedName != null && !bleScalesManager.isConnectedToScale()) {
+            Log.i("BleScalesSettings", "Attempting auto-reconnect to stored scale: $storedName ($storedAddress)")
+            
+            val result = bleScalesManager.reconnectToStoredScale(
+                storedAddress, 
+                storedName, 
+                blePermissionHandler
+            )
+            
+            when (result) {
+                is ScaleCommandResult.Success -> {
+                    Log.i("BleScalesSettings", "Auto-reconnect successful")
+                }
+                is ScaleCommandResult.Error -> {
+                    Log.w("BleScalesSettings", "Auto-reconnect failed: ${result.message}")
+                }
+                else -> {
+                    Log.w("BleScalesSettings", "Auto-reconnect failed: $result")
+                }
+            }
+        }
+    }
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -879,18 +917,38 @@ private fun BleScalesPreferenceCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    val isActuallyConnected = bleScalesManager.isConnectedToScale()
+                    val hasStoredScale = preferredScaleName != null
+                    
                     Text(
-                        text = if (preferredScaleName != null) "Connected Scale" else "No Scale Connected",
+                        text = when {
+                            isActuallyConnected -> "Connected Scale"
+                            hasStoredScale -> "Configured Scale (Not Connected)"
+                            else -> "No Scale Connected"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    preferredScaleName?.let { scaleName ->
+                    
+                    if (hasStoredScale) {
                         Text(
-                            text = scaleName,
+                            text = preferredScaleName!!,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = if (isActuallyConnected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
-                    } ?: run {
+                        
+                        if (!isActuallyConnected) {
+                            Text(
+                                text = "Tap Connect to establish BLE connection",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    } else {
                         Text(
                             text = "Tap to connect a BLE scale",
                             style = MaterialTheme.typography.bodySmall,
@@ -899,16 +957,52 @@ private fun BleScalesPreferenceCard(
                     }
                 }
                 
-                if (preferredScaleName != null) {
-                    // Disconnect button
-                    OutlinedButton(
-                        onClick = {
-                            userPrefsRepository.clearBleScalesConfiguration()
-                            isScalesEnabled = false
-                            preferredScaleName = null
-                        }
+                val isActuallyConnected = bleScalesManager.isConnectedToScale()
+                val hasStoredScale = preferredScaleName != null
+                
+                if (hasStoredScale) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Disconnect")
+                        if (!isActuallyConnected) {
+                            // Connect button (reconnect to stored scale)
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        val storedAddress = userPrefsRepository.getPreferredScaleAddress()
+                                        if (storedAddress != null) {
+                                            bleScalesManager.reconnectToStoredScale(
+                                                storedAddress, 
+                                                preferredScaleName!!, 
+                                                blePermissionHandler
+                                            )
+                                        }
+                                    }
+                                },
+                                enabled = connectionState != ScaleConnectionState.CONNECTING
+                            ) {
+                                Text(if (connectionState == ScaleConnectionState.CONNECTING) "Connecting..." else "Connect")
+                            }
+                        }
+                        
+                        // Disconnect/Remove button
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    // Actual BLE disconnection if connected
+                                    if (isActuallyConnected) {
+                                        bleScalesManager.disconnectFromScale()
+                                    }
+                                    
+                                    // Clear preferences
+                                    userPrefsRepository.clearBleScalesConfiguration()
+                                    isScalesEnabled = false
+                                    preferredScaleName = null
+                                }
+                            }
+                        ) {
+                            Text(if (isActuallyConnected) "Disconnect" else "Remove")
+                        }
                     }
                 } else {
                     // Connect button
@@ -960,6 +1054,190 @@ private fun BleScalesPreferenceCard(
                             userPrefsRepository.setBleScalesAutoConnectEnabled(enabled)
                         }
                     )
+                }
+                
+                // Debug information panel (when connected)
+                if (bleScalesManager.isConnectedToScale()) {
+                    HorizontalDivider()
+                    
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Scale Debug Information",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        // Connection status
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Connection Status:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            val statusColor = when (connectionState) {
+                                ScaleConnectionState.CONNECTED -> MaterialTheme.colorScheme.primary
+                                ScaleConnectionState.READING -> MaterialTheme.colorScheme.tertiary
+                                ScaleConnectionState.CONNECTING -> MaterialTheme.colorScheme.secondary
+                                ScaleConnectionState.ERROR -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                            
+                            Text(
+                                text = connectionState.name.lowercase().replaceFirstChar { it.uppercase() },
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = statusColor
+                            )
+                        }
+                        
+                        // Current weight reading
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Current Weight:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            
+                            currentReading?.let { reading ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = reading.getDisplayWeight(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = reading.getStabilityIcon(),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            } ?: Text(
+                                text = "No reading",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        // Reading status
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Reading Status:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (isReading) "Active" else "Inactive",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isReading) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        // Raw data display
+                        currentReading?.let { reading ->
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "Raw Data:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        Text(
+                                            text = reading.getRawDataHex(),
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "Method: ${reading.parsingMethod}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "Age: ${reading.getAgeString()}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Control buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Start/Stop reading button
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        if (isReading) {
+                                            bleScalesManager.stopWeightReading()
+                                        } else {
+                                            bleScalesManager.startWeightReading()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = connectionState == ScaleConnectionState.CONNECTED || connectionState == ScaleConnectionState.READING
+                            ) {
+                                Text(if (isReading) "Stop Reading" else "Start Reading")
+                            }
+                            
+                            // Tare button
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        isTaring = true
+                                        val result = bleScalesManager.tareScale()
+                                        isTaring = false
+                                        
+                                        // Could add toast/snackbar feedback here
+                                    }
+                                },
+                                enabled = !isTaring && connectionState in listOf(ScaleConnectionState.CONNECTED, ScaleConnectionState.READING)
+                            ) {
+                                if (isTaring) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Text("Tare")
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -1037,18 +1315,28 @@ private fun BleScalesPreferenceCard(
                                     
                                     Button(
                                         onClick = {
-                                            // Connect to this device
-                                            userPrefsRepository.setPreferredScaleAddress(device.address)
-                                            userPrefsRepository.setPreferredScaleName(device.displayName)
-                                            userPrefsRepository.setBleScalesEnabled(true)
-                                            
-                                            // Update local state
-                                            isScalesEnabled = true
-                                            preferredScaleName = device.displayName
-                                            showDeviceSelection = false
-                                            
-                                            // Stop scanning
-                                            bleScalesManager.stopScanning()
+                                            scope.launch {
+                                                // Stop scanning first
+                                                bleScalesManager.stopScanning()
+                                                
+                                                // Attempt actual BLE connection
+                                                val result = bleScalesManager.connectToScale(device)
+                                                
+                                                if (result is ScaleCommandResult.Success) {
+                                                    // Save preferences only on successful connection
+                                                    userPrefsRepository.setPreferredScaleAddress(device.address)
+                                                    userPrefsRepository.setPreferredScaleName(device.displayName)
+                                                    userPrefsRepository.setBleScalesEnabled(true)
+                                                    
+                                                    // Update local state
+                                                    isScalesEnabled = true
+                                                    preferredScaleName = device.displayName
+                                                    showDeviceSelection = false
+                                                } else {
+                                                    // Handle connection failure - could show toast/snackbar here
+                                                    // For now, just continue showing device selection
+                                                }
+                                            }
                                         }
                                     ) {
                                         Text("Connect")
