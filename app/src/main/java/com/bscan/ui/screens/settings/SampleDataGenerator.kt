@@ -11,14 +11,132 @@ import com.bscan.data.BambuProductDatabase
 import java.time.LocalDateTime
 import kotlin.random.Random
 
+/**
+ * Statistics about generated sample data
+ */
+data class GenerationStats(
+    val totalScans: Int,
+    val successfulScans: Int,
+    val skusCovered: Int,
+    val totalSpools: Int
+) {
+    val failedScans: Int get() = totalScans - successfulScans
+    val successRate: Float get() = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f
+}
+
+/**
+ * Internal stats for scan generation per tag
+ */
+private data class TagScanStats(
+    val total: Int,
+    val successful: Int
+)
+
 class SampleDataGenerator {
     
-    suspend fun generateSampleData(
+    /**
+     * Generate sample data with complete SKU coverage.
+     * Ensures every SKU in the database gets at least one scan, plus additional random data.
+     */
+    suspend fun generateWithCompleteSkuCoverage(
+        repository: ScanHistoryRepository,
+        additionalRandomSpools: Int = 50,
+        minScans: Int = 1,
+        maxScans: Int = 5
+    ): GenerationStats {
+        val allProducts = BambuProductDatabase.getAllProducts()
+        var trayCounter = 1
+        var totalScansGenerated = 0
+        var successfulScans = 0
+        
+        // PHASE 1: Ensure every SKU has at least one scan of at least one tag
+        allProducts.forEachIndexed { productIndex, product ->
+            val trayUid = "TRAY${trayCounter.toString().padStart(3, '0')}"
+            val baseTagId = String.format("%08X", productIndex * 2 + 1000)
+            trayCounter++
+            
+            // Each spool has exactly 2 tags, but we MIGHT have scanned both (less common)
+            val scanBothTags = Random.nextFloat() < 0.3f // 30% chance of scanning both tags
+            val tagsToScan = if (scanBothTags) 2 else 1
+            
+            repeat(tagsToScan) { tagIndex ->
+                val tagUid = String.format("%08X", baseTagId.toInt(16) + tagIndex)
+                
+                // Random number of scans for this tag (at least 1 to guarantee coverage)
+                val scanCount = Random.nextInt(minScans, maxScans + 1)
+                val scansGenerated = generateScansForTag(repository, product, tagUid, trayUid, scanCount)
+                totalScansGenerated += scansGenerated.total
+                successfulScans += scansGenerated.successful
+            }
+        }
+        
+        // PHASE 2: Add additional random spools for variety
+        repeat(additionalRandomSpools) { spoolIndex ->
+            val randomProduct = allProducts[Random.nextInt(allProducts.size)]
+            val trayUid = "TRAY${trayCounter.toString().padStart(3, '0')}"
+            val baseTagId = String.format("%08X", (allProducts.size + spoolIndex) * 2 + 1000)
+            trayCounter++
+            
+            // Each additional spool also has exactly 2 tags, we MIGHT scan both (less common)
+            val scanBothTags = Random.nextFloat() < 0.3f // 30% chance of scanning both tags
+            val tagsToScan = if (scanBothTags) 2 else 1
+            
+            repeat(tagsToScan) { tagIndex ->
+                val tagUid = String.format("%08X", baseTagId.toInt(16) + tagIndex)
+                val scanCount = Random.nextInt(minScans, maxScans + 1)
+                val scansGenerated = generateScansForTag(repository, randomProduct, tagUid, trayUid, scanCount)
+                totalScansGenerated += scansGenerated.total
+                successfulScans += scansGenerated.successful
+            }
+        }
+        
+        return GenerationStats(
+            totalScans = totalScansGenerated,
+            successfulScans = successfulScans,
+            skusCovered = allProducts.size,
+            totalSpools = allProducts.size + additionalRandomSpools
+        )
+    }
+    
+    /**
+     * Generate minimal data with exactly one scan per SKU
+     */
+    suspend fun generateMinimalCoverage(
+        repository: ScanHistoryRepository
+    ): GenerationStats {
+        val allProducts = BambuProductDatabase.getAllProducts()
+        var totalScansGenerated = 0
+        var successfulScans = 0
+        
+        allProducts.forEachIndexed { productIndex, product ->
+            val trayUid = "TRAY${(productIndex + 1).toString().padStart(3, '0')}"
+            val tagUid = String.format("%08X", productIndex + 1000)
+            
+            // Generate exactly one successful scan per SKU
+            val scansGenerated = generateScansForTag(repository, product, tagUid, trayUid, scanCount = 1, forceSuccess = true)
+            totalScansGenerated += scansGenerated.total
+            successfulScans += scansGenerated.successful
+        }
+        
+        return GenerationStats(
+            totalScans = totalScansGenerated,
+            successfulScans = successfulScans,
+            skusCovered = allProducts.size,
+            totalSpools = allProducts.size
+        )
+    }
+    
+    /**
+     * Original random sample generation (renamed for clarity)
+     */
+    suspend fun generateRandomSample(
         repository: ScanHistoryRepository,
         spoolCount: Int = 10,
         minScans: Int = 1,
         maxScans: Int = 10
-    ) {
+    ): GenerationStats {
+        var totalScansGenerated = 0
+        var successfulScans = 0
         val bambuProducts = BambuProductDatabase.getAllProducts()
         
         repeat(spoolCount) { spoolIndex ->
@@ -26,67 +144,100 @@ class SampleDataGenerator {
             val trayUid = "TRAY${(spoolIndex + 1).toString().padStart(3, '0')}"
             val baseTagId = String.format("%08X", spoolIndex * 2 + 1000)
             
-            // Randomly choose 1 or both tags for this spool
-            val useBothTags = Random.nextBoolean()
-            val tagsToGenerate = if (useBothTags) 2 else 1
+            // Each spool has exactly 2 tags, but we MIGHT have scanned both (less common)
+            val scanBothTags = Random.nextFloat() < 0.3f // 30% chance of scanning both tags
+            val tagsToScan = if (scanBothTags) 2 else 1
             
-            repeat(tagsToGenerate) { tagIndex ->
+            repeat(tagsToScan) { tagIndex ->
                 val tagUid = String.format("%08X", baseTagId.toInt(16) + tagIndex)
                 
-                val filamentInfo = createSampleFilamentInfo(
-                    tagUid = tagUid,
-                    trayUid = trayUid,
-                    product = product
-                )
-                
-                // Generate scan history for this tag
                 val scanCount = Random.nextInt(minScans, maxScans + 1)
-                val successRate = Random.nextFloat() * 0.4f + 0.6f // 60-100% success rate
-                val successCount = (scanCount * successRate).toInt().coerceAtLeast(1)
-                
-                repeat(scanCount) { scanIndex ->
-                    val isSuccess = scanIndex < successCount
-                    val scanTime = LocalDateTime.now().minusDays(Random.nextLong(0, 30))
-                    
-                    val encryptedData = EncryptedScanData(
-                        timestamp = scanTime,
-                        tagUid = tagUid,
-                        technology = "MifareClassic",
-                        tagFormat = TagFormat.BAMBU_PROPRIETARY,
-                        manufacturerName = "Bambu Lab",
-                        encryptedData = ByteArray(1024) { Random.nextInt(256).toByte() },
-                        tagSizeBytes = 1024,
-                        sectorCount = 16,
-                        scanDurationMs = Random.nextLong(1000, 5000)
-                    )
-                    
-                    val decryptedData = DecryptedScanData(
-                        timestamp = scanTime,
-                        tagUid = tagUid,
-                        technology = "MifareClassic",
-                        tagFormat = TagFormat.BAMBU_PROPRIETARY,
-                        manufacturerName = "Bambu Lab",
-                        scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
-                        decryptedBlocks = if (isSuccess) createSampleBlocks(
-                            product = product,
-                            spoolWeight = Random.nextInt(200, 1000),
-                            trayUid = trayUid
-                        ) else emptyMap(),
-                        authenticatedSectors = if (isSuccess) (0..15).toList() else emptyList(),
-                        failedSectors = if (isSuccess) emptyList() else (0..15).toList(),
-                        usedKeys = createSampleUsedKeys(isSuccess),
-                        derivedKeys = listOf("KEY1", "KEY2", "KEY3"),
-                        tagSizeBytes = 1024,
-                        sectorCount = 16,
-                        errors = if (isSuccess) emptyList() else listOf("Authentication failed"),
-                        keyDerivationTimeMs = Random.nextLong(100, 500),
-                        authenticationTimeMs = Random.nextLong(500, 2000)
-                    )
-                    
-                    repository.saveScan(encryptedData, decryptedData)
-                }
+                val scansGenerated = generateScansForTag(repository, product, tagUid, trayUid, scanCount)
+                totalScansGenerated += scansGenerated.total
+                successfulScans += scansGenerated.successful
             }
         }
+        
+        return GenerationStats(
+            totalScans = totalScansGenerated,
+            successfulScans = successfulScans,
+            skusCovered = minOf(spoolCount, bambuProducts.size),
+            totalSpools = spoolCount
+        )
+    }
+    
+    /**
+     * Backward compatibility method that delegates to generateRandomSample
+     */
+    suspend fun generateSampleData(
+        repository: ScanHistoryRepository,
+        spoolCount: Int = 10,
+        minScans: Int = 1,
+        maxScans: Int = 10
+    ) {
+        generateRandomSample(repository, spoolCount, minScans, maxScans)
+    }
+    
+    /**
+     * Helper method to generate scans for a single tag
+     */
+    private suspend fun generateScansForTag(
+        repository: ScanHistoryRepository,
+        product: BambuProduct,
+        tagUid: String,
+        trayUid: String,
+        scanCount: Int,
+        forceSuccess: Boolean = false
+    ): TagScanStats {
+        val successRate = if (forceSuccess) 1.0f else Random.nextFloat() * 0.4f + 0.6f // 60-100% success rate
+        val successCount = if (forceSuccess) scanCount else (scanCount * successRate).toInt().coerceAtLeast(1)
+        var actualSuccessCount = 0
+        
+        repeat(scanCount) { scanIndex ->
+            val isSuccess = scanIndex < successCount
+            if (isSuccess) actualSuccessCount++
+            
+            val scanTime = LocalDateTime.now().minusDays(Random.nextLong(0, 30))
+            
+            val encryptedData = EncryptedScanData(
+                timestamp = scanTime,
+                tagUid = tagUid,
+                technology = "MifareClassic",
+                tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                manufacturerName = "Bambu Lab",
+                encryptedData = ByteArray(1024) { Random.nextInt(256).toByte() },
+                tagSizeBytes = 1024,
+                sectorCount = 16,
+                scanDurationMs = Random.nextLong(1000, 5000)
+            )
+            
+            val decryptedData = DecryptedScanData(
+                timestamp = scanTime,
+                tagUid = tagUid,
+                technology = "MifareClassic",
+                tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                manufacturerName = "Bambu Lab",
+                scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
+                decryptedBlocks = if (isSuccess) createSampleBlocks(
+                    product = product,
+                    spoolWeight = Random.nextInt(200, 1000),
+                    trayUid = trayUid
+                ) else emptyMap(),
+                authenticatedSectors = if (isSuccess) (0..15).toList() else emptyList(),
+                failedSectors = if (isSuccess) emptyList() else (0..15).toList(),
+                usedKeys = createSampleUsedKeys(isSuccess),
+                derivedKeys = listOf("KEY1", "KEY2", "KEY3"),
+                tagSizeBytes = 1024,
+                sectorCount = 16,
+                errors = if (isSuccess) emptyList() else listOf("Authentication failed"),
+                keyDerivationTimeMs = Random.nextLong(100, 500),
+                authenticationTimeMs = Random.nextLong(500, 2000)
+            )
+            
+            repository.saveScan(encryptedData, decryptedData)
+        }
+        
+        return TagScanStats(total = scanCount, successful = actualSuccessCount)
     }
     
     private fun createSampleFilamentInfo(
