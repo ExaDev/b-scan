@@ -10,60 +10,65 @@ import java.time.LocalDateTime
 data class FilamentMappings(
     val version: Int = 1,
     val lastUpdated: LocalDateTime = LocalDateTime.now(),
-    val colorMappings: Map<String, String> = defaultColorMappings,
-    val materialMappings: Map<String, String> = defaultMaterialMappings,
-    val brandMappings: Map<String, String> = defaultBrandMappings,
-    val temperatureMappings: Map<String, TemperatureRange> = defaultTemperatureMappings
+    val colorMappings: Map<String, String> = emptyMap(),
+    val materialMappings: Map<String, String> = emptyMap(),
+    val brandMappings: Map<String, String> = emptyMap(),
+    val temperatureMappings: Map<String, TemperatureRange> = emptyMap()
 ) {
+    
+    /**
+     * Get color mapping with fallback to basic color name if not found
+     */
+    fun getColorName(hex: String): String {
+        return colorMappings[hex.uppercase()] ?: hex.removePrefix("#").let { hexCode ->
+            // Basic color fallback based on hex value patterns
+            when {
+                hexCode.equals("000000", ignoreCase = true) -> "Black"
+                hexCode.equals("FFFFFF", ignoreCase = true) -> "White"
+                hexCode.startsWith("FF", ignoreCase = true) && hexCode.endsWith("0000", ignoreCase = true) -> "Red"
+                hexCode.startsWith("00FF", ignoreCase = true) -> "Green"
+                hexCode.endsWith("FF", ignoreCase = true) && hexCode.startsWith("0000", ignoreCase = true) -> "Blue"
+                else -> "Unknown Color (#$hexCode)"
+            }
+        }
+    }
+    
+    /**
+     * Get material name with fallback to code if not found
+     */
+    fun getMaterialName(code: String): String {
+        return materialMappings[code.uppercase()] ?: code.replace("_", " ").lowercase()
+            .split(" ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+    }
+    
+    /**
+     * Get brand name with fallback to code if not found
+     */
+    fun getBrandName(code: String): String {
+        return brandMappings[code.uppercase()] ?: code
+    }
+    
+    /**
+     * Get temperature range with fallback to PLA defaults if not found
+     */
+    fun getTemperatureRange(materialCode: String): TemperatureRange {
+        return temperatureMappings[materialCode.uppercase()] ?: TemperatureRange(190, 220, 60)
+    }
     companion object {
-        val defaultColorMappings = mapOf(
-            "#000000" to "Black",
-            "#FFFFFF" to "White", 
-            "#FF0000" to "Red",
-            "#00FF00" to "Green",
-            "#0000FF" to "Blue",
-            "#FFFF00" to "Yellow",
-            "#FF00FF" to "Magenta",
-            "#00FFFF" to "Cyan",
-            "#FFA500" to "Orange",
-            "#800080" to "Purple",
-            "#FFC0CB" to "Pink",
-            "#A52A2A" to "Brown",
-            "#808080" to "Grey",
-            "#C0C0C0" to "Silver",
-            "#FFD700" to "Gold",
-            "#008000" to "Dark Green",
-            "#000080" to "Navy",
-            "#800000" to "Maroon",
-            "#008080" to "Teal",
-            "#808000" to "Olive"
-        )
+        /**
+         * Create empty mappings - data will be loaded from JSON assets at runtime
+         */
+        fun empty(): FilamentMappings = FilamentMappings()
         
-        val defaultMaterialMappings = mapOf(
-            "PLA" to "PLA (Polylactic Acid)",
-            "ABS" to "ABS (Acrylonitrile Butadiene Styrene)",
-            "PETG" to "PETG (Polyethylene Terephthalate Glycol)",
-            "TPU" to "TPU (Thermoplastic Polyurethane)",
-            "WOOD" to "Wood-filled PLA",
-            "CARBON" to "Carbon Fiber",
-            "METAL" to "Metal-filled",
-            "SILK" to "Silk PLA",
-            "MATTE" to "Matte PLA",
-            "BASIC" to "Basic PLA"
-        )
-        
-        val defaultBrandMappings = mapOf(
-            "BAMBU" to "Bambu Lab",
-            "BL" to "Bambu Lab",
-            "GENERIC" to "Generic"
-        )
-        
-        val defaultTemperatureMappings = mapOf(
-            "PLA" to TemperatureRange(190, 220, 60),
-            "ABS" to TemperatureRange(220, 260, 80),
-            "PETG" to TemperatureRange(220, 250, 70),
-            "TPU" to TemperatureRange(200, 230, 60)
-        )
+        /**
+         * Check if mappings are populated (not empty)
+         */
+        fun FilamentMappings.isPopulated(): Boolean {
+            return colorMappings.isNotEmpty() || 
+                   materialMappings.isNotEmpty() || 
+                   brandMappings.isNotEmpty() || 
+                   temperatureMappings.isNotEmpty()
+        }
     }
 }
 
