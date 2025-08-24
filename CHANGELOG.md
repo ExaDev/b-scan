@@ -1,3 +1,16 @@
+# [3.10.0](https://github.com/Mearman/b-scan/compare/v3.9.0...v3.10.0) (2025-08-24)
+
+
+### Bug Fixes
+
+* **build:** correct jacoco exclude syntax for gradle compatibility ([91e780d](https://github.com/Mearman/b-scan/commit/91e780d43b2405c9f6068f10122fc47c2563ce8c))
+
+
+### Features
+
+* **ui:** add overscroll behaviour to EnhancedSkusList ([944ac2d](https://github.com/Mearman/b-scan/commit/944ac2d3808bd8a5ac7549e5bd971a0a1e69e1ac))
+* **ui:** enable overscroll scan prompts across all tabs ([42126e9](https://github.com/Mearman/b-scan/commit/42126e9c1b0f1c5a9bc804b7e6669dc4189362f5))
+
 # [3.9.0](https://github.com/Mearman/b-scan/compare/v3.8.0...v3.9.0) (2025-08-24)
 
 
