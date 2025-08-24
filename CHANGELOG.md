@@ -1,3 +1,26 @@
+# [3.11.0](https://github.com/Mearman/b-scan/compare/v3.10.0...v3.11.0) (2025-08-24)
+
+
+### Bug Fixes
+
+* **app:** disable screen rotation by locking to portrait mode ([2da97d7](https://github.com/Mearman/b-scan/commit/2da97d7616782c3bd91f1d27139b4c91a9a3184b))
+* resolve ColorPreviewCardTest reflection failures ([0a046f2](https://github.com/Mearman/b-scan/commit/0a046f29e1fa0bb0ef79886721728dfa77cd475b))
+* resolve MainViewModel simulateScan test timing issue ([9d92431](https://github.com/Mearman/b-scan/commit/9d92431ee98aa019eee4b329dad97adfdf3a4bdf))
+* resolve TrayTrackingRepository corrupted JSON StackOverflowError ([a318c0d](https://github.com/Mearman/b-scan/commit/a318c0d0481a2bcef3508d448dc113d24343ea12))
+* **ui:** pass filamentType to all ColorPreviewCard instances in DetailScreen ([25d9431](https://github.com/Mearman/b-scan/commit/25d9431e7d9e04206e3785ebd7760a7feff22286))
+* **ui:** pass filamentType to ColorPreviewCard in FilamentDetailsScreen ([fd32a04](https://github.com/Mearman/b-scan/commit/fd32a045bb01f9fd9f9b4885112c274ce2dcac42))
+* **ui:** pass filamentType to ColorPreviewCard in SpoolComponents ([4028fc7](https://github.com/Mearman/b-scan/commit/4028fc710f669da36691da1247808c656c89f8f9))
+* **ui:** pass filamentType to ColorPreviewCard in SpoolDetailsScreen ([4f49191](https://github.com/Mearman/b-scan/commit/4f491910162443030bdaf94276c3f6658e9a1f0c))
+
+
+### Features
+
+* add custom material shape definitions for filament types ([c2feab3](https://github.com/Mearman/b-scan/commit/c2feab3ffee5e326728cbcb199fb98a71868a0e0))
+* enable JaCoCo test coverage reporting ([614adb4](https://github.com/Mearman/b-scan/commit/614adb4536735c0159805361d33b2636adcaca55))
+* integrate material-based shape selection and support patterns ([899900e](https://github.com/Mearman/b-scan/commit/899900ecf875ad08b254021e8ada2c6c875d5563))
+* **ui:** add FilamentColorDisplay component with finish-based visual effects ([bf2e8bc](https://github.com/Mearman/b-scan/commit/bf2e8bc2f03963b04343d8b37d64ff803608fe21))
+* **ui:** enhance translucent filament detection and display ([4fa439a](https://github.com/Mearman/b-scan/commit/4fa439a2581e3eca3a977b5a9de6e7b6c8151c72))
+
 # [3.10.0](https://github.com/Mearman/b-scan/compare/v3.9.0...v3.10.0) (2025-08-24)
 
 
