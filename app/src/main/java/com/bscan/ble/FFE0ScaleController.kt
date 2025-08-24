@@ -26,13 +26,13 @@ class FFE0ScaleController(
         private const val BATTERY_CHARACTERISTIC_UUID = "00002a19-0000-1000-8000-00805f9b34fb"
         
         // Tare command for commodity scales (common pattern)
-        private val TARE_COMMAND = byteArrayOf(0x54, 0x41, 0x52, 0x45) // "TARE" in ASCII
+        private val TARE_COMMAND = byteArrayOf(0x54.toByte(), 0x41.toByte(), 0x52.toByte(), 0x45.toByte()) // "TARE" in ASCII
         // Alternative tare commands to try
         private val TARE_COMMANDS = listOf(
-            byteArrayOf(0x54, 0x41, 0x52, 0x45), // "TARE"
-            byteArrayOf(0x00, 0x00, 0x00, 0x00), // Zero bytes
-            byteArrayOf(0xFF, 0xFF, 0xFF, 0xFF), // Max bytes
-            byteArrayOf(0x30, 0x30, 0x30, 0x30)  // "0000"
+            byteArrayOf(0x54.toByte(), 0x41.toByte(), 0x52.toByte(), 0x45.toByte()), // "TARE"
+            byteArrayOf(0x00.toByte(), 0x00.toByte(), 0x00.toByte(), 0x00.toByte()), // Zero bytes
+            byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte()), // Max bytes
+            byteArrayOf(0x30.toByte(), 0x30.toByte(), 0x30.toByte(), 0x30.toByte())  // "0000"
         )
     }
     
