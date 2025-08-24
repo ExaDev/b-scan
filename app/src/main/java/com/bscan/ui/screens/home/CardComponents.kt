@@ -34,7 +34,8 @@ data class SkuInfo(
     val totalScans: Int,
     val successfulScans: Int,
     val lastScanned: java.time.LocalDateTime,
-    val successRate: Float
+    val successRate: Float,
+    val isScannedOnly: Boolean = false // True if scanned from tag but no matching catalog product
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -332,12 +333,27 @@ fun SkuCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = sku.filamentInfo.colorName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = sku.filamentInfo.colorName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    // Show indicator for scanned-only products (not in catalog)
+                    if (sku.isScannedOnly) {
+                        Icon(
+                            imageVector = Icons.Default.QuestionMark,
+                            contentDescription = "Scanned product (not in catalog)",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
                 
                 Text(
                     text = sku.filamentInfo.filamentType,
