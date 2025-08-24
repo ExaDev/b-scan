@@ -26,6 +26,9 @@ import com.bscan.ui.screens.settings.ExportImportCard
 import com.bscan.ui.screens.settings.ExportPreviewData
 import com.bscan.ui.screens.settings.DataGenerationMode
 import com.bscan.data.BambuProductDatabase
+import com.bscan.repository.UserPreferencesRepository
+import com.bscan.ui.components.MaterialDisplayMode
+import com.bscan.ui.components.FilamentColorBox
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -39,6 +42,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
     val exportManager = remember { DataExportManager(context) }
+    val userPrefsRepository = remember { UserPreferencesRepository(context) }
     val scope = rememberCoroutineScope()
     
     // UI State
@@ -48,6 +52,9 @@ fun SettingsScreen(
     var isImporting by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf(false) }
     var successMessage by remember { mutableStateOf("") }
+    
+    // UI Preferences State
+    var materialDisplayMode by remember { mutableStateOf(userPrefsRepository.getMaterialDisplayMode()) }
     
     // Configuration State
     var generationMode by remember { mutableStateOf(DataGenerationMode.COMPLETE_COVERAGE) }
@@ -175,6 +182,24 @@ fun SettingsScreen(
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Text(
+                    text = "Display Preferences",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            item {
+                MaterialDisplayPreferenceCard(
+                    currentMode = materialDisplayMode,
+                    onModeChange = { mode ->
+                        materialDisplayMode = mode
+                        userPrefsRepository.setMaterialDisplayMode(mode)
+                    }
+                )
+            }
+            
             item {
                 Text(
                     text = "Data Management",
@@ -656,6 +681,132 @@ private fun ClearDataCard(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(if (isClearing) "Clearing..." else "Clear Generated Data")
+            }
+        }
+    }
+}
+
+@Composable
+private fun MaterialDisplayPreferenceCard(
+    currentMode: MaterialDisplayMode,
+    onModeChange: (MaterialDisplayMode) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Material Display Mode",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "Choose how material types are displayed in filament color boxes",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Preview samples
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Shapes",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilamentColorBox(
+                            colorHex = "#FF4444",
+                            filamentType = "PLA Basic",
+                            size = 32.dp,
+                            displayMode = MaterialDisplayMode.SHAPES
+                        )
+                        FilamentColorBox(
+                            colorHex = "#44FF44",
+                            filamentType = "PETG Basic",
+                            size = 32.dp,
+                            displayMode = MaterialDisplayMode.SHAPES
+                        )
+                        FilamentColorBox(
+                            colorHex = "#4444FF",
+                            filamentType = "ABS",
+                            size = 32.dp,
+                            displayMode = MaterialDisplayMode.SHAPES
+                        )
+                    }
+                }
+                
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Text Labels",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        FilamentColorBox(
+                            colorHex = "#FF4444",
+                            filamentType = "PLA Basic",
+                            size = 32.dp,
+                            displayMode = MaterialDisplayMode.TEXT_LABELS
+                        )
+                        FilamentColorBox(
+                            colorHex = "#44FF44",
+                            filamentType = "PETG Basic",
+                            size = 32.dp,
+                            displayMode = MaterialDisplayMode.TEXT_LABELS
+                        )
+                        FilamentColorBox(
+                            colorHex = "#4444FF",
+                            filamentType = "ABS",
+                            size = 32.dp,
+                            displayMode = MaterialDisplayMode.TEXT_LABELS
+                        )
+                    }
+                }
+            }
+            
+            // Mode Selection
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MaterialDisplayMode.values().forEach { mode ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = currentMode == mode,
+                            onClick = { onModeChange(mode) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = mode.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = mode.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
