@@ -75,7 +75,8 @@ fun SpoolDetailsScreen(
                     item {
                         ColorPreviewCard(
                             colorHex = details.filamentInfo.colorHex,
-                            colorName = details.filamentInfo.colorName
+                            colorName = details.filamentInfo.colorName,
+                            filamentType = details.filamentInfo.filamentType
                         )
                     }
                     
