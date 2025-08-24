@@ -164,7 +164,7 @@ fun DataBrowserScreen(
                     text = { 
                         Text(
                             when (mode) {
-                                ViewMode.SPOOLS -> "Spools"
+                                ViewMode.SPOOLS -> "Inventory"
                                 ViewMode.SKUS -> "SKUs"
                                 ViewMode.TAGS -> "Tags"
                                 ViewMode.SCANS -> "Scans"
@@ -174,8 +174,8 @@ fun DataBrowserScreen(
                     icon = { 
                         Icon(
                             imageVector = when (mode) {
-                                ViewMode.SPOOLS -> Icons.Default.Storage
-                                ViewMode.SKUS -> Icons.Default.Inventory
+                                ViewMode.SPOOLS -> Icons.Default.Inventory
+                                ViewMode.SKUS -> Icons.Default.Category
                                 ViewMode.TAGS -> Icons.Default.Tag
                                 ViewMode.SCANS -> Icons.Default.History
                             },
