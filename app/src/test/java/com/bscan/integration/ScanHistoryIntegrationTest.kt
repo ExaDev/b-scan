@@ -11,6 +11,7 @@ import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.Mockito.*
+import org.mockito.MockitoAnnotations
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDateTime
@@ -36,6 +37,8 @@ class ScanHistoryIntegrationTest {
     
     @Before
     fun setup() {
+        MockitoAnnotations.openMocks(this)
+        
         // Mock SharedPreferences chain for ScanHistoryRepository
         `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
