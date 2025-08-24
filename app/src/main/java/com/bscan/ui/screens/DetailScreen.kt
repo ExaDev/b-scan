@@ -15,13 +15,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.InventoryRepository
+import com.bscan.repository.SpoolWeightRepository
+import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.*
 import com.bscan.ui.components.filament.*
 import com.bscan.ui.components.history.*
 import com.bscan.ui.components.spool.*
+import com.bscan.ui.components.weight.FilamentStatusCard
+import com.bscan.ui.components.weight.WeightInputDialog
 import com.bscan.ui.screens.home.SkuCard
 import com.bscan.ui.screens.home.SpoolCard
 import com.bscan.ui.screens.home.TagCard
+import com.bscan.model.FilamentWeightMeasurement
+import com.bscan.model.InventoryItem
+import com.bscan.model.FilamentStatus
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -256,6 +264,23 @@ fun PrimarySpoolSection(
     spool: com.bscan.repository.SpoolDetails,
     onPurgeCache: ((String) -> Unit)?
 ) {
+    val context = LocalContext.current
+    val inventoryRepository = remember { InventoryRepository(context) }
+    val spoolWeightRepository = remember { SpoolWeightRepository(context) }
+    val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    
+    // Weight management state
+    var inventoryItem by remember { mutableStateOf<InventoryItem?>(null) }
+    var filamentStatus by remember { mutableStateOf<FilamentStatus?>(null) }
+    var showWeightDialog by remember { mutableStateOf(false) }
+    val preferredWeightUnit by remember { mutableStateOf(userPrefsRepository.getWeightUnit()) }
+    
+    // Load inventory data
+    LaunchedEffect(spool.trayUid) {
+        inventoryItem = inventoryRepository.getInventoryItem(spool.trayUid)
+        filamentStatus = inventoryRepository.calculateFilamentStatus(spool.trayUid)
+    }
+    
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = "Spool Information",
@@ -269,6 +294,21 @@ fun PrimarySpoolSection(
             colorName = spool.filamentInfo.colorName,
             filamentType = spool.filamentInfo.filamentType
         )
+        
+        // Weight Management Section
+        val currentInventoryItem = inventoryItem
+        val currentFilamentStatus = filamentStatus
+        if (currentInventoryItem != null && currentFilamentStatus != null) {
+            FilamentStatusCard(
+                inventoryItem = currentInventoryItem,
+                filamentStatus = currentFilamentStatus,
+                preferredWeightUnit = preferredWeightUnit,
+                onRecordWeight = { showWeightDialog = true },
+                onSetConfiguration = {
+                    // TODO: Implement configuration selection dialog
+                }
+            )
+        }
         
         // Filament Type Info
         InfoCard(
@@ -302,6 +342,27 @@ fun PrimarySpoolSection(
                 )
             }
         }
+    }
+    
+    // Weight input dialog
+    if (showWeightDialog) {
+        val configurations = spoolWeightRepository.getConfigurations()
+        val components = spoolWeightRepository.getComponents()
+        
+        WeightInputDialog(
+            trayUid = spool.trayUid,
+            availableConfigurations = configurations,
+            components = components,
+            preferredWeightUnit = preferredWeightUnit,
+            onMeasurementSaved = { measurement ->
+                // Save the measurement and refresh data
+                inventoryRepository.addWeightMeasurement(spool.trayUid, measurement)
+                inventoryItem = inventoryRepository.getInventoryItem(spool.trayUid)
+                filamentStatus = inventoryRepository.calculateFilamentStatus(spool.trayUid)
+                showWeightDialog = false
+            },
+            onDismiss = { showWeightDialog = false }
+        )
     }
 }
 
