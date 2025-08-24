@@ -2,9 +2,11 @@ package com.bscan.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.bscan.model.FilamentMappings
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
+import java.io.IOException
 import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -14,7 +16,7 @@ import java.time.format.DateTimeFormatter
  * These mappings are used by FilamentInterpreter to convert raw scan data 
  * into meaningful information at runtime.
  */
-class MappingsRepository(context: Context) {
+class MappingsRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("filament_mappings", Context.MODE_PRIVATE)
@@ -41,7 +43,7 @@ class MappingsRepository(context: Context) {
         .create()
     
     /**
-     * Get current filament mappings, or default if none exist
+     * Get current filament mappings, loading from assets on first run
      */
     fun getCurrentMappings(): FilamentMappings {
         val mappingsJson = sharedPreferences.getString("mappings", null)
@@ -49,14 +51,70 @@ class MappingsRepository(context: Context) {
         return if (mappingsJson != null) {
             try {
                 gson.fromJson(mappingsJson, FilamentMappings::class.java)
-                    ?: FilamentMappings() // Fallback to default
+                    ?: loadFromAssetsOrDefault()
             } catch (e: JsonSyntaxException) {
-                // If data is corrupted, return defaults and clear storage
-                clearMappings()
-                FilamentMappings()
+                Log.w(TAG, "Corrupted mappings data, loading from assets", e)
+                // If data is corrupted, try to load from assets
+                loadFromAssetsOrDefault()
             }
         } else {
-            FilamentMappings() // Use default mappings
+            // First run - load from bundled assets
+            loadFromAssetsOrDefault()
+        }
+    }
+    
+    /**
+     * Load mappings from bundled assets file, with fallback to defaults
+     */
+    private fun loadFromAssetsOrDefault(): FilamentMappings {
+        return try {
+            // Use the stored context
+            val assetsInputStream = context.assets.open("filament_mappings.json")
+            val jsonString = assetsInputStream.bufferedReader().use { it.readText() }
+            
+            // Parse the tools format JSON
+            val jsonObject = JsonParser.parseString(jsonString).asJsonObject
+            
+            val mappings = FilamentMappings(
+                version = jsonObject.get("version")?.asInt ?: 1,
+                lastUpdated = LocalDateTime.now(),
+                colorMappings = parseMapFromJson(jsonObject.getAsJsonObject("colorMappings")),
+                materialMappings = parseMapFromJson(jsonObject.getAsJsonObject("materialMappings")),
+                brandMappings = parseMapFromJson(jsonObject.getAsJsonObject("brandMappings")),
+                temperatureMappings = parseTemperatureMappings(jsonObject.getAsJsonObject("temperatureMappings"))
+            )
+            
+            // Save to preferences for future use
+            saveMappings(mappings)
+            
+            Log.i(TAG, "Loaded mappings from assets: version ${mappings.version}")
+            mappings
+            
+        } catch (e: IOException) {
+            Log.w(TAG, "Failed to load from assets, using defaults", e)
+            FilamentMappings()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing assets mappings, using defaults", e)
+            FilamentMappings()
+        }
+    }
+    
+    private fun parseMapFromJson(jsonObject: JsonObject?): Map<String, String> {
+        if (jsonObject == null) return emptyMap()
+        return jsonObject.entrySet().associate { (key, value) ->
+            key to value.asString
+        }
+    }
+    
+    private fun parseTemperatureMappings(jsonObject: JsonObject?): Map<String, com.bscan.model.TemperatureRange> {
+        if (jsonObject == null) return emptyMap()
+        return jsonObject.entrySet().associate { (key, value) ->
+            val tempObj = value.asJsonObject
+            key to com.bscan.model.TemperatureRange(
+                minNozzle = tempObj.get("minNozzle").asInt,
+                maxNozzle = tempObj.get("maxNozzle").asInt,
+                bed = tempObj.get("bed").asInt
+            )
         }
     }
     
@@ -180,6 +238,10 @@ class MappingsRepository(context: Context) {
             brandMappingCount = mappings.brandMappings.size,
             temperatureMappingCount = mappings.temperatureMappings.size
         )
+    }
+    
+    companion object {
+        private const val TAG = "MappingsRepository"
     }
 }
 
