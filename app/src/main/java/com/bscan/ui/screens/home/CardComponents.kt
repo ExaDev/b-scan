@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -246,7 +247,7 @@ fun ScanCard(
                     ScanResult.INSUFFICIENT_DATA -> Icons.Default.Warning
                     ScanResult.PARSING_FAILED -> Icons.Default.Error
                     ScanResult.NO_NFC_TAG -> Icons.Default.SignalWifiOff
-                    ScanResult.UNKNOWN_ERROR -> Icons.Default.Help
+                    ScanResult.UNKNOWN_ERROR -> Icons.AutoMirrored.Filled.Help
                 },
                 contentDescription = null,
                 tint = when (scan.scanResult) {
