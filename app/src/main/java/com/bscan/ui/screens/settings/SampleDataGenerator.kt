@@ -5,7 +5,9 @@ import com.bscan.model.ScanResult
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.TagFormat
+import com.bscan.model.BambuProduct
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.data.BambuProductDatabase
 import java.time.LocalDateTime
 import kotlin.random.Random
 
@@ -17,10 +19,10 @@ class SampleDataGenerator {
         minScans: Int = 1,
         maxScans: Int = 10
     ) {
-        val filamentSpecs = FilamentSpecsProvider.getFilamentSpecs()
+        val bambuProducts = BambuProductDatabase.getAllProducts()
         
         repeat(spoolCount) { spoolIndex ->
-            val spec = filamentSpecs[spoolIndex % filamentSpecs.size]
+            val product = bambuProducts[spoolIndex % bambuProducts.size]
             val trayUid = "TRAY${(spoolIndex + 1).toString().padStart(3, '0')}"
             val baseTagId = String.format("%08X", spoolIndex * 2 + 1000)
             
@@ -34,10 +36,7 @@ class SampleDataGenerator {
                 val filamentInfo = createSampleFilamentInfo(
                     tagUid = tagUid,
                     trayUid = trayUid,
-                    colorName = spec.first,
-                    colorHex = spec.second,
-                    filamentType = spec.third.first,
-                    detailedType = spec.third.second
+                    product = product
                 )
                 
                 // Generate scan history for this tag
@@ -69,8 +68,7 @@ class SampleDataGenerator {
                         manufacturerName = "Bambu Lab",
                         scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
                         decryptedBlocks = if (isSuccess) createSampleBlocks(
-                            filamentType = spec.third.first,
-                            colorHex = spec.second,
+                            product = product,
                             spoolWeight = Random.nextInt(200, 1000),
                             trayUid = trayUid
                         ) else emptyMap(),
@@ -94,38 +92,35 @@ class SampleDataGenerator {
     private fun createSampleFilamentInfo(
         tagUid: String,
         trayUid: String,
-        colorName: String,
-        colorHex: String,
-        filamentType: String,
-        detailedType: String
+        product: BambuProduct
     ): FilamentInfo {
         return FilamentInfo(
             tagUid = tagUid,
             trayUid = trayUid,
-            filamentType = filamentType,
-            detailedFilamentType = detailedType,
-            colorHex = colorHex,
-            colorName = colorName,
-            spoolWeight = Random.nextInt(200, 1000),
-            filamentDiameter = if (Random.nextBoolean()) 1.75f else 2.85f,
+            filamentType = product.productLine,
+            detailedFilamentType = product.productLine,
+            colorHex = product.colorHex,
+            colorName = product.colorName,
+            spoolWeight = if (product.mass == "1kg") 1000 else if (product.mass == "0.5kg") 500 else 1000,
+            filamentDiameter = 1.75f, // Standard Bambu Lab diameter
             filamentLength = Random.nextInt(100000, 500000),
             productionDate = "2024-${Random.nextInt(1, 13).toString().padStart(2, '0')}-${Random.nextInt(1, 29).toString().padStart(2, '0')}",
-            minTemperature = Random.nextInt(180, 220),
-            maxTemperature = Random.nextInt(220, 280),
-            bedTemperature = Random.nextInt(50, 80),
-            dryingTemperature = Random.nextInt(40, 70),
-            dryingTime = Random.nextInt(4, 24)
+            minTemperature = getDefaultMinTemp(product.productLine),
+            maxTemperature = getDefaultMaxTemp(product.productLine),
+            bedTemperature = getDefaultBedTemp(product.productLine),
+            dryingTemperature = getDefaultDryingTemp(product.productLine),
+            dryingTime = getDefaultDryingTime(product.productLine),
+            bambuProduct = product // Include the product for purchase links
         )
     }
     
     private fun createSampleBlocks(
-        filamentType: String,
-        colorHex: String,
+        product: BambuProduct,
         spoolWeight: Int,
         trayUid: String
     ): Map<Int, String> {
         // Convert color hex to 4 bytes (RGBA format)
-        val colorBytes = colorHexToBytes(colorHex)
+        val colorBytes = colorHexToBytes(product.colorHex)
         val spoolWeightBytes = String.format("%04X", spoolWeight)
         
         // Create realistic block data that BambuFormatInterpreter can decode
@@ -135,9 +130,9 @@ class SampleDataGenerator {
             // Block 1: Material variant and ID
             1 to "50544700504C4100000000000000FF00",
             // Block 2: Filament type (16 bytes, null-terminated)
-            2 to stringToHexBlock(filamentType, 16),
+            2 to stringToHexBlock(product.productLine, 16),
             // Block 4: Detailed filament type
-            4 to stringToHexBlock("$filamentType Basic", 16),
+            4 to stringToHexBlock(product.productLine, 16),
             // Block 5: Color (4 bytes) + spool weight (2 bytes) + diameter (8 bytes)
             5 to "${colorBytes}${spoolWeightBytes}AE47E17A14AE0940",
             // Block 6: Temperature data (drying temp, time, bed temp, etc)
@@ -178,5 +173,47 @@ class SampleDataGenerator {
         } else {
             mapOf(0 to "KeyA")
         }
+    }
+    
+    /**
+     * Get default printing temperatures based on material type
+     */
+    private fun getDefaultMinTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 190
+        materialType.contains("ABS") -> 220
+        materialType.contains("PETG") -> 220
+        materialType.contains("TPU") -> 200
+        else -> 190
+    }
+    
+    private fun getDefaultMaxTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 220
+        materialType.contains("ABS") -> 250
+        materialType.contains("PETG") -> 250
+        materialType.contains("TPU") -> 230
+        else -> 220
+    }
+    
+    private fun getDefaultBedTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 60
+        materialType.contains("ABS") -> 80
+        materialType.contains("PETG") -> 70
+        materialType.contains("TPU") -> 50
+        else -> 60
+    }
+    
+    private fun getDefaultDryingTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 45
+        materialType.contains("ABS") -> 60
+        materialType.contains("PETG") -> 65
+        materialType.contains("TPU") -> 40
+        else -> 45
+    }
+    
+    private fun getDefaultDryingTime(materialType: String): Int = when {
+        materialType.contains("TPU") -> 12
+        materialType.contains("PETG") -> 8
+        materialType.contains("ABS") -> 4
+        else -> 6
     }
 }
