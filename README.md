@@ -87,6 +87,126 @@ Each Bambu Lab purchase contains:
 - Avoid ambiguous "spool" references without qualification
 - Apply proper identification: `trayUid` for filament, `spoolId` for hardware
 
+## Entity Relationships
+
+The following diagrams illustrate the relationships between core B-Scan entities:
+
+### Data Model
+
+```mermaid
+erDiagram
+    FilamentReel {
+        string trayUid PK "Unique identifier for filament reel"
+        FilamentInfo filamentInfo "Decoded filament properties"
+        List encryptedScans "Raw RFID tag scans"
+        List decryptedScans "Decrypted RFID tag scans"
+        long firstScannedAt "Timestamp of first scan"
+        long lastScannedAt "Timestamp of most recent scan"
+        boolean hasCompleteScanSet "Both tags scanned"
+    }
+
+    SpoolHardware {
+        string spoolId PK "Unique identifier for physical spool"
+        SpoolType type "Type of spool hardware"
+        string manufacturer "Hardware manufacturer"
+        long addedAt "When hardware was added"
+    }
+
+    EncryptedScanData {
+        long id PK "Unique scan ID"
+        string tagUid "Individual RFID tag identifier"
+        LocalDateTime timestamp "When scan occurred"
+        ByteArray encryptedData "Raw 1024-byte tag dump"
+    }
+
+    DecryptedScanData {
+        long id PK "Unique scan ID"
+        string tagUid "Individual RFID tag identifier"
+        LocalDateTime timestamp "When scan occurred"
+        ScanResult scanResult "Success/failure status"
+        Map decryptedBlocks "Block number to hex data"
+    }
+
+    FilamentInfo {
+        string trayUid "Links to FilamentReel"
+        string filamentType "PLA, PETG, ABS, etc"
+        string colorName "Human readable color"
+        string colorHex "Hex color code"
+        int hotendTemp "Printing temperature"
+        int bedTemp "Bed temperature"
+    }
+
+    BambuProduct {
+        string retailSku PK "Product SKU identifier"
+        string productLine "PLA Basic, ABS, etc"
+        string colorName "Color name"
+        string colorHex "Hex color value"
+    }
+
+    TrayData {
+        string trayUid PK "Filament reel identifier"
+        LocalDateTime firstSeen "First scan timestamp"
+        LocalDateTime lastUpdated "Latest update timestamp"
+        int totalScans "Total number of scans"
+    }
+
+    %% Physical Relationships
+    FilamentReel ||--o{ EncryptedScanData : "generates 1-2 scans"
+    FilamentReel ||--o{ DecryptedScanData : "generates 1-2 scans"
+    FilamentReel ||--|| FilamentInfo : "contains"
+    FilamentReel ||--o| TrayData : "tracked by trayUid"
+    
+    %% Scan Data Relationships
+    EncryptedScanData ||--|| DecryptedScanData : "processed into"
+    DecryptedScanData ||--|| FilamentInfo : "interpreted into"
+    
+    %% Product Relationships
+    FilamentInfo ||--o| BambuProduct : "matches by type+color"
+    
+    %% Inventory Relationships (Future)
+    FilamentReel ||--o| SpoolHardware : "can be mounted on"
+```
+
+### Data Flow
+
+```mermaid
+flowchart TD
+    A[Physical RFID Tag] --> B[NfcManager Scan]
+    B --> C[EncryptedScanData]
+    C --> D[BambuTagDecoder]
+    D --> E[DecryptedScanData]
+    E --> F[FilamentInterpreter]
+    F --> G[FilamentInfo]
+    
+    G --> H[TrayTrackingRepository]
+    H --> I[TrayData]
+    
+    G --> J[BambuProduct Lookup]
+    J --> K[Product Details]
+    
+    E --> L[ScanHistoryRepository]
+    C --> L
+    
+    G --> M[UI Display]
+    K --> M
+    
+    %% Future Features
+    G -.-> N[FilamentReel Model]
+    N -.-> O[SpoolHardware]
+    
+    style A fill:#e1f5fe
+    style M fill:#f3e5f5
+    style N fill:#fff3e0
+    style O fill:#fff3e0
+```
+
+### Identification Hierarchy
+
+1. **Tag UID**: Identifies individual RFID chips (2 per FilamentReel)
+2. **Tray UID**: Identifies FilamentReel (shared by its 2 tags)  
+3. **Spool ID**: Identifies SpoolHardware (separate lifecycle)
+4. **SKU**: Identifies product type in catalog
+
 ## Documentation
 
 Comprehensive documentation is available in the [docs/](docs/) directory:
