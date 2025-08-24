@@ -867,13 +867,13 @@ private fun BleScalesPreferenceCard(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    if (preferredScaleName != null) {
+                    preferredScaleName?.let { scaleName ->
                         Text(
-                            text = preferredScaleName,
+                            text = scaleName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
-                    } else {
+                    } ?: run {
                         Text(
                             text = "Tap to connect a BLE scale",
                             style = MaterialTheme.typography.bodySmall,
