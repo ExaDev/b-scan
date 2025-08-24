@@ -29,6 +29,9 @@ import com.bscan.data.BambuProductDatabase
 import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ble.BlePermissionHandler
+import com.bscan.ble.BleScalesManager
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -830,10 +833,25 @@ private fun MaterialDisplayPreferenceCard(
 private fun BleScalesPreferenceCard(
     userPrefsRepository: UserPreferencesRepository
 ) {
+    val context = LocalContext.current
+    val activity = context as? androidx.activity.ComponentActivity
+    
     var isScalesEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesEnabled()) }
     var preferredScaleName by remember { mutableStateOf(userPrefsRepository.getPreferredScaleName()) }
     var autoConnectEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesAutoConnectEnabled()) }
-    var showScanning by remember { mutableStateOf(false) }
+    
+    // BLE components - only create if activity is available
+    val blePermissionHandler = remember(activity) { 
+        activity?.let { BlePermissionHandler(it) } 
+    }
+    val bleScalesManager = remember { BleScalesManager(context) }
+    
+    // BLE state
+    val isScanning by bleScalesManager.isScanning.collectAsStateWithLifecycle()
+    val discoveredDevices by bleScalesManager.discoveredDevices.collectAsStateWithLifecycle()
+    val permissionState by blePermissionHandler?.permissionState?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(com.bscan.ble.BlePermissionState.UNKNOWN) }
+    
+    var showDeviceSelection by remember { mutableStateOf(false) }
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -897,12 +915,18 @@ private fun BleScalesPreferenceCard(
                     // Connect button
                     Button(
                         onClick = {
-                            showScanning = true
-                            // TODO: Start BLE scanning
+                            blePermissionHandler?.let { permissionHandler ->
+                                if (permissionHandler.hasAllPermissions()) {
+                                    showDeviceSelection = true
+                                    bleScalesManager.startScanning(permissionHandler)
+                                } else {
+                                    permissionHandler.requestPermissions()
+                                }
+                            }
                         },
-                        enabled = !showScanning
+                        enabled = !isScanning
                     ) {
-                        if (showScanning) {
+                        if (isScanning) {
                             Text("Scanning...")
                         } else {
                             Text("Connect Scale")
@@ -942,31 +966,128 @@ private fun BleScalesPreferenceCard(
                 }
             }
             
-            // Scanning indicator
-            if (showScanning) {
+            // Device discovery and selection
+            if (isScanning || discoveredDevices.isNotEmpty()) {
                 HorizontalDivider()
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Looking for BLE scales...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                // Auto-cancel scanning after 30 seconds
-                LaunchedEffect(showScanning) {
-                    if (showScanning) {
-                        kotlinx.coroutines.delay(30000)
-                        showScanning = false
+                    // Scanning indicator
+                    if (isScanning) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Scanning for BLE scales...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    
+                    // Discovered devices
+                    if (discoveredDevices.isNotEmpty()) {
+                        Text(
+                            text = "Found ${discoveredDevices.size} device${if (discoveredDevices.size == 1) "" else "s"}:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        discoveredDevices.forEach { device ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (device.isKnownScale) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    }
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = device.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "${device.address} • ${device.rssi} dBm",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (device.isKnownScale) {
+                                            Text(
+                                                text = "✓ Compatible scale",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                    
+                                    Button(
+                                        onClick = {
+                                            // Connect to this device
+                                            userPrefsRepository.setPreferredScaleAddress(device.address)
+                                            userPrefsRepository.setPreferredScaleName(device.displayName)
+                                            userPrefsRepository.setBleScalesEnabled(true)
+                                            
+                                            // Update local state
+                                            isScalesEnabled = true
+                                            preferredScaleName = device.displayName
+                                            showDeviceSelection = false
+                                            
+                                            // Stop scanning
+                                            bleScalesManager.stopScanning()
+                                        }
+                                    ) {
+                                        Text("Connect")
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Cancel scanning button
+                        OutlinedButton(
+                            onClick = {
+                                bleScalesManager.stopScanning()
+                                showDeviceSelection = false
+                            }
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                    
+                    // Permission state feedback
+                    when (permissionState) {
+                        com.bscan.ble.BlePermissionState.DENIED -> {
+                            Text(
+                                text = "⚠ BLE permissions required to scan for scales",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        com.bscan.ble.BlePermissionState.REQUESTING -> {
+                            Text(
+                                text = "Requesting BLE permissions...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        else -> { /* No feedback needed */ }
                     }
                 }
             }
