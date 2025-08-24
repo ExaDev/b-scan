@@ -308,24 +308,7 @@ class SpoolWeightRepository(private val context: Context) {
                 weightGrams = 212f,
                 manufacturer = "Bambu Lab",
                 description = "Empty Bambu spool without cardboard core"
-            ),
-            SpoolComponent(
-                id = "sunlu_v2_spool",
-                name = "Sunlu Reusable Spool v2",
-                type = SpoolComponentType.BASE_SPOOL,
-                weightGrams = 0f, // TBD - user can measure and update
-                manufacturer = "Sunlu",
-                description = "Sunlu reusable spool version 2 (weight TBD)"
-            ),
-            SpoolComponent(
-                id = "sunlu_v3_spool",
-                name = "Sunlu Reusable Spool v3",
-                type = SpoolComponentType.BASE_SPOOL,
-                weightGrams = 0f, // TBD - user can measure and update
-                manufacturer = "Sunlu",
-                description = "Sunlu reusable spool version 3 (weight TBD)"
             )
-            // Note: Bambu HT spool weight is currently unknown, can be added later
         )
     }
     
@@ -363,52 +346,20 @@ class SpoolWeightRepository(private val context: Context) {
     private fun createFactoryPresets(): List<SpoolWeightPreset> {
         return listOf(
             SpoolWeightPreset(
-                id = "bambu_boxed_refill",
-                name = "Boxed Refill",
-                packageType = PackageType.BOXED_REFILL,
-                configurationId = "bambu_refill_config",
-                supportedCapacities = listOf(0.5f, 0.75f, 1.0f),
-                description = "Bambu refill in retail box"
-            ),
-            SpoolWeightPreset(
-                id = "bambu_bagged_refill",
-                name = "Bagged Refill", 
-                packageType = PackageType.BAGGED_REFILL,
-                configurationId = "bambu_refill_config",
-                supportedCapacities = listOf(0.5f, 0.75f, 1.0f),
-                description = "Bambu refill in plastic bag"
-            ),
-            SpoolWeightPreset(
-                id = "bambu_open_refill",
-                name = "Open Refill",
+                id = "bambu_refill",
+                name = "Bambu Refill",
                 packageType = PackageType.OPEN_REFILL,
-                configurationId = "bambu_refill_config", 
+                configurationId = "bambu_refill_config",
                 supportedCapacities = listOf(0.5f, 0.75f, 1.0f),
-                description = "Bambu refill without packaging"
+                description = "Bambu refill with cardboard core (33g)"
             ),
             SpoolWeightPreset(
-                id = "bambu_boxed_spool",
-                name = "Boxed Spool",
-                packageType = PackageType.BOXED_SPOOL,
-                configurationId = "bambu_spool_config",
-                supportedCapacities = listOf(0.5f, 0.75f, 1.0f),
-                description = "Complete Bambu spool in retail box"
-            ),
-            SpoolWeightPreset(
-                id = "bambu_bagged_spool",
-                name = "Bagged Spool",
-                packageType = PackageType.BAGGED_SPOOL,
-                configurationId = "bambu_spool_config",
-                supportedCapacities = listOf(0.5f, 0.75f, 1.0f),
-                description = "Complete Bambu spool in plastic bag"
-            ),
-            SpoolWeightPreset(
-                id = "bambu_open_spool",
-                name = "Open Spool",
+                id = "bambu_spool",
+                name = "Bambu Spool",
                 packageType = PackageType.OPEN_SPOOL,
                 configurationId = "bambu_spool_config",
                 supportedCapacities = listOf(0.5f, 0.75f, 1.0f),
-                description = "Complete Bambu spool without packaging"
+                description = "Complete Bambu spool with cardboard core (245g)"
             )
         )
     }
