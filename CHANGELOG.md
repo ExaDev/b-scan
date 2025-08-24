@@ -1,3 +1,11 @@
+# [3.14.0](https://github.com/Mearman/b-scan/compare/v3.13.0...v3.14.0) (2025-08-24)
+
+
+### Features
+
+* **model:** add FilamentReel class for consumable filament tracking ([bdf9baf](https://github.com/Mearman/b-scan/commit/bdf9bafbe1e4185a2f74514de18d4b6d4f4b7a3b))
+* **model:** add SpoolHardware class for reusable spool tracking ([283db50](https://github.com/Mearman/b-scan/commit/283db5011c2461618716955126ca54c723d7d08b))
+
 # [3.13.0](https://github.com/Mearman/b-scan/compare/v3.12.0...v3.13.0) (2025-08-24)
 
 
