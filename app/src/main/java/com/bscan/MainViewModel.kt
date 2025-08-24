@@ -9,6 +9,7 @@ import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TrayTrackingRepository
 import com.bscan.repository.MappingsRepository
 import com.bscan.interpreter.InterpreterFactory
+import com.bscan.data.BambuProductDatabase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +30,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     // InterpreterFactory for runtime interpretation
     private var interpreterFactory = InterpreterFactory(mappingsRepository)
+    
+    // Track simulation state to cycle through all products
+    private var simulationProductIndex = 0
     
     fun onTagDetected() {
         _uiState.value = _uiState.value.copy(
@@ -285,23 +289,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             delay(200)
             
-            // Complete with mock data
+            // Complete with mock data - cycle through all products
+            val allProducts = BambuProductDatabase.getAllProducts()
+            val product = allProducts[simulationProductIndex % allProducts.size]
+            simulationProductIndex = (simulationProductIndex + 1) % allProducts.size
+            
             val mockFilamentInfo = FilamentInfo(
                 tagUid = "MOCK${System.currentTimeMillis()}",
-                trayUid = "MOCK_TRAY_001",
-                filamentType = "PLA Basic",
-                detailedFilamentType = "PLA Basic",
-                colorHex = "FF0000",
-                colorName = "Red",
-                spoolWeight = 1000,
+                trayUid = "MOCK_TRAY_${String.format("%03d", (simulationProductIndex / 2) + 1)}",
+                filamentType = product.productLine,
+                detailedFilamentType = product.productLine,
+                colorHex = product.colorHex,
+                colorName = product.colorName,
+                spoolWeight = if (product.mass == "1kg") 1000 else if (product.mass == "0.5kg") 500 else 1000,
                 filamentDiameter = 1.75f,
-                filamentLength = 330000,
-                productionDate = "2024-01",
-                minTemperature = 190,
-                maxTemperature = 220,
-                bedTemperature = 60,
-                dryingTemperature = 45,
-                dryingTime = 8
+                filamentLength = kotlin.random.Random.nextInt(100000, 500000),
+                productionDate = "2024-${kotlin.random.Random.nextInt(1, 13).toString().padStart(2, '0')}",
+                minTemperature = getDefaultMinTemp(product.productLine),
+                maxTemperature = getDefaultMaxTemp(product.productLine),
+                bedTemperature = getDefaultBedTemp(product.productLine),
+                dryingTemperature = getDefaultDryingTemp(product.productLine),
+                dryingTime = getDefaultDryingTime(product.productLine),
+                bambuProduct = product
             )
             
             _scanProgress.value = ScanProgress(
@@ -327,6 +336,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun refreshMappings() {
         interpreterFactory.refreshMappings()
+    }
+    
+    /**
+     * Get default printing temperatures based on material type
+     */
+    private fun getDefaultMinTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 190
+        materialType.contains("ABS") -> 220
+        materialType.contains("PETG") -> 220
+        materialType.contains("TPU") -> 200
+        else -> 190
+    }
+    
+    private fun getDefaultMaxTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 220
+        materialType.contains("ABS") -> 250
+        materialType.contains("PETG") -> 250
+        materialType.contains("TPU") -> 230
+        else -> 220
+    }
+    
+    private fun getDefaultBedTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 60
+        materialType.contains("ABS") -> 80
+        materialType.contains("PETG") -> 70
+        materialType.contains("TPU") -> 50
+        else -> 60
+    }
+    
+    private fun getDefaultDryingTemp(materialType: String): Int = when {
+        materialType.contains("PLA") -> 45
+        materialType.contains("ABS") -> 60
+        materialType.contains("PETG") -> 65
+        materialType.contains("TPU") -> 40
+        else -> 45
+    }
+    
+    private fun getDefaultDryingTime(materialType: String): Int = when {
+        materialType.contains("TPU") -> 12
+        materialType.contains("PETG") -> 8
+        materialType.contains("ABS") -> 4
+        else -> 6
     }
     
 }
