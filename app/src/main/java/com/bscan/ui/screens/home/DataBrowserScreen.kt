@@ -383,9 +383,48 @@ fun DataBrowserScreen(
                         fullPromptHeightDp = fullPromptHeightDp,
                         hasData = spools.isNotEmpty()
                     )
-                    ViewMode.SKUS -> EnhancedSkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                    ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                    ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                    ViewMode.SKUS -> EnhancedSkusList(
+                        allScans = allScans,
+                        sortProperty = sortProperty,
+                        sortDirection = sortDirection,
+                        groupByOption = groupByOption,
+                        filterState = filterState,
+                        lazyListState = lazyListStates[actualPage],
+                        onNavigateToDetails = onNavigateToDetails,
+                        scanState = scanState,
+                        scanProgress = scanProgress,
+                        onSimulateScan = onSimulateScan,
+                        compactPromptHeightDp = compactPromptHeightDp,
+                        fullPromptHeightDp = fullPromptHeightDp
+                    )
+                    ViewMode.TAGS -> TagsList(
+                        individualTags = individualTags,
+                        sortProperty = sortProperty,
+                        sortDirection = sortDirection,
+                        groupByOption = groupByOption,
+                        filterState = filterState,
+                        lazyListState = lazyListStates[actualPage],
+                        onNavigateToDetails = onNavigateToDetails,
+                        scanState = scanState,
+                        scanProgress = scanProgress,
+                        onSimulateScan = onSimulateScan,
+                        compactPromptHeightDp = compactPromptHeightDp,
+                        fullPromptHeightDp = fullPromptHeightDp
+                    )
+                    ViewMode.SCANS -> ScansList(
+                        allScans = allScans,
+                        sortProperty = sortProperty,
+                        sortDirection = sortDirection,
+                        groupByOption = groupByOption,
+                        filterState = filterState,
+                        lazyListState = lazyListStates[actualPage],
+                        onNavigateToDetails = onNavigateToDetails,
+                        scanState = scanState,
+                        scanProgress = scanProgress,
+                        onSimulateScan = onSimulateScan,
+                        compactPromptHeightDp = compactPromptHeightDp,
+                        fullPromptHeightDp = fullPromptHeightDp
+                    )
                 }
             }
         }
