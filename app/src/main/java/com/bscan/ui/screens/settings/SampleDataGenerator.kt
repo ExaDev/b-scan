@@ -4,6 +4,7 @@ import com.bscan.model.FilamentInfo
 import com.bscan.model.ScanResult
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
+import com.bscan.model.TagFormat
 import com.bscan.repository.ScanHistoryRepository
 import java.time.LocalDateTime
 import kotlin.random.Random
@@ -52,6 +53,8 @@ class SampleDataGenerator {
                         timestamp = scanTime,
                         tagUid = tagUid,
                         technology = "MifareClassic",
+                        tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                        manufacturerName = "Bambu Lab",
                         encryptedData = ByteArray(1024) { Random.nextInt(256).toByte() },
                         tagSizeBytes = 1024,
                         sectorCount = 16,
@@ -62,8 +65,15 @@ class SampleDataGenerator {
                         timestamp = scanTime,
                         tagUid = tagUid,
                         technology = "MifareClassic",
+                        tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                        manufacturerName = "Bambu Lab",
                         scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
-                        decryptedBlocks = if (isSuccess) createSampleBlocks() else emptyMap(),
+                        decryptedBlocks = if (isSuccess) createSampleBlocks(
+                            filamentType = spec.third.first,
+                            colorHex = spec.second,
+                            spoolWeight = Random.nextInt(200, 1000),
+                            trayUid = trayUid
+                        ) else emptyMap(),
                         authenticatedSectors = if (isSuccess) (0..15).toList() else emptyList(),
                         failedSectors = if (isSuccess) emptyList() else (0..15).toList(),
                         usedKeys = createSampleUsedKeys(isSuccess),
@@ -108,13 +118,54 @@ class SampleDataGenerator {
         )
     }
     
-    private fun createSampleBlocks(): Map<Int, String> {
+    private fun createSampleBlocks(
+        filamentType: String,
+        colorHex: String,
+        spoolWeight: Int,
+        trayUid: String
+    ): Map<Int, String> {
+        // Convert color hex to 4 bytes (RGBA format)
+        val colorBytes = colorHexToBytes(colorHex)
+        val spoolWeightBytes = String.format("%04X", spoolWeight)
+        
+        // Create realistic block data that BambuFormatInterpreter can decode
         return mapOf(
+            // Block 0: UID and manufacturer data
             0 to "00112233445566778899AABBCCDDEEFF",
-            1 to "FF00FF00FF00FF00FF00FF00FF00FF00",
-            2 to "AA55AA55AA55AA55AA55AA55AA55AA55",
-            4 to "1234567890ABCDEF1234567890ABCDEF"
+            // Block 1: Material variant and ID
+            1 to "50544700504C4100000000000000FF00",
+            // Block 2: Filament type (16 bytes, null-terminated)
+            2 to stringToHexBlock(filamentType, 16),
+            // Block 4: Detailed filament type
+            4 to stringToHexBlock("$filamentType Basic", 16),
+            // Block 5: Color (4 bytes) + spool weight (2 bytes) + diameter (8 bytes)
+            5 to "${colorBytes}${spoolWeightBytes}AE47E17A14AE0940",
+            // Block 6: Temperature data (drying temp, time, bed temp, etc)
+            6 to "003C000C00500019000000000000FF00",
+            // Block 9: Tray UID as hex
+            9 to stringToHexBlock(trayUid, 16),
+            // Block 12: Production date
+            12 to stringToHexBlock("2024-${Random.nextInt(1, 13).toString().padStart(2, '0')}", 16),
+            // Block 14: Filament length
+            14 to "0000${String.format("%04X", Random.nextInt(100000, 500000))}000000000000FF00"
         )
+    }
+    
+    private fun colorHexToBytes(colorHex: String): String {
+        val hex = colorHex.removePrefix("#")
+        return if (hex.length >= 6) {
+            hex.substring(0, 6).padEnd(8, '0') // RGB + alpha padding
+        } else {
+            "FF0000FF" // Default to red
+        }
+    }
+    
+    private fun stringToHexBlock(text: String, blockSize: Int): String {
+        val bytes = text.toByteArray(Charsets.UTF_8)
+        val paddedBytes = bytes.take(blockSize).toByteArray()
+        val result = ByteArray(blockSize)
+        System.arraycopy(paddedBytes, 0, result, 0, paddedBytes.size)
+        return result.joinToString("") { "%02X".format(it) }
     }
     
     private fun createSampleUsedKeys(isSuccess: Boolean): Map<Int, String> {
