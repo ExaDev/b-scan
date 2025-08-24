@@ -24,6 +24,8 @@ import com.bscan.repository.ImportMode
 import com.bscan.ui.screens.settings.SampleDataGenerator
 import com.bscan.ui.screens.settings.ExportImportCard
 import com.bscan.ui.screens.settings.ExportPreviewData
+import com.bscan.ui.screens.settings.DataGenerationMode
+import com.bscan.data.BambuProductDatabase
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -48,9 +50,11 @@ fun SettingsScreen(
     var successMessage by remember { mutableStateOf("") }
     
     // Configuration State
+    var generationMode by remember { mutableStateOf(DataGenerationMode.COMPLETE_COVERAGE) }
     var spoolCount by remember { mutableStateOf("10") }
+    var additionalSpools by remember { mutableStateOf("50") }
     var minScans by remember { mutableStateOf("1") }
-    var maxScans by remember { mutableStateOf("10") }
+    var maxScans by remember { mutableStateOf("5") }
     var generatedCount by remember { mutableStateOf(0) }
     
     // Export/Import State
@@ -262,25 +266,51 @@ fun SettingsScreen(
             
             item {
                 SampleDataCard(
+                    generationMode = generationMode,
                     spoolCount = spoolCount,
+                    additionalSpools = additionalSpools,
                     minScans = minScans,
                     maxScans = maxScans,
                     isPopulating = isPopulating,
                     generatedCount = generatedCount,
+                    onGenerationModeChange = { generationMode = it },
                     onSpoolCountChange = { spoolCount = it },
+                    onAdditionalSpoolsChange = { additionalSpools = it },
                     onMinScansChange = { minScans = it },
                     onMaxScansChange = { maxScans = it },
                     onPopulateClick = {
                         scope.launch {
                             isPopulating = true
                             try {
-                                val count = spoolCount.toIntOrNull() ?: 10
-                                val min = minScans.toIntOrNull() ?: 1
-                                val max = maxScans.toIntOrNull() ?: 10
                                 val generator = SampleDataGenerator()
-                                generator.generateSampleData(repository, count, min, max)
+                                val stats = when (generationMode) {
+                                    DataGenerationMode.COMPLETE_COVERAGE -> {
+                                        val additional = additionalSpools.toIntOrNull() ?: 50
+                                        val min = minScans.toIntOrNull() ?: 1
+                                        val max = maxScans.toIntOrNull() ?: 5
+                                        generator.generateWithCompleteSkuCoverage(repository, additional, min, max)
+                                    }
+                                    DataGenerationMode.RANDOM_SAMPLE -> {
+                                        val count = spoolCount.toIntOrNull() ?: 10
+                                        val min = minScans.toIntOrNull() ?: 1
+                                        val max = maxScans.toIntOrNull() ?: 10
+                                        generator.generateRandomSample(repository, count, min, max)
+                                    }
+                                    DataGenerationMode.MINIMAL_COVERAGE -> {
+                                        generator.generateMinimalCoverage(repository)
+                                    }
+                                }
+                                
                                 generatedCount = repository.getHistoryCount()
-                                successMessage = "Generated $count spools with sample data!"
+                                
+                                successMessage = when (generationMode) {
+                                    DataGenerationMode.COMPLETE_COVERAGE -> 
+                                        "Generated ${stats.totalScans} scans covering all ${stats.skusCovered} SKUs across ${stats.totalSpools} spools! (${(stats.successRate * 100).toInt()}% success rate)"
+                                    DataGenerationMode.RANDOM_SAMPLE -> 
+                                        "Generated ${stats.totalScans} scans across ${stats.totalSpools} random spools covering ${stats.skusCovered} SKUs! (${(stats.successRate * 100).toInt()}% success rate)"
+                                    DataGenerationMode.MINIMAL_COVERAGE -> 
+                                        "Generated minimal dataset: ${stats.totalScans} scans covering all ${stats.skusCovered} SKUs! (${(stats.successRate * 100).toInt()}% success rate)"
+                                }
                                 showSuccessMessage = true
                             } finally {
                                 isPopulating = false
@@ -353,12 +383,16 @@ fun SettingsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SampleDataCard(
+    generationMode: DataGenerationMode,
     spoolCount: String,
+    additionalSpools: String,
     minScans: String,
     maxScans: String,
     isPopulating: Boolean,
     generatedCount: Int,
+    onGenerationModeChange: (DataGenerationMode) -> Unit,
     onSpoolCountChange: (String) -> Unit,
+    onAdditionalSpoolsChange: (String) -> Unit,
     onMinScansChange: (String) -> Unit,
     onMaxScansChange: (String) -> Unit,
     onPopulateClick: () -> Unit
@@ -369,7 +403,7 @@ private fun SampleDataCard(
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Sample Data Generation",
@@ -377,49 +411,175 @@ private fun SampleDataCard(
                 fontWeight = FontWeight.Medium
             )
             
-            Text(
-                text = "Generate sample spools with configurable scan history. Each spool can have 1 or both tags scanned.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            // Mode Selection
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Generation Mode",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                DataGenerationMode.values().forEach { mode ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = generationMode == mode,
+                            onClick = { onGenerationModeChange(mode) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = mode.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = mode.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Coverage Information
+            when (generationMode) {
+                DataGenerationMode.COMPLETE_COVERAGE -> {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Text(
+                                text = "✓ All ${BambuProductDatabase.getProductCount()} SKUs will have at least one tag scanned",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "✓ Each spool has 2 tags, we might have scanned both (~30% chance)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "✓ Additional random spools provide realistic variety",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                DataGenerationMode.RANDOM_SAMPLE -> {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Text(
+                            text = "⚠ May not cover all SKUs. Consider Complete Coverage for comprehensive testing.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+                DataGenerationMode.MINIMAL_COVERAGE -> {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Text(
+                            text = "Minimal dataset: One tag scan per SKU (spools have 2 tags each)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+            
+            // Configuration Fields
+            when (generationMode) {
+                DataGenerationMode.COMPLETE_COVERAGE -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = additionalSpools,
+                            onValueChange = onAdditionalSpoolsChange,
+                            label = { Text("Additional Random Spools") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = minScans,
+                            onValueChange = onMinScansChange,
+                            label = { Text("Min Scans per Tag") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = maxScans,
+                            onValueChange = onMaxScansChange,
+                            label = { Text("Max Scans per Tag") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                    }
+                }
+                DataGenerationMode.RANDOM_SAMPLE -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = spoolCount,
+                            onValueChange = onSpoolCountChange,
+                            label = { Text("Number of Random Spools") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = minScans,
+                            onValueChange = onMinScansChange,
+                            label = { Text("Min Scans per Tag") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = maxScans,
+                            onValueChange = onMaxScansChange,
+                            label = { Text("Max Scans per Tag") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
+                        )
+                    }
+                }
+                DataGenerationMode.MINIMAL_COVERAGE -> {
+                    // No configuration needed for minimal coverage
+                }
+            }
             
             if (generatedCount > 0) {
                 Text(
                     text = "Currently $generatedCount generated scan entries in database",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
-                )
-            }
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = spoolCount,
-                    onValueChange = onSpoolCountChange,
-                    label = { Text("Spools") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                
-                OutlinedTextField(
-                    value = minScans,
-                    onValueChange = onMinScansChange,
-                    label = { Text("Min Scans") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                
-                OutlinedTextField(
-                    value = maxScans,
-                    onValueChange = onMaxScansChange,
-                    label = { Text("Max Scans") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
                 )
             }
             
