@@ -21,10 +21,10 @@ class SkuRepository(private val context: Context) {
     fun getAllSkus(): List<SkuInfo> {
         val allScans = scanHistoryRepository.getAllScans()
         
-        // Group scans by SKU (filament type + color combination)
+        // Group scans by SKU (detailed filament type + color combination)
         val scansBySkuKey = allScans
             .filter { it.filamentInfo != null }
-            .groupBy { "${it.filamentInfo!!.filamentType}-${it.filamentInfo.colorName}" }
+            .groupBy { "${it.filamentInfo!!.detailedFilamentType}-${it.filamentInfo.colorName}" }
         
         // Get all products from BambuProductDatabase
         val allProducts = BambuProductDatabase.getAllProducts()
