@@ -27,7 +27,7 @@ fun SpoolOverviewCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Spool Overview",
+                text = "Filament Overview",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Medium

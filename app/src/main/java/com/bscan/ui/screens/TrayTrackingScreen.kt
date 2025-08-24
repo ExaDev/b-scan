@@ -37,8 +37,8 @@ fun TrayTrackingScreen(
     // Delete confirmation dialog
     trayToDelete?.let { tray ->
         ConfirmationDialog(
-            title = "Remove Tray",
-            message = "Remove tray ${formatTrayId(tray.trayUid)} and all its tracking data? This cannot be undone.",
+            title = "Remove Filament",
+            message = "Remove filament ${formatTrayId(tray.trayUid)} and all its tracking data? This cannot be undone.",
             confirmText = "Remove",
             onConfirm = {
                 trayTrackingRepository.removeTray(tray.trayUid)
@@ -52,7 +52,7 @@ fun TrayTrackingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tray Tracking") },
+                title = { Text("Filament Reels") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
