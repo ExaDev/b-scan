@@ -8,6 +8,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import com.bscan.ScanState
+import com.bscan.model.ScanProgress
 import com.bscan.repository.InterpretedScan
 import com.bscan.repository.SkuRepository
 import com.bscan.ui.screens.DetailType
@@ -21,7 +24,12 @@ fun EnhancedSkusList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
+    compactPromptHeightDp: Dp = 100.dp,
+    fullPromptHeightDp: Dp = 400.dp
 ) {
     val context = LocalContext.current
     val skuRepository = remember { SkuRepository(context) }
@@ -142,28 +150,37 @@ fun EnhancedSkusList(
         }
     }
     
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        filteredGroupedAndSortedSkus.forEach { (groupKey, groupSkus) ->
-            // Show group header if grouping is enabled
-            if (groupByOption != GroupByOption.NONE) {
-                item(key = "header_$groupKey") {
-                    GroupHeader(title = groupKey, itemCount = groupSkus.size)
-                }
-            }
-            
-            // Show SKUs in the group
-            items(groupSkus, key = { it.skuKey }) { sku ->
-                SkuCard(
-                    sku = sku,
-                    onClick = { skuKey ->
-                        onNavigateToDetails?.invoke(DetailType.SKU, skuKey)
+    OverscrollListWrapper(
+        lazyListState = lazyListState,
+        scanState = scanState,
+        scanProgress = scanProgress,
+        onSimulateScan = onSimulateScan,
+        compactPromptHeightDp = compactPromptHeightDp,
+        fullPromptHeightDp = fullPromptHeightDp
+    ) { contentPadding ->
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            filteredGroupedAndSortedSkus.forEach { (groupKey, groupSkus) ->
+                // Show group header if grouping is enabled
+                if (groupByOption != GroupByOption.NONE) {
+                    item(key = "header_$groupKey") {
+                        GroupHeader(title = groupKey, itemCount = groupSkus.size)
                     }
-                )
+                }
+                
+                // Show SKUs in the group
+                items(groupSkus, key = { it.skuKey }) { sku ->
+                    SkuCard(
+                        sku = sku,
+                        onClick = { skuKey ->
+                            onNavigateToDetails?.invoke(DetailType.SKU, skuKey)
+                        }
+                    )
+                }
             }
         }
     }
