@@ -36,6 +36,13 @@ fun FilamentDetailsScreen(
             )
         }
         
+        // Show purchase links if product information is available
+        filamentInfo.bambuProduct?.let { product ->
+            item {
+                PurchaseLinksCard(product = product)
+            }
+        }
+        
         item {
             InfoCard(
                 title = "Filament Type",
