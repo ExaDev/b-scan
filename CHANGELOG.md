@@ -1,3 +1,25 @@
+# [3.15.0](https://github.com/Mearman/b-scan/compare/v3.14.0...v3.15.0) (2025-08-24)
+
+
+### Bug Fixes
+
+* **detail:** always show weight tracking card for all spools ([d594792](https://github.com/Mearman/b-scan/commit/d5947927460c41bdc068da18e545e6611c0b8a45))
+* **repository:** prevent question mark icons for products with exact RFID mappings ([7305099](https://github.com/Mearman/b-scan/commit/7305099187a0ad61fd3675b8a7d1c609411ccbe8))
+* **weight:** calculate configuration weights from components instead of hardcoding ([70e5b5a](https://github.com/Mearman/b-scan/commit/70e5b5aec0557a27e1eb11ce418172ed3211bd83))
+
+
+### Features
+
+* **detail:** integrate weight tracking into spool detail screen ([0d130a9](https://github.com/Mearman/b-scan/commit/0d130a9bf99fd3a3f95ff2611ca46ce85817a402))
+* **logic:** add WeightCalculationService for spool weight operations ([512e9ef](https://github.com/Mearman/b-scan/commit/512e9ef195bbc95c66f24aa8c427db9d294970ac))
+* **model:** add comprehensive spool weight management data models ([6f84a07](https://github.com/Mearman/b-scan/commit/6f84a0741fa1df63048ce3c937ec9ded8568a5b7))
+* **model:** add InventoryItem and FilamentStatus for weight tracking ([86f9801](https://github.com/Mearman/b-scan/commit/86f9801ba9631d9af657b86c96131d9475645e91))
+* **repository:** add InventoryRepository for weight tracking management ([1ec2476](https://github.com/Mearman/b-scan/commit/1ec247618fb57599e4442f718d9976e08cbe6bf1))
+* **repository:** extend UserPreferencesRepository with weight preferences ([b7df1cf](https://github.com/Mearman/b-scan/commit/b7df1cf2936fe29285608f15616e2780031a64c5))
+* **settings:** integrate spool weight management into SettingsScreen ([bd724f0](https://github.com/Mearman/b-scan/commit/bd724f0659a7479681c63a6b53aeebed9d16e5e9))
+* **ui:** add comprehensive spool weight management UI components ([0432da1](https://github.com/Mearman/b-scan/commit/0432da1f0c1c8be1e9d138fd78577cb5eb110141))
+* **ui:** add FilamentStatusCard for visual weight tracking display ([c22c366](https://github.com/Mearman/b-scan/commit/c22c36636f45bd2055878a3d2e033fea435b1b25))
+
 # [3.14.0](https://github.com/Mearman/b-scan/compare/v3.13.0...v3.14.0) (2025-08-24)
 
 
