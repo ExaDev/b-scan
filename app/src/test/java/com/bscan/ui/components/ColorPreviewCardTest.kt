@@ -9,10 +9,10 @@ import org.junit.Assert.*
 import java.lang.reflect.Method
 
 /**
- * Test coverage for ColorPreviewCard component, focusing on the private parseColor function
+ * Test coverage for ColorPreviewCard component, focusing on the parseColorWithAlpha function
  * that handles RGBA to AARRGGBB conversion for Android.
  * 
- * Since parseColor is private, we test it via reflection.
+ * Since parseColorWithAlpha is a public function, we test it via reflection for consistency.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29])
@@ -30,7 +30,7 @@ class ColorPreviewCardTest {
             val color2 = parseColorMethod.invoke(null, "00FF00")  
             assertNotNull("RGB green should return non-null result", color2)
         } catch (e: Exception) {
-            fail("parseColor should not throw exception for valid RGB: ${e.message}")
+            fail("parseColorWithAlpha should not throw exception for valid RGB: ${e.message}")
         }
     }
     
@@ -43,7 +43,7 @@ class ColorPreviewCardTest {
             val color = parseColorMethod.invoke(null, "FF00FF80")
             assertNotNull("RGBA should return non-null result", color)
         } catch (e: Exception) {
-            fail("parseColor should not throw exception for RGBA: ${e.message}")
+            fail("parseColorWithAlpha should not throw exception for RGBA: ${e.message}")
         }
     }
     
@@ -56,7 +56,7 @@ class ColorPreviewCardTest {
             val color = parseColorMethod.invoke(null, "80FF00FF")
             assertNotNull("8-char hex should return non-null result", color)
         } catch (e: Exception) {
-            fail("parseColor should not throw exception for 8-char hex: ${e.message}")
+            fail("parseColorWithAlpha should not throw exception for 8-char hex: ${e.message}")
         }
     }
     
@@ -75,7 +75,7 @@ class ColorPreviewCardTest {
             val color3 = parseColorMethod.invoke(null, "")
             assertNotNull("Empty string should return fallback color", color3)
         } catch (e: Exception) {
-            fail("parseColor should handle invalid input gracefully: ${e.message}")
+            fail("parseColorWithAlpha should handle invalid input gracefully: ${e.message}")
         }
     }
     
@@ -91,7 +91,7 @@ class ColorPreviewCardTest {
             val color2 = parseColorMethod.invoke(null, "FF0000FFAA")
             assertNotNull("Long hex should return fallback color", color2)
         } catch (e: Exception) {
-            fail("parseColor should handle unusual length hex gracefully: ${e.message}")
+            fail("parseColorWithAlpha should handle unusual length hex gracefully: ${e.message}")
         }
     }
     
@@ -112,15 +112,15 @@ class ColorPreviewCardTest {
                 val color = parseColorMethod.invoke(null, rgba)
                 assertNotNull("RGBA $rgba should return non-null result", color)
             } catch (e: Exception) {
-                fail("parseColor should not throw exception for RGBA $rgba: ${e.message}")
+                fail("parseColorWithAlpha should not throw exception for RGBA $rgba: ${e.message}")
             }
         }
     }
     
     private fun getParseColorMethod(): Method {
-        // Use reflection to access the private parseColor method
-        val clazz = Class.forName("com.bscan.ui.components.ColorPreviewCardKt")
-        val method = clazz.getDeclaredMethod("parseColor", String::class.java)
+        // Use reflection to access the parseColorWithAlpha method
+        val clazz = Class.forName("com.bscan.ui.components.FilamentColorDisplayKt")
+        val method = clazz.getDeclaredMethod("parseColorWithAlpha", String::class.java)
         method.isAccessible = true
         return method
     }
