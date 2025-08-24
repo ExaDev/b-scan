@@ -1,3 +1,42 @@
+# [3.9.0](https://github.com/Mearman/b-scan/compare/v3.8.0...v3.9.0) (2025-08-24)
+
+
+### Bug Fixes
+
+* **interpreter:** handle UNKNOWN tag format in InterpreterFactory ([f986e5c](https://github.com/Mearman/b-scan/commit/f986e5c17df3a86b9b7c3666da0887a1ac933e09))
+* **nfc:** resolve authentication failures and caching issues ([1e7768a](https://github.com/Mearman/b-scan/commit/1e7768ae3b83765fd68fbc452d1402e312cb9ecd))
+* restore missing imports in DataBrowserScreen ([ac3da32](https://github.com/Mearman/b-scan/commit/ac3da32e34d6cbd4a029daee90ff23779587928c))
+* **test:** add explicit MockitoAnnotations.openMocks() calls ([f2868b1](https://github.com/Mearman/b-scan/commit/f2868b18becf8e82249008db3b9601f8e74b35fa))
+* **ui:** migrate Help icon to AutoMirrored variant ([4a84fdc](https://github.com/Mearman/b-scan/commit/4a84fdcabd7ed1810a77ff7c1c5d2ab2886cbcaa))
+* **ui:** update NestedScrollSource usage for API compatibility ([325dcac](https://github.com/Mearman/b-scan/commit/325dcac27fb1308a5d4f950fc987d4229f050c75))
+
+
+### Features
+
+* add mappings repository for updateable filament mappings ([9b7de46](https://github.com/Mearman/b-scan/commit/9b7de4619319322e1ed5711d45b8498e4a04fa7c))
+* add runtime filament interpretation system ([b3383d7](https://github.com/Mearman/b-scan/commit/b3383d7f88f1896acd955fcde135b4821168f503))
+* **data:** add BambuProductDatabase with comprehensive product catalogue ([3d5a17d](https://github.com/Mearman/b-scan/commit/3d5a17d5d63188e0b4a016e4984a3ff7ca19d616))
+* **debug:** add support for creating new scan data models ([10bc651](https://github.com/Mearman/b-scan/commit/10bc651e3d4b5dd94534fbe9104bd001784a49ec))
+* **decoder:** integrate product lookup in tag decoding process ([b072dc6](https://github.com/Mearman/b-scan/commit/b072dc655320cb4822c9e903cf489480bea87f7d))
+* **detector:** add tag format detection infrastructure ([52f0909](https://github.com/Mearman/b-scan/commit/52f0909cc2cf427ecc2d6ccaec20056fe4a1df26))
+* implement standard pull-to-refresh with scan prompts ([f8aa5d2](https://github.com/Mearman/b-scan/commit/f8aa5d2b04d00e99f67ab4f449f47c3697e390df))
+* **interpreter:** enhance BambuFormatInterpreter to accept UNKNOWN format ([fa83629](https://github.com/Mearman/b-scan/commit/fa83629e6dfd93a46fa30de2451ace2e9ec5cc0e))
+* **model:** add BambuProduct data model for purchase links ([16aa130](https://github.com/Mearman/b-scan/commit/16aa1303b4055e4f23af799463371fa85fa85c08))
+* **model:** add BambuProduct field to FilamentInfo ([ca8762c](https://github.com/Mearman/b-scan/commit/ca8762ccddf02421f125e168da70c68c9e0ba214))
+* **model:** add format detection fields to data models ([8117e61](https://github.com/Mearman/b-scan/commit/8117e619ef6fd06eb14413f3450fc4ca07b2ff75))
+* **repository:** add DataExportManager for scan data export/import ([7b7730b](https://github.com/Mearman/b-scan/commit/7b7730b0f93347e0ebb27095d06ee0ba0b647007))
+* **repository:** add SkuRepository for product lookup services ([45e9276](https://github.com/Mearman/b-scan/commit/45e92763ff39f1d36f9fb694e8d9143923848aa4))
+* **settings:** integrate export/import functionality in settings screen ([63a8e8a](https://github.com/Mearman/b-scan/commit/63a8e8a7219935c2140c784bdacfe6dad4d30212))
+* **test:** enhance SampleDataGenerator with product integration ([757366a](https://github.com/Mearman/b-scan/commit/757366aac54176e674ab987882eda009fc99ceb1))
+* **test:** enhance SampleDataGenerator with realistic Bambu format data ([6c5f63d](https://github.com/Mearman/b-scan/commit/6c5f63d8dffc5e68c20b2d3c1b39cd5ff49461b6))
+* **ui:** add detail screen for individual scan viewing ([237ee95](https://github.com/Mearman/b-scan/commit/237ee9561ff2052e694bb329f977d814c8f0e296))
+* **ui:** add EnhancedSkusList component for advanced product browsing ([3317c73](https://github.com/Mearman/b-scan/commit/3317c730380e5842b8350e3a908b81a00cdc92a3))
+* **ui:** add ExportImportCard component for data management ([10e67d5](https://github.com/Mearman/b-scan/commit/10e67d53dcef546f7f9cdc3ba1ec7d161cf68cb0))
+* **ui:** add PurchaseLinksCard component for e-commerce integration ([a5b49ca](https://github.com/Mearman/b-scan/commit/a5b49ca9fcd63c2405924306a5576e6638c8464e))
+* **ui:** enhance home screen components with improved filtering and display ([cb477fc](https://github.com/Mearman/b-scan/commit/cb477fcdb1af8a1385b82884f1093b597f757df9))
+* **ui:** implement full-page scan prompt with enhanced overscroll behavior ([dce9c1b](https://github.com/Mearman/b-scan/commit/dce9c1bd36b2fb2b3ba6e7ea2e4a73f1666b23d6))
+* **ui:** integrate purchase links in FilamentDetailsScreen ([c80c349](https://github.com/Mearman/b-scan/commit/c80c349570dc46a65183c4dacbe07b32a101a263))
+
 # [3.8.0](https://github.com/Mearman/b-scan/compare/v3.7.0...v3.8.0) (2025-08-23)
 
 
