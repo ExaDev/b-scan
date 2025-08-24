@@ -137,6 +137,7 @@ fun SpoolCard(
             ColorPreviewCard(
                 colorHex = spool.filamentInfo.colorHex,
                 colorName = spool.filamentInfo.colorName,
+                filamentType = spool.filamentInfo.filamentType,
                 modifier = Modifier.fillMaxWidth()
             )
             
