@@ -7,6 +7,7 @@ import com.bscan.model.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
@@ -157,9 +158,12 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `simulateScan should complete full simulation flow`() = runTest(UnconfinedTestDispatcher()) {
+    fun `simulateScan should complete full simulation flow`() = runTest {
         // When
         viewModel.simulateScan()
+        
+        // Advance until all coroutines are idle to ensure simulation completes
+        advanceUntilIdle()
         
         // Then
         val finalState = viewModel.uiState.value
