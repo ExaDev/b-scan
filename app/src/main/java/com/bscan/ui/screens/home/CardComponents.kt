@@ -58,8 +58,7 @@ fun SpoolCard(
             FilamentColorBox(
                 colorHex = spool.filamentInfo.colorHex,
                 filamentType = spool.filamentInfo.filamentType,
-                size = 48.dp,
-                shape = CircleShape
+                size = 48.dp
             )
             
             // Filament info
@@ -147,8 +146,7 @@ fun TagCard(
                     FilamentColorBox(
                         colorHex = filamentInfo.colorHex,
                         filamentType = filamentInfo.filamentType,
-                        size = 40.dp,
-                        shape = RoundedCornerShape(8.dp)
+                        size = 40.dp
                     )
                     Icon(
                         imageVector = Icons.Default.Tag,
@@ -327,8 +325,7 @@ fun SkuCard(
             FilamentColorBox(
                 colorHex = sku.filamentInfo.colorHex,
                 filamentType = sku.filamentInfo.filamentType,
-                size = 48.dp,
-                shape = CircleShape
+                size = 48.dp
             )
             
             // SKU info
