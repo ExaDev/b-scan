@@ -1,3 +1,41 @@
+# [3.12.0](https://github.com/Mearman/b-scan/compare/v3.11.0...v3.12.0) (2025-08-24)
+
+
+### Bug Fixes
+
+* **data:** correct SKU association logic ([846c54e](https://github.com/Mearman/b-scan/commit/846c54e826ef3df9fb779b8a1559c4b8b4c31107))
+* **interpreter:** require explicit FilamentMappings injection in BambuFormatInterpreter ([4ba838d](https://github.com/Mearman/b-scan/commit/4ba838d30eed8dbe23973e65228a42b16706fe18))
+* **test:** remove obsolete BambuProductDatabase tests ([dc8b81f](https://github.com/Mearman/b-scan/commit/dc8b81fcadf05e7f334cdd84a94b218bead83365))
+* **test:** update InterpreterFactoryTest for exact RFID matching ([6c3ab3c](https://github.com/Mearman/b-scan/commit/6c3ab3c4c1abe3f6a308d63b4ebabedba2f7fa6b))
+* **ui:** remove hardcoded shapes to enable material-based detection ([981d941](https://github.com/Mearman/b-scan/commit/981d9414c7eb7fde4d2f113b04e782ca8d66f857))
+
+
+### Features
+
+* add catalog data persistence layer ([285419c](https://github.com/Mearman/b-scan/commit/285419c276d2c848cb879ba671d0cd5aeaf7a721))
+* add data models for Bambu Lab product catalog ([907e0a0](https://github.com/Mearman/b-scan/commit/907e0a0b3b9f08a73358cdc98fb6200d62978f73))
+* add discontinued products research module ([f4355b3](https://github.com/Mearman/b-scan/commit/f4355b314369235f36ef86c2eaa5c9ba806a94a7))
+* add Kotlin build configuration for catalog updater ([86c672b](https://github.com/Mearman/b-scan/commit/86c672bbb0aa38ebd00e858d26a7340beaf8a167))
+* add main catalog update script with B-Scan format output ([b006e6d](https://github.com/Mearman/b-scan/commit/b006e6dcc07f0270d9e85b1847945766020b0723))
+* **build:** integrate catalog data into app at build time ([2a749f6](https://github.com/Mearman/b-scan/commit/2a749f60e2800a9cc1b114f8334b95d3de8fa4ef))
+* **data:** expand BambuProductDatabase with complete SKU catalog ([a7f3448](https://github.com/Mearman/b-scan/commit/a7f34489a44dfccb8ec6772181a31cc939dd4e06))
+* implement Bambu Lab store web scraper ([e8af407](https://github.com/Mearman/b-scan/commit/e8af40789f945a676a8c5e68fc90fc4992d64649))
+* **model:** add isScannedOnly flag to SkuInfo data class ([493f585](https://github.com/Mearman/b-scan/commit/493f585b02cef4ee40ea2c4c3276940f03febbe9))
+* **model:** add RFID mapping integration to data models ([fc58ab8](https://github.com/Mearman/b-scan/commit/fc58ab8f4509a9fc07e230680df22de84ed587a9))
+* **model:** add RFID mapping system for exact SKU matching ([a426d26](https://github.com/Mearman/b-scan/commit/a426d26edc5b5de5b5b2f5206a4f7419bc0fdd34))
+* **repository:** enhance MappingsRepository with asset loading and caching ([8620f8b](https://github.com/Mearman/b-scan/commit/8620f8bffeb84ad0d3d4a5a05eaeee1b0bbf3257))
+* **repository:** enhance MappingsRepository with RFID lookup ([c1c68d2](https://github.com/Mearman/b-scan/commit/c1c68d2baf9e9222f6d963bf7b253fc85f52ecd5))
+* **repository:** support scanned-only products in SkuRepository ([84dcc1a](https://github.com/Mearman/b-scan/commit/84dcc1a17a378298e8231b15b4156a5ad0d72b1f))
+* **repository:** use detailedFilamentType for SKU grouping ([a814d8a](https://github.com/Mearman/b-scan/commit/a814d8ad142cce10ffe05867313f4f558d97eca1))
+* **settings:** add DataGenerationMode enum for sample data options ([db278d5](https://github.com/Mearman/b-scan/commit/db278d5125e1a5b099b0768162b25ad8678b4d2e))
+* **settings:** enhance sample data generation UI with mode selection ([1a435e2](https://github.com/Mearman/b-scan/commit/1a435e2053aab03c3735958348717854e4a4de82))
+* **settings:** implement complete SKU coverage data generation ([5cf598f](https://github.com/Mearman/b-scan/commit/5cf598f2f577ab57cbe2d68ec202fe757dc0eaca))
+* **simulation:** update simulateScan to cycle through complete SKU catalog ([337e64b](https://github.com/Mearman/b-scan/commit/337e64b4500b39f155e24f603846808ba911c825))
+* **tools:** update catalog updater for new RFID mapping system ([282f1f7](https://github.com/Mearman/b-scan/commit/282f1f79dc3dd8ce1470002da17ff3cbc5fb98d4))
+* **ui:** enhance product info display with exact SKU data ([5412a9b](https://github.com/Mearman/b-scan/commit/5412a9bbd68be69b7c77bc9b2e0dd5cbfddc2098))
+* **ui:** implement comprehensive material shape system ([80ffe75](https://github.com/Mearman/b-scan/commit/80ffe75d183f2488381122968901d09da46439f6))
+* **ui:** implement material-based visual effects system ([0f3220d](https://github.com/Mearman/b-scan/commit/0f3220ddb4e550443007a93b07f6c3ab5e95c157))
+
 # [3.11.0](https://github.com/Mearman/b-scan/compare/v3.10.0...v3.11.0) (2025-08-24)
 
 
