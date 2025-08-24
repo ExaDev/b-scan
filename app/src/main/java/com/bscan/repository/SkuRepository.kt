@@ -92,6 +92,9 @@ class SkuRepository(private val context: Context) {
                 val mostRecentScan = scans.maxByOrNull { it.timestamp }
                 val filamentInfo = mostRecentScan?.filamentInfo ?: return@map null
                 
+                // Check if this product has an exact SKU mapping (not truly scanned-only)
+                val hasExactSku = filamentInfo.exactSku != null
+                
                 SkuInfo(
                     skuKey = skuKey,
                     filamentInfo = filamentInfo,
@@ -100,7 +103,7 @@ class SkuRepository(private val context: Context) {
                     successfulScans = successfulScans,
                     lastScanned = lastScanned,
                     successRate = successRate,
-                    isScannedOnly = true // This is a scanned-only product (not in catalog)
+                    isScannedOnly = !hasExactSku // Only mark as scanned-only if no exact SKU available
                 )
             }
             .filterNotNull()
