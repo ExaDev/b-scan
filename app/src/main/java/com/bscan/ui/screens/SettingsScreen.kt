@@ -29,6 +29,9 @@ import com.bscan.data.BambuProductDatabase
 import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.weight.SpoolWeightSettingsCard
+import com.bscan.repository.SpoolWeightRepository
+import com.bscan.model.SpoolWeightPreset
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -43,6 +46,7 @@ fun SettingsScreen(
     val repository = remember { ScanHistoryRepository(context) }
     val exportManager = remember { DataExportManager(context) }
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    val spoolWeightRepository = remember { SpoolWeightRepository(context) }
     val scope = rememberCoroutineScope()
     
     // UI State
@@ -55,6 +59,11 @@ fun SettingsScreen(
     
     // UI Preferences State
     var materialDisplayMode by remember { mutableStateOf(userPrefsRepository.getMaterialDisplayMode()) }
+    
+    // Spool Weight State
+    var spoolWeightPresets by remember { mutableStateOf(emptyList<SpoolWeightPreset>()) }
+    var spoolConfigurations by remember { mutableStateOf(emptyList<com.bscan.model.SpoolConfiguration>()) }
+    var spoolComponents by remember { mutableStateOf(emptyList<com.bscan.model.SpoolComponent>()) }
     
     // Configuration State
     var generationMode by remember { mutableStateOf(DataGenerationMode.COMPLETE_COVERAGE) }
@@ -87,6 +96,11 @@ fun SettingsScreen(
             }
             .distinct()
         totalSpools = uniqueTrayUids.size
+        
+        // Load spool weight data
+        spoolWeightPresets = spoolWeightRepository.getPresets()
+        spoolConfigurations = spoolWeightRepository.getConfigurations() 
+        spoolComponents = spoolWeightRepository.getComponents()
     }
     
     // Export file picker
@@ -277,6 +291,52 @@ fun SettingsScreen(
                         showImportPreview = false
                         importPreviewData = null
                         pendingImportUri = null
+                    }
+                )
+            }
+            
+            item {
+                Text(
+                    text = "Spool Weight Management",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            item {
+                SpoolWeightSettingsCard(
+                    presets = spoolWeightPresets,
+                    configurations = spoolConfigurations,
+                    components = spoolComponents,
+                    onPresetSelected = { preset ->
+                        // Handle preset selection
+                        userPrefsRepository.setDefaultSpoolConfigurationId(preset.configurationId)
+                        successMessage = "Default spool configuration set to ${preset.name}"
+                        showSuccessMessage = true
+                    },
+                    onEditPreset = { preset ->
+                        // TODO: Open preset edit dialog
+                        successMessage = "Preset editing will be implemented in a future update"
+                        showSuccessMessage = true
+                    },
+                    onResetPreset = { presetId ->
+                        scope.launch {
+                            try {
+                                spoolWeightRepository.resetPresetToDefault(presetId)
+                                // Reload data
+                                spoolWeightPresets = spoolWeightRepository.getPresets()
+                                successMessage = "Preset reset to factory defaults"
+                                showSuccessMessage = true
+                            } catch (e: Exception) {
+                                successMessage = "Failed to reset preset: ${e.message}"
+                                showSuccessMessage = true
+                            }
+                        }
+                    },
+                    onCreateCustom = {
+                        // TODO: Open custom configuration creator
+                        successMessage = "Custom configuration creator will be implemented in a future update"
+                        showSuccessMessage = true
                     }
                 )
             }
