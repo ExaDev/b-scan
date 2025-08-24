@@ -30,5 +30,8 @@ data class FilamentInfo(
     
     // Research fields for unknown data blocks
     val shortProductionDateHex: String = "", // Block 13 raw hex data
-    val unknownBlock17Hex: String = "" // Block 17 full raw hex data for research
+    val unknownBlock17Hex: String = "", // Block 17 full raw hex data for research
+    
+    // Purchase information
+    val bambuProduct: BambuProduct? = null // Product information for purchase links
 )
