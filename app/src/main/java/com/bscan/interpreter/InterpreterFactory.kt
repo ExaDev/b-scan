@@ -15,7 +15,7 @@ class InterpreterFactory(
     
     init {
         // Initialize interpreters for each supported format
-        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(mappingsRepository.getCurrentMappings())
+        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(mappingsRepository.getCurrentMappings(), mappingsRepository)
         interpreters[TagFormat.CREALITY_ASCII] = CrealityFormatInterpreter()
         interpreters[TagFormat.OPENTAG_V1] = OpenTagInterpreter()
     }
@@ -55,7 +55,7 @@ class InterpreterFactory(
      */
     fun refreshMappings() {
         val updatedMappings = mappingsRepository.getCurrentMappings()
-        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(updatedMappings)
+        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(updatedMappings, mappingsRepository)
     }
     
     /**

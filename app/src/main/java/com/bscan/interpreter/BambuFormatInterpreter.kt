@@ -2,6 +2,8 @@ package com.bscan.interpreter
 
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.data.BambuProductDatabase
+import com.bscan.repository.MappingsRepository
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.*
@@ -12,7 +14,8 @@ import kotlin.math.*
  * without needing to rescan the NFC tags.
  */
 class BambuFormatInterpreter(
-    private val mappings: FilamentMappings
+    private val mappings: FilamentMappings,
+    private val mappingsRepository: MappingsRepository
 ) : TagInterpreter {
     
     override val tagFormat = TagFormat.BAMBU_PROPRIETARY
@@ -63,23 +66,36 @@ class BambuFormatInterpreter(
         }
     }
     
-    private fun extractFilamentInfo(decryptedData: DecryptedScanData): FilamentInfo {
-        // Extract basic string fields from blocks (following RFID-Tag-Guide)
-        val trayUid = extractHexString(decryptedData, 9, 0, 16)  // Extract as hex, not UTF-8
-        // Debug logging for tray ID extraction
-        val block9Hex = decryptedData.decryptedBlocks[9] ?: "MISSING"
-        Log.d(TAG, "*** TRAY ID DEBUG: Block 9 hex = $block9Hex")
-        Log.d(TAG, "*** TRAY ID DEBUG: Extracted trayUid = '$trayUid'")
-        val filamentType = extractString(decryptedData, 2, 0, 16)  
-        val detailedFilamentType = extractString(decryptedData, 4, 0, 16)
-        val productionDate = extractString(decryptedData, 12, 0, 16)
+    private fun extractFilamentInfo(decryptedData: DecryptedScanData): FilamentInfo? {
+        // Extract RFID codes from Block 1
+        val materialId = extractString(decryptedData, 1, 8, 8) // Block 1, bytes 8-15
+        val variantId = extractString(decryptedData, 1, 0, 8)  // Block 1, bytes 0-7
         
-        // Extract numeric data
+        if (materialId.isEmpty() || variantId.isEmpty()) {
+            Log.w(TAG, "Missing material ID or variant ID from RFID block")
+            return null
+        }
+        
+        val rfidCode = "$materialId:$variantId"
+        Log.d(TAG, "RFID Code extracted: $rfidCode")
+        
+        // Look up exact SKU mapping
+        val rfidMapping = mappingsRepository.getRfidMappingByCode(materialId, variantId)
+        if (rfidMapping == null) {
+            Log.w(TAG, "No exact mapping found for RFID code: $rfidCode")
+            return null  // Only return results for exact mappings
+        }
+        
+        Log.i(TAG, "Exact SKU match found: ${rfidMapping.sku} for $rfidCode")
+        
+        // Extract remaining fields for completeness
+        val trayUid = extractHexString(decryptedData, 9, 0, 16)
+        val productionDate = extractString(decryptedData, 12, 0, 16)
         val spoolWeight = extractInt(decryptedData, 5, 4, 2)
         val filamentDiameter = extractFloat64(decryptedData, 5, 8)
         val filamentLength = extractInt(decryptedData, 14, 4, 2)
         
-        // Extract temperature data from Block 6
+        // Temperature data from Block 6
         val dryingTemp = extractInt(decryptedData, 6, 0, 2)
         val dryingTime = extractInt(decryptedData, 6, 2, 2)
         val bedTempType = extractInt(decryptedData, 6, 4, 2)
@@ -87,34 +103,18 @@ class BambuFormatInterpreter(
         val maxTemp = extractInt(decryptedData, 6, 8, 2)
         val minTemp = extractInt(decryptedData, 6, 10, 2)
         
-        // Extract color data
-        val colorBytes = extractBytes(decryptedData, 5, 0, 4)
-        val colorHex = interpretColor(colorBytes)
-        val colorInterpretation = getColorInterpretation(colorHex)
-        
-        // Extract additional fields
-        val materialVariantId = extractString(decryptedData, 1, 0, 8)
-        val materialId = extractString(decryptedData, 1, 8, 8)
-        val nozzleDiameter = extractFloat32(decryptedData, 8, 12)
-        val spoolWidth = extractInt(decryptedData, 10, 4, 2).toFloat() / 100f // mm
-        
-        // Extract format and color count info
-        val formatId = extractInt(decryptedData, 16, 0, 2)
-        val colorCount = extractInt(decryptedData, 16, 2, 2)
-        
-        // Research fields for unknown blocks
-        val shortProductionDateHex = extractHex(decryptedData, 13, 0, 16)
-        val unknownBlock17Hex = extractHex(decryptedData, 17, 0, 16)
+        // Color from RFID mapping (authoritative) or extract from tag
+        val colorHex = rfidMapping.hex ?: interpretColor(extractBytes(decryptedData, 5, 0, 4))
         
         return FilamentInfo(
             tagUid = decryptedData.tagUid,
             trayUid = trayUid,
             tagFormat = TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = decryptedData.manufacturerName,
-            filamentType = filamentType,
-            detailedFilamentType = detailedFilamentType,
+            manufacturerName = "Bambu Lab",
+            filamentType = rfidMapping.material,
+            detailedFilamentType = rfidMapping.material,
             colorHex = colorHex,
-            colorName = colorInterpretation.name,
+            colorName = rfidMapping.color,
             spoolWeight = spoolWeight,
             filamentDiameter = filamentDiameter,
             filamentLength = filamentLength,
@@ -125,18 +125,18 @@ class BambuFormatInterpreter(
             dryingTemperature = dryingTemp,
             dryingTime = dryingTime,
             
-            // Extended fields
-            materialVariantId = materialVariantId,
+            // RFID-specific fields
+            exactSku = rfidMapping.sku,
+            rfidCode = rfidCode,
+            materialVariantId = variantId,
             materialId = materialId,
-            nozzleDiameter = nozzleDiameter,
-            spoolWidth = spoolWidth,
+            nozzleDiameter = extractFloat32(decryptedData, 8, 12),
+            spoolWidth = extractInt(decryptedData, 10, 4, 2).toFloat() / 100f,
             bedTemperatureType = bedTempType,
             shortProductionDate = extractString(decryptedData, 13, 0, 16),
-            colorCount = colorCount,
-            
-            // Research fields
-            shortProductionDateHex = shortProductionDateHex,
-            unknownBlock17Hex = unknownBlock17Hex
+            colorCount = extractInt(decryptedData, 16, 2, 2),
+            shortProductionDateHex = extractHex(decryptedData, 13, 0, 16),
+            unknownBlock17Hex = extractHex(decryptedData, 17, 0, 16)
         )
     }
     
@@ -233,106 +233,6 @@ class BambuFormatInterpreter(
         }
     }
     
-    private fun getColorInterpretation(colorHex: String): ColorInterpretation {
-        // Try exact match first
-        mappings.colorMappings[colorHex.uppercase()]?.let { name ->
-            return ColorInterpretation(name, colorHex, 1.0f, ColorSource.EXACT_MATCH)
-        }
-        
-        // Try close match using colour distance
-        val closestMatch = findClosestColor(colorHex)
-        if (closestMatch.confidence > 0.8f) {
-            return closestMatch
-        }
-        
-        // Try HSV analysis
-        val hsvName = analyzeColorByHSV(colorHex)
-        if (hsvName != null) {
-            return ColorInterpretation(hsvName, colorHex, 0.6f, ColorSource.HSV_ANALYSIS)
-        }
-        
-        // Fallback to hex value
-        return ColorInterpretation(colorHex, colorHex, 0.1f, ColorSource.FALLBACK)
-    }
-    
-    private fun findClosestColor(targetHex: String): ColorInterpretation {
-        val target = hexToRGB(targetHex)
-        var bestMatch: Pair<String, String>? = null
-        var minDistance = Double.MAX_VALUE
-        
-        for ((hex, name) in mappings.colorMappings) {
-            val color = hexToRGB(hex)
-            val distance = colorDistance(target, color)
-            
-            if (distance < minDistance) {
-                minDistance = distance
-                bestMatch = hex to name
-            }
-        }
-        
-        return if (bestMatch != null && minDistance < 100) { // Threshold for "close"
-            val confidence = (100 - minDistance).toFloat() / 100f
-            ColorInterpretation(bestMatch.second, targetHex, confidence, ColorSource.CLOSE_MATCH)
-        } else {
-            ColorInterpretation(targetHex, targetHex, 0.1f, ColorSource.FALLBACK)
-        }
-    }
-    
-    private fun analyzeColorByHSV(colorHex: String): String? {
-        val rgb = hexToRGB(colorHex)
-        val hsv = rgbToHSV(rgb)
-        
-        return when {
-            hsv[2] < 0.2 -> "Black"
-            hsv[2] > 0.9 && hsv[1] < 0.1 -> "White"
-            hsv[1] < 0.2 -> "Grey"
-            hsv[0] < 30 || hsv[0] > 330 -> "Red"
-            hsv[0] < 90 -> "Yellow"
-            hsv[0] < 150 -> "Green"
-            hsv[0] < 210 -> "Cyan"
-            hsv[0] < 270 -> "Blue"
-            hsv[0] < 330 -> "Magenta"
-            else -> null
-        }
-    }
-    
-    private fun hexToRGB(hex: String): IntArray {
-        val color = hex.removePrefix("#")
-        return intArrayOf(
-            color.substring(0, 2).toInt(16),
-            color.substring(2, 4).toInt(16),
-            color.substring(4, 6).toInt(16)
-        )
-    }
-    
-    private fun rgbToHSV(rgb: IntArray): FloatArray {
-        val r = rgb[0] / 255f
-        val g = rgb[1] / 255f  
-        val b = rgb[2] / 255f
-        
-        val max = maxOf(r, g, b)
-        val min = minOf(r, g, b)
-        val delta = max - min
-        
-        val h = when {
-            delta == 0f -> 0f
-            max == r -> ((g - b) / delta) % 6 * 60
-            max == g -> ((b - r) / delta + 2) * 60
-            else -> ((r - g) / delta + 4) * 60
-        }
-        
-        val s = if (max == 0f) 0f else delta / max
-        val v = max
-        
-        return floatArrayOf(if (h < 0) h + 360 else h, s, v)
-    }
-    
-    private fun colorDistance(rgb1: IntArray, rgb2: IntArray): Double {
-        val deltaR = rgb1[0] - rgb2[0]
-        val deltaG = rgb1[1] - rgb2[1] 
-        val deltaB = rgb1[2] - rgb2[2]
-        return sqrt((deltaR * deltaR + deltaG * deltaG + deltaB * deltaB).toDouble())
-    }
     
     private fun hexStringToByteArray(hex: String): ByteArray {
         val len = hex.length
