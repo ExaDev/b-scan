@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 fun InfoCard(
     title: String,
     value: String,
+    subtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -33,6 +34,14 @@ fun InfoCard(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            subtitle?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

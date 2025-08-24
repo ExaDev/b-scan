@@ -37,6 +37,17 @@ fun FilamentDetailsScreen(
             )
         }
         
+        // Show exact SKU if available
+        filamentInfo.exactSku?.let { sku ->
+            item {
+                InfoCard(
+                    title = "Exact SKU",
+                    value = sku,
+                    subtitle = filamentInfo.rfidCode?.let { "RFID: $it" }
+                )
+            }
+        }
+        
         // Show purchase links if product information is available
         filamentInfo.bambuProduct?.let { product ->
             item {
