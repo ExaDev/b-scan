@@ -33,6 +33,155 @@ import com.bscan.ui.screens.ScanPromptScreen
 import java.time.LocalDateTime
 
 @Composable
+fun OverscrollListWrapper(
+    lazyListState: LazyListState,
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
+    compactPromptHeightDp: Dp = 100.dp,
+    fullPromptHeightDp: Dp = 400.dp,
+    modifier: Modifier = Modifier,
+    content: @Composable (contentPadding: PaddingValues) -> Unit
+) {
+    // Overscroll-based scan prompt logic
+    val configuration = LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp.dp
+    val singleRowHeight = compactPromptHeightDp
+    val fullPageHeight = maxOf(200.dp, minOf(600.dp, screenHeightDp - 200.dp))
+    
+    // Track scan prompt state with discrete levels
+    var promptState by remember { mutableStateOf(0) } // 0 = hidden, 1 = single row, 2 = full height
+    var isUserDragging by remember { mutableStateOf(false) }
+    var overscrollAccumulated by remember { mutableStateOf(0f) }
+    var lastTransitionTime by remember { mutableStateOf(0L) } // Time of last state transition
+    
+    // Calculate scan prompt height based on discrete state
+    val scanPromptHeight = when (promptState) {
+        1 -> singleRowHeight // Single row
+        2 -> fullPageHeight  // Full height
+        else -> 0.dp         // Hidden
+    }
+    
+    val animatedHeight by animateDpAsState(
+        targetValue = scanPromptHeight,
+        animationSpec = spring(),
+        label = "scan_prompt_height"
+    )
+    
+    // Overscroll connection for discrete gesture detection
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
+                
+                // Track if user is actively dragging (not momentum)
+                val wasDragging = isUserDragging
+                isUserDragging = source == NestedScrollSource.UserInput
+                
+                // Only handle deliberate drag gestures at the top
+                if (isAtTop && available.y > 0 && isUserDragging) {
+                    overscrollAccumulated += available.y
+                    
+                    // Discrete state transitions based on accumulated drag with time delay
+                    val threshold = singleRowHeight.value * 0.3f // Threshold for state change
+                    val currentTime = System.currentTimeMillis()
+                    val timeSinceLastTransition = currentTime - lastTransitionTime
+                    val minimumDelay = 300L // 300ms minimum between transitions
+                    
+                    when (promptState) {
+                        0 -> { // Hidden -> Single row
+                            if (overscrollAccumulated > threshold) {
+                                promptState = 1
+                                overscrollAccumulated = 0f // Reset for next transition
+                                lastTransitionTime = currentTime
+                                Log.d("ScanPrompt", "Transition 0->1 (single row)")
+                            }
+                        }
+                        1 -> { // Single row -> Full height  
+                            if (overscrollAccumulated > threshold && timeSinceLastTransition > minimumDelay) {
+                                promptState = 2
+                                overscrollAccumulated = 0f
+                                lastTransitionTime = currentTime
+                                Log.d("ScanPrompt", "Transition 1->2 (full height)")
+                            }
+                        }
+                        // State 2 (full height) stays at 2
+                    }
+                    
+                    return Offset(0f, available.y) // Consume the drag
+                }
+                return Offset.Zero
+            }
+            
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
+                
+                // Reset states when actively scrolling down or significantly away from top
+                // Use moderate tolerance to account for scan prompt height but still allow collapsing
+                val tolerancePixels = 200 // Reduced tolerance to make collapsing more responsive
+                if ((available.y < 0 && source == NestedScrollSource.UserInput) || 
+                    (!isAtTop && lazyListState.firstVisibleItemScrollOffset > tolerancePixels)) {
+                    promptState = 0
+                    overscrollAccumulated = 0f
+                    isUserDragging = false
+                    lastTransitionTime = 0L // Reset transition timer
+                }
+                
+                // Reset dragging flag when momentum stops
+                if (source != NestedScrollSource.UserInput) {
+                    isUserDragging = false
+                    overscrollAccumulated = 0f
+                }
+                
+                return Offset.Zero
+            }
+        }
+    }
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .nestedScroll(nestedScrollConnection)
+    ) {
+        // Content with padding adjusted for scan prompt
+        content(
+            PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 8.dp + animatedHeight, // Push content down by scan prompt height
+                bottom = 8.dp
+            )
+        )
+        
+        // Overlay scan prompt that appears on overscroll
+        if (animatedHeight > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(animatedHeight)
+                    .padding(horizontal = 16.dp)
+            ) {
+                when (promptState) {
+                    2 -> {
+                        // Show full scan prompt
+                        ScanPromptScreen()
+                    }
+                    1 -> {
+                        // Show compact scan prompt
+                        CompactScanPrompt(
+                            scanState = scanState,
+                            scanProgress = scanProgress,
+                            onLongPress = onSimulateScan
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SpoolsList(
     spools: List<UniqueSpool>,
     sortProperty: SortProperty,
@@ -149,160 +298,36 @@ fun SpoolsList(
         }
     }
     
-    // Overscroll-based scan prompt logic
-    val configuration = LocalConfiguration.current
-    val screenHeightDp = configuration.screenHeightDp.dp
-    val singleRowHeight = compactPromptHeightDp
-    val fullPageHeight = maxOf(200.dp, minOf(600.dp, screenHeightDp - 200.dp))
-    
-    // Track scan prompt state with discrete levels
-    var promptState by remember { mutableStateOf(0) } // 0 = hidden, 1 = single row, 2 = full height
-    var isUserDragging by remember { mutableStateOf(false) }
-    var overscrollAccumulated by remember { mutableStateOf(0f) }
-    var lastTransitionTime by remember { mutableStateOf(0L) } // Time of last state transition
-    
-    // Calculate scan prompt height based on discrete state
-    val scanPromptHeight = when (promptState) {
-        1 -> singleRowHeight // Single row
-        2 -> fullPageHeight  // Full height
-        else -> 0.dp         // Hidden
-    }
-    
-    val animatedHeight by animateDpAsState(
-        targetValue = scanPromptHeight,
-        animationSpec = spring(),
-        label = "scan_prompt_height"
-    )
-    
-    // Overscroll connection for discrete gesture detection
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
-                
-                // Track if user is actively dragging (not momentum)
-                val wasDragging = isUserDragging
-                isUserDragging = source == NestedScrollSource.UserInput
-                
-                // Only handle deliberate drag gestures at the top
-                if (isAtTop && available.y > 0 && isUserDragging) {
-                    overscrollAccumulated += available.y
-                    
-                    // Discrete state transitions based on accumulated drag with time delay
-                    val threshold = singleRowHeight.value * 0.3f // Threshold for state change
-                    val currentTime = System.currentTimeMillis()
-                    val timeSinceLastTransition = currentTime - lastTransitionTime
-                    val minimumDelay = 300L // 300ms minimum between transitions
-                    
-                    when (promptState) {
-                        0 -> { // Hidden -> Single row
-                            if (overscrollAccumulated > threshold) {
-                                promptState = 1
-                                overscrollAccumulated = 0f // Reset for next transition
-                                lastTransitionTime = currentTime
-                                Log.d("ScanPrompt", "Transition 0->1 (single row)")
-                            }
-                        }
-                        1 -> { // Single row -> Full height  
-                            if (overscrollAccumulated > threshold && timeSinceLastTransition > minimumDelay) {
-                                promptState = 2
-                                overscrollAccumulated = 0f
-                                lastTransitionTime = currentTime
-                                Log.d("ScanPrompt", "Transition 1->2 (full height)")
-                            }
-                        }
-                        // State 2 (full height) stays at 2
-                    }
-                    
-                    return Offset(0f, available.y) // Consume the drag
-                }
-                return Offset.Zero
-            }
-            
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0
-                
-                // Reset states when actively scrolling down or significantly away from top
-                // Use moderate tolerance to account for scan prompt height but still allow collapsing
-                val tolerancePixels = 200 // Reduced tolerance to make collapsing more responsive
-                if ((available.y < 0 && source == NestedScrollSource.UserInput) || 
-                    (!isAtTop && lazyListState.firstVisibleItemScrollOffset > tolerancePixels)) {
-                    promptState = 0
-                    overscrollAccumulated = 0f
-                    isUserDragging = false
-                    lastTransitionTime = 0L // Reset transition timer
-                }
-                
-                // Reset dragging flag when momentum stops
-                if (source != NestedScrollSource.UserInput) {
-                    isUserDragging = false
-                    overscrollAccumulated = 0f
-                }
-                
-                return Offset.Zero
-            }
-        }
-    }
-    
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(nestedScrollConnection)
-    ) {
+    OverscrollListWrapper(
+        lazyListState = lazyListState,
+        scanState = scanState,
+        scanProgress = scanProgress,
+        onSimulateScan = onSimulateScan,
+        compactPromptHeightDp = compactPromptHeightDp,
+        fullPromptHeightDp = fullPromptHeightDp
+    ) { contentPadding ->
         LazyColumn(
             state = lazyListState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp + animatedHeight, // Push content down by scan prompt height
-                bottom = 8.dp
-            ),
+            contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        
-        filteredGroupedAndSortedSpools.forEach { (groupKey, groupSpools) ->
-            // Show group header if grouping is enabled
-            if (groupByOption != GroupByOption.NONE) {
-                item(key = "header_$groupKey") {
-                    GroupHeader(title = groupKey, itemCount = groupSpools.size)
+        ) {
+            filteredGroupedAndSortedSpools.forEach { (groupKey, groupSpools) ->
+                // Show group header if grouping is enabled
+                if (groupByOption != GroupByOption.NONE) {
+                    item(key = "header_$groupKey") {
+                        GroupHeader(title = groupKey, itemCount = groupSpools.size)
+                    }
                 }
-            }
-            
-            // Show spools in the group
-            items(groupSpools, key = { it.uid }) { spool ->
-                SpoolCard(
-                    spool = spool,
-                    onClick = { trayUid ->
-                        onNavigateToDetails?.invoke(DetailType.SPOOL, trayUid)
-                    }
-                )
-            }
-        }
-        }
-        
-        // Overlay scan prompt that appears on overscroll
-        if (animatedHeight > 0.dp) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(animatedHeight)
-                    .padding(horizontal = 16.dp)
-            ) {
-                when (promptState) {
-                    2 -> {
-                        // Show full scan prompt
-                        ScanPromptScreen()
-                    }
-                    1 -> {
-                        // Show compact scan prompt
-                        CompactScanPrompt(
-                            scanState = scanState,
-                            scanProgress = scanProgress,
-                            onLongPress = onSimulateScan
-                        )
-                    }
+                
+                // Show spools in the group
+                items(groupSpools, key = { it.uid }) { spool ->
+                    SpoolCard(
+                        spool = spool,
+                        onClick = { trayUid ->
+                            onNavigateToDetails?.invoke(DetailType.SPOOL, trayUid)
+                        }
+                    )
                 }
             }
         }
@@ -317,7 +342,12 @@ fun SkusList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
+    compactPromptHeightDp: Dp = 100.dp,
+    fullPromptHeightDp: Dp = 400.dp
 ) {
     // Group scans by SKU (filament type + color combination)
     // Include ALL scans with filament info to show incomplete/failed scans as separate SKUs
@@ -448,28 +478,37 @@ fun SkusList(
         }
     }
     
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        filteredGroupedAndSortedSkus.forEach { (groupKey, groupSkus) ->
-            // Show group header if grouping is enabled
-            if (groupByOption != GroupByOption.NONE) {
-                item(key = "header_$groupKey") {
-                    GroupHeader(title = groupKey, itemCount = groupSkus.size)
-                }
-            }
-            
-            // Show SKUs in the group
-            items(groupSkus, key = { it.skuKey }) { sku ->
-                SkuCard(
-                    sku = sku,
-                    onClick = { skuKey ->
-                        onNavigateToDetails?.invoke(DetailType.SKU, skuKey)
+    OverscrollListWrapper(
+        lazyListState = lazyListState,
+        scanState = scanState,
+        scanProgress = scanProgress,
+        onSimulateScan = onSimulateScan,
+        compactPromptHeightDp = compactPromptHeightDp,
+        fullPromptHeightDp = fullPromptHeightDp
+    ) { contentPadding ->
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            filteredGroupedAndSortedSkus.forEach { (groupKey, groupSkus) ->
+                // Show group header if grouping is enabled
+                if (groupByOption != GroupByOption.NONE) {
+                    item(key = "header_$groupKey") {
+                        GroupHeader(title = groupKey, itemCount = groupSkus.size)
                     }
-                )
+                }
+                
+                // Show SKUs in the group
+                items(groupSkus, key = { it.skuKey }) { sku ->
+                    SkuCard(
+                        sku = sku,
+                        onClick = { skuKey ->
+                            onNavigateToDetails?.invoke(DetailType.SKU, skuKey)
+                        }
+                    )
+                }
             }
         }
     }
@@ -483,7 +522,12 @@ fun TagsList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
+    compactPromptHeightDp: Dp = 100.dp,
+    fullPromptHeightDp: Dp = 400.dp
 ) {
     // Convert UniqueSpool data to the format expected by the rest of the function
     val uniqueTags = remember(individualTags) {
@@ -629,32 +673,41 @@ fun TagsList(
         }
     }
     
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        filteredGroupedAndSortedTags.forEach { (groupKey, groupTags) ->
-            // Show group header if grouping is enabled
-            if (groupByOption != GroupByOption.NONE) {
-                item(key = "header_$groupKey") {
-                    GroupHeader(title = groupKey, itemCount = groupTags.size)
-                }
-            }
-            
-            // Show tags in the group
-            items(groupTags, key = { it.first }) { (uid, mostRecentScan, filamentInfo) ->
-                TagCard(
-                    uid = uid,
-                    mostRecentScan = mostRecentScan,
-                    filamentInfo = filamentInfo,
-                    allScans = listOf(mostRecentScan), // Pass just this tag's scan data
-                    modifier = Modifier.clickable {
-                        // Navigate to tag details using the tag UID
-                        onNavigateToDetails?.invoke(DetailType.TAG, uid)
+    OverscrollListWrapper(
+        lazyListState = lazyListState,
+        scanState = scanState,
+        scanProgress = scanProgress,
+        onSimulateScan = onSimulateScan,
+        compactPromptHeightDp = compactPromptHeightDp,
+        fullPromptHeightDp = fullPromptHeightDp
+    ) { contentPadding ->
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            filteredGroupedAndSortedTags.forEach { (groupKey, groupTags) ->
+                // Show group header if grouping is enabled
+                if (groupByOption != GroupByOption.NONE) {
+                    item(key = "header_$groupKey") {
+                        GroupHeader(title = groupKey, itemCount = groupTags.size)
                     }
-                )
+                }
+                
+                // Show tags in the group
+                items(groupTags, key = { it.first }) { (uid, mostRecentScan, filamentInfo) ->
+                    TagCard(
+                        uid = uid,
+                        mostRecentScan = mostRecentScan,
+                        filamentInfo = filamentInfo,
+                        allScans = listOf(mostRecentScan), // Pass just this tag's scan data
+                        modifier = Modifier.clickable {
+                            // Navigate to tag details using the tag UID
+                            onNavigateToDetails?.invoke(DetailType.TAG, uid)
+                        }
+                    )
+                }
             }
         }
     }
@@ -668,7 +721,12 @@ fun ScansList(
     groupByOption: GroupByOption,
     filterState: FilterState,
     lazyListState: LazyListState,
-    onNavigateToDetails: ((DetailType, String) -> Unit)? = null
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    scanState: ScanState = ScanState.IDLE,
+    scanProgress: ScanProgress? = null,
+    onSimulateScan: () -> Unit = {},
+    compactPromptHeightDp: Dp = 100.dp,
+    fullPromptHeightDp: Dp = 400.dp
 ) {
     val filteredGroupedAndSortedScans = remember(allScans, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = allScans.filter { scan ->
@@ -771,29 +829,38 @@ fun ScansList(
         }
     }
     
-    LazyColumn(
-        state = lazyListState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        filteredGroupedAndSortedScans.forEach { (groupKey, groupScans) ->
-            // Show group header if grouping is enabled
-            if (groupByOption != GroupByOption.NONE) {
-                item(key = "header_$groupKey") {
-                    GroupHeader(title = groupKey, itemCount = groupScans.size)
-                }
-            }
-            
-            // Show scans in the group
-            items(groupScans, key = { "${it.uid}_${it.timestamp}" }) { scan ->
-                ScanCard(
-                    scan = scan,
-                    onClick = { scanHistory ->
-                        val scanId = "${scanHistory.timestamp.toString().replace(":", "-").replace(".", "-")}_${scanHistory.uid}"
-                        onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
+    OverscrollListWrapper(
+        lazyListState = lazyListState,
+        scanState = scanState,
+        scanProgress = scanProgress,
+        onSimulateScan = onSimulateScan,
+        compactPromptHeightDp = compactPromptHeightDp,
+        fullPromptHeightDp = fullPromptHeightDp
+    ) { contentPadding ->
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = contentPadding,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            filteredGroupedAndSortedScans.forEach { (groupKey, groupScans) ->
+                // Show group header if grouping is enabled
+                if (groupByOption != GroupByOption.NONE) {
+                    item(key = "header_$groupKey") {
+                        GroupHeader(title = groupKey, itemCount = groupScans.size)
                     }
-                )
+                }
+                
+                // Show scans in the group
+                items(groupScans, key = { "${it.uid}_${it.timestamp}" }) { scan ->
+                    ScanCard(
+                        scan = scan,
+                        onClick = { scanHistory ->
+                            val scanId = "${scanHistory.timestamp.toString().replace(":", "-").replace(".", "-")}_${scanHistory.uid}"
+                            onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
+                        }
+                    )
+                }
             }
         }
     }
