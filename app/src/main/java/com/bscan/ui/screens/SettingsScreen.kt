@@ -40,6 +40,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    blePermissionHandler: BlePermissionHandler,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -213,7 +214,8 @@ fun SettingsScreen(
             
             item {
                 BleScalesPreferenceCard(
-                    userPrefsRepository = userPrefsRepository
+                    userPrefsRepository = userPrefsRepository,
+                    blePermissionHandler = blePermissionHandler
                 )
             }
             
@@ -831,25 +833,22 @@ private fun MaterialDisplayPreferenceCard(
 
 @Composable
 private fun BleScalesPreferenceCard(
-    userPrefsRepository: UserPreferencesRepository
+    userPrefsRepository: UserPreferencesRepository,
+    blePermissionHandler: BlePermissionHandler
 ) {
     val context = LocalContext.current
-    val activity = context as? androidx.activity.ComponentActivity
     
     var isScalesEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesEnabled()) }
     var preferredScaleName by remember { mutableStateOf(userPrefsRepository.getPreferredScaleName()) }
     var autoConnectEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesAutoConnectEnabled()) }
     
-    // BLE components - only create if activity is available
-    val blePermissionHandler = remember(activity) { 
-        activity?.let { BlePermissionHandler(it) } 
-    }
+    // BLE components
     val bleScalesManager = remember { BleScalesManager(context) }
     
     // BLE state
     val isScanning by bleScalesManager.isScanning.collectAsStateWithLifecycle()
     val discoveredDevices by bleScalesManager.discoveredDevices.collectAsStateWithLifecycle()
-    val permissionState by blePermissionHandler?.permissionState?.collectAsStateWithLifecycle() ?: remember { mutableStateOf(com.bscan.ble.BlePermissionState.UNKNOWN) }
+    val permissionState by blePermissionHandler.permissionState.collectAsStateWithLifecycle()
     
     var showDeviceSelection by remember { mutableStateOf(false) }
     
@@ -915,13 +914,11 @@ private fun BleScalesPreferenceCard(
                     // Connect button
                     Button(
                         onClick = {
-                            blePermissionHandler?.let { permissionHandler ->
-                                if (permissionHandler.hasAllPermissions()) {
-                                    showDeviceSelection = true
-                                    bleScalesManager.startScanning(permissionHandler)
-                                } else {
-                                    permissionHandler.requestPermissions()
-                                }
+                            if (blePermissionHandler.hasAllPermissions()) {
+                                showDeviceSelection = true
+                                bleScalesManager.startScanning(blePermissionHandler)
+                            } else {
+                                blePermissionHandler.requestPermissions()
                             }
                         },
                         enabled = !isScanning
