@@ -40,8 +40,10 @@ fun detectFilamentFinish(colorHex: String, filamentType: String): FilamentFinish
         else -> 255
     }
     
-    // If alpha < 255, it's translucent regardless of product line
-    if (alpha < 255) return FilamentFinish.TRANSLUCENT
+    // Check for translucent materials
+    if (alpha < 255 || filamentType.contains("Translucent", ignoreCase = true)) {
+        return FilamentFinish.TRANSLUCENT
+    }
     
     // Otherwise check product line for finish type
     return when {
@@ -103,8 +105,15 @@ fun FilamentColorBox(
     size: Dp = 48.dp,
     shape: Shape = CircleShape
 ) {
-    val color = parseColorWithAlpha(colorHex)
+    val originalColor = parseColorWithAlpha(colorHex)
     val finish = detectFilamentFinish(colorHex, filamentType)
+    
+    // Apply automatic alpha to translucent materials that don't have alpha in their hex
+    val color = if (finish == FilamentFinish.TRANSLUCENT && originalColor.alpha == 1f) {
+        originalColor.copy(alpha = 0.5f) // 50% opacity for translucent materials
+    } else {
+        originalColor
+    }
     val density = LocalDensity.current
     
     // Animation for silk shimmer effect
@@ -196,7 +205,7 @@ private fun DrawScope.drawCheckerboard(
     checkSize: Float
 ) {
     val lightColor = Color(0xFFFFFFFF)
-    val darkColor = Color(0xFFCCCCCC)
+    val darkColor = Color(0xFFE0E0E0)
     
     val checksX = (size.width / checkSize).toInt() + 1
     val checksY = (size.height / checkSize).toInt() + 1
