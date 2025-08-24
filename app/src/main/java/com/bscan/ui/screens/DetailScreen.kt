@@ -197,7 +197,8 @@ fun PrimaryScanSection(scan: com.bscan.repository.InterpretedScan) {
         scan.filamentInfo?.let { filamentInfo ->
             ColorPreviewCard(
                 colorHex = filamentInfo.colorHex,
-                colorName = filamentInfo.colorName
+                colorName = filamentInfo.colorName,
+                filamentType = filamentInfo.filamentType
             )
             
             InfoCard(
@@ -234,7 +235,8 @@ fun PrimaryTagSection(tag: com.bscan.repository.InterpretedScan) {
         tag.filamentInfo?.let { filamentInfo ->
             ColorPreviewCard(
                 colorHex = filamentInfo.colorHex,
-                colorName = filamentInfo.colorName
+                colorName = filamentInfo.colorName,
+                filamentType = filamentInfo.filamentType
             )
             
             InfoCard(
@@ -264,7 +266,8 @@ fun PrimarySpoolSection(
         // Filament Color Preview
         ColorPreviewCard(
             colorHex = spool.filamentInfo.colorHex,
-            colorName = spool.filamentInfo.colorName
+            colorName = spool.filamentInfo.colorName,
+            filamentType = spool.filamentInfo.filamentType
         )
         
         // Filament Type Info
@@ -313,7 +316,8 @@ fun PrimarySkuSection(sku: com.bscan.ui.screens.home.SkuInfo) {
         
         ColorPreviewCard(
             colorHex = sku.filamentInfo.colorHex,
-            colorName = sku.filamentInfo.colorName
+            colorName = sku.filamentInfo.colorName,
+            filamentType = sku.filamentInfo.filamentType
         )
         
         InfoCard(
