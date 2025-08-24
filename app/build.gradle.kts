@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    jacoco
 }
 
 android {
@@ -37,10 +38,14 @@ android {
     testOptions {
         unitTests {
             isReturnDefaultValues = true
+            isIncludeAndroidResources = true
         }
     }
 
     buildTypes {
+        debug {
+            isTestCoverageEnabled = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -94,6 +99,7 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.test:core:1.5.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     // testImplementation("org.powermock:powermock-api-mockito2:2.0.9") // Removed due to performance issues
     // testImplementation("org.powermock:powermock-module-junit4:2.0.9")
     androidTestImplementation(libs.androidx.junit)
@@ -102,4 +108,38 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+// JaCoCo Configuration for Code Coverage
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    group = "Reporting"
+    description = "Generate Jacoco coverage reports for the debug build"
+    
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        csv.required.set(false)
+        html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/test/html"))
+        xml.outputLocation.set(layout.buildDirectory.file("reports/jacoco/test/jacocoTestReport.xml"))
+    }
+    
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R\$*.class", 
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/databinding/**",
+        "**/ui/theme/**" // Exclude UI themes from coverage
+    )
+    
+    val debugTree = fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug")
+    val mainSrc = "${project.projectDir}/src/main/java"
+    
+    sourceDirectories.setFrom(files(mainSrc))
+    classDirectories.setFrom(fileTree(debugTree).exclude(fileFilter))
+    
+    executionData.setFrom(fileTree(layout.buildDirectory).include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"))
 }
