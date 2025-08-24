@@ -11,6 +11,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.jsoup:jsoup:1.17.2")
+    implementation("org.apache.pdfbox:pdfbox:3.0.1")
     
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")

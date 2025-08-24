@@ -14,7 +14,6 @@ import java.time.format.DateTimeFormatter
 
 data class FilamentMappings(
     val version: Int,
-    val colorMappings: Map<String, String>,
     val materialMappings: Map<String, String>,
     val brandMappings: Map<String, String>,
     val temperatureMappings: Map<String, TemperatureRange>,
@@ -77,6 +76,8 @@ fun main() = runBlocking {
         for ((index, url) in urls.withIndex()) {
             val progress = "${index + 1}/${urls.size}"
             val productName = url.substringAfterLast("/")
+            
+            
             println("[$progress] Processing: $productName")
             
             val itemStartTime = System.currentTimeMillis()
@@ -137,14 +138,12 @@ fun main() = runBlocking {
         
         println("✅ Extraction complete: ${allProducts.size} SKUs found")
         
-        // Generate updated color mappings from scraped data
-        val colorMappings = generateColorMappings(allProducts)
+        // Generate material mappings from scraped data  
         val materialMappings = generateMaterialMappings(allProducts)
         
         // Create final FilamentMappings structure
         val mappings = FilamentMappings(
             version = (System.currentTimeMillis() / 1000).toInt(), // Unix timestamp as version
-            colorMappings = colorMappings,
             materialMappings = materialMappings,
             brandMappings = mapOf("BAMBU" to "Bambu Lab", "BL" to "Bambu Lab"),
             temperatureMappings = getDefaultTemperatureMappings(),
@@ -155,8 +154,8 @@ fun main() = runBlocking {
         saveIncrementalUpdate(allProducts.toList(), outputFile, mappings)
         
         println("💾 Saved ${allProducts.size} products to ${outputFile.name}")
-        println("📈 Generated ${colorMappings.size} color mappings")
         println("🔧 Generated ${materialMappings.size} material mappings")
+        println("🎨 Color information preserved within ${allProducts.size} SKU entries")
         
     } catch (e: Exception) {
         println("❌ Error: ${e.message}")
@@ -211,37 +210,6 @@ private fun generateInternalCode(productHandle: String): String {
     }
 }
 
-private fun generateColorMappings(products: List<ProductEntry>): Map<String, String> {
-    val colorMappings = mutableMapOf<String, String>()
-    
-    // Add default color mappings
-    colorMappings.putAll(mapOf(
-        "#000000" to "Black",
-        "#FFFFFF" to "White",
-        "#FF0000" to "Red",
-        "#00FF00" to "Green",
-        "#0000FF" to "Blue",
-        "#FFFF00" to "Yellow",
-        "#FF00FF" to "Magenta",
-        "#00FFFF" to "Cyan",
-        "#FFA500" to "Orange",
-        "#800080" to "Purple",
-        "#FFC0CB" to "Pink",
-        "#A52A2A" to "Brown",
-        "#808080" to "Grey",
-        "#C0C0C0" to "Silver",
-        "#FFD700" to "Gold"
-    ))
-    
-    // Add mappings from scraped products
-    products.forEach { product ->
-        if (product.colorHex != null && product.colorHex.isNotEmpty()) {
-            colorMappings[product.colorHex.uppercase()] = product.colorName
-        }
-    }
-    
-    return colorMappings
-}
 
 private fun generateMaterialMappings(products: List<ProductEntry>): Map<String, String> {
     val materialTypes = products.map { it.materialType }.distinct()
@@ -311,12 +279,10 @@ private fun loadExistingMappings(outputFile: File): FilamentMappings? {
 }
 
 private fun saveIncrementalUpdate(products: List<ProductEntry>, outputFile: File, finalMappings: FilamentMappings? = null) {
-    val colorMappings = generateColorMappings(products)
     val materialMappings = generateMaterialMappings(products)
     
     val mappings = finalMappings ?: FilamentMappings(
         version = (System.currentTimeMillis() / 1000).toInt(),
-        colorMappings = colorMappings,
         materialMappings = materialMappings,
         brandMappings = mapOf("BAMBU" to "Bambu Lab", "BL" to "Bambu Lab"),
         temperatureMappings = getDefaultTemperatureMappings(),

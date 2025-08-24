@@ -5,10 +5,15 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import kotlinx.coroutines.delay
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.text.PDFTextStripper
 import org.jsoup.Jsoup
 import org.jsoup.HttpStatusException
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.io.ByteArrayInputStream
+import java.io.IOException
 import java.net.URL
 import java.security.MessageDigest
 import java.time.LocalDateTime
@@ -94,17 +99,57 @@ class BambuStoreScraper(
             // Debug: Check what we actually received
             debugPageContent(doc, productHandle)
             
+            // Extract hex codes from the page first
+            println("  🎨 Extracting hex codes from page...")
+            var hexCodes = extractHexCodesFromPage(doc)
+            
+            // Filter out generic/UI hex codes, keep only filament-specific ones
+            val filamentHexCodes = hexCodes.filterKeys { colorName ->
+                // Keep only colors that look like actual filament colors
+                !colorName.contains("Turn Ideas Into Reality", ignoreCase = true) &&
+                !colorName.contains("View all", ignoreCase = true) &&
+                !colorName.contains("INCL. VAT", ignoreCase = true) &&
+                !colorName.contains("rolls from", ignoreCase = true) &&
+                !colorName.contains("Quick add", ignoreCase = true) &&
+                !colorName.contains("Product Features", ignoreCase = true) &&
+                !colorName.contains("Discover More", ignoreCase = true) &&
+                !colorName.contains("Filament", ignoreCase = true) &&
+                !colorName.contains("guide", ignoreCase = true) &&
+                !colorName.contains("here", ignoreCase = true) &&
+                !colorName.contains("The color and texture", ignoreCase = true) &&
+                !colorName.equals("Hex Code", ignoreCase = true) && // This is likely a link, not a color
+                colorName.length <= 30 && // Reasonable color name length
+                !colorName.contains("mm") && // Exclude technical specs
+                !colorName.contains("nozzle", ignoreCase = true)
+            }
+            
+            println("  🎯 Found ${filamentHexCodes.size} filament-specific hex codes after filtering")
+            hexCodes = filamentHexCodes
+            
+            // Always check for PDFs, especially if we have few/no filament hex codes
+            println("  📄 Looking for hex code PDFs...")
+            val pdfLinks = findHexCodePdfLinks(doc)
+            for (pdfUrl in pdfLinks) {
+                val pdfHexCodes = extractHexCodesFromPdf(pdfUrl)
+                hexCodes = hexCodes + pdfHexCodes
+                if (pdfHexCodes.isNotEmpty()) {
+                    println("  ✅ Added ${pdfHexCodes.size} hex codes from PDF")
+                }
+            }
+            
+            println("  💡 Found ${hexCodes.size} hex codes total")
+            
             // Method 1: Extract from JSON-LD structured data
-            skus.addAll(extractFromJsonLD(doc, productHandle, productUrl))
+            skus.addAll(extractFromJsonLD(doc, productHandle, productUrl, hexCodes))
             
             // Method 2: Extract from Shopify product scripts
             if (skus.isEmpty()) {
-                skus.addAll(extractFromShopifyScripts(doc, productHandle, productUrl))
+                skus.addAll(extractFromShopifyScripts(doc, productHandle, productUrl, hexCodes))
             }
             
             // Method 3: Fallback - extract from HTML attributes and forms
             if (skus.isEmpty()) {
-                skus.addAll(extractFromHtmlAttributes(doc, productHandle, productUrl))
+                skus.addAll(extractFromHtmlAttributes(doc, productHandle, productUrl, hexCodes))
             }
             
             println("Extracted ${skus.size} SKUs from $productHandle")
@@ -210,7 +255,7 @@ class BambuStoreScraper(
         }
     }
     
-    private fun extractFromJsonLD(doc: Document, productHandle: String, productUrl: String): List<ProductSKU> {
+    private fun extractFromJsonLD(doc: Document, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): List<ProductSKU> {
         val skus = mutableListOf<ProductSKU>()
         
         doc.select("script[type=application/ld+json]").forEach { script ->
@@ -227,7 +272,7 @@ class BambuStoreScraper(
                         
                         offers?.forEach { offer ->
                             val offerObj = offer.asJsonObject
-                            val sku = extractSkuFromOffer(offerObj, name, productHandle, productUrl)
+                            val sku = extractSkuFromOffer(offerObj, name, productHandle, productUrl, hexCodes)
                             if (sku != null) {
                                 skus.add(sku)
                             }
@@ -244,7 +289,7 @@ class BambuStoreScraper(
                             println("    Found ${variants.size()} variants")
                             variants.forEach { variant ->
                                 val variantObj = variant.asJsonObject
-                                val sku = extractSkuFromProductVariant(variantObj, name, productHandle, productUrl)
+                                val sku = extractSkuFromProductVariant(variantObj, name, productHandle, productUrl, hexCodes)
                                 if (sku != null) {
                                     skus.add(sku)
                                 }
@@ -266,7 +311,7 @@ class BambuStoreScraper(
         return skus
     }
     
-    private fun extractFromShopifyScripts(doc: Document, productHandle: String, productUrl: String): List<ProductSKU> {
+    private fun extractFromShopifyScripts(doc: Document, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): List<ProductSKU> {
         val skus = mutableListOf<ProductSKU>()
         
         doc.select("script").forEach { script ->
@@ -274,10 +319,10 @@ class BambuStoreScraper(
             
             when {
                 scriptContent.contains("window.ShopifyAnalytics") -> {
-                    skus.addAll(extractFromShopifyAnalytics(scriptContent, productHandle, productUrl))
+                    skus.addAll(extractFromShopifyAnalytics(scriptContent, productHandle, productUrl, hexCodes))
                 }
                 scriptContent.contains("\"variants\"") -> {
-                    skus.addAll(extractFromProductJson(scriptContent, productHandle, productUrl))
+                    skus.addAll(extractFromProductJson(scriptContent, productHandle, productUrl, hexCodes))
                 }
             }
         }
@@ -285,7 +330,7 @@ class BambuStoreScraper(
         return skus
     }
     
-    private fun extractFromShopifyAnalytics(scriptContent: String, productHandle: String, productUrl: String): List<ProductSKU> {
+    private fun extractFromShopifyAnalytics(scriptContent: String, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): List<ProductSKU> {
         val skus = mutableListOf<ProductSKU>()
         
         try {
@@ -295,7 +340,7 @@ class BambuStoreScraper(
             
             matches.forEach { match ->
                 val productJson = JsonParser.parseString(match.groupValues[1]).asJsonObject
-                val sku = extractSkuFromShopifyProduct(productJson, productHandle, productUrl)
+                val sku = extractSkuFromShopifyProduct(productJson, productHandle, productUrl, hexCodes)
                 if (sku != null) {
                     skus.add(sku)
                 }
@@ -307,7 +352,7 @@ class BambuStoreScraper(
         return skus
     }
     
-    private fun extractFromProductJson(scriptContent: String, productHandle: String, productUrl: String): List<ProductSKU> {
+    private fun extractFromProductJson(scriptContent: String, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): List<ProductSKU> {
         val skus = mutableListOf<ProductSKU>()
         
         try {
@@ -321,7 +366,7 @@ class BambuStoreScraper(
                 
                 variantsJson.forEach { variant ->
                     val variantObj = variant.asJsonObject
-                    val sku = extractSkuFromVariant(variantObj, productName, productHandle, productUrl)
+                    val sku = extractSkuFromVariant(variantObj, productName, productHandle, productUrl, hexCodes)
                     if (sku != null) {
                         skus.add(sku)
                     }
@@ -334,7 +379,7 @@ class BambuStoreScraper(
         return skus
     }
     
-    private fun extractFromHtmlAttributes(doc: Document, productHandle: String, productUrl: String): List<ProductSKU> {
+    private fun extractFromHtmlAttributes(doc: Document, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): List<ProductSKU> {
         val skus = mutableListOf<ProductSKU>()
         
         try {
@@ -352,6 +397,7 @@ class BambuStoreScraper(
                     if (variantId.isNotEmpty()) {
                         val colorName = extractColorFromElement(element) ?: "Unknown Color"
                         val price = extractPriceFromPage(doc) ?: 0.0
+                        val colorHex = findHexCodeForColor(colorName, hexCodes)
                         
                         val sku = ProductSKU(
                             productHandle = productHandle,
@@ -362,7 +408,7 @@ class BambuStoreScraper(
                             price = price,
                             available = true,
                             url = "$productUrl?id=$variantId",
-                            colorHex = null,
+                            colorHex = colorHex,
                             dataHash = calculateHash(variantId, productName, colorName, price.toString())
                         )
                         skus.add(sku)
@@ -376,7 +422,7 @@ class BambuStoreScraper(
         return skus
     }
     
-    private fun extractSkuFromOffer(offer: JsonObject, productName: String, productHandle: String, productUrl: String): ProductSKU? {
+    private fun extractSkuFromOffer(offer: JsonObject, productName: String, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): ProductSKU? {
         return try {
             val sku = offer.get("sku")?.asString ?: return null
             val price = offer.get("price")?.asDouble ?: 0.0
@@ -387,6 +433,7 @@ class BambuStoreScraper(
             // Extract color from SKU or product variations
             val colorName = extractColorFromSku(sku) ?: "Unknown Color"
             val colorCode = extractColorCodeFromSku(sku) ?: "Unknown"
+            val colorHex = findHexCodeForColor(colorName, hexCodes)
             
             ProductSKU(
                 productHandle = productHandle,
@@ -397,7 +444,7 @@ class BambuStoreScraper(
                 price = price,
                 available = available,
                 url = "$productUrl?id=$sku",
-                colorHex = null,
+                colorHex = colorHex,
                 dataHash = calculateHash(sku, productName, colorName, price.toString())
             )
         } catch (e: Exception) {
@@ -405,22 +452,24 @@ class BambuStoreScraper(
         }
     }
     
-    private fun extractSkuFromShopifyProduct(product: JsonObject, productHandle: String, productUrl: String): ProductSKU? {
+    private fun extractSkuFromShopifyProduct(product: JsonObject, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): ProductSKU? {
         return try {
             val id = product.get("id")?.asString ?: return null
             val name = product.get("name")?.asString ?: "Unknown Product"
             val price = product.get("price")?.asDouble ?: 0.0
+            val colorName = "Unknown Color"
+            val colorHex = findHexCodeForColor(colorName, hexCodes)
             
             ProductSKU(
                 productHandle = productHandle,
                 productName = name,
                 variantId = id,
                 colorCode = "Unknown",
-                colorName = "Unknown Color",
+                colorName = colorName,
                 price = price,
                 available = true,
                 url = "$productUrl?id=$id",
-                colorHex = null,
+                colorHex = colorHex,
                 dataHash = calculateHash(id, name, "Unknown", price.toString())
             )
         } catch (e: Exception) {
@@ -428,7 +477,7 @@ class BambuStoreScraper(
         }
     }
     
-    private fun extractSkuFromVariant(variant: JsonObject, productName: String, productHandle: String, productUrl: String): ProductSKU? {
+    private fun extractSkuFromVariant(variant: JsonObject, productName: String, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): ProductSKU? {
         return try {
             val id = variant.get("id")?.asString ?: return null
             val title = variant.get("title")?.asString ?: "Unknown Variant"
@@ -438,6 +487,7 @@ class BambuStoreScraper(
             
             // Color is often in the variant title
             val colorName = if (title != "Default Title") title else "Unknown Color"
+            val colorHex = findHexCodeForColor(colorName, hexCodes)
             
             ProductSKU(
                 productHandle = productHandle,
@@ -448,7 +498,7 @@ class BambuStoreScraper(
                 price = price,
                 available = available,
                 url = "$productUrl?id=$id",
-                colorHex = null,
+                colorHex = colorHex,
                 dataHash = calculateHash(id, productName, colorName, price.toString())
             )
         } catch (e: Exception) {
@@ -487,7 +537,7 @@ class BambuStoreScraper(
         return null
     }
     
-    private fun extractSkuFromProductVariant(variant: JsonObject, productName: String, productHandle: String, productUrl: String): ProductSKU? {
+    private fun extractSkuFromProductVariant(variant: JsonObject, productName: String, productHandle: String, productUrl: String, hexCodes: Map<String, String> = emptyMap()): ProductSKU? {
         return try {
             val variantName = variant.get("name")?.asString ?: return null
             val sku = variant.get("sku")?.asString ?: return null
@@ -510,8 +560,9 @@ class BambuStoreScraper(
             // Extract color from variant name or other attributes
             val colorName = extractColorFromVariantName(variantName) ?: "Unknown Color"
             val colorCode = extractColorCodeFromVariant(variant) ?: "Unknown"
+            val colorHex = findHexCodeForColor(colorName, hexCodes)
             
-            println("      Found variant: $variantName, SKU: $sku, Price: £$price, Available: $available")
+            println("      Found variant: $variantName, SKU: $sku, Price: £$price, Available: $available, Hex: $colorHex")
             
             ProductSKU(
                 productHandle = productHandle,
@@ -522,7 +573,7 @@ class BambuStoreScraper(
                 price = price,
                 available = available,
                 url = "$productUrl?id=$sku",
-                colorHex = null,
+                colorHex = colorHex,
                 dataHash = calculateHash(sku, productName, colorName, price.toString())
             )
         } catch (e: Exception) {
@@ -563,6 +614,348 @@ class BambuStoreScraper(
     
     private fun extractColorCodeFromSku(sku: String): String? {
         // Try to extract color code from SKU format
+        return null
+    }
+    
+    /**
+     * Extract hex color codes directly from the product page HTML
+     */
+    private fun extractHexCodesFromPage(doc: Document): Map<String, String> {
+        val hexCodes = mutableMapOf<String, String>()
+        
+        // Method 1: Look for hex codes in text content
+        val pageText = doc.text()
+        val hexPattern = """([A-Za-z\s]+)\s*[:\-]?\s*(#[0-9A-Fa-f]{6})""".toRegex()
+        val matches = hexPattern.findAll(pageText)
+        
+        for (match in matches) {
+            val colorName = match.groupValues[1].trim()
+            val hexCode = match.groupValues[2].uppercase()
+            
+            if (colorName.isNotEmpty() && hexCode.matches(Regex("#[0-9A-F]{6}"))) {
+                hexCodes[colorName] = hexCode
+                println("      Found hex on page: $colorName -> $hexCode")
+            }
+        }
+        
+        // Method 2: Look for CSS background-color or color styles
+        doc.select("[style*='background-color'], [style*='color']").forEach { element ->
+            val style = element.attr("style")
+            val colorText = element.text().trim()
+            
+            // Extract hex from CSS
+            val cssHexPattern = """(#[0-9A-Fa-f]{6})""".toRegex()
+            val cssMatch = cssHexPattern.find(style)
+            
+            if (cssMatch != null && colorText.isNotEmpty()) {
+                val hexCode = cssMatch.groupValues[1].uppercase()
+                hexCodes[colorText] = hexCode
+                println("      Found hex in CSS: $colorText -> $hexCode")
+            }
+        }
+        
+        // Method 3: Look for data attributes with hex codes
+        doc.select("[data-color], [data-hex], [data-color-code]").forEach { element ->
+            val colorName = element.text().trim()
+            val hexCode = element.attr("data-color")
+                .ifEmpty { element.attr("data-hex") }
+                .ifEmpty { element.attr("data-color-code") }
+            
+            if (hexCode.isNotEmpty() && hexCode.matches(Regex("#?[0-9A-Fa-f]{6}"))) {
+                val normalizedHex = if (hexCode.startsWith("#")) hexCode.uppercase() else "#${hexCode.uppercase()}"
+                if (colorName.isNotEmpty()) {
+                    hexCodes[colorName] = normalizedHex
+                    println("      Found hex in data attr: $colorName -> $normalizedHex")
+                }
+            }
+        }
+        
+        // Method 4: Look for color swatch elements
+        doc.select(".color-swatch, .colour-swatch, .color-option, .variant-color").forEach { swatch ->
+            val colorName = swatch.text().trim()
+                .ifEmpty { swatch.attr("title") }
+                .ifEmpty { swatch.attr("alt") }
+            
+            val style = swatch.attr("style")
+            val hexPattern = """(#[0-9A-Fa-f]{6})""".toRegex()
+            val match = hexPattern.find(style)
+            
+            if (match != null && colorName.isNotEmpty()) {
+                val hexCode = match.groupValues[1].uppercase()
+                hexCodes[colorName] = hexCode
+                println("      Found hex in color swatch: $colorName -> $hexCode")
+            }
+        }
+        
+        // Method 5: Look in script tags for color data
+        doc.select("script").forEach { script ->
+            val scriptContent = script.html()
+            if (scriptContent.contains("color") || scriptContent.contains("hex")) {
+                val hexPattern = """"([^"]*(?:color|Color|colour|Colour)[^"]*)"\s*:\s*"(#[0-9A-Fa-f]{6})"""".toRegex()
+                val matches = hexPattern.findAll(scriptContent)
+                
+                for (match in matches) {
+                    val colorName = match.groupValues[1]
+                    val hexCode = match.groupValues[2].uppercase()
+                    hexCodes[colorName] = hexCode
+                    println("      Found hex in script: $colorName -> $hexCode")
+                }
+            }
+        }
+        
+        return hexCodes
+    }
+    
+    /**
+     * Find hex code PDF links on the product page
+     */
+    private fun findHexCodePdfLinks(doc: Document): List<String> {
+        val pdfLinks = mutableListOf<String>()
+        
+        // Method 1: Look for links with "Hex Code" text specifically
+        doc.select("a[href]").forEach { link ->
+            val href = link.attr("href")
+            val linkText = link.text().trim()
+            
+            println("    Checking link: '$linkText' -> '$href'")
+            
+            // High priority: "Hex Code" links (even if not .pdf extension)
+            if (linkText.equals("Hex Code", ignoreCase = true)) {
+                val fullUrl = if (href.startsWith("http")) {
+                    href
+                } else {
+                    "${baseUrl}${if (href.startsWith("/")) href else "/$href"}"
+                }
+                pdfLinks.add(fullUrl)
+                println("    ✅ Found 'Hex Code' link: $linkText -> $fullUrl")
+                return@forEach
+            }
+            
+            // Standard PDF detection
+            if (href.endsWith(".pdf", ignoreCase = true) && 
+                (linkText.contains("hex", ignoreCase = true) || 
+                 linkText.contains("color", ignoreCase = true) || 
+                 linkText.contains("colour", ignoreCase = true) ||
+                 linkText.contains("code", ignoreCase = true))) {
+                
+                val fullUrl = if (href.startsWith("http")) {
+                    href
+                } else {
+                    "${baseUrl}${if (href.startsWith("/")) href else "/$href"}"
+                }
+                pdfLinks.add(fullUrl)
+                println("    ✅ Found hex code PDF: $linkText -> $fullUrl")
+            }
+        }
+        
+        // Also look for data attributes that might point to hex code PDFs
+        doc.select("[data-pdf-url], [data-hex-pdf], [data-color-guide]").forEach { element ->
+            val pdfUrl = element.attr("data-pdf-url")
+                .ifEmpty { element.attr("data-hex-pdf") }
+                .ifEmpty { element.attr("data-color-guide") }
+            
+            if (pdfUrl.isNotEmpty()) {
+                val fullUrl = if (pdfUrl.startsWith("http")) {
+                    pdfUrl
+                } else {
+                    "${baseUrl}${if (pdfUrl.startsWith("/")) pdfUrl else "/$pdfUrl"}"
+                }
+                pdfLinks.add(fullUrl)
+                println("    Found hex code PDF from data attribute: $fullUrl")
+            }
+        }
+        
+        return pdfLinks.distinct()
+    }
+    
+    /**
+     * Download and parse PDF to extract hex color codes
+     */
+    private suspend fun extractHexCodesFromPdf(pdfUrl: String): Map<String, String> {
+        val hexCodes = mutableMapOf<String, String>()
+        
+        try {
+            println("    Downloading hex code PDF: $pdfUrl")
+            delay(requestDelayMs) // Respect rate limiting
+            
+            val pdfBytes = Jsoup.connect(pdfUrl)
+                .userAgent(userAgent)
+                .timeout(30000)
+                .ignoreContentType(true)
+                .execute()
+                .bodyAsBytes()
+            
+            val document = Loader.loadPDF(pdfBytes)
+            try {
+                val pdfStripper = PDFTextStripper()
+                val text = pdfStripper.getText(document)
+                
+                // Extract hex codes from PDF text
+                hexCodes.putAll(parseHexCodesFromText(text))
+                println("    Extracted ${hexCodes.size} hex codes from PDF")
+            } finally {
+                document.close()
+            }
+            
+        } catch (e: Exception) {
+            println("    Error extracting hex codes from PDF $pdfUrl: ${e.message}")
+        }
+        
+        return hexCodes
+    }
+    
+    /**
+     * Parse hex color codes from PDF text content
+     */
+    private fun parseHexCodesFromText(text: String): Map<String, String> {
+        val hexCodes = mutableMapOf<String, String>()
+        val lines = text.split('\n')
+        
+        println("      📄 Parsing PDF text for hex codes...")
+        println("      📄 Full PDF text preview (first 2000 chars):")
+        println("      ${text.take(2000)}...")
+        println("      📄 Lines containing '#':")
+        
+        // Parse the PDF in pairs: color name line followed by hex line
+        var i = 0
+        var currentColorName: String? = null
+        
+        while (i < lines.size) {
+            val line = lines[i].trim()
+            
+            // Check if this line is a hex code
+            val bambuHexPattern = """^Hex:(#[0-9A-Fa-f]{6})\s*$""".toRegex()
+            val hexMatch = bambuHexPattern.find(line)
+            
+            if (hexMatch != null) {
+                val hexCode = hexMatch.groupValues[1].uppercase()
+                
+                // If we have a color name from the previous line, pair them
+                if (currentColorName != null && isValidColorName(currentColorName)) {
+                    hexCodes[currentColorName] = hexCode
+                    println("        ✅ Paired: '$currentColorName' -> $hexCode")
+                } else {
+                    // Fallback: store with placeholder
+                    val placeholderName = "Color_$hexCode"
+                    hexCodes[placeholderName] = hexCode
+                    println("        ⚠️ Unpaired hex: '$placeholderName' -> $hexCode")
+                }
+                currentColorName = null // Reset for next pair
+                
+            } else if (line.isNotEmpty() && !line.startsWith("Hex:") && !line.contains("Bambu Lab") && 
+                      !line.contains("Filament") && !line.contains("Table") && !line.contains("PLA")) {
+                // This might be a color name line
+                if (isValidColorName(line)) {
+                    currentColorName = line
+                    println("        📝 Found potential color name: '$line'")
+                }
+            }
+            
+            i++
+        }
+        
+        // Also try the old pattern-matching as fallback for other PDF formats
+        for (line in lines.filter { it.contains("#") }) {
+            val trimmedLine = line.trim()
+            if (trimmedLine.isEmpty()) continue
+            
+            // Pattern 1: "Color Name #FFFFFF" or "Color Name: #FFFFFF"
+            val hexPattern = """^([A-Za-z][A-Za-z\s]{2,30}?)\s*[:\-]?\s*(#[0-9A-Fa-f]{6})\s*$""".toRegex()
+            hexPattern.find(trimmedLine)?.let { match ->
+                val colorName = match.groupValues[1].trim()
+                val hexCode = match.groupValues[2].uppercase()
+                
+                if (isValidColorName(colorName) && !hexCodes.containsKey(colorName)) {
+                    hexCodes[colorName] = hexCode
+                    println("        ✅ Pattern 1: '$colorName' -> $hexCode")
+                }
+            }
+        }
+        
+        return hexCodes
+    }
+    
+    /**
+     * Validate if a string looks like a reasonable color name
+     */
+    private fun isValidColorName(colorName: String): Boolean {
+        val trimmed = colorName.trim()
+        return trimmed.length in 3..50 && // Reasonable length
+               trimmed.matches(Regex("[A-Za-z][A-Za-z\\s]*")) && // Only letters and spaces, starts with letter
+               !trimmed.matches(Regex(".*\\b(PDF|Page|Document|Color|Hex|Code|Table|List)\\b.*", RegexOption.IGNORE_CASE)) // Exclude document metadata
+    }
+    
+    /**
+     * Find matching hex code for a specific SKU color name from extracted hex codes
+     */
+    private fun findHexCodeForColor(colorName: String, hexCodes: Map<String, String>): String? {
+        if (colorName.isBlank() || hexCodes.isEmpty()) {
+            return null
+        }
+        
+        println("        🔍 Looking for hex code for: '$colorName'")
+        
+        // Method 1: Direct exact match
+        hexCodes[colorName]?.let { 
+            println("        ✅ Direct match: $colorName -> $it")
+            return it 
+        }
+        
+        // Method 2: Case-insensitive exact match
+        hexCodes.entries.find { (key, _) -> 
+            key.equals(colorName, ignoreCase = true) 
+        }?.let { (key, value) ->
+            println("        ✅ Case-insensitive match: '$colorName' -> '$key' -> $value")
+            return value
+        }
+        
+        // Method 3: Extract base color name and match
+        // Handle cases like "Matte Jade White (10100)" -> "Jade White" and "Jade White (10100)" -> "Jade White"
+        val baseColorName = colorName
+            .replace(Regex("""\s*\([^)]+\)\s*.*$"""), "") // Remove (10100) / Refill / 1 kg
+            .replace(Regex("""^Matte\s+"""), "") // Remove "Matte " prefix
+            .trim()
+            
+        if (baseColorName != colorName) {
+            println("        🔄 Trying base color name: '$baseColorName'")
+            
+            // Try direct match on base color
+            hexCodes[baseColorName]?.let { 
+                println("        ✅ Base color direct match: $baseColorName -> $it")
+                return it 
+            }
+            
+            // Try case-insensitive match on base color
+            hexCodes.entries.find { (key, _) -> 
+                key.equals(baseColorName, ignoreCase = true) 
+            }?.let { (key, value) ->
+                println("        ✅ Base color case-insensitive match: '$baseColorName' -> '$key' -> $value")
+                return value
+            }
+        }
+        
+        // Method 4: Partial matching as last resort
+        // Only match if the color name is reasonably long to avoid false positives
+        if (baseColorName.length >= 4) {
+            hexCodes.entries.find { (key, _) -> 
+                // Check if the key contains our color name (or vice versa)
+                // But be more strict to avoid false matches
+                val keyNormalized = key.lowercase().trim()
+                val colorNormalized = baseColorName.lowercase().trim()
+                
+                // Must be a substantial match (at least 70% of shorter string)
+                val minLength = minOf(keyNormalized.length, colorNormalized.length)
+                val matchThreshold = (minLength * 0.7).toInt()
+                
+                (keyNormalized.contains(colorNormalized) && colorNormalized.length >= matchThreshold) ||
+                (colorNormalized.contains(keyNormalized) && keyNormalized.length >= matchThreshold)
+            }?.let { (key, value) ->
+                println("        ⚠️ Partial match: '$baseColorName' -> '$key' -> $value")
+                return value
+            }
+        }
+        
+        println("        ❌ No hex code found for: '$colorName'")
         return null
     }
     
