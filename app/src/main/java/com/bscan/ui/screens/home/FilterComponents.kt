@@ -5,14 +5,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -254,6 +259,78 @@ fun FilterDialog(
                         Text(text = label)
                     }
                 }
+                
+                HorizontalDivider()
+                
+                // Minimum spool count filter (for SKUs tab)
+                Text(
+                    text = "Minimum Spool Count",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                var spoolCountText by remember(filterState.minSpoolCount) { 
+                    mutableStateOf(filterState.minSpoolCount.toString()) 
+                }
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Minus button
+                    FilledTonalIconButton(
+                        onClick = {
+                            val newCount = (filterState.minSpoolCount - 1).coerceAtLeast(0)
+                            spoolCountText = newCount.toString()
+                            onFilterStateChange(filterState.copy(minSpoolCount = newCount))
+                        },
+                        enabled = filterState.minSpoolCount > 0
+                    ) {
+                        Icon(
+                            Icons.Default.Remove,
+                            contentDescription = "Decrease count"
+                        )
+                    }
+                    
+                    // Text field
+                    OutlinedTextField(
+                        value = spoolCountText,
+                        onValueChange = { newValue ->
+                            spoolCountText = newValue
+                            // Parse and validate the input
+                            val count = newValue.toIntOrNull()
+                            if (count != null && count >= 0) {
+                                onFilterStateChange(filterState.copy(minSpoolCount = count))
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center)
+                    )
+                    
+                    // Plus button
+                    FilledTonalIconButton(
+                        onClick = {
+                            val newCount = filterState.minSpoolCount + 1
+                            spoolCountText = newCount.toString()
+                            onFilterStateChange(filterState.copy(minSpoolCount = newCount))
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Increase count"
+                        )
+                    }
+                }
+                
+                Text(
+                    text = "0 shows all products, 1+ shows only owned spools",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
             }
         },
         confirmButton = {
@@ -288,7 +365,8 @@ fun FilterChips(
         filterState.minSuccessRate > 0f || 
         filterState.showSuccessOnly || 
         filterState.showFailuresOnly || 
-        filterState.dateRangeDays != null) {
+        filterState.dateRangeDays != null ||
+        filterState.minSpoolCount != 1) { // Show chip when not default value
         
         LazyRow(
             modifier = modifier
@@ -438,6 +516,32 @@ fun FilterChips(
                     InputChip(
                         onClick = { 
                             onFilterStateChange(filterState.copy(dateRangeDays = null))
+                        },
+                        label = { Text(label) },
+                        selected = false,
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove filter",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+            }
+            
+            if (filterState.minSpoolCount != 1) { // Show chip when not default value
+                item {
+                    val label = when (filterState.minSpoolCount) {
+                        0 -> "All Products"
+                        2 -> "2+ Spools"
+                        3 -> "3+ Spools"
+                        else -> "${filterState.minSpoolCount}+ Spools"
+                    }
+                    
+                    InputChip(
+                        onClick = { 
+                            onFilterStateChange(filterState.copy(minSpoolCount = 1)) // Reset to default
                         },
                         label = { Text(label) },
                         selected = false,

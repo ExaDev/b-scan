@@ -12,9 +12,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -76,9 +77,6 @@ fun DataBrowserScreen(
         pageCount = { virtualPageCount }
     )
     
-    // Pull-to-refresh state for scan prompt
-    var isRefreshing by remember { mutableStateOf(false) }
-    val pullToRefreshState = rememberPullToRefreshState()
     
     // Sync pager state with view mode
     LaunchedEffect(viewMode) {
@@ -363,74 +361,31 @@ fun DataBrowserScreen(
             onFilterStateChange = onFilterStateChange
         )
         
-            // PullToRefreshBox with custom scan prompt indicators
-            PullToRefreshBox(
-                isRefreshing = isRefreshing,
-                onRefresh = { 
-                    // Don't actually refresh, just show prompts
-                    isRefreshing = false
-                },
-                state = pullToRefreshState,
-                modifier = Modifier.fillMaxSize(),
-                indicator = {
-                    // Custom indicator showing scan prompts based on pull distance
-                    val distanceFraction = pullToRefreshState.distanceFraction
-                    
-                    when {
-                        distanceFraction > 1.5f -> {
-                            // Show full scan prompt
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(fullPromptHeightDp)
-                                    .padding(16.dp)
-                            ) {
-                                ScanPromptScreen()
-                            }
-                        }
-                        distanceFraction > 0.5f -> {
-                            // Show compact scan prompt
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(compactPromptHeightDp)
-                                    .padding(16.dp)
-                            ) {
-                                CompactScanPrompt(
-                                    scanState = scanState,
-                                    scanProgress = scanProgress,
-                                    onLongPress = onSimulateScan
-                                )
-                            }
-                        }
-                    }
-                }
-            ) {
-                // Swipeable content pager
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    val actualPage = page % tabCount
-                    when (ViewMode.values()[actualPage]) {
-                        ViewMode.SPOOLS -> SpoolsList(
-                            spools = spools, 
-                            sortProperty = sortProperty, 
-                            sortDirection = sortDirection, 
-                            groupByOption = groupByOption, 
-                            filterState = filterState, 
-                            lazyListState = lazyListStates[actualPage], 
-                            onNavigateToDetails = onNavigateToDetails,
-                            scanState = scanState,
-                            scanProgress = scanProgress,
-                            onSimulateScan = onSimulateScan,
-                            compactPromptHeightDp = compactPromptHeightDp,
-                            fullPromptHeightDp = fullPromptHeightDp
-                        )
-                        ViewMode.SKUS -> SkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                        ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                        ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
-                    }
+            // Swipeable content pager with collapsing scan prompts
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val actualPage = page % tabCount
+                when (ViewMode.values()[actualPage]) {
+                    ViewMode.SPOOLS -> SpoolsList(
+                        spools = spools, 
+                        sortProperty = sortProperty, 
+                        sortDirection = sortDirection, 
+                        groupByOption = groupByOption, 
+                        filterState = filterState, 
+                        lazyListState = lazyListStates[actualPage], 
+                        onNavigateToDetails = onNavigateToDetails,
+                        scanState = scanState,
+                        scanProgress = scanProgress,
+                        onSimulateScan = onSimulateScan,
+                        compactPromptHeightDp = compactPromptHeightDp,
+                        fullPromptHeightDp = fullPromptHeightDp,
+                        hasData = spools.isNotEmpty()
+                    )
+                    ViewMode.SKUS -> EnhancedSkusList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                    ViewMode.TAGS -> TagsList(individualTags, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
+                    ViewMode.SCANS -> ScansList(allScans, sortProperty, sortDirection, groupByOption, filterState, lazyListStates[actualPage], onNavigateToDetails)
                 }
             }
         }

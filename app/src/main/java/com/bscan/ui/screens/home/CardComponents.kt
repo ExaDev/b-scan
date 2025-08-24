@@ -350,17 +350,30 @@ fun SkuCard(
                 )
                 
                 Text(
-                    text = "${sku.spoolCount} spool${if (sku.spoolCount != 1) "s" else ""} • ${sku.totalScans} scans • ${(sku.successRate * 100).toInt()}% success",
+                    text = if (sku.spoolCount == 0 && sku.totalScans == 0) {
+                        "Available • Not scanned"
+                    } else {
+                        "${sku.spoolCount} spool${if (sku.spoolCount != 1) "s" else ""} • ${sku.totalScans} scans • ${(sku.successRate * 100).toInt()}% success"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
-            // Inventory indicator
+            // Status indicator
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 when {
+                    sku.spoolCount == 0 && sku.totalScans == 0 -> {
+                        // Unscanned product - show shopping cart
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Available for purchase",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     sku.successRate >= 0.9f -> {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
@@ -388,7 +401,7 @@ fun SkuCard(
                 }
                 
                 Text(
-                    text = "${sku.spoolCount}",
+                    text = if (sku.spoolCount == 0 && sku.totalScans == 0) "0" else "${sku.spoolCount}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

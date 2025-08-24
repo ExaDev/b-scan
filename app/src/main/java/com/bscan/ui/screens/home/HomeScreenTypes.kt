@@ -13,5 +13,6 @@ data class FilterState(
     val minSuccessRate: Float = 0f,
     val showSuccessOnly: Boolean = false,
     val showFailuresOnly: Boolean = false,
-    val dateRangeDays: Int? = null // null = all time, 7 = last week, 30 = last month, etc.
+    val dateRangeDays: Int? = null, // null = all time, 7 = last week, 30 = last month, etc.
+    val minSpoolCount: Int = 1 // Minimum spool count filter for SKUs (0 = show all products, 1+ = only owned)
 )
