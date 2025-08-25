@@ -1,3 +1,20 @@
+# [3.16.0](https://github.com/Mearman/b-scan/compare/v3.15.0...v3.16.0) (2025-08-25)
+
+
+### Features
+
+* **assets:** add complete bambu_filament_mappings.json catalog ([dc0e63d](https://github.com/Mearman/b-scan/commit/dc0e63d1687ba115cbe67968c74614e7db676ff8))
+* **ci:** add automated submodule update workflow ([87b7cce](https://github.com/Mearman/b-scan/commit/87b7ccef26a1f942a28acb07cbe43542e24e8cad))
+* **ci:** add submodule automation scripts ([c2532f9](https://github.com/Mearman/b-scan/commit/c2532f9009bb02576f888bea74a3299a7ea8da54))
+* **integration:** integrate expected weight dialog into spool details ([77508fe](https://github.com/Mearman/b-scan/commit/77508fe85300bacc84c3371ca508703a5a66bce1))
+* **model:** add PhysicalComponent system and MassCalculationService ([7ac185f](https://github.com/Mearman/b-scan/commit/7ac185f7c1aac79579fdc79d1bfa43e3bf78a424))
+* **navigation:** add PhysicalComponentsScreen route and navigation ([ecd6186](https://github.com/Mearman/b-scan/commit/ecd6186873f6790c6df15543d7f8888cc2f70f91))
+* **nfc:** preserve trailer blocks for future interpretation ([3cc4de7](https://github.com/Mearman/b-scan/commit/3cc4de796396608de8cf2272a6ccbe305dca33a5))
+* **test:** add RfidTestDataLoader for parsing RFID library data ([f08fe8d](https://github.com/Mearman/b-scan/commit/f08fe8d73429c89ad7559e2de94800a18e727b67))
+* **ui:** add ComponentManagementComponents for PhysicalComponent UI ([21782ec](https://github.com/Mearman/b-scan/commit/21782ec9ec3eddf0cdf8ba2ceb0c40e234a50324))
+* **ui:** add ExpectedWeightInputDialog for setting weights without scales ([900680e](https://github.com/Mearman/b-scan/commit/900680ea46a8143b37ebc321411c22f6c3a3e6c8))
+* **ui:** add PhysicalComponentsScreen and update existing screens ([27a8297](https://github.com/Mearman/b-scan/commit/27a829747e3d6bf848736a94802b2eef8b11b688))
+
 # [3.15.0](https://github.com/Mearman/b-scan/compare/v3.14.0...v3.15.0) (2025-08-24)
 
 
