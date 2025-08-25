@@ -1,3 +1,25 @@
+# [3.17.0](https://github.com/Mearman/b-scan/compare/v3.16.0...v3.17.0) (2025-08-25)
+
+
+### Bug Fixes
+
+* **ble:** resolve Kotlin byte array type mismatch errors ([32aa662](https://github.com/Mearman/b-scan/commit/32aa662d00f38d8b4cb22042fe690c296e686de6))
+* **ble:** resolve lifecycle registration issue by moving BlePermissionHandler to MainActivity ([949345a](https://github.com/Mearman/b-scan/commit/949345ac8f325248a521ee160e625b96d8c4be38))
+* **ble:** resolve smart cast issue in BleScalesPreferenceCard ([a47427c](https://github.com/Mearman/b-scan/commit/a47427c84c3d845e878deb60d9354750fa1d71e3))
+* **settings:** resolve API compatibility issues after BLE feature merge ([2e4d4f1](https://github.com/Mearman/b-scan/commit/2e4d4f1a17ccd3a8e8637abe4b885a7dcd7531d4))
+
+
+### Features
+
+* add inventory diagnostics and filament reel detail components ([9069914](https://github.com/Mearman/b-scan/commit/9069914cee455cd88e7d065f396d7e91954a1923))
+* **ble:** add BLE scales settings and configuration foundation ([5108e47](https://github.com/Mearman/b-scan/commit/5108e4723465da222bb684462adf33667580ad23))
+* **ble:** implement complete BLE scales discovery and device selection ([8f7564a](https://github.com/Mearman/b-scan/commit/8f7564ae960c5593ac4a3daef604f6b5b9bf8ca2))
+* **ble:** implement scale reading data models and controller infrastructure ([85b72a1](https://github.com/Mearman/b-scan/commit/85b72a1313cb31d0ade18e465424608e2fda0c71))
+* enhance PhysicalComponent model with mass tracking capabilities ([22a41fd](https://github.com/Mearman/b-scan/commit/22a41fde3fac4c070eed0de3a0bb0fab83b0adc0))
+* implement BLE scale unit detection and validation system ([00fef4b](https://github.com/Mearman/b-scan/commit/00fef4ba46e84b37ee6175d7fa21eb1b132d6982))
+* implement complete BLE scales weight validation and control system ([9ee5cc9](https://github.com/Mearman/b-scan/commit/9ee5cc9e2e717093461fe513c31be3f265e52e4f))
+* merge BLE weight validation feature with inventory management ([a97ec63](https://github.com/Mearman/b-scan/commit/a97ec637743bcd9c30a1d43be4fb7a9d84614d3f))
+
 # [3.16.0](https://github.com/Mearman/b-scan/compare/v3.15.0...v3.16.0) (2025-08-25)
 
 
