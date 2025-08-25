@@ -98,6 +98,13 @@ dependencies {
     testImplementation("org.mockito:mockito-inline:5.2.0")
     testImplementation("org.robolectric:robolectric:4.13")
     testImplementation("androidx.test:core:1.5.0")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.10.1")
+    testImplementation("com.google.code.gson:gson:2.10.1")
+    
+    // Configure test system properties
+    tasks.withType<Test> {
+        systemProperty("test.data.path", "${rootDir}/test-data/rfid-library")
+    }
     testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     // testImplementation("org.powermock:powermock-api-mockito2:2.0.9") // Removed due to performance issues
