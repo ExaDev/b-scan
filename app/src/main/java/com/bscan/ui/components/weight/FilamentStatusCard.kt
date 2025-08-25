@@ -27,6 +27,7 @@ fun FilamentStatusCard(
     preferredWeightUnit: WeightUnit,
     onRecordWeight: () -> Unit,
     onSetConfiguration: () -> Unit,
+    onSetExpectedWeight: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -62,7 +63,10 @@ fun FilamentStatusCard(
             when {
                 !inventoryItem.hasSpoolConfiguration -> {
                     // No configuration set
-                    ConfigurationRequiredSection(onSetConfiguration = onSetConfiguration)
+                    ConfigurationRequiredSection(
+                        onSetConfiguration = onSetConfiguration,
+                        onSetExpectedWeight = onSetExpectedWeight
+                    )
                 }
                 
                 !inventoryItem.hasWeightMeasurements -> {
@@ -95,11 +99,12 @@ fun FilamentStatusCard(
 
 @Composable
 private fun ConfigurationRequiredSection(
-    onSetConfiguration: () -> Unit
+    onSetConfiguration: () -> Unit,
+    onSetExpectedWeight: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
             Icons.Default.Settings,
@@ -109,24 +114,50 @@ private fun ConfigurationRequiredSection(
         )
         
         Text(
-            text = "Spool Configuration Required",
+            text = "Weight Tracking Setup",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
         
         Text(
-            text = "Set a spool configuration to begin weight tracking",
+            text = "Choose how to set up weight tracking for this spool",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
+        // Expected Weight Button (Recommended)
+        Button(
+            onClick = onSetExpectedWeight,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Calculate, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Set Expected Weight (No Scales)")
+        }
+        
+        // OR divider
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HorizontalDivider(modifier = Modifier.weight(1f))
+            Text(
+                text = "OR",
+                modifier = Modifier.padding(horizontal = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f))
+        }
+        
+        // Configuration only button
         OutlinedButton(
             onClick = onSetConfiguration,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.Settings, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Set Configuration")
+            Text("Set Configuration Only")
         }
     }
 }

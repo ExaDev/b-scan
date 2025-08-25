@@ -24,6 +24,7 @@ import com.bscan.ui.components.history.*
 import com.bscan.ui.components.spool.*
 import com.bscan.ui.components.weight.FilamentStatusCard
 import com.bscan.ui.components.weight.WeightInputDialog
+import com.bscan.ui.components.weight.ExpectedWeightInputDialog
 import com.bscan.ui.screens.home.SkuCard
 import com.bscan.ui.screens.home.SpoolCard
 import com.bscan.ui.screens.home.TagCard
@@ -273,6 +274,7 @@ fun PrimarySpoolSection(
     var inventoryItem by remember { mutableStateOf<InventoryItem?>(null) }
     var filamentStatus by remember { mutableStateOf<FilamentStatus?>(null) }
     var showWeightDialog by remember { mutableStateOf(false) }
+    var showExpectedWeightDialog by remember { mutableStateOf(false) }
     val preferredWeightUnit by remember { mutableStateOf(userPrefsRepository.getWeightUnit()) }
     
     // Load inventory data
@@ -312,7 +314,8 @@ fun PrimarySpoolSection(
             onRecordWeight = { showWeightDialog = true },
             onSetConfiguration = {
                 // TODO: Implement configuration selection dialog
-            }
+            },
+            onSetExpectedWeight = { showExpectedWeightDialog = true }
         )
         
         // Filament Type Info
@@ -367,6 +370,35 @@ fun PrimarySpoolSection(
                 showWeightDialog = false
             },
             onDismiss = { showWeightDialog = false }
+        )
+    }
+    
+    // Expected weight input dialog
+    if (showExpectedWeightDialog) {
+        val components = spoolWeightRepository.getComponents()
+        
+        ExpectedWeightInputDialog(
+            trayUid = spool.trayUid,
+            components = components,
+            preferredWeightUnit = preferredWeightUnit,
+            onWeightConfigured = { measurement, configId ->
+                // Save the measurement, set expected weight, and refresh data
+                inventoryRepository.addWeightMeasurement(spool.trayUid, measurement)
+                // Calculate expected filament weight from the measurement
+                val config = spoolWeightRepository.getConfiguration(configId)
+                val spoolWeight = config?.let { 
+                    spoolWeightRepository.getComponents()
+                        .filter { it.id in config.components }
+                        .sumOf { it.weightGrams.toDouble() }
+                        .toFloat()
+                } ?: 0f
+                val expectedFilamentWeight = measurement.measuredWeightGrams - spoolWeight
+                inventoryRepository.setExpectedFilamentWeight(spool.trayUid, expectedFilamentWeight)
+                inventoryItem = inventoryRepository.getInventoryItem(spool.trayUid)
+                filamentStatus = inventoryRepository.calculateFilamentStatus(spool.trayUid)
+                showExpectedWeightDialog = false
+            },
+            onDismiss = { showExpectedWeightDialog = false }
         )
     }
 }
