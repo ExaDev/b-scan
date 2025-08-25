@@ -11,24 +11,25 @@ import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Repository for tracking filament reels identified by their tray UID.
+ * Repository for tracking filament reels using the hierarchical component system.
  * 
- * Each FilamentReel has a unique tray UID that is shared between its 2 RFID tags.
- * This repository tracks when tags are scanned and associates them with their
- * corresponding filament reel.
- * 
- * Note: "Tray" refers to the filament reel/coil, not the physical spool hardware.
- * The tray UID uniquely identifies a specific reel of filament material.
+ * This repository now delegates to the ComponentRepository and BambuComponentFactory
+ * to create hierarchical component structures from RFID scans.
  */
 class TrayTrackingRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("tray_tracking", Context.MODE_PRIVATE)
+    
+    // New component-based system
+    private val componentRepository by lazy { com.bscan.repository.ComponentRepository(context) }
+    private val bambuFactory by lazy { com.bscan.service.BambuComponentFactory(context) }
     
     // InterpreterFactory for runtime interpretation
     private val mappingsRepository by lazy { MappingsRepository(context) }
@@ -68,10 +69,10 @@ class TrayTrackingRepository(private val context: Context) {
     }
     
     /**
-     * Records a successful scan with tray UID tracking.
-     * Associates the scanned tag with its filament reel (identified by tray UID).
+     * Records a successful scan with hierarchical component creation.
+     * Creates or updates component hierarchy for the scanned Bambu reel.
      */
-    fun recordScan(decryptedScanData: DecryptedScanData) {
+    suspend fun recordScan(decryptedScanData: DecryptedScanData) = withContext(Dispatchers.IO) {
         if (decryptedScanData.scanResult == ScanResult.SUCCESS) {
             // Use FilamentInterpreter to get FilamentInfo at runtime
             val filamentInfo = try {
@@ -85,6 +86,17 @@ class TrayTrackingRepository(private val context: Context) {
                 val tagUid = decryptedScanData.tagUid
                 
                 if (trayUid.isNotBlank()) {
+                    // Use new component system to create/update hierarchical structure
+                    val trayComponent = bambuFactory.processBambuRfidScan(tagUid, trayUid, filamentInfo)
+                    
+                    if (trayComponent != null) {
+                        android.util.Log.i(TAG, "Successfully processed RFID scan for tray: $trayUid")
+                        refreshFlows()
+                    } else {
+                        android.util.Log.e(TAG, "Failed to process RFID scan for tray: $trayUid")
+                    }
+                    
+                    // Still maintain legacy tray tracking for compatibility
                     addTagToTray(trayUid, tagUid, decryptedScanData.timestamp, filamentInfo)
                 }
             }
@@ -101,7 +113,7 @@ class TrayTrackingRepository(private val context: Context) {
     /**
      * Associates a tag UID with a tray UID
      */
-    private fun addTagToTray(trayUid: String, tagUid: String, timestamp: LocalDateTime, filamentInfo: FilamentInfo) {
+    private suspend fun addTagToTray(trayUid: String, tagUid: String, timestamp: LocalDateTime, filamentInfo: FilamentInfo) {
         val trayData = getTrayData().toMutableMap()
         
         val existingTray = trayData[trayUid]
@@ -209,7 +221,7 @@ class TrayTrackingRepository(private val context: Context) {
     /**
      * Clears all tray tracking data
      */
-    fun clearAllData() {
+    suspend fun clearAllData() = withContext(Dispatchers.IO) {
         sharedPreferences.edit().clear().apply()
         refreshFlows() // Notify observers of data changes
     }
@@ -217,11 +229,66 @@ class TrayTrackingRepository(private val context: Context) {
     /**
      * Removes a specific tray from tracking
      */
-    fun removeTray(trayUid: String) {
+    suspend fun removeTray(trayUid: String) = withContext(Dispatchers.IO) {
         val trayData = getTrayData().toMutableMap()
         trayData.remove(trayUid)
         saveTrayData(trayData)
         refreshFlows() // Notify observers of data changes
+    }
+    
+    // === Bridge methods for new Component system ===
+    
+    /**
+     * Get inventory items (components with unique identifiers)
+     */
+    fun getInventoryItems(): List<com.bscan.model.Component> {
+        return componentRepository.getInventoryItems()
+    }
+    
+    /**
+     * Find inventory item by tray UID
+     */
+    fun findInventoryByTrayUid(trayUid: String): com.bscan.model.Component? {
+        return componentRepository.findInventoryByUniqueId(trayUid)
+    }
+    
+    /**
+     * Get all components for an inventory item
+     */
+    fun getComponentsForInventory(trayUid: String): List<com.bscan.model.Component> {
+        val inventory = findInventoryByTrayUid(trayUid) ?: return emptyList()
+        return componentRepository.getChildComponents(inventory.id)
+    }
+    
+    /**
+     * Get total mass of an inventory item including all components
+     */
+    fun getInventoryTotalMass(trayUid: String): Float {
+        val inventory = findInventoryByTrayUid(trayUid) ?: return 0f
+        return componentRepository.getTotalMass(inventory.id)
+    }
+    
+    /**
+     * Add a component to an existing inventory item
+     */
+    suspend fun addComponentToInventory(trayUid: String, component: com.bscan.model.Component): Boolean = withContext(Dispatchers.IO) {
+        return@withContext bambuFactory.addComponentToTray(trayUid, component)
+    }
+    
+    /**
+     * Infer and add a component based on total weight measurement
+     */
+    suspend fun inferComponentFromWeight(
+        trayUid: String,
+        componentName: String,
+        componentCategory: String,
+        totalMeasuredMass: Float
+    ): com.bscan.model.Component? = withContext(Dispatchers.IO) {
+        return@withContext bambuFactory.inferAndAddComponent(trayUid, componentName, componentCategory, totalMeasuredMass)
+    }
+    
+    companion object {
+        private const val TAG = "TrayTrackingRepository"
     }
     
     private fun getTrayData(): Map<String, TrayData> {
@@ -237,7 +304,7 @@ class TrayTrackingRepository(private val context: Context) {
         }
     }
     
-    private fun saveTrayData(trayData: Map<String, TrayData>) {
+    private suspend fun saveTrayData(trayData: Map<String, TrayData>) = withContext(Dispatchers.IO) {
         val trayJson = gson.toJson(trayData)
         sharedPreferences.edit()
             .putString("tray_data", trayJson)
