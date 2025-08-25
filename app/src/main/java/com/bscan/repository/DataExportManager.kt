@@ -138,7 +138,7 @@ class DataExportManager(private val context: Context) {
             }
             
             // Calculate statistics
-            val uniqueSpools = decryptedScans
+            val uniqueFilamentReels = decryptedScans
                 .mapNotNull { scan -> 
                     // Try to extract tray UID from decrypted blocks (block 9)
                     scan.decryptedBlocks[9]?.substring(0, 32) // First 16 bytes as hex
@@ -165,7 +165,7 @@ class DataExportManager(private val context: Context) {
                 decryptedScans = decryptedScans,
                 statistics = ExportStatistics(
                     totalScans = encryptedScans.size + decryptedScans.size,
-                    uniqueSpools = uniqueSpools,
+                    uniqueSpools = uniqueFilamentReels,
                     dateRange = dateRange
                 )
             )

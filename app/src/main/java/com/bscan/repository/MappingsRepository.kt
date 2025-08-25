@@ -6,6 +6,7 @@ import android.util.Log
 import com.bscan.model.FilamentMappings
 import com.bscan.model.RfidMappings
 import com.bscan.model.RfidMapping
+import com.bscan.model.TemperatureRange
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.io.IOException
@@ -75,11 +76,119 @@ class MappingsRepository(private val context: Context) {
     
     /**
      * Load mappings from bundled assets file, with fallback to defaults
-     * Note: With exact-only RFID matching, we use minimal FilamentMappings
      */
     private fun loadFromAssetsOrDefault(): FilamentMappings {
-        Log.i(TAG, "Using minimal FilamentMappings for exact-only RFID matching")
-        return FilamentMappings.empty()
+        return try {
+            val assetsInputStream = context.assets.open("bambu_filament_mappings.json")
+            val jsonString = assetsInputStream.bufferedReader().use { it.readText() }
+            
+            val mappings = gson.fromJson(jsonString, FilamentMappings::class.java)
+            if (mappings != null && mappings.productCatalog.isNotEmpty()) {
+                Log.i(TAG, "Loaded ${mappings.productCatalog.size} products from bambu_filament_mappings.json")
+                mappings
+            } else {
+                Log.w(TAG, "Mappings file is empty or invalid, using fallback defaults")
+                createFallbackMappings()
+            }
+        } catch (e: IOException) {
+            Log.w(TAG, "Mappings file not found in assets, using fallback defaults", e)
+            createFallbackMappings()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading mappings from assets, using fallback defaults", e)
+            createFallbackMappings()
+        }
+    }
+    
+    /**
+     * Create fallback mappings with common Bambu Lab products
+     */
+    private fun createFallbackMappings(): FilamentMappings {
+        Log.i(TAG, "Creating fallback FilamentMappings with common products")
+        return FilamentMappings(
+            version = 1,
+            lastUpdated = LocalDateTime.now(),
+            materialMappings = mapOf(
+                "PLA_BASIC" to "PLA Basic",
+                "PLA_SILK" to "PLA Silk",
+                "PLA_MATTE" to "PLA Matte",
+                "PETG" to "PETG",
+                "ABS" to "ABS",
+                "ASA" to "ASA",
+                "TPU" to "TPU (Flexible)"
+            ),
+            brandMappings = mapOf(
+                "BAMBU" to "Bambu Lab",
+                "BL" to "Bambu Lab"
+            ),
+            temperatureMappings = mapOf(
+                "PLA_BASIC" to TemperatureRange(190, 220, 60),
+                "PLA_SILK" to TemperatureRange(200, 230, 60),
+                "PETG" to TemperatureRange(220, 250, 70),
+                "ABS" to TemperatureRange(220, 260, 80),
+                "ASA" to TemperatureRange(240, 280, 90)
+            ),
+            productCatalog = createFallbackProducts()
+        )
+    }
+    
+    /**
+     * Create fallback product catalog with common Bambu Lab products
+     */
+    private fun createFallbackProducts(): List<com.bscan.model.ProductEntry> {
+        return listOf(
+            // Common PLA Basic colors
+            com.bscan.model.ProductEntry(
+                variantId = "10101-basic-black",
+                productHandle = "pla-basic",
+                productName = "PLA Basic",
+                colorName = "Black",
+                colorHex = "#000000",
+                colorCode = "K0",
+                price = 19.99,
+                available = true,
+                url = "https://uk.store.bambulab.com/en/products/pla-basic",
+                manufacturer = "Bambu Lab",
+                materialType = "PLA_BASIC",
+                internalCode = "GFA00",
+                lastUpdated = LocalDateTime.now().toString(),
+                filamentWeightGrams = 1000f,
+                spoolType = com.bscan.model.SpoolPackaging.REFILL
+            ),
+            com.bscan.model.ProductEntry(
+                variantId = "10100-basic-white",
+                productHandle = "pla-basic",
+                productName = "PLA Basic",
+                colorName = "Jade White",
+                colorHex = "#FFFFFF",
+                colorCode = "W1",
+                price = 19.99,
+                available = true,
+                url = "https://uk.store.bambulab.com/en/products/pla-basic",
+                manufacturer = "Bambu Lab",
+                materialType = "PLA_BASIC",
+                internalCode = "GFA00",
+                lastUpdated = LocalDateTime.now().toString(),
+                filamentWeightGrams = 1000f,
+                spoolType = com.bscan.model.SpoolPackaging.REFILL
+            ),
+            com.bscan.model.ProductEntry(
+                variantId = "10501-basic-green",
+                productHandle = "pla-basic",
+                productName = "PLA Basic",
+                colorName = "Bambu Green",
+                colorHex = "#00AE42",
+                colorCode = "G1",
+                price = 19.99,
+                available = true,
+                url = "https://uk.store.bambulab.com/en/products/pla-basic",
+                manufacturer = "Bambu Lab",
+                materialType = "PLA_BASIC",
+                internalCode = "GFA00",
+                lastUpdated = LocalDateTime.now().toString(),
+                filamentWeightGrams = 1000f,
+                spoolType = com.bscan.model.SpoolPackaging.REFILL
+            )
+        )
     }
     
     
@@ -131,11 +240,39 @@ class MappingsRepository(private val context: Context) {
      * Find best matching product by exact material type and color
      */
     fun findBestProductMatch(filamentType: String, colorName: String): com.bscan.model.ProductEntry? {
+        Log.d(TAG, "Finding best product match for type='$filamentType', color='$colorName'")
+        
         val productsWithWeight = findProductsWithWeightInfo(filamentType, colorName)
+        Log.d(TAG, "Found ${productsWithWeight.size} products with weight info")
         
         // Prefer exact material type matches, then fall back to name matches
-        return productsWithWeight.firstOrNull { it.materialType == filamentType }
-            ?: productsWithWeight.firstOrNull()
+        val exactMatch = productsWithWeight.firstOrNull { it.materialType.equals(filamentType, ignoreCase = true) }
+        if (exactMatch != null) {
+            Log.d(TAG, "Found exact material type match: ${exactMatch.productName} - ${exactMatch.colorName}")
+            return exactMatch
+        }
+        
+        val fallbackMatch = productsWithWeight.firstOrNull()
+        if (fallbackMatch != null) {
+            Log.d(TAG, "Using fallback match: ${fallbackMatch.productName} - ${fallbackMatch.colorName}")
+            return fallbackMatch
+        }
+        
+        // Try fuzzy matching by base material type
+        val baseMaterialType = filamentType.split("_").first()
+        val fuzzyMatches = getCurrentMappings().productCatalog.filter { product ->
+            val baseProductType = product.materialType.split("_").first()
+            baseProductType.equals(baseMaterialType, ignoreCase = true) && 
+            product.hasCompleteWeightInfo()
+        }
+        
+        if (fuzzyMatches.isNotEmpty()) {
+            Log.d(TAG, "Found fuzzy match by base type '$baseMaterialType': ${fuzzyMatches.first().productName}")
+            return fuzzyMatches.first()
+        }
+        
+        Log.w(TAG, "No product match found for type='$filamentType', color='$colorName'")
+        return null
     }
     
     /**

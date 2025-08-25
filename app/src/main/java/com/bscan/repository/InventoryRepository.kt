@@ -87,52 +87,52 @@ class InventoryRepository(private val context: Context) {
     }
     
     /**
-     * Create automatic component setup for a new Bambu scan
+     * Create automatic component setup for a new Bambu scan (Legacy method - use setupBambuComponents)
      */
+    @Deprecated("Use setupBambuComponents instead", ReplaceWith("setupBambuComponents(trayUid, filamentInfo, includeRefillableSpool)"))
     fun createBambuInventoryItem(
         trayUid: String,
         filamentInfo: FilamentInfo,
         includeRefillableSpool: Boolean = false
     ): InventoryItem {
-        // Create filament component from scan data
-        val filamentComponent = physicalComponentRepository.createFilamentComponent(
-            filamentType = filamentInfo.filamentType,
-            colorName = filamentInfo.colorName,
-            colorHex = filamentInfo.colorHex,
-            massGrams = 1000f, // Default to 1kg - will be updated from SKU or measurement
-            manufacturer = filamentInfo.manufacturerName
-        )
-        
-        // Save the filament component
-        physicalComponentRepository.saveComponent(filamentComponent)
-        
-        // Create component setup  
-        val componentIds = mutableListOf<String>()
-        componentIds.add(filamentComponent.id)
-        componentIds.add("bambu_cardboard_core")
-        if (includeRefillableSpool) {
-            componentIds.add("bambu_refillable_spool")
-        }
-        
-        // Try to get mass from SKU data if available
-        val skuMass = getFilamentMassFromSku(filamentInfo.filamentType, filamentInfo.colorName)
-        
-        return InventoryItem(
-            trayUid = trayUid,
-            components = componentIds,
-            totalMeasuredMass = null, // User will measure manually
-            measurements = emptyList(),
-            lastUpdated = LocalDateTime.now(),
-            notes = "Automatically created from Bambu scan"
-        )
+        // Use the new setupBambuComponents method
+        setupBambuComponents(trayUid, filamentInfo, includeRefillableSpool)
+        return getInventoryItem(trayUid) ?: throw IllegalStateException("Failed to create inventory item")
     }
     
     /**
-     * Try to get filament mass from SKU data
+     * Try to get filament mass from SKU data with comprehensive fallback strategy
      */
     private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float? {
-        val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
-        return bestMatch?.filamentWeightGrams
+        try {
+            val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+            if (bestMatch?.filamentWeightGrams != null) {
+                android.util.Log.d(TAG, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
+                return bestMatch.filamentWeightGrams
+            }
+            
+            // Try RFID mapping lookup if no product match
+            android.util.Log.d(TAG, "No product match found, checking RFID mappings")
+            // Note: RFID mappings don't contain weight info, so this is for logging only
+            
+            android.util.Log.w(TAG, "No mass data found for $filamentType/$colorName, using default")
+            return null
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Error looking up SKU mass for $filamentType/$colorName", e)
+            return null
+        }
+    }
+    
+    /**
+     * Get default mass based on material type
+     */
+    private fun getDefaultMassByMaterial(filamentType: String): Float {
+        return when (filamentType.uppercase()) {
+            "TPU" -> 500f  // TPU typically comes in 500g spools
+            "PVA", "SUPPORT" -> 500f  // Support materials typically 500g
+            "PC", "PA", "PAHT" -> 1000f  // Engineering materials typically 1kg
+            else -> 1000f  // Standard 1kg for PLA, PETG, ABS, ASA
+        }
     }
     
     /**
@@ -204,6 +204,13 @@ class InventoryRepository(private val context: Context) {
      * Add a component to an inventory item
      */
     fun addComponentToInventoryItem(trayUid: String, componentId: String) {
+        // Validate that component exists before adding
+        val component = physicalComponentRepository.getComponent(componentId)
+        if (component == null) {
+            android.util.Log.e(TAG, "Cannot add component $componentId: component not found")
+            throw IllegalArgumentException("Component with ID '$componentId' not found")
+        }
+        
         val existingItem = getInventoryItem(trayUid)
         val inventoryItem = existingItem?.withComponent(componentId) ?: InventoryItem(
             trayUid = trayUid,
@@ -214,6 +221,282 @@ class InventoryRepository(private val context: Context) {
         )
         
         saveInventoryItem(inventoryItem)
+        android.util.Log.d(TAG, "Successfully added component '${component.name}' to inventory item $trayUid")
+    }
+    
+    /**
+     * Remove a component from an inventory item
+     */
+    fun removeComponentFromInventoryItem(trayUid: String, componentId: String) {
+        val existingItem = getInventoryItem(trayUid) ?: return
+        val updatedItem = existingItem.copy(
+            components = existingItem.components.filter { it != componentId },
+            lastUpdated = LocalDateTime.now()
+        )
+        saveInventoryItem(updatedItem)
+    }
+    
+    /**
+     * Update component mass with bidirectional synchronisation
+     */
+    fun updateComponentMass(trayUid: String, componentId: String, newMass: Float, newFullMass: Float? = null) {
+        val existingItem = getInventoryItem(trayUid) ?: return
+        
+        // Get the component and update its mass
+        val component = physicalComponentRepository.getComponent(componentId) ?: return
+        var updatedComponent = component.withUpdatedMass(newMass)
+        if (newFullMass != null && component.variableMass) {
+            updatedComponent = updatedComponent.withUpdatedFullMass(newFullMass)
+        }
+        
+        // Save the updated component
+        physicalComponentRepository.saveComponent(updatedComponent)
+        
+        // Recalculate total mass from all components
+        val allComponents = physicalComponentRepository.getComponents()
+            .filter { it.id in existingItem.components }
+            .map { if (it.id == componentId) updatedComponent else it }
+        
+        val newTotalMass = allComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        
+        // Update inventory item with new total
+        val updatedItem = existingItem.copy(
+            totalMeasuredMass = newTotalMass,
+            lastUpdated = LocalDateTime.now()
+        )
+        saveInventoryItem(updatedItem)
+    }
+    
+    /**
+     * Update total mass with proportional distribution to variable components
+     */
+    fun updateTotalMassWithDistribution(trayUid: String, newTotalMass: Float) {
+        val existingItem = getInventoryItem(trayUid) ?: return
+        
+        // Get all components for this inventory item
+        val components = physicalComponentRepository.getComponents()
+            .filter { it.id in existingItem.components }
+        
+        if (components.isEmpty()) {
+            // No components, just update total
+            val updatedItem = existingItem.copy(
+                totalMeasuredMass = newTotalMass,
+                lastUpdated = LocalDateTime.now()
+            )
+            saveInventoryItem(updatedItem)
+            return
+        }
+        
+        // Calculate mass distribution
+        val fixedMass = components.filter { !it.variableMass }
+            .sumOf { it.massGrams.toDouble() }.toFloat()
+        val availableForVariable = newTotalMass - fixedMass
+        
+        if (availableForVariable < 0) {
+            // Not enough mass for fixed components - don't update
+            return
+        }
+        
+        val variableComponents = components.filter { it.variableMass }
+        if (variableComponents.isNotEmpty()) {
+            val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            
+            if (currentVariableMass > 0) {
+                // Distribute proportionally
+                val ratio = availableForVariable / currentVariableMass
+                variableComponents.forEach { component ->
+                    val newComponentMass = component.massGrams * ratio
+                    val updatedComponent = component.withUpdatedMass(newComponentMass)
+                    physicalComponentRepository.saveComponent(updatedComponent)
+                }
+            } else {
+                // Distribute equally among variable components
+                val equalShare = availableForVariable / variableComponents.size
+                variableComponents.forEach { component ->
+                    val updatedComponent = component.withUpdatedMass(equalShare)
+                    physicalComponentRepository.saveComponent(updatedComponent)
+                }
+            }
+        }
+        
+        // Update inventory item
+        val updatedItem = existingItem.copy(
+            totalMeasuredMass = newTotalMass,
+            lastUpdated = LocalDateTime.now()
+        )
+        saveInventoryItem(updatedItem)
+    }
+    
+    /**
+     * Get components for an inventory item with current data
+     */
+    fun getInventoryItemComponents(trayUid: String): List<PhysicalComponent> {
+        val inventoryItem = getInventoryItem(trayUid) ?: return emptyList()
+        return physicalComponentRepository.getComponents()
+            .filter { it.id in inventoryItem.components }
+    }
+    
+    /**
+     * Set up automatic Bambu component configuration for an inventory item
+     * This method is resilient and will ALWAYS create components, even with incomplete data
+     */
+    fun setupBambuComponents(
+        trayUid: String,
+        filamentInfo: FilamentInfo,
+        includeRefillableSpool: Boolean = false
+    ): List<PhysicalComponent> {
+        android.util.Log.i(TAG, "Setting up Bambu components for trayUid=$trayUid, type=${filamentInfo.filamentType}, color=${filamentInfo.colorName}")
+        
+        try {
+            // Determine mass with comprehensive fallback strategy
+            var filamentMass: Float
+            val skuMass = getFilamentMassFromSku(filamentInfo.filamentType, filamentInfo.colorName)
+            
+            if (skuMass != null) {
+                filamentMass = skuMass
+                android.util.Log.d(TAG, "Using SKU mass: ${filamentMass}g")
+            } else {
+                filamentMass = getDefaultMassByMaterial(filamentInfo.filamentType)
+                android.util.Log.d(TAG, "Using default mass for ${filamentInfo.filamentType}: ${filamentMass}g")
+            }
+            
+            // Create filament component with resilient data handling
+            val finalFilamentComponent = physicalComponentRepository.createFilamentComponent(
+                filamentType = filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC",
+                colorName = filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color",
+                colorHex = filamentInfo.colorHex.takeIf { it.isNotBlank() } ?: "#808080",
+                massGrams = filamentMass,
+                manufacturer = filamentInfo.manufacturerName.takeIf { it.isNotBlank() } ?: "Bambu Lab",
+                fullMassGrams = skuMass ?: filamentMass // Use SKU mass as full mass when available, otherwise use current mass
+            )
+            
+            // Save the filament component
+            physicalComponentRepository.saveComponent(finalFilamentComponent)
+            android.util.Log.d(TAG, "Created filament component: ${finalFilamentComponent.id}")
+            
+            // Get built-in components (these should always work)
+            val coreComponent = try {
+                physicalComponentRepository.getBambuCoreComponent()
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Error getting core component, creating fallback", e)
+                physicalComponentRepository.createBambuCoreComponent().also {
+                    physicalComponentRepository.saveComponent(it)
+                }
+            }
+            
+            val spoolComponent = if (includeRefillableSpool) {
+                try {
+                    physicalComponentRepository.getBambuSpoolComponent()
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "Error getting spool component, creating fallback", e)
+                    physicalComponentRepository.createBambuSpoolComponent().also {
+                        physicalComponentRepository.saveComponent(it)
+                    }
+                }
+            } else null
+            
+            // Build component list
+            val components = listOfNotNull(
+                finalFilamentComponent,
+                coreComponent,
+                spoolComponent
+            )
+            
+            android.util.Log.d(TAG, "Created ${components.size} components: ${components.map { it.name }}")
+            
+            // Add components to inventory item with error handling
+            try {
+                val existingItem = getInventoryItem(trayUid)
+                val setupNotes = buildString {
+                    append("Auto-configured from Bambu scan")
+                    if (skuMass != null) {
+                        append(" (SKU data: ${skuMass}g)")
+                    } else {
+                        append(" (default mass: ${filamentMass}g)")
+                    }
+                    if (includeRefillableSpool) {
+                        append(" with refillable spool")
+                    }
+                }
+                
+                val updatedItem = existingItem?.copy(
+                    components = components.map { it.id },
+                    lastUpdated = LocalDateTime.now(),
+                    notes = existingItem.notes?.let { "$it; $setupNotes" } ?: setupNotes
+                ) ?: InventoryItem(
+                    trayUid = trayUid,
+                    components = components.map { it.id },
+                    totalMeasuredMass = null,
+                    measurements = emptyList(),
+                    lastUpdated = LocalDateTime.now(),
+                    notes = setupNotes
+                )
+                
+                saveInventoryItem(updatedItem)
+                android.util.Log.i(TAG, "Successfully set up inventory item for trayUid=$trayUid with ${components.size} components")
+                
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Error saving inventory item, but components were created", e)
+                // Don't throw - components are created successfully
+            }
+            
+            return components
+            
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Critical error in setupBambuComponents for trayUid=$trayUid", e)
+            
+            // Emergency fallback - create minimal components
+            android.util.Log.w(TAG, "Attempting emergency fallback component creation")
+            return createEmergencyFallbackComponents(trayUid, filamentInfo, includeRefillableSpool)
+        }
+    }
+    
+    /**
+     * Emergency fallback component creation when everything else fails
+     */
+    private fun createEmergencyFallbackComponents(
+        trayUid: String,
+        filamentInfo: FilamentInfo,
+        includeRefillableSpool: Boolean
+    ): List<PhysicalComponent> {
+        try {
+            android.util.Log.w(TAG, "Creating emergency fallback components")
+            
+            // Create minimal filament component with hardcoded defaults
+            val componentId = "emergency_filament_${System.currentTimeMillis()}"
+            val emergencyFilamentComponent = PhysicalComponent(
+                id = componentId,
+                name = "${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA"} - ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown"}",
+                type = PhysicalComponentType.FILAMENT,
+                massGrams = 1000f, // Default 1kg
+                variableMass = true,
+                manufacturer = "Bambu Lab",
+                description = "Emergency fallback filament component",
+                fullMassGrams = 1000f
+            )
+            
+            // Save emergency component
+            physicalComponentRepository.saveComponent(emergencyFilamentComponent)
+            
+            // Create minimal inventory item
+            val emergencyItem = InventoryItem(
+                trayUid = trayUid,
+                components = listOf(componentId),
+                totalMeasuredMass = null,
+                measurements = emptyList(),
+                lastUpdated = LocalDateTime.now(),
+                notes = "Emergency fallback configuration - please review component setup"
+            )
+            
+            saveInventoryItem(emergencyItem)
+            
+            android.util.Log.w(TAG, "Emergency fallback completed for trayUid=$trayUid")
+            return listOf(emergencyFilamentComponent)
+            
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Even emergency fallback failed for trayUid=$trayUid", e)
+            return emptyList()
+        }
     }
     
     // === Filament Status Calculation ===
@@ -346,5 +629,6 @@ class InventoryRepository(private val context: Context) {
     
     companion object {
         private const val INVENTORY_ITEMS_KEY = "inventory_items"
+        private const val TAG = "InventoryRepository"
     }
 }

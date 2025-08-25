@@ -286,7 +286,7 @@ class ScanHistoryRepository(private val context: Context) {
     /**
      * UI compatibility method: Get unique spools grouped by tag UID
      */
-    fun getUniqueSpools(): List<UniqueSpool> {
+    fun getUniqueFilamentReels(): List<UniqueFilamentReel> {
         val allScans = getAllScans()
         
         // Group by tag UID
@@ -304,7 +304,7 @@ class ScanHistoryRepository(private val context: Context) {
             val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
             val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
             
-            UniqueSpool(
+            UniqueFilamentReel(
                 uid = uid,
                 filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
                 scanCount = scanCount,
@@ -318,7 +318,7 @@ class ScanHistoryRepository(private val context: Context) {
     /**
      * UI compatibility method: Get unique spools grouped by tray UID
      */
-    fun getUniqueSpoolsByTray(): List<UniqueSpool> {
+    fun getUniqueFilamentReelsByTray(): List<UniqueFilamentReel> {
         val allScans = getAllScans()
         
         // Group by tray UID
@@ -338,7 +338,7 @@ class ScanHistoryRepository(private val context: Context) {
             val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
             val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
             
-            UniqueSpool(
+            UniqueFilamentReel(
                 uid = trayUid, // Use tray UID instead of tag UID
                 filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
                 scanCount = scanCount,
@@ -350,62 +350,62 @@ class ScanHistoryRepository(private val context: Context) {
     }
     
     /**
-     * UI compatibility method: Get spool details by tray UID
+     * Get filament reel details by tray UID
      */
-    fun getSpoolDetails(trayUid: String): SpoolDetails? {
+    fun getFilamentReelDetails(trayUid: String): FilamentReelDetails? {
         val allScans = getAllScans()
         
-        // Get all scans for this tray
-        val spoolScans = allScans.filter { 
+        // Get all scans for this inventory item (tray UID)
+        val inventoryScans = allScans.filter { 
             it.filamentInfo?.trayUid == trayUid 
         }
         
-        if (spoolScans.isEmpty()) return null
+        if (inventoryScans.isEmpty()) return null
         
         // Get the most recent successful scan for filament info
-        val mostRecentSuccessfulScan = spoolScans
+        val mostRecentSuccessfulScan = inventoryScans
             .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
             .maxByOrNull { it.timestamp }
             ?: return null
         
-        // Get all unique tag UIDs for this spool
-        val tagUids = spoolScans
+        // Get all unique tag UIDs for this inventory item
+        val tagUids = inventoryScans
             .mapNotNull { it.filamentInfo?.tagUid }
             .distinct()
         
         // Get scans grouped by tag UID
-        val scansByTag = spoolScans.groupBy { it.filamentInfo?.tagUid ?: "" }
+        val scansByTag = inventoryScans.groupBy { it.filamentInfo?.tagUid ?: "" }
             .filter { it.key.isNotEmpty() }
         
-        return SpoolDetails(
+        return FilamentReelDetails(
             trayUid = trayUid,
             filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
             tagUids = tagUids,
-            allScans = spoolScans.sortedByDescending { it.timestamp },
+            allScans = inventoryScans.sortedByDescending { it.timestamp },
             scansByTag = scansByTag,
-            totalScans = spoolScans.size,
-            successfulScans = spoolScans.count { it.scanResult == ScanResult.SUCCESS },
-            lastScanned = spoolScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+            totalScans = inventoryScans.size,
+            successfulScans = inventoryScans.count { it.scanResult == ScanResult.SUCCESS },
+            lastScanned = inventoryScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
         )
     }
     
     /**
      * UI compatibility method: Get spool by tag UID (backward compatibility)
      */
-    fun getSpoolByTagUid(tagUid: String): UniqueSpool? {
+    fun getFilamentReelByTagUid(tagUid: String): UniqueFilamentReel? {
         // First try to find by tag UID in the old method for backward compatibility
-        val byTag = getUniqueSpools().firstOrNull { it.uid == tagUid }
+        val byTag = getUniqueFilamentReels().firstOrNull { it.uid == tagUid }
         if (byTag != null) return byTag
         
         // If not found, try to find by tray UID (since we might be looking for tray-grouped spools)
-        return getUniqueSpoolsByTray().firstOrNull { it.uid == tagUid }
+        return getUniqueFilamentReelsByTray().firstOrNull { it.uid == tagUid }
     }
     
     /**
      * UI compatibility method: Get spool by tray UID
      */
-    fun getSpoolByTrayUid(trayUid: String): UniqueSpool? {
-        return getUniqueSpoolsByTray().firstOrNull { it.uid == trayUid }
+    fun getFilamentReelByTrayUid(trayUid: String): UniqueFilamentReel? {
+        return getUniqueFilamentReelsByTray().firstOrNull { it.uid == trayUid }
     }
 }
 
@@ -444,7 +444,7 @@ data class InterpretedScan(
     }
 }
 
-data class UniqueSpool(
+data class UniqueFilamentReel(
     val uid: String, // Tag UID or Tray UID depending on context
     val filamentInfo: com.bscan.model.FilamentInfo,
     val scanCount: Int,
@@ -453,7 +453,7 @@ data class UniqueSpool(
     val successRate: Float
 )
 
-data class SpoolDetails(
+data class FilamentReelDetails(
     val trayUid: String,
     val filamentInfo: com.bscan.model.FilamentInfo,
     val tagUids: List<String>,

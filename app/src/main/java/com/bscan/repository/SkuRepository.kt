@@ -37,7 +37,7 @@ class SkuRepository(private val context: Context) {
             
             if (scansForThisSku.isNotEmpty()) {
                 // Has scan history - calculate statistics from actual scans
-                val uniqueSpools = scansForThisSku.groupBy { it.filamentInfo!!.trayUid }.size
+                val uniqueFilamentReels = scansForThisSku.groupBy { it.filamentInfo!!.trayUid }.size
                 val totalScans = scansForThisSku.size
                 val successfulScans = scansForThisSku.count { it.scanResult == ScanResult.SUCCESS }
                 val lastScanned = scansForThisSku.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
@@ -50,7 +50,7 @@ class SkuRepository(private val context: Context) {
                 SkuInfo(
                     skuKey = skuKey,
                     filamentInfo = filamentInfo,
-                    spoolCount = uniqueSpools,
+                    filamentReelCount = uniqueFilamentReels,
                     totalScans = totalScans,
                     successfulScans = successfulScans,
                     lastScanned = lastScanned,
@@ -64,7 +64,7 @@ class SkuRepository(private val context: Context) {
                 SkuInfo(
                     skuKey = skuKey,
                     filamentInfo = filamentInfo,
-                    spoolCount = 0, // Available but not owned
+                    filamentReelCount = 0, // Available but not owned
                     totalScans = 0,
                     successfulScans = 0,
                     lastScanned = LocalDateTime.of(1970, 1, 1, 0, 0), // Epoch time for unscanned
@@ -82,7 +82,7 @@ class SkuRepository(private val context: Context) {
         val scannedOnlySkus = scansBySkuKey
             .filterKeys { skuKey -> skuKey !in databaseSkuKeys } // Only scanned SKUs not in database
             .map { (skuKey, scans) ->
-                val uniqueSpools = scans.groupBy { it.filamentInfo!!.trayUid }.size
+                val uniqueFilamentReels = scans.groupBy { it.filamentInfo!!.trayUid }.size
                 val totalScans = scans.size
                 val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
                 val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
@@ -98,7 +98,7 @@ class SkuRepository(private val context: Context) {
                 SkuInfo(
                     skuKey = skuKey,
                     filamentInfo = filamentInfo,
-                    spoolCount = uniqueSpools,
+                    filamentReelCount = uniqueFilamentReels,
                     totalScans = totalScans,
                     successfulScans = successfulScans,
                     lastScanned = lastScanned,
@@ -116,7 +116,7 @@ class SkuRepository(private val context: Context) {
      * Get SKUs filtered by minimum spool count
      */
     fun getSkusFilteredBySpoolCount(minSpoolCount: Int = 1): List<SkuInfo> {
-        return getAllSkus().filter { it.spoolCount >= minSpoolCount }
+        return getAllSkus().filter { it.filamentReelCount >= minSpoolCount }
     }
     
     /**

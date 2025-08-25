@@ -121,7 +121,8 @@ class PhysicalComponentRepository(private val context: Context) {
         colorName: String,
         colorHex: String,
         massGrams: Float,
-        manufacturer: String = "Bambu Lab"
+        manufacturer: String = "Bambu Lab",
+        fullMassGrams: Float? = null
     ): PhysicalComponent {
         val componentId = "filament_${System.currentTimeMillis()}"
         return PhysicalComponent(
@@ -129,6 +130,7 @@ class PhysicalComponentRepository(private val context: Context) {
             name = "$filamentType - $colorName",
             type = PhysicalComponentType.FILAMENT,
             massGrams = massGrams,
+            fullMassGrams = fullMassGrams ?: massGrams,
             variableMass = true,
             manufacturer = manufacturer,
             description = "Filament component created from SKU data"
@@ -215,6 +217,28 @@ class PhysicalComponentRepository(private val context: Context) {
     fun canDeleteComponent(componentId: String): Boolean {
         val component = getComponent(componentId) ?: return false
         return component.isUserDefined && !isComponentInUse(componentId)
+    }
+    
+    /**
+     * Get the Bambu cardboard core component
+     */
+    fun getBambuCoreComponent(): PhysicalComponent {
+        return getComponent("bambu_cardboard_core") ?: run {
+            val component = createBambuCoreComponent()
+            saveComponent(component)
+            component
+        }
+    }
+    
+    /**
+     * Get the Bambu refillable spool component
+     */
+    fun getBambuSpoolComponent(): PhysicalComponent {
+        return getComponent("bambu_refillable_spool") ?: run {
+            val component = createBambuSpoolComponent()
+            saveComponent(component)
+            component
+        }
     }
     
     /**
