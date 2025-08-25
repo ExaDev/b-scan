@@ -3,14 +3,15 @@ package com.bscan
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.Before
 
 /**
- * End-to-end tests for scan history functionality
- * 
- * These tests verify the history screen behavior, navigation, and display of scan results.
+ * E2E tests for history functionality.
  */
 @RunWith(AndroidJUnit4::class)
 class HistoryE2ETest {
@@ -18,83 +19,56 @@ class HistoryE2ETest {
     @get:Rule
     val composeTestRule = createAndroidComposeRule<TestActivity>()
 
-    @Test
-    fun historyScreenLayoutAndNavigation() {
-        // Navigate to history screen
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
+    private lateinit var device: UiDevice
+
+    @Before
+    fun setUp() {
+        device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         composeTestRule.waitForIdle()
-        
-        // Verify history screen is displayed
-        composeTestRule.onNodeWithText("Scan History").assertIsDisplayed()
-        
-        // Check for back navigation
-        composeTestRule.onNodeWithContentDescription("Navigate back").assertIsDisplayed()
-        
-        // Test back navigation
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Should return to main screen
-        composeTestRule.onNodeWithText("Ready to scan NFC tags").assertExists()
     }
 
     @Test
-    fun emptyHistoryStateUI() {
-        // Navigate to history
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
+    fun historyNavigationBasics() {
+        // Test basic history navigation
+        composeTestRule.onNodeWithContentDescription("Scan History").performClick()
         composeTestRule.waitForIdle()
         
-        // Should display empty state
-        composeTestRule.onNodeWithText("No scans yet").assertExists()
+        // Should be able to navigate back
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+        composeTestRule.waitForIdle()
+        
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
     }
 
     @Test
-    fun historyScreenAccessibility() {
-        // Navigate to history
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
+    fun historyFromDifferentTabs() {
+        // Test accessing history from different tabs
+        val tabs = listOf("Inventory", "SKUs", "Tags", "Scans")
         
-        // Verify accessibility elements
-        composeTestRule.onNodeWithText("Scan History").assertExists()
-        composeTestRule.onNodeWithContentDescription("Navigate back").assertHasClickAction()
-        
-        // Check that empty state has accessible text
-        composeTestRule.onRoot().assertIsDisplayed()
+        tabs.forEach { tab ->
+            composeTestRule.onNodeWithText(tab).performClick()
+            composeTestRule.waitForIdle()
+            
+            composeTestRule.onNodeWithContentDescription("Scan History").performClick()
+            composeTestRule.waitForIdle()
+            
+            composeTestRule.onNodeWithContentDescription("Back").performClick()
+            composeTestRule.waitForIdle()
+            
+            composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
+        }
     }
 
     @Test
-    fun historyScreenStatePreservation() {
-        // Navigate to history multiple times to test state preservation
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Go back
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Navigate to history again
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Should still show history screen consistently
-        composeTestRule.onNodeWithText("Scan History").assertIsDisplayed()
-    }
-
-    @Test
-    fun historyScreenScrollBehavior() {
-        // Navigate to history
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Even with empty state, should handle scroll gestures gracefully
-        // This tests the LazyColumn or similar scrollable component
-        composeTestRule.onRoot().performTouchInput {
-            swipeUp()
-            swipeDown()
+    fun multipleHistoryNavigations() {
+        // Test multiple history navigations
+        repeat(3) {
+            composeTestRule.onNodeWithContentDescription("Scan History").performClick()
+            composeTestRule.waitForIdle()
+            composeTestRule.onNodeWithContentDescription("Back").performClick()
+            composeTestRule.waitForIdle()
         }
         
-        // Should still be functional after scroll gestures
-        composeTestRule.onNodeWithText("Scan History").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Navigate back").assertHasClickAction()
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
     }
 }

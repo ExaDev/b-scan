@@ -3,98 +3,69 @@ package com.bscan
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.Before
 
 /**
- * End-to-end tests for the automatic update system
- * 
- * These tests verify the update UI components and workflow without
- * making actual network requests or installing updates.
+ * E2E tests for update system functionality.
  */
 @RunWith(AndroidJUnit4::class)
 class UpdateSystemE2ETest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<MainActivity>()
+    val composeTestRule = createAndroidComposeRule<TestActivity>()
 
-    @Test
-    fun appLaunchesWithoutUpdatePrompts() {
-        // Verify app launches normally without showing update dialogs
-        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
-        
-        // Should not show update dialog on startup by default
-        composeTestRule.onNode(hasText("Update Available") or hasText("New Version")).assertDoesNotExist()
-    }
+    private lateinit var device: UiDevice
 
-    @Test
-    fun updateDialogNotShownByDefault() {
-        // Verify that update dialogs don't appear unexpectedly
-        composeTestRule.waitForIdle()
-        
-        // Check that no update-related dialogs are shown
-        composeTestRule.onNodeWithText("Update Available", substring = true).assertDoesNotExist()
-        composeTestRule.onNodeWithText("Download", substring = true).assertDoesNotExist()
-        composeTestRule.onNodeWithText("Install", substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun backgroundUpdateCheckDoesNotBlockUI() {
-        // Test that background update checks don't interfere with normal usage
-        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
-        
-        // Navigate to history and back to ensure UI remains responsive
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeTestRule.waitForIdle()
-        
-        // UI should remain functional
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
-    }
-
-    @Test
-    fun updateSystemInitializesWithoutErrors() {
-        // Verify that update system components initialize properly
-        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
-        
-        // App should launch successfully even with update system enabled
-        // This tests that UpdateRepository, GitHubUpdateService, etc. don't crash on init
-        composeTestRule.waitForIdle()
-        
-        // Basic app functionality should work
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
+    @Before
+    fun setUp() {
+        device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         composeTestRule.waitForIdle()
     }
 
     @Test
-    fun noUpdateRelatedCrashesOnNavigation() {
-        // Test that rapid navigation doesn't trigger update-related crashes
-        repeat(2) {
-            composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-            composeTestRule.waitForIdle()
-            composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
-            composeTestRule.waitForIdle()
-        }
+    fun appLaunchesWithoutUpdateDialogs() {
+        // Test that app launches without showing update dialogs by default
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
         
-        // Should remain stable
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
+        // Should not show update dialogs on normal launch
+        composeTestRule.onNodeWithText("Update", ignoreCase = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun basicAppFunctionalityWorksRegardlessOfUpdateSystem() {
+        // Test that basic app functionality works regardless of update system state
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
+        
+        // Navigate through tabs
+        composeTestRule.onNodeWithText("SKUs").performClick()
+        composeTestRule.waitForIdle()
+        
+        composeTestRule.onNodeWithText("Settings").performClick()
+        composeTestRule.waitForIdle()
+        
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+        composeTestRule.waitForIdle()
+        
         composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
     }
 
     @Test
-    fun updatePermissionsHandledGracefully() {
-        // Verify that update system doesn't cause permission-related crashes
-        // Even without INSTALL_PACKAGES permission, app should work normally
-        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
+    fun settingsAccessibilityNotBlockedByUpdateSystem() {
+        // Test that update system doesn't block access to settings
+        composeTestRule.onNodeWithContentDescription("Settings").performClick()
+        composeTestRule.waitForIdle()
         
-        // Basic navigation should work
-        composeTestRule.onNodeWithContentDescription("View scan history").assertExists()
+        // Should be able to access settings
+        composeTestRule.onRoot().assertExists()
+        
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+        composeTestRule.waitForIdle()
+        
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
     }
 }

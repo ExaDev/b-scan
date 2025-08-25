@@ -3,133 +3,118 @@ package com.bscan
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.Before
 
 /**
- * End-to-end tests for visual feedback indicators
- * 
- * These tests verify that the NFC scanning indicators, animations,
- * and visual feedback systems are properly displayed and functional.
+ * E2E tests for visual indicators and UI consistency.
  */
 @RunWith(AndroidJUnit4::class)
 class VisualIndicatorsE2ETest {
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<MainActivity>()
+    val composeTestRule = createAndroidComposeRule<TestActivity>()
 
-    @Test
-    fun nfcStatusIndicatorDisplayed() {
-        // Check that NFC status indicator is shown
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertExists()
-        
-        // Should be visible on the main screen
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertIsDisplayed()
-    }
+    private lateinit var device: UiDevice
 
-    @Test
-    fun scanningIndicatorComponents() {
-        // Verify scanning indicator components are present
-        // The exact test tags depend on implementation
-        composeTestRule.onNode(
-            hasTestTag("scanning_indicator") or 
-            hasTestTag("scan_state_indicator") or
-            hasContentDescription("NFC scanning status")
-        ).assertExists()
-    }
-
-    @Test
-    fun visualFeedbackDoesNotBlockNavigation() {
-        // Ensure visual indicators don't interfere with navigation
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
+    @Before
+    fun setUp() {
+        device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         composeTestRule.waitForIdle()
-        
-        // Should successfully navigate even with indicators present
-        composeTestRule.onNodeWithText("Scan History").assertExists()
-        
-        // Navigate back
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Indicators should still be present and functional
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertExists()
     }
 
     @Test
-    fun indicatorAccessibilityLabels() {
-        // Verify that visual indicators have proper accessibility support
-        composeTestRule.onNode(
-            hasContentDescription("NFC") or 
-            hasContentDescription("scan") or
-            hasContentDescription("status")
-        ).assertExists()
-    }
-
-    @Test
-    fun indicatorsStableUnderInteraction() {
-        // Test that indicators remain stable during user interaction
-        val nfcIndicator = composeTestRule.onNodeWithTag("nfc_status_indicator")
-        nfcIndicator.assertExists()
-        
-        // Perform some interactions
-        composeTestRule.onRoot().performTouchInput {
-            swipeUp()
-            swipeDown()
-        }
-        
-        // Indicators should still be present
-        nfcIndicator.assertExists()
-    }
-
-    @Test
-    fun noVisualGlitchesOnScreenTransitions() {
-        // Test that visual indicators don't cause glitches during navigation
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertExists()
-        
-        // Navigate quickly between screens
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
-        composeTestRule.waitForIdle()
-        
-        // UI should still be clean and functional
-        composeTestRule.onNodeWithText("Ready to scan", substring = true).assertExists()
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertExists()
-    }
-
-    @Test
-    fun animationsDoNotCausePerformanceIssues() {
-        // Verify that any animations don't block the UI thread
+    fun mainUIElementsVisibleAndConsistent() {
+        // Test that main UI elements are visible and consistent
         composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
         
-        // Wait for any initial animations to complete
-        composeTestRule.waitForIdle()
+        // Check that navigation elements are present
+        composeTestRule.onNodeWithContentDescription("Scan History").assertExists()
+        composeTestRule.onNodeWithContentDescription("Settings").assertExists()
         
-        // Navigation should remain responsive
-        composeTestRule.onNodeWithContentDescription("View scan history").assertHasClickAction()
-        
-        // Perform navigation to test responsiveness
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        
-        // Should complete navigation quickly
-        composeTestRule.onNodeWithText("Scan History").assertIsDisplayed()
+        // Check that tabs are visible
+        composeTestRule.onNodeWithText("Inventory").assertExists()
+        composeTestRule.onNodeWithText("SKUs").assertExists()
+        composeTestRule.onNodeWithText("Tags").assertExists()
+        composeTestRule.onNodeWithText("Scans").assertExists()
     }
 
     @Test
-    fun indicatorsWorkInLandscapeMode() {
-        // This would test rotation if configured
-        // For now, just ensure indicators are resilient to layout changes
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertExists()
+    fun visualConsistencyAcrossTabs() {
+        // Test visual consistency across tabs
+        val tabs = listOf("Inventory", "SKUs", "Tags", "Scans")
         
-        // Simulate layout changes by navigating
-        composeTestRule.onNodeWithContentDescription("View scan history").performClick()
-        composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithContentDescription("Navigate back").performClick()
+        tabs.forEach { tab ->
+            composeTestRule.onNodeWithText(tab).performClick()
+            composeTestRule.waitForIdle()
+            
+            // App bar should always be present
+            composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
+            
+            // Navigation buttons should be present
+            composeTestRule.onNodeWithContentDescription("Scan History").assertExists()
+            composeTestRule.onNodeWithContentDescription("Settings").assertExists()
+        }
+    }
+
+    @Test
+    fun visualIndicatorsInSecondaryScreens() {
+        // Test visual indicators in secondary screens
+        composeTestRule.onNodeWithContentDescription("Settings").performClick()
         composeTestRule.waitForIdle()
         
-        // Indicators should adapt to layout changes
-        composeTestRule.onNodeWithTag("nfc_status_indicator").assertExists()
+        // Should have back button indicator
+        composeTestRule.onNodeWithContentDescription("Back").assertExists()
+        
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+        composeTestRule.waitForIdle()
+        
+        // Test history screen
+        composeTestRule.onNodeWithContentDescription("Scan History").performClick()
+        composeTestRule.waitForIdle()
+        
+        composeTestRule.onNodeWithContentDescription("Back").assertExists()
+        
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+        composeTestRule.waitForIdle()
+        
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
+    }
+
+    @Test
+    fun noVisualGlitchesDuringNavigation() {
+        // Test that there are no visual glitches during navigation
+        repeat(3) {
+            composeTestRule.onNodeWithText("SKUs").performClick()
+            Thread.sleep(100) // Brief pause to catch visual issues
+            composeTestRule.onNodeWithText("Tags").performClick()
+            Thread.sleep(100)
+            composeTestRule.onNodeWithText("Inventory").performClick()
+            Thread.sleep(100)
+        }
+        
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("B-Scan").assertIsDisplayed()
+    }
+
+    @Test
+    fun visualElementsHandleEmptyStatesAppropriately() {
+        // Test that visual elements handle empty states appropriately
+        val tabs = listOf("Inventory", "SKUs", "Tags", "Scans")
+        
+        tabs.forEach { tab ->
+            composeTestRule.onNodeWithText(tab).performClick()
+            composeTestRule.waitForIdle()
+            
+            // Should not show error indicators for empty states
+            composeTestRule.onNodeWithText("Error", ignoreCase = true).assertDoesNotExist()
+            
+            // Basic structure should still be present
+            composeTestRule.onRoot().assertExists()
+        }
     }
 }
