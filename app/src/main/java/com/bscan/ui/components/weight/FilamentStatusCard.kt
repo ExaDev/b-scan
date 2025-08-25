@@ -14,7 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bscan.model.FilamentStatus
 import com.bscan.model.InventoryItem
-import com.bscan.logic.WeightUnit
+import com.bscan.logic.MassCalculationService
+// WeightUnit is now defined in MassCalculationService
 import java.time.format.DateTimeFormatter
 
 /**
@@ -24,10 +25,9 @@ import java.time.format.DateTimeFormatter
 fun FilamentStatusCard(
     inventoryItem: InventoryItem,
     filamentStatus: FilamentStatus,
-    preferredWeightUnit: WeightUnit,
+    preferredWeightUnit: com.bscan.logic.WeightUnit,
     onRecordWeight: () -> Unit,
-    onSetConfiguration: () -> Unit,
-    onSetExpectedWeight: () -> Unit = {},
+    onSetupComponents: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -61,18 +61,16 @@ fun FilamentStatusCard(
             }
             
             when {
-                !inventoryItem.hasSpoolConfiguration -> {
-                    // No configuration set
-                    ConfigurationRequiredSection(
-                        onSetConfiguration = onSetConfiguration,
-                        onSetExpectedWeight = onSetExpectedWeight
+                !inventoryItem.hasComponents -> {
+                    // No components set
+                    ComponentSetupRequiredSection(
+                        onSetupComponents = onSetupComponents
                     )
                 }
                 
-                !inventoryItem.hasWeightMeasurements -> {
-                    // Configuration set but no measurements
+                !inventoryItem.hasMassMeasurements -> {
+                    // Components set but no measurements
                     MeasurementRequiredSection(
-                        configurationName = filamentStatus.spoolConfiguration?.name ?: "Unknown",
                         onRecordWeight = onRecordWeight
                     )
                 }
@@ -98,9 +96,8 @@ fun FilamentStatusCard(
 }
 
 @Composable
-private fun ConfigurationRequiredSection(
-    onSetConfiguration: () -> Unit,
-    onSetExpectedWeight: () -> Unit
+private fun ComponentSetupRequiredSection(
+    onSetupComponents: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -114,57 +111,30 @@ private fun ConfigurationRequiredSection(
         )
         
         Text(
-            text = "Weight Tracking Setup",
+            text = "Component Setup Required",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
         )
         
         Text(
-            text = "Choose how to set up weight tracking for this spool",
+            text = "Set up the physical components for this spool to enable weight tracking",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
-        // Expected Weight Button (Recommended)
         Button(
-            onClick = onSetExpectedWeight,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.Calculate, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Set Expected Weight (No Scales)")
-        }
-        
-        // OR divider
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HorizontalDivider(modifier = Modifier.weight(1f))
-            Text(
-                text = "OR",
-                modifier = Modifier.padding(horizontal = 8.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider(modifier = Modifier.weight(1f))
-        }
-        
-        // Configuration only button
-        OutlinedButton(
-            onClick = onSetConfiguration,
+            onClick = onSetupComponents,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Default.Settings, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Set Configuration Only")
+            Text("Setup Components")
         }
     }
 }
 
 @Composable
 private fun MeasurementRequiredSection(
-    configurationName: String,
     onRecordWeight: () -> Unit
 ) {
     Column(
@@ -182,12 +152,6 @@ private fun MeasurementRequiredSection(
             text = "Weight Measurement Required",
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.Medium
-        )
-        
-        Text(
-            text = "Configuration: $configurationName",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         
         Text(
@@ -250,7 +214,7 @@ private fun ErrorSection(
 @Composable
 private fun FilamentStatusSection(
     filamentStatus: FilamentStatus,
-    preferredWeightUnit: WeightUnit
+    preferredWeightUnit: com.bscan.logic.WeightUnit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -272,7 +236,7 @@ private fun FilamentStatusSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = filamentStatus.getFormattedRemainingWeight(preferredWeightUnit),
+                    text = filamentStatus.getFormattedRemainingMass(preferredWeightUnit),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
@@ -292,15 +256,7 @@ private fun FilamentStatusSection(
             }
         }
         
-        // Configuration and last measurement info
-        filamentStatus.spoolConfiguration?.let { config ->
-            Text(
-                text = "Configuration: ${config.name}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
+        // Last measurement info
         filamentStatus.lastMeasurement?.let { measurement ->
             Text(
                 text = "Last measured: ${measurement.measuredAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}",
