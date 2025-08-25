@@ -53,7 +53,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     
     // Physical component stats
-    val allComponents = remember { physicalComponentRepository.getAllComponents() }
+    val allComponents = remember { physicalComponentRepository.getComponents() }
     val userDefinedComponents = remember { allComponents.filter { it.isUserDefined } }
     val builtInComponents = remember { allComponents.filter { !it.isUserDefined } }
     val totalComponents = allComponents.size
@@ -140,9 +140,64 @@ fun SettingsScreen(
             }
             
             item {
+                val scanCount = remember { repository.getAllScans().size }
+                val spoolCount = remember { repository.getUniqueFilamentReelsByTray().size }
+                var isExporting by remember { mutableStateOf(false) }
+                var isImporting by remember { mutableStateOf(false) }
+                var exportScope by remember { mutableStateOf(ExportScope.ALL_DATA) }
+                var importMode by remember { mutableStateOf(ImportMode.MERGE_WITH_EXISTING) }
+                var fromDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
+                var toDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
+                var previewData by remember { mutableStateOf<ExportPreviewData?>(null) }
+                var showPreview by remember { mutableStateOf(false) }
+                
                 ExportImportCard(
-                    repository = repository,
-                    exportManager = exportManager
+                    scanCount = scanCount,
+                    spoolCount = spoolCount,
+                    isExporting = isExporting,
+                    isImporting = isImporting,
+                    exportScope = exportScope,
+                    importMode = importMode,
+                    fromDate = fromDate,
+                    toDate = toDate,
+                    previewData = previewData,
+                    showPreview = showPreview,
+                    onExportScopeChange = { exportScope = it },
+                    onImportModeChange = { importMode = it },
+                    onFromDateChange = { fromDate = it },
+                    onToDateChange = { toDate = it },
+                    onExportClick = {
+                        scope.launch {
+                            isExporting = true
+                            try {
+                                // TODO: Implement actual export with file picker
+                                kotlinx.coroutines.delay(1000) // Simulate export
+                            } finally {
+                                isExporting = false
+                            }
+                        }
+                    },
+                    onImportClick = {
+                        // Launch file picker for import
+                    },
+                    onConfirmImport = {
+                        scope.launch {
+                            isImporting = true
+                            try {
+                                previewData?.let {
+                                    // Perform import based on importMode
+                                }
+                            } finally {
+                                isImporting = false
+                                showPreview = false
+                                previewData = null
+                            }
+                        }
+                    },
+                    onCancelImport = {
+                        showPreview = false
+                        previewData = null
+                    }
                 )
             }
             
@@ -225,23 +280,23 @@ private fun MaterialDisplayCard(
                     ) {
                         FilamentColorBox(
                             colorHex = "#FF6B35",
-                            materialType = "PLA",
+                            filamentType = "PLA",
                             size = 24.dp,
-                            materialDisplayMode = mode
+                            displayMode = mode
                         )
                         
                         FilamentColorBox(
                             colorHex = "#4A90E2",
-                            materialType = "PETG", 
+                            filamentType = "PETG", 
                             size = 24.dp,
-                            materialDisplayMode = mode
+                            displayMode = mode
                         )
                         
                         FilamentColorBox(
                             colorHex = "#7B68EE",
-                            materialType = "ABS",
+                            filamentType = "ABS",
                             size = 24.dp,
-                            materialDisplayMode = mode
+                            displayMode = mode
                         )
                     }
                 }
@@ -1085,32 +1140,24 @@ private fun SampleDataCard(
                         isGenerating = true
                         try {
                             val generator = SampleDataGenerator()
-                            val samples = when (selectedMode) {
+                            when (selectedMode) {
                                 DataGenerationMode.COMPLETE_COVERAGE -> {
-                                    generator.generateCompleteCoverageSamples(
-                                        startDate = generateFromDate,
-                                        endDate = generateToDate
+                                    generator.generateWithCompleteSkuCoverage(
+                                        repository = repository,
+                                        additionalRandomSpools = 50
                                     )
                                 }
                                 DataGenerationMode.RANDOM_SAMPLE -> {
-                                    generator.generateRandomSamples(
-                                        count = sampleCount,
-                                        startDate = generateFromDate,
-                                        endDate = generateToDate
+                                    generator.generateRandomSample(
+                                        repository = repository,
+                                        spoolCount = sampleCount
                                     )
                                 }
                                 DataGenerationMode.MINIMAL_COVERAGE -> {
-                                    generator.generateMinimalCoverageSamples(
-                                        count = sampleCount,
-                                        startDate = generateFromDate,
-                                        endDate = generateToDate
+                                    generator.generateMinimalCoverage(
+                                        repository = repository
                                     )
                                 }
-                            }
-                            
-                            // Save samples to repository
-                            samples.forEach { sample ->
-                                repository.saveScan(sample.encryptedScan, sample.decryptedScan)
                             }
                         } finally {
                             isGenerating = false
