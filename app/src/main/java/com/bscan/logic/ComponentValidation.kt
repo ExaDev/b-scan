@@ -1,12 +1,11 @@
 package com.bscan.logic
 
-import com.bscan.model.PhysicalComponentType
-import com.bscan.repository.PhysicalComponentRepository
+import com.bscan.repository.ComponentRepository
 
 /**
- * Validation logic for physical components
+ * Validation logic for hierarchical components
  */
-class ComponentValidation(private val repository: PhysicalComponentRepository) {
+class ComponentValidation(private val repository: ComponentRepository) {
     
     /**
      * Validate component name
@@ -26,7 +25,7 @@ class ComponentValidation(private val repository: PhysicalComponentRepository) {
     /**
      * Validate mass value
      */
-    fun validateMass(massText: String, type: PhysicalComponentType): String? {
+    fun validateMass(massText: String, category: String): String? {
         if (massText.isBlank()) {
             return "Mass is required"
         }
@@ -37,9 +36,9 @@ class ComponentValidation(private val repository: PhysicalComponentRepository) {
         }
         
         return when {
-            mass <= 0 -> "Mass must be greater than 0"
-            mass < getMinMassForType(type) -> "Mass is too low for this component type (min: ${getMinMassForType(type)}g)"
-            mass > getMaxMassForType(type) -> "Mass is too high for this component type (max: ${getMaxMassForType(type)}g)"
+            mass < 0 -> "Mass cannot be negative"
+            mass < getMinMassForCategory(category) -> "Mass is too low for this component category (min: ${getMinMassForCategory(category)}g)"
+            mass > getMaxMassForCategory(category) -> "Mass is too high for this component category (max: ${getMaxMassForCategory(category)}g)"
             else -> null
         }
     }
@@ -67,6 +66,20 @@ class ComponentValidation(private val repository: PhysicalComponentRepository) {
     }
     
     /**
+     * Validate component category
+     */
+    fun validateCategory(category: String): String? {
+        val trimmed = category.trim()
+        
+        return when {
+            trimmed.isBlank() -> "Category is required"
+            trimmed.length < 2 -> "Category must be at least 2 characters"
+            trimmed.length > 30 -> "Category must be 30 characters or less"
+            else -> null
+        }
+    }
+    
+    /**
      * Check if a component name is already in use
      */
     private fun isNameAlreadyUsed(name: String, existingComponentId: String?): Boolean {
@@ -76,54 +89,63 @@ class ComponentValidation(private val repository: PhysicalComponentRepository) {
     }
     
     /**
-     * Get minimum reasonable mass for component type
+     * Get minimum reasonable mass for component category
      */
-    private fun getMinMassForType(type: PhysicalComponentType): Float {
-        return when (type) {
-            PhysicalComponentType.FILAMENT -> 50f // Minimum 50g for filament samples
-            PhysicalComponentType.BASE_SPOOL -> 50f // Minimum 50g for very small spools
-            PhysicalComponentType.CORE_RING -> 5f // Minimum 5g for cardboard cores
-            PhysicalComponentType.ADAPTER -> 1f // Minimum 1g for small adapters
-            PhysicalComponentType.PACKAGING -> 1f // Minimum 1g for lightweight packaging
+    private fun getMinMassForCategory(category: String): Float {
+        return when (category.lowercase()) {
+            "filament" -> 50f // Minimum 50g for filament samples
+            "spool" -> 50f // Minimum 50g for very small spools
+            "core" -> 5f // Minimum 5g for cardboard cores
+            "adapter" -> 1f // Minimum 1g for small adapters
+            "packaging" -> 1f // Minimum 1g for lightweight packaging
+            "rfid-tag" -> 0.1f // Minimum 0.1g for RFID tags
+            else -> 0.1f // Default minimum
         }
     }
     
     /**
-     * Get maximum reasonable mass for component type
+     * Get maximum reasonable mass for component category
      */
-    private fun getMaxMassForType(type: PhysicalComponentType): Float {
-        return when (type) {
-            PhysicalComponentType.FILAMENT -> 5000f // Max 5kg for large industrial filament
-            PhysicalComponentType.BASE_SPOOL -> 2000f // Max 2kg for very heavy industrial spools
-            PhysicalComponentType.CORE_RING -> 200f // Max 200g for heavy metal cores
-            PhysicalComponentType.ADAPTER -> 500f // Max 500g for metal adapters
-            PhysicalComponentType.PACKAGING -> 1000f // Max 1kg for heavy packaging
+    private fun getMaxMassForCategory(category: String): Float {
+        return when (category.lowercase()) {
+            "filament" -> 5000f // Max 5kg for large industrial filament
+            "spool" -> 2000f // Max 2kg for very heavy industrial spools
+            "core" -> 200f // Max 200g for heavy metal cores
+            "adapter" -> 500f // Max 500g for metal adapters
+            "packaging" -> 1000f // Max 1kg for heavy packaging
+            "rfid-tag" -> 5f // Max 5g for RFID tags
+            else -> 10000f // Default maximum
         }
     }
     
     /**
-     * Get suggested mass ranges for component types
+     * Get suggested mass ranges for component categories
      */
-    fun getSuggestedMassRange(type: PhysicalComponentType): Pair<Float, Float> {
-        return when (type) {
-            PhysicalComponentType.FILAMENT -> 200f to 1200f // Typical filament weights
-            PhysicalComponentType.BASE_SPOOL -> 100f to 400f // Typical spool weights
-            PhysicalComponentType.CORE_RING -> 20f to 60f // Typical core weights
-            PhysicalComponentType.ADAPTER -> 10f to 100f // Typical adapter weights
-            PhysicalComponentType.PACKAGING -> 5f to 50f // Typical packaging weights
+    fun getSuggestedMassRange(category: String): Pair<Float, Float> {
+        return when (category.lowercase()) {
+            "filament" -> 200f to 1200f // Typical filament weights
+            "spool" -> 100f to 400f // Typical spool weights
+            "core" -> 20f to 60f // Typical core weights
+            "adapter" -> 10f to 100f // Typical adapter weights
+            "packaging" -> 5f to 50f // Typical packaging weights
+            "rfid-tag" -> 0.5f to 2f // Typical RFID tag weights
+            else -> 10f to 1000f // Default range
         }
     }
     
     /**
-     * Get helpful description for component type
+     * Get helpful description for component category
      */
-    fun getTypeDescription(type: PhysicalComponentType): String {
-        return when (type) {
-            PhysicalComponentType.FILAMENT -> "The actual filament material (variable mass)"
-            PhysicalComponentType.BASE_SPOOL -> "The main spool body or reel (fixed mass)"
-            PhysicalComponentType.CORE_RING -> "Cardboard or plastic core insert (fixed mass)"
-            PhysicalComponentType.ADAPTER -> "Conversion adapter between spool types (fixed mass)"
-            PhysicalComponentType.PACKAGING -> "Bags, boxes, or protective packaging (fixed mass)"
+    fun getCategoryDescription(category: String): String {
+        return when (category.lowercase()) {
+            "filament" -> "The actual filament material (variable mass)"
+            "spool" -> "The main spool body or reel (fixed mass)"
+            "core" -> "Cardboard or plastic core insert (fixed mass)"
+            "adapter" -> "Conversion adapter between spool types (fixed mass)"
+            "packaging" -> "Bags, boxes, or protective packaging (fixed mass)"
+            "rfid-tag" -> "RFID tags for identification (fixed mass)"
+            "filament-tray" -> "Composite component containing multiple parts"
+            else -> "General component category"
         }
     }
     
@@ -133,20 +155,22 @@ class ComponentValidation(private val repository: PhysicalComponentRepository) {
     fun validateComponent(
         name: String,
         massText: String,
-        type: PhysicalComponentType,
+        category: String,
         manufacturer: String,
         description: String,
         existingComponentId: String? = null
     ): ComponentValidationResult {
         val nameError = validateName(name, existingComponentId)
-        val massError = validateMass(massText, type)
+        val massError = validateMass(massText, category)
+        val categoryError = validateCategory(category)
         val manufacturerError = validateManufacturer(manufacturer)
         val descriptionError = validateDescription(description)
         
         return ComponentValidationResult(
-            isValid = nameError == null && massError == null && manufacturerError == null && descriptionError == null,
+            isValid = nameError == null && massError == null && categoryError == null && manufacturerError == null && descriptionError == null,
             nameError = nameError,
             massError = massError,
+            categoryError = categoryError,
             manufacturerError = manufacturerError,
             descriptionError = descriptionError
         )
@@ -160,6 +184,7 @@ data class ComponentValidationResult(
     val isValid: Boolean,
     val nameError: String? = null,
     val massError: String? = null,
+    val categoryError: String? = null,
     val manufacturerError: String? = null,
     val descriptionError: String? = null
 )

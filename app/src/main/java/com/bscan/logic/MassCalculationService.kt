@@ -5,7 +5,7 @@ import kotlin.math.abs
 
 /**
  * Service for performing mass calculations, inferences, and validations
- * for physical component inventory management.
+ * for hierarchical component inventory management.
  */
 class MassCalculationService {
     
@@ -14,8 +14,8 @@ class MassCalculationService {
      */
     fun calculateFilamentMassFromTotal(
         totalMeasuredMass: Float,
-        components: List<PhysicalComponent>,
-        measurementType: MeasurementType = MeasurementType.FULL_WEIGHT
+        components: List<Component>,
+        measurementType: MeasurementType = MeasurementType.TOTAL_MASS
     ): MassCalculationResult {
         
         if (totalMeasuredMass <= 0f) {
@@ -26,10 +26,10 @@ class MassCalculationService {
         }
         
         val fixedComponentMass = components.filter { !it.variableMass }
-            .sumOf { it.massGrams.toDouble() }.toFloat()
+            .sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         
         return when (measurementType) {
-            MeasurementType.FULL_WEIGHT -> {
+            MeasurementType.TOTAL_MASS -> {
                 val filamentMass = totalMeasuredMass - fixedComponentMass
                 if (filamentMass < 0f) {
                     MassCalculationResult(
@@ -39,18 +39,16 @@ class MassCalculationService {
                 } else {
                     MassCalculationResult(
                         success = true,
-                        filamentMassGrams = filamentMass,
-                        fixedComponentsMassGrams = fixedComponentMass,
-                        totalMassGrams = totalMeasuredMass
+                        componentMass = filamentMass,
+                        totalMass = totalMeasuredMass
                     )
                 }
             }
-            MeasurementType.EMPTY_WEIGHT -> {
+            MeasurementType.COMPONENT_ONLY -> {
                 MassCalculationResult(
                     success = true,
-                    filamentMassGrams = 0f,
-                    fixedComponentsMassGrams = totalMeasuredMass,
-                    totalMassGrams = totalMeasuredMass
+                    componentMass = 0f,
+                    totalMass = totalMeasuredMass
                 )
             }
         }
@@ -77,9 +75,8 @@ class MassCalculationService {
         
         return MassCalculationResult(
             success = true,
-            filamentMassGrams = currentFilamentMass,
-            fixedComponentsMassGrams = fixedComponentsMass,
-            totalMassGrams = currentTotalMass
+            componentMass = currentFilamentMass,
+            totalMass = currentTotalMass
         )
     }
     
@@ -87,11 +84,11 @@ class MassCalculationService {
      * Update variable mass components based on new total mass
      */
     fun updateVariableComponents(
-        components: List<PhysicalComponent>,
+        components: List<Component>,
         newTotalMass: Float
-    ): List<PhysicalComponent> {
+    ): List<Component> {
         val fixedComponentsMass = components.filter { !it.variableMass }
-            .sumOf { it.massGrams.toDouble() }.toFloat()
+            .sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         
         val availableFilamentMass = newTotalMass - fixedComponentsMass
         val variableComponents = components.filter { it.variableMass }
@@ -111,13 +108,13 @@ class MassCalculationService {
         }
         
         // Distribute proportionally based on current masses
-        val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val currentVariableMass = variableComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         
         return components.map { component ->
             if (!component.variableMass) {
                 component
             } else if (currentVariableMass > 0) {
-                val proportion = component.massGrams / currentVariableMass
+                val proportion = (component.massGrams ?: 0f) / currentVariableMass
                 component.copy(massGrams = availableFilamentMass * proportion)
             } else {
                 // Equal distribution if no current mass
@@ -129,21 +126,21 @@ class MassCalculationService {
     /**
      * Calculate new total mass when a component's mass changes
      */
-    fun calculateTotalFromComponents(components: List<PhysicalComponent>): Float {
-        return components.sumOf { it.massGrams.toDouble() }.toFloat()
+    fun calculateTotalFromComponents(components: List<Component>): Float {
+        return components.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
     }
     
     /**
      * Distribute total mass proportionally to variable components
      */
     fun distributeToVariableComponents(
-        components: List<PhysicalComponent>,
+        components: List<Component>,
         newTotalMass: Float
     ): DistributionResult {
         val fixedComponents = components.filter { !it.variableMass }
         val variableComponents = components.filter { it.variableMass }
         
-        val fixedMass = fixedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val fixedMass = fixedComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         val availableForVariable = newTotalMass - fixedMass
         
         if (availableForVariable < 0) {
@@ -164,17 +161,17 @@ class MassCalculationService {
         }
         
         // Calculate proportional distribution
-        val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val currentVariableMass = variableComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         val updatedComponents = components.map { component ->
             if (!component.variableMass) {
                 component
             } else if (currentVariableMass > 0) {
-                val proportion = component.massGrams / currentVariableMass
-                component.withUpdatedMass(availableForVariable * proportion)
+                val proportion = (component.massGrams ?: 0f) / currentVariableMass
+                component.copy(massGrams = availableForVariable * proportion)
             } else {
                 // Equal distribution if no current variable mass
                 val equalShare = availableForVariable / variableComponents.size
-                component.withUpdatedMass(equalShare)
+                component.copy(massGrams = equalShare)
             }
         }
         
@@ -189,7 +186,7 @@ class MassCalculationService {
      * Update a single component and recalculate total
      */
     fun updateSingleComponent(
-        components: List<PhysicalComponent>,
+        components: List<Component>,
         componentId: String,
         newMass: Float,
         newFullMass: Float? = null
@@ -224,13 +221,9 @@ class MassCalculationService {
         // Update the component
         val updatedComponents = components.map { component ->
             if (component.id == componentId) {
-                var updated = if (component.variableMass) {
-                    component.withUpdatedMass(newMass)
-                } else {
-                    component.copy(massGrams = newMass)
-                }
+                var updated = component.copy(massGrams = newMass)
                 if (newFullMass != null && component.variableMass) {
-                    updated = updated.withUpdatedFullMass(newFullMass)
+                    updated = updated.copy(fullMassGrams = newFullMass)
                 }
                 updated
             } else {
@@ -251,11 +244,12 @@ class MassCalculationService {
     /**
      * Validate mass relationships in components
      */
-    fun validateMassConstraints(components: List<PhysicalComponent>): MassValidationResult {
+    fun validateMassConstraints(components: List<Component>): MassValidationResult {
         val errors = mutableListOf<String>()
         
         components.forEach { component ->
-            if (component.massGrams < 0) {
+            val mass = component.massGrams ?: 0f
+            if (mass < 0) {
                 errors.add("${component.name}: Mass cannot be negative")
             }
             
@@ -263,7 +257,7 @@ class MassCalculationService {
                 if (component.fullMassGrams < 0) {
                     errors.add("${component.name}: Full mass cannot be negative")
                 }
-                if (component.massGrams > component.fullMassGrams) {
+                if (mass > component.fullMassGrams) {
                     errors.add("${component.name}: Current mass cannot exceed full mass")
                 }
             }
@@ -278,7 +272,7 @@ class MassCalculationService {
     /**
      * Validate component combination
      */
-    fun validateComponents(components: List<PhysicalComponent>): ValidationResult {
+    fun validateComponents(components: List<Component>): ValidationResult {
         val variableCount = components.count { it.variableMass }
         val fixedCount = components.count { !it.variableMass }
         
@@ -306,7 +300,7 @@ class MassCalculationService {
      * Create automatic component setup for Bambu filaments
      */
     fun createBambuComponentSetup(
-        filamentComponent: PhysicalComponent,
+        filamentComponent: Component,
         includeRefillableSpool: Boolean = false
     ): List<String> {
         val componentIds = mutableListOf<String>()
@@ -361,14 +355,13 @@ class MassCalculationService {
             0.0 // Placeholder - would lookup actual components
         }.toFloat()
         
-        val inferredMass = request.knownTotalMass - knownMass
+        val inferredMass = request.totalMeasuredMass - knownMass
         
         return if (inferredMass >= 0f) {
             MassCalculationResult(
                 success = true,
-                filamentMassGrams = if (request.targetComponentId.contains("filament")) inferredMass else 0f,
-                fixedComponentsMassGrams = if (!request.targetComponentId.contains("filament")) inferredMass else 0f,
-                totalMassGrams = request.knownTotalMass
+                componentMass = inferredMass,
+                totalMass = request.totalMeasuredMass
             )
         } else {
             MassCalculationResult(
@@ -402,7 +395,7 @@ data class ValidationResult(
  */
 data class DistributionResult(
     val success: Boolean,
-    val updatedComponents: List<PhysicalComponent>,
+    val updatedComponents: List<Component>,
     val errorMessage: String?
 )
 
@@ -411,7 +404,7 @@ data class DistributionResult(
  */
 data class SingleComponentUpdateResult(
     val success: Boolean,
-    val updatedComponents: List<PhysicalComponent>,
+    val updatedComponents: List<Component>,
     val newTotalMass: Float,
     val errorMessage: String?
 )

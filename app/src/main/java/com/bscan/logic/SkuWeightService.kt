@@ -2,64 +2,40 @@ package com.bscan.logic
 
 import com.bscan.model.*
 import com.bscan.repository.MappingsRepository
-import com.bscan.repository.PhysicalComponentRepository
+import com.bscan.repository.ComponentRepository
 import java.time.LocalDateTime
 
 /**
- * Service for creating automatic component setups from SKU data.
- * Simplified version for the new PhysicalComponent system.
+ * Service for looking up component masses from SKU data.
+ * Works with the new hierarchical Component system.
  */
 class SkuWeightService(
     private val mappingsRepository: MappingsRepository,
-    private val physicalComponentRepository: PhysicalComponentRepository
+    private val componentRepository: ComponentRepository
 ) {
     
     /**
-     * Create automatic component setup for a Bambu scan
+     * Get filament mass from SKU data with fallback defaults
      */
-    fun createBambuComponentSetup(
-        trayUid: String,
-        filamentInfo: FilamentInfo,
-        includeRefillableSpool: Boolean = false
-    ): List<String> {
-        // Get filament mass from SKU data if available
-        val skuMass = getFilamentMassFromSku(filamentInfo.filamentType, filamentInfo.colorName)
-        
-        // Create filament component
-        val filamentComponent = physicalComponentRepository.createFilamentComponent(
-            filamentType = filamentInfo.filamentType,
-            colorName = filamentInfo.colorName,
-            colorHex = filamentInfo.colorHex,
-            massGrams = skuMass ?: 1000f, // Default to 1kg if no SKU data
-            manufacturer = filamentInfo.manufacturerName,
-            fullMassGrams = skuMass // Use SKU mass as full mass when available
-        )
-        
-        // Save the filament component
-        physicalComponentRepository.saveComponent(filamentComponent)
-        
-        val componentIds = mutableListOf<String>()
-        
-        // Add the filament component
-        componentIds.add(filamentComponent.id)
-        
-        // Always add cardboard core for Bambu
-        componentIds.add("bambu_cardboard_core")
-        
-        // Optionally add refillable spool
-        if (includeRefillableSpool) {
-            componentIds.add("bambu_refillable_spool")
+    fun getFilamentMassFromSku(filamentType: String, colorName: String): Float {
+        val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+        return if (bestMatch?.filamentWeightGrams != null) {
+            bestMatch.filamentWeightGrams
+        } else {
+            getDefaultMassByMaterial(filamentType)
         }
-        
-        return componentIds
     }
     
     /**
-     * Try to get filament mass from SKU data
+     * Get default mass based on material type
      */
-    private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float? {
-        val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
-        return bestMatch?.filamentWeightGrams
+    private fun getDefaultMassByMaterial(filamentType: String): Float {
+        return when (filamentType.uppercase()) {
+            "TPU" -> 500f  // TPU typically comes in 500g spools
+            "PVA", "SUPPORT" -> 500f  // Support materials typically 500g
+            "PC", "PA", "PAHT" -> 1000f  // Engineering materials typically 1kg
+            else -> 1000f  // Standard 1kg for PLA, PETG, ABS, ASA
+        }
     }
     
     /**
@@ -71,21 +47,48 @@ class SkuWeightService(
     }
     
     /**
-     * Create measurement record for setup
+     * Create measurement record for component
      */
-    fun createSetupMeasurement(
-        trayUid: String,
-        componentIds: List<String>,
-        totalMass: Float
-    ): MassMeasurement {
-        return MassMeasurement(
-            id = "setup_${System.currentTimeMillis()}",
-            trayUid = trayUid,
-            measuredMassGrams = totalMass,
-            componentIds = componentIds,
-            measurementType = MeasurementType.FULL_WEIGHT,
+    fun createComponentMeasurement(
+        componentId: String,
+        measuredMass: Float,
+        measurementType: MeasurementType = MeasurementType.TOTAL_MASS,
+        notes: String = ""
+    ): ComponentMeasurement {
+        return ComponentMeasurement(
+            id = "measurement_${System.currentTimeMillis()}",
+            componentId = componentId,
+            measuredMassGrams = measuredMass,
+            measurementType = measurementType,
             measuredAt = LocalDateTime.now(),
-            notes = "Initial setup measurement"
+            notes = notes
+        )
+    }
+    
+    /**
+     * Check if a component can have its mass updated automatically from SKU data
+     */
+    fun canUpdateFromSku(component: Component): Boolean {
+        return component.category == "filament" && component.variableMass
+    }
+    
+    /**
+     * Update component mass using latest SKU data
+     */
+    fun updateComponentFromSku(component: Component): Component? {
+        if (!canUpdateFromSku(component)) return null
+        
+        // Extract material info from metadata if available
+        val filamentType = component.metadata["filamentType"] ?: return null
+        val colorName = component.metadata["colorName"] ?: return null
+        
+        val skuMass = getFilamentMassFromSku(filamentType, colorName)
+        
+        return component.copy(
+            massGrams = skuMass,
+            fullMassGrams = skuMass,
+            lastUpdated = LocalDateTime.now(),
+            metadata = component.metadata + ("source" to "sku-updated")
         )
     }
 }
