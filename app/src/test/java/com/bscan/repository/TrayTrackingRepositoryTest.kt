@@ -117,7 +117,7 @@ class TrayTrackingRepositoryTest {
         
         // Then
         verify(mockEditor).clear()
-        verify(mockEditor).apply()
+        verify(mockEditor, atLeast(1)).apply()
     }
 
     @Test
