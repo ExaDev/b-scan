@@ -10,11 +10,10 @@ import com.bscan.repository.TrayTrackingRepository
 import com.bscan.repository.MappingsRepository
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.data.BambuProductDatabase
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -59,16 +58,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * New method to process scan data using the FilamentInterpreter
      */
     fun processScanData(encryptedData: EncryptedScanData, decryptedData: DecryptedScanData) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                scanState = ScanState.PROCESSING,
-                error = null
-            )
-            _scanProgress.value = ScanProgress(
-                stage = ScanStage.PARSING,
-                percentage = 0.9f,
-                statusMessage = "Interpreting filament data"
-            )
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(
+                    scanState = ScanState.PROCESSING,
+                    error = null
+                )
+                _scanProgress.value = ScanProgress(
+                    stage = ScanStage.PARSING,
+                    percentage = 0.9f,
+                    statusMessage = "Interpreting filament data"
+                )
+            }
             
             // Store the raw scan data first
             scanHistoryRepository.saveScan(encryptedData, decryptedData)
@@ -97,13 +98,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             
-            _uiState.value = when (result) {
-                is TagReadResult.Success -> {
-                    _scanProgress.value = ScanProgress(
-                        stage = ScanStage.COMPLETED,
-                        percentage = 1.0f,
-                        statusMessage = "Scan completed successfully"
-                    )
+            withContext(Dispatchers.Main) {
+                _uiState.value = when (result) {
+                    is TagReadResult.Success -> {
+                        _scanProgress.value = ScanProgress(
+                            stage = ScanStage.COMPLETED,
+                            percentage = 1.0f,
+                            statusMessage = "Scan completed successfully"
+                        )
                     BScanUiState(
                         filamentInfo = result.filamentInfo,
                         scanState = ScanState.SUCCESS,
@@ -219,7 +221,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         
         // Save to history even for failed scans
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             scanHistoryRepository.saveScan(encryptedData, decryptedData)
             trayTrackingRepository.recordScan(decryptedData)
         }
@@ -380,6 +382,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         else -> 6
     }
     
+}
 }
 
 data class BScanUiState(
