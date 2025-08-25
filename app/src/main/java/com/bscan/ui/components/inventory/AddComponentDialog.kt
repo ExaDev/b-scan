@@ -16,15 +16,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.bscan.logic.WeightUnit
-import com.bscan.model.PhysicalComponent
-import com.bscan.model.PhysicalComponentType
+import com.bscan.model.Component
 
 @Composable
 fun AddComponentDialog(
-    availableComponents: List<PhysicalComponent>,
+    availableComponents: List<Component>,
     currentComponentIds: List<String>,
     preferredWeightUnit: WeightUnit,
-    onAddComponent: (PhysicalComponent) -> Unit,
+    onAddComponent: (Component) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Filter out components that are already added
@@ -32,17 +31,21 @@ fun AddComponentDialog(
         component.id !in currentComponentIds
     }
     
-    var selectedComponent by remember { mutableStateOf<PhysicalComponent?>(null) }
+    var selectedComponent by remember { mutableStateOf<Component?>(null) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf<PhysicalComponentType?>(null) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     
-    // Filter components based on search and type
+    // Get unique categories for filtering
+    val categories = selectableComponents.map { it.category }.distinct().sorted()
+    
+    // Filter components based on search and category
     val filteredComponents = selectableComponents.filter { component ->
         val matchesSearch = searchQuery.isBlank() || 
                            component.name.contains(searchQuery, ignoreCase = true) ||
-                           component.manufacturer.contains(searchQuery, ignoreCase = true)
-        val matchesType = selectedType == null || component.type == selectedType
-        matchesSearch && matchesType
+                           component.manufacturer.contains(searchQuery, ignoreCase = true) ||
+                           component.category.contains(searchQuery, ignoreCase = true)
+        val matchesCategory = selectedCategory == null || component.category == selectedCategory
+        matchesSearch && matchesCategory
     }
     
     Dialog(onDismissRequest = onDismiss) {
@@ -50,153 +53,122 @@ fun AddComponentDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.8f)
-                .padding(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(24.dp)
             ) {
-                // Header
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "Add Component",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                // Title
+                Text(
+                    text = "Add Component",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
                 
-                if (selectableComponents.isEmpty()) {
-                    // No components available
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Inventory,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "No Additional Components Available",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "All available components are already added to this inventory item.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    // Search bar
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        label = { Text("Search components") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null)
-                        },
-                        trailingIcon = if (searchQuery.isNotEmpty()) {
-                            {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                                }
-                            }
-                        } else null,
-                        modifier = Modifier.fillMaxWidth()
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Search field
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Search components") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Category filters
+                if (categories.isNotEmpty()) {
+                    Text(
+                        text = "Filter by category:",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
-                    // Type filter chips
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        modifier = Modifier.padding(bottom = 16.dp)
                     ) {
                         item {
                             FilterChip(
-                                onClick = { selectedType = null },
+                                onClick = { selectedCategory = null },
                                 label = { Text("All") },
-                                selected = selectedType == null
+                                selected = selectedCategory == null
                             )
                         }
-                        
-                        items(PhysicalComponentType.values().toList()) { type ->
+                        items(categories) { category ->
                             FilterChip(
-                                onClick = { selectedType = if (selectedType == type) null else type },
-                                label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                                selected = selectedType == type
+                                onClick = { selectedCategory = if (selectedCategory == category) null else category },
+                                label = { Text(category) },
+                                selected = selectedCategory == category
                             )
                         }
                     }
+                }
+                
+                // Components list
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(filteredComponents) { component ->
+                        ComponentSelectionCard(
+                            component = component,
+                            isSelected = selectedComponent == component,
+                            preferredWeightUnit = preferredWeightUnit,
+                            onSelect = { selectedComponent = component },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     
-                    // Component list
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (filteredComponents.isEmpty()) {
-                            item {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.SearchOff,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(32.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                    if (filteredComponents.isEmpty()) {
+                        item {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.SearchOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "No components found",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (searchQuery.isNotBlank() || selectedCategory != null) {
                                     Text(
-                                        text = "No components match your search",
+                                        text = "Try adjusting your search or filters",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
-                        } else {
-                            items(filteredComponents) { component ->
-                                SelectableComponentItem(
-                                    component = component,
-                                    isSelected = selectedComponent?.id == component.id,
-                                    preferredWeightUnit = preferredWeightUnit,
-                                    onSelect = { selectedComponent = component }
-                                )
-                            }
                         }
                     }
                 }
                 
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 // Action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                    horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
                         Text("Cancel")
                     }
                     
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
                     Button(
                         onClick = {
-                            selectedComponent?.let { component ->
-                                onAddComponent(component)
-                            }
+                            selectedComponent?.let(onAddComponent)
+                            onDismiss()
                         },
                         enabled = selectedComponent != null
                     ) {
@@ -208,10 +180,9 @@ fun AddComponentDialog(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SelectableComponentItem(
-    component: PhysicalComponent,
+fun ComponentSelectionCard(
+    component: Component,
     isSelected: Boolean,
     preferredWeightUnit: WeightUnit,
     onSelect: () -> Unit,
@@ -219,7 +190,6 @@ fun SelectableComponentItem(
 ) {
     Card(
         modifier = modifier
-            .fillMaxWidth()
             .selectable(
                 selected = isSelected,
                 onClick = onSelect,
@@ -228,21 +198,20 @@ fun SelectableComponentItem(
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) {
                 MaterialTheme.colorScheme.primaryContainer
-            } else if (component.variableMass) {
-                MaterialTheme.colorScheme.secondaryContainer
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.surface
             }
         ),
         border = if (isSelected) {
-            CardDefaults.outlinedCardBorder(enabled = true)
+            CardDefaults.outlinedCardBorder().copy(
+                brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary)
+            )
         } else null
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             RadioButton(
@@ -250,124 +219,74 @@ fun SelectableComponentItem(
                 onClick = onSelect
             )
             
-            Icon(
-                imageVector = getComponentIcon(component.type),
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else if (component.variableMass) {
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            )
+            Spacer(modifier = Modifier.width(12.dp))
             
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = component.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = component.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else if (component.variableMass) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                    // Category chip
+                    AssistChip(
+                        onClick = { },
+                        label = { Text(component.category, style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.height(24.dp)
                     )
                     
-                    if (component.variableMass) {
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ) {
-                            Text(
-                                text = "Variable",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
+                    // Mass display
+                    Text(
+                        text = formatMass(component.massGrams, preferredWeightUnit),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 
-                if (component.manufacturer.isNotBlank() && component.manufacturer != "Unknown") {
+                // Manufacturer
+                if (component.manufacturer.isNotBlank()) {
                     Text(
                         text = component.manufacturer,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        } else if (component.variableMass) {
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        }
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 
+                // Description
                 if (component.description.isNotBlank()) {
                     Text(
                         text = component.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        } else if (component.variableMass) {
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        }
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
                     )
                 }
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Mass:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else if (component.variableMass) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                    Text(
-                        text = formatWeight(component.massGrams, preferredWeightUnit),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else if (component.variableMass) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                }
+            }
+            
+            // Variable mass indicator
+            if (component.variableMass) {
+                Icon(
+                    Icons.Default.TrendingDown,
+                    contentDescription = "Variable mass",
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
 }
 
-
-private fun getComponentIcon(type: PhysicalComponentType): androidx.compose.ui.graphics.vector.ImageVector {
-    return when (type) {
-        PhysicalComponentType.FILAMENT -> Icons.Default.DataUsage
-        PhysicalComponentType.BASE_SPOOL -> Icons.Default.Album
-        PhysicalComponentType.CORE_RING -> Icons.Default.DonutLarge
-        PhysicalComponentType.ADAPTER -> Icons.Default.SettingsApplications
-        PhysicalComponentType.PACKAGING -> Icons.Default.Inventory2
+private fun formatMass(massGrams: Float?, preferredUnit: WeightUnit): String {
+    if (massGrams == null) return "Unknown mass"
+    
+    return when (preferredUnit) {
+        WeightUnit.GRAMS -> "${String.format("%.1f", massGrams)}g"
+        WeightUnit.KILOGRAMS -> "${String.format("%.3f", massGrams / 1000f)}kg"
+        WeightUnit.OUNCES -> "${String.format("%.2f", massGrams * 0.035274f)}oz"
+        WeightUnit.POUNDS -> "${String.format("%.3f", massGrams * 0.00220462f)}lbs"
     }
-}
-
-private fun formatWeight(weightGrams: Float, unit: WeightUnit): String {
-    return com.bscan.logic.MassCalculationService().formatWeight(weightGrams, unit)
 }

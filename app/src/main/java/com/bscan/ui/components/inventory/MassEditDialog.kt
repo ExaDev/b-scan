@@ -13,14 +13,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.bscan.logic.WeightUnit
-import com.bscan.model.PhysicalComponent
+import com.bscan.model.Component
 import java.text.DecimalFormat
 
 @Composable
 fun MassEditDialog(
-    component: PhysicalComponent? = null, // null for total mass editing
+    component: Component? = null, // null for total mass editing
     currentTotalMass: Float?,
-    allComponents: List<PhysicalComponent>,
+    allComponents: List<Component>,
     preferredWeightUnit: WeightUnit,
     onConfirm: (EditMassResult) -> Unit,
     onDismiss: () -> Unit
@@ -48,24 +48,26 @@ fun MassEditDialog(
         )
     }
     
-    var isError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     
-    // Calculate what the other values would be
-    val previewCalculation = remember(massInput, fullMassInput, allComponents) {
-        val newMass = massInput.toFloatOrNull()
-        if (newMass == null || newMass < 0) {
-            null
-        } else {
-            calculateMassPreview(
-                newMass = newMass,
-                newFullMass = if (!isEditingTotal && component?.variableMass == true) 
-                    fullMassInput.toFloatOrNull() else null,
-                isEditingTotal = isEditingTotal,
-                targetComponent = component,
-                allComponents = allComponents,
-                currentTotalMass = currentTotalMass
-            )
+    val parsedMass = massInput.toFloatOrNull()
+    val parsedFullMass = fullMassInput.toFloatOrNull()
+    
+    // Validation
+    LaunchedEffect(massInput, fullMassInput) {
+        errorMessage = when {
+            massInput.isBlank() -> "Mass is required"
+            parsedMass == null -> "Enter a valid number"
+            parsedMass <= 0 -> "Mass must be greater than 0"
+            !isEditingTotal && component?.variableMass == true && fullMassInput.isNotBlank() -> {
+                when {
+                    parsedFullMass == null -> "Enter a valid full mass"
+                    parsedFullMass <= 0 -> "Full mass must be greater than 0"
+                    parsedMass > parsedFullMass -> "Current mass cannot exceed full mass"
+                    else -> null
+                }
+            }
+            else -> null
         }
     }
     
@@ -73,19 +75,18 @@ fun MassEditDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                .padding(16.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
+                    .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Header
+                // Title with icon
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
                         Icons.Default.Scale,
@@ -94,78 +95,14 @@ fun MassEditDialog(
                     )
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
                 }
                 
+                // Component info (if editing specific component)
                 if (!isEditingTotal && component != null) {
-                    Text(
-                        text = component.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                // Mass input
-                OutlinedTextField(
-                    value = massInput,
-                    onValueChange = { 
-                        massInput = it
-                        isError = false
-                        errorMessage = ""
-                    },
-                    label = { 
-                        Text(
-                            if (isEditingTotal) "Total Mass" 
-                            else if (component?.variableMass == true) "Current Mass"
-                            else "Mass"
-                        )
-                    },
-                    suffix = { 
-                        Text(
-                            text = when (preferredWeightUnit) {
-                                WeightUnit.GRAMS -> "g"
-                                WeightUnit.KILOGRAMS -> "kg"
-                                WeightUnit.POUNDS -> "lb"
-                                WeightUnit.OUNCES -> "oz"
-                            }
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    isError = isError,
-                    supportingText = if (isError) {
-                        { Text(errorMessage) }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                // Full mass input for variable components
-                if (!isEditingTotal && component?.variableMass == true) {
-                    OutlinedTextField(
-                        value = fullMassInput,
-                        onValueChange = { fullMassInput = it },
-                        label = { Text("Full Mass (Optional)") },
-                        suffix = { 
-                            Text(
-                                text = when (preferredWeightUnit) {
-                                    WeightUnit.GRAMS -> "g"
-                                    WeightUnit.KILOGRAMS -> "kg"
-                                    WeightUnit.POUNDS -> "lb"
-                                    WeightUnit.OUNCES -> "oz"
-                                }
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        placeholder = { Text("Leave blank to keep current") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                
-                // Preview calculations
-                previewCalculation?.let { preview ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -173,94 +110,127 @@ fun MassEditDialog(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                .padding(12.dp)
                         ) {
                             Text(
-                                text = "Preview:",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
+                                text = component.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Category: ${component.category}",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            
-                            if (isEditingTotal) {
+                            if (component.variableMass) {
                                 Text(
-                                    text = "Variable components will be updated proportionally",
+                                    text = "Variable mass component",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                preview.updatedComponents.filter { it.variableMass }.forEach { updatedComponent ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "${updatedComponent.name}:",
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
-                                        Text(
-                                            text = formatWeight(updatedComponent.massGrams, preferredWeightUnit),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                }
-                            } else {
-                                Text(
-                                    text = "New total mass: ${formatWeight(preview.newTotalMass, preferredWeightUnit)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium
+                                    color = MaterialTheme.colorScheme.tertiary
                                 )
                             }
                         }
                     }
                 }
                 
+                // Current mass input
+                OutlinedTextField(
+                    value = massInput,
+                    onValueChange = { massInput = it },
+                    label = { 
+                        Text(
+                            if (isEditingTotal) "Total Mass" else "Current Mass"
+                        )
+                    },
+                    placeholder = { Text("Enter mass in grams") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = errorMessage != null,
+                    supportingText = {
+                        if (errorMessage != null) {
+                            Text(
+                                text = errorMessage!!,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else {
+                            Text("Mass in grams")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Full mass input (for variable mass components only)
+                if (!isEditingTotal && component?.variableMass == true) {
+                    OutlinedTextField(
+                        value = fullMassInput,
+                        onValueChange = { fullMassInput = it },
+                        label = { Text("Full Mass (optional)") },
+                        placeholder = { Text("Enter original full mass") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        supportingText = { Text("Original/maximum mass when new") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                
+                // Mass conversion hints
+                if (parsedMass != null && parsedMass > 0) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "Converted values:",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = buildString {
+                                    append("${formatMass(parsedMass, WeightUnit.KILOGRAMS)} • ")
+                                    append("${formatMass(parsedMass, WeightUnit.OUNCES)} • ")
+                                    append(formatMass(parsedMass, WeightUnit.POUNDS))
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
                 // Action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
                         Text("Cancel")
                     }
                     
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
                     Button(
                         onClick = {
-                            val newMass = massInput.toFloatOrNull()
-                            val newFullMass = if (!isEditingTotal && component?.variableMass == true) 
-                                fullMassInput.toFloatOrNull() else null
-                            
-                            when {
-                                newMass == null -> {
-                                    isError = true
-                                    errorMessage = "Please enter a valid mass"
-                                }
-                                newMass < 0 -> {
-                                    isError = true
-                                    errorMessage = "Mass cannot be negative"
-                                }
-                                !isEditingTotal && component?.variableMass == true && 
-                                newFullMass != null && newMass > newFullMass -> {
-                                    isError = true
-                                    errorMessage = "Current mass cannot exceed full mass"
-                                }
-                                else -> {
-                                    onConfirm(
-                                        EditMassResult(
-                                            isEditingTotal = isEditingTotal,
-                                            targetComponent = component,
-                                            newMass = newMass,
-                                            newFullMass = newFullMass,
-                                            previewCalculation = previewCalculation
-                                        )
-                                    )
-                                }
+                            if (parsedMass != null && errorMessage == null) {
+                                val result = EditMassResult(
+                                    componentId = component?.id,
+                                    newMass = parsedMass,
+                                    newFullMass = if (!isEditingTotal && component?.variableMass == true) parsedFullMass else null,
+                                    isEditingTotal = isEditingTotal
+                                )
+                                onConfirm(result)
                             }
                         },
-                        enabled = previewCalculation != null
+                        enabled = parsedMass != null && parsedMass > 0 && errorMessage == null
                     ) {
-                        Text("Confirm")
+                        Text("Save")
                     }
                 }
             }
@@ -268,87 +238,24 @@ fun MassEditDialog(
     }
 }
 
+/**
+ * Result of mass editing operation
+ */
 data class EditMassResult(
-    val isEditingTotal: Boolean,
-    val targetComponent: PhysicalComponent?,
+    val componentId: String?, // null if editing total
     val newMass: Float,
-    val newFullMass: Float?,
-    val previewCalculation: MassPreviewResult?
+    val newFullMass: Float? = null, // for variable mass components
+    val isEditingTotal: Boolean
 )
 
-data class MassPreviewResult(
-    val newTotalMass: Float,
-    val updatedComponents: List<PhysicalComponent>
-)
-
-private fun calculateMassPreview(
-    newMass: Float,
-    newFullMass: Float?,
-    isEditingTotal: Boolean,
-    targetComponent: PhysicalComponent?,
-    allComponents: List<PhysicalComponent>,
-    currentTotalMass: Float?
-): MassPreviewResult? {
-    return try {
-        if (isEditingTotal) {
-            // User is editing total mass - distribute to variable components
-            val fixedMass = allComponents.filter { !it.variableMass }
-                .sumOf { it.massGrams.toDouble() }.toFloat()
-            val availableForVariable = newMass - fixedMass
-            
-            if (availableForVariable < 0) return null
-            
-            val variableComponents = allComponents.filter { it.variableMass }
-            if (variableComponents.isEmpty()) {
-                MassPreviewResult(
-                    newTotalMass = newMass,
-                    updatedComponents = allComponents
-                )
-            } else {
-                val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
-                val ratio = if (currentVariableMass > 0) availableForVariable / currentVariableMass else 1f
-                
-                val updatedComponents = allComponents.map { component ->
-                    if (component.variableMass) {
-                        component.withUpdatedMass(component.massGrams * ratio)
-                    } else {
-                        component
-                    }
-                }
-                
-                MassPreviewResult(
-                    newTotalMass = newMass,
-                    updatedComponents = updatedComponents
-                )
-            }
-        } else {
-            // User is editing individual component mass
-            if (targetComponent == null) return null
-            
-            val updatedComponents = allComponents.map { component ->
-                if (component.id == targetComponent.id) {
-                    var updated = component.withUpdatedMass(newMass)
-                    if (newFullMass != null && component.variableMass) {
-                        updated = updated.withUpdatedFullMass(newFullMass)
-                    }
-                    updated
-                } else {
-                    component
-                }
-            }
-            
-            val newTotalMass = updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
-            
-            MassPreviewResult(
-                newTotalMass = newTotalMass,
-                updatedComponents = updatedComponents
-            )
-        }
-    } catch (e: Exception) {
-        null
+// Helper function
+private fun formatMass(massGrams: Float, unit: WeightUnit): String {
+    val formatter = DecimalFormat("0.##")
+    
+    return when (unit) {
+        WeightUnit.GRAMS -> "${formatter.format(massGrams)}g"
+        WeightUnit.KILOGRAMS -> "${formatter.format(massGrams / 1000f)}kg"
+        WeightUnit.OUNCES -> "${formatter.format(massGrams * 0.035274f)}oz"
+        WeightUnit.POUNDS -> "${formatter.format(massGrams * 0.00220462f)}lbs"
     }
-}
-
-private fun formatWeight(weightGrams: Float, unit: WeightUnit): String {
-    return com.bscan.logic.MassCalculationService().formatWeight(weightGrams, unit)
 }

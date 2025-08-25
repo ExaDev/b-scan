@@ -12,19 +12,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bscan.logic.WeightUnit
-import com.bscan.model.InventoryItem
-import com.bscan.model.PhysicalComponent
-import com.bscan.model.PhysicalComponentType
+import com.bscan.model.Component
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryComponentsCard(
-    inventoryItem: InventoryItem,
-    components: List<PhysicalComponent>,
+    inventoryComponent: Component,
+    childComponents: List<Component>,
     preferredWeightUnit: WeightUnit,
-    onEditComponentMass: (PhysicalComponent) -> Unit,
+    onEditComponentMass: (Component) -> Unit,
     onAddComponent: () -> Unit,
-    onRemoveComponent: (PhysicalComponent) -> Unit,
+    onRemoveComponent: (Component) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -43,14 +41,14 @@ fun InventoryComponentsCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Components (${components.size})",
+                    text = "Components (${childComponents.size})",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = onAddComponent,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    modifier = Modifier.height(32.dp)
                 ) {
                     Icon(
                         Icons.Default.Add,
@@ -58,126 +56,79 @@ fun InventoryComponentsCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add")
+                    Text("Add", style = MaterialTheme.typography.labelMedium)
                 }
             }
             
-            if (components.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+            if (childComponents.isEmpty()) {
+                // Empty state
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Inventory,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "No components defined",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Add components to track mass breakdown",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Inventory,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "No components yet",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Add components to track their individual masses and properties",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                // Total mass summary
+                val totalMass = childComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
+                
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(components) { component ->
-                        ComponentItem(
-                            component = component,
-                            preferredWeightUnit = preferredWeightUnit,
-                            onEditMass = { onEditComponentMass(component) },
-                            onRemove = if (component.type != PhysicalComponentType.FILAMENT) {
-                                { onRemoveComponent(component) }
-                            } else null
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Total Mass",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = formatMass(totalMass, preferredWeightUnit),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
                 
-                // Summary row
-                if (components.isNotEmpty()) {
-                    HorizontalDivider()
-                    
-                    val totalMass = components.sumOf { it.massGrams.toDouble() }.toFloat()
-                    val variableComponents = components.filter { it.variableMass }
-                    val fixedComponents = components.filter { !it.variableMass }
-                    
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Total Component Mass:",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = formatWeight(totalMass, preferredWeightUnit),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        if (variableComponents.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Variable Components:",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = formatWeight(
-                                        variableComponents.sumOf { it.massGrams.toDouble() }.toFloat(),
-                                        preferredWeightUnit
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        
-                        if (fixedComponents.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Fixed Components:",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = formatWeight(
-                                        fixedComponents.sumOf { it.massGrams.toDouble() }.toFloat(),
-                                        preferredWeightUnit
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                // Components list
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.heightIn(max = 400.dp)
+                ) {
+                    items(childComponents) { component ->
+                        ComponentItemCard(
+                            component = component,
+                            preferredWeightUnit = preferredWeightUnit,
+                            onEditMass = { onEditComponentMass(component) },
+                            onRemove = { onRemoveComponent(component) }
+                        )
                     }
                 }
             }
@@ -187,212 +138,139 @@ fun InventoryComponentsCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComponentItem(
-    component: PhysicalComponent,
+fun ComponentItemCard(
+    component: Component,
     preferredWeightUnit: WeightUnit,
     onEditMass: () -> Unit,
-    onRemove: (() -> Unit)?,
-    modifier: Modifier = Modifier
+    onRemove: () -> Unit
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (component.variableMass) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
-        )
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = CardDefaults.outlinedCardBorder(),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+            // Component icon based on category
+            Icon(
+                getCategoryIcon(component.category),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = component.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = getComponentIcon(component.type),
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (component.variableMass) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                        
-                        Text(
-                            text = component.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = if (component.variableMass) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                        
-                        if (component.variableMass) {
-                            Badge(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            ) {
-                                Text(
-                                    text = "Variable",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        }
-                    }
+                    // Category
+                    AssistChip(
+                        onClick = { },
+                        label = { 
+                            Text(
+                                component.category,
+                                style = MaterialTheme.typography.labelSmall
+                            ) 
+                        },
+                        modifier = Modifier.height(20.dp)
+                    )
                     
-                    if (component.manufacturer.isNotBlank() && component.manufacturer != "Unknown") {
-                        Text(
-                            text = component.manufacturer,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (component.variableMass) {
-                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            }
+                    // Variable mass indicator
+                    if (component.variableMass) {
+                        Icon(
+                            Icons.Default.TrendingDown,
+                            contentDescription = "Variable mass",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
                         )
                     }
                 }
                 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (component.variableMass) {
-                        TextButton(
-                            onClick = onEditMass,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = null,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "Edit",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                    
-                    if (onRemove != null) {
-                        IconButton(
-                            onClick = onRemove,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Remove,
-                                contentDescription = "Remove component",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
+                // Mass display
+                Text(
+                    text = formatMass(component.massGrams, preferredWeightUnit),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Full mass for variable components
+                if (component.variableMass && component.fullMassGrams != null && component.fullMassGrams > 0f) {
+                    val percentage = ((component.massGrams ?: 0f) / component.fullMassGrams * 100).toInt()
+                    Text(
+                        text = "Full mass: ${formatMass(component.fullMassGrams, preferredWeightUnit)} ($percentage% remaining)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             
-            // Mass information
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // Action buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = if (component.variableMass) "Current Mass:" else "Mass:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (component.variableMass) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                    Text(
-                        text = formatWeight(component.massGrams, preferredWeightUnit),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = if (component.variableMass) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                if (component.variableMass) {
+                    IconButton(
+                        onClick = onEditMass,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit mass",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
                 
-                // Show full mass and percentage for variable components
-                if (component.variableMass && component.fullMassGrams != null) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Full Mass:",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            text = formatWeight(component.fullMassGrams, preferredWeightUnit),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                    
-                    component.getRemainingPercentage()?.let { percentage ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Remaining:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            )
-                            Text(
-                                text = "${(percentage * 100).toInt()}%",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = when {
-                                    component.isNearlyEmpty -> MaterialTheme.colorScheme.error
-                                    component.isRunningLow -> MaterialTheme.colorScheme.secondary
-                                    else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                }
-                            )
-                        }
-                    }
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Remove component",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
     }
 }
 
-private fun getComponentIcon(type: PhysicalComponentType): androidx.compose.ui.graphics.vector.ImageVector {
-    return when (type) {
-        PhysicalComponentType.FILAMENT -> Icons.Default.DataUsage
-        PhysicalComponentType.BASE_SPOOL -> Icons.Default.Album
-        PhysicalComponentType.CORE_RING -> Icons.Default.DonutLarge
-        PhysicalComponentType.ADAPTER -> Icons.Default.SettingsApplications
-        PhysicalComponentType.PACKAGING -> Icons.Default.Inventory2
-    }
+// Helper functions
+private fun getCategoryIcon(category: String) = when (category.lowercase()) {
+    "filament" -> Icons.Default.Polymer
+    "spool" -> Icons.Default.Circle
+    "core" -> Icons.Default.CircleOutlined
+    "adapter" -> Icons.Default.Transform
+    "packaging" -> Icons.Default.LocalShipping
+    "rfid-tag" -> Icons.Default.Sensors
+    "filament-tray" -> Icons.Default.Inventory
+    else -> Icons.Default.Category
 }
 
-private fun formatWeight(weightGrams: Float, unit: WeightUnit): String {
-    return com.bscan.logic.MassCalculationService().formatWeight(weightGrams, unit)
+private fun formatMass(massGrams: Float?, preferredUnit: WeightUnit): String {
+    if (massGrams == null) return "Unknown"
+    
+    return when (preferredUnit) {
+        WeightUnit.GRAMS -> "${String.format("%.1f", massGrams)}g"
+        WeightUnit.KILOGRAMS -> "${String.format("%.3f", massGrams / 1000f)}kg"
+        WeightUnit.OUNCES -> "${String.format("%.2f", massGrams * 0.035274f)}oz"
+        WeightUnit.POUNDS -> "${String.format("%.3f", massGrams * 0.00220462f)}lbs"
+    }
 }
