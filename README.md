@@ -264,6 +264,12 @@ For researchers and developers working with Bambu Lab RFID tags, several communi
 
 The queengooborg library provides the most complete public collection but still has significant gaps across the full product line.
 
+#### Development Resources
+For developers working with B-Scan:
+- **Real tag data available as submodule**: `test-data/rfid-library/` contains 361 JSON dump files
+- **Initialize submodule**: `git submodule update --init --recursive` after cloning
+- **Use for testing**: Comprehensive decoder validation against real Bambu Lab RFID data
+
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
