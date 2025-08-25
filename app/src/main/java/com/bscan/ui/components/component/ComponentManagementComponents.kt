@@ -13,96 +13,164 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.bscan.logic.ComponentValidation
-import com.bscan.model.PhysicalComponent
-import com.bscan.model.PhysicalComponentType
-import com.bscan.repository.InventoryRepository
-import com.bscan.repository.PhysicalComponentRepository
+import com.bscan.model.Component
+import com.bscan.repository.ComponentRepository
 import java.time.format.DateTimeFormatter
 
 /**
- * Card displaying a single physical component with actions
+ * Card displaying a single hierarchical component with actions
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComponentListCard(
-    component: PhysicalComponent,
+    component: Component,
     onEdit: (() -> Unit)? = null,
     onCopy: () -> Unit,
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val inventoryRepository = remember { InventoryRepository(context) }
+    val componentRepository = remember { ComponentRepository(context) }
     var isInUse by remember { mutableStateOf(false) }
+    var childCount by remember { mutableStateOf(0) }
     
     LaunchedEffect(component.id) {
-        // Check if component is in use
-        isInUse = inventoryRepository.getInventoryItems().any { 
-            component.id in it.components 
+        // Check if component has children (is a parent/composite component)
+        val children = componentRepository.getChildComponents(component.id)
+        childCount = children.size
+        
+        // Check if component is in use as a child of another component
+        val allComponents = componentRepository.getComponents()
+        isInUse = allComponents.any { comp ->
+            component.id in comp.childComponents
         }
     }
     
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (component.isUserDefined) {
-                MaterialTheme.colorScheme.surface
+            containerColor = if (component.isInventoryItem) {
+                MaterialTheme.colorScheme.primaryContainer
             } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.surface
             }
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = component.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = component.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Medium
+                        // Category badge
+                        AssistChip(
+                            onClick = { },
+                            label = { Text(component.category) },
+                            leadingIcon = {
+                                Icon(
+                                    getCategoryIcon(component.category),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         )
                         
-                        if (!component.isUserDefined) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                        // Inventory item indicator
+                        if (component.isInventoryItem) {
                             AssistChip(
                                 onClick = { },
-                                label = { Text("Built-in", style = MaterialTheme.typography.labelSmall) },
-                                modifier = Modifier.height(24.dp)
+                                label = { Text("Inventory") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Inventory,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             )
                         }
                         
-                        if (isInUse) {
-                            Spacer(modifier = Modifier.width(8.dp))
+                        // Parent component indicator
+                        if (childCount > 0) {
                             AssistChip(
                                 onClick = { },
-                                label = { Text("In Use", style = MaterialTheme.typography.labelSmall) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                ),
-                                modifier = Modifier.height(24.dp)
+                                label = { Text("$childCount parts") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.AccountTree,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             )
                         }
                     }
+                }
+                
+                // Action buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(onClick = onCopy) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy component")
+                    }
                     
-                    Spacer(modifier = Modifier.height(4.dp))
+                    onEdit?.let {
+                        IconButton(onClick = it) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit component")
+                        }
+                    }
                     
+                    onDelete?.let {
+                        IconButton(
+                            onClick = it,
+                            enabled = !isInUse
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete component",
+                                tint = if (isInUse) {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Component details
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
                     Text(
-                        text = "${component.massGrams}g • ${component.type.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        text = "Mass: ${formatMass(component.massGrams)}",
+                        style = MaterialTheme.typography.bodyMedium
                     )
                     
-                    if (component.manufacturer != "Unknown" && component.manufacturer.isNotBlank()) {
+                    if (component.manufacturer.isNotBlank()) {
                         Text(
-                            text = component.manufacturer,
+                            text = "Manufacturer: ${component.manufacturer}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -117,33 +185,65 @@ fun ComponentListCard(
                     }
                 }
                 
-                Row {
-                    if (onEdit != null) {
-                        IconButton(onClick = onEdit) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
-                        }
+                // Variable mass indicator
+                if (component.variableMass) {
+                    Column {
+                        Icon(
+                            Icons.Default.TrendingDown,
+                            contentDescription = "Variable mass",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Variable",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                    
-                    IconButton(onClick = onCopy) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy")
+                }
+            }
+            
+            // Tags row
+            if (component.tags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    component.tags.take(3).forEach { tag ->
+                        FilterChip(
+                            onClick = { },
+                            label = { Text(tag, style = MaterialTheme.typography.labelSmall) },
+                            selected = false
+                        )
                     }
-                    
-                    if (onDelete != null) {
-                        IconButton(
-                            onClick = onDelete,
-                            enabled = !isInUse // Disable if component is in use
-                        ) {
-                            Icon(
-                                Icons.Default.Delete, 
-                                contentDescription = "Delete",
-                                tint = if (isInUse) {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                }
-                            )
-                        }
+                    if (component.tags.size > 3) {
+                        Text(
+                            text = "+${component.tags.size - 3} more",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
+                }
+            }
+            
+            // In-use warning
+            if (isInUse) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "In use by other components",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
                 }
             }
         }
@@ -151,149 +251,142 @@ fun ComponentListCard(
 }
 
 /**
- * Dialog for creating or editing a physical component
+ * Dialog for editing component details
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComponentEditDialog(
-    component: PhysicalComponent?,
-    onSave: (PhysicalComponent) -> Unit,
+    component: Component?,
+    onSave: (Component) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { PhysicalComponentRepository(context) }
-    val validation = remember { ComponentValidation(repository) }
+    val componentRepository = remember { ComponentRepository(context) }
+    val validation = remember { ComponentValidation(componentRepository) }
     
     var name by remember { mutableStateOf(component?.name ?: "") }
-    var type by remember { mutableStateOf(component?.type ?: PhysicalComponentType.BASE_SPOOL) }
+    var category by remember { mutableStateOf(component?.category ?: "general") }
     var massText by remember { mutableStateOf(component?.massGrams?.toString() ?: "") }
     var manufacturer by remember { mutableStateOf(component?.manufacturer ?: "") }
     var description by remember { mutableStateOf(component?.description ?: "") }
+    var variableMass by remember { mutableStateOf(component?.variableMass ?: false) }
     
-    // Validation states
     var nameError by remember { mutableStateOf<String?>(null) }
+    var categoryError by remember { mutableStateOf<String?>(null) }
     var massError by remember { mutableStateOf<String?>(null) }
-    
-    // Validate inputs
-    LaunchedEffect(name) {
-        nameError = validation.validateName(name, component?.id)
-    }
-    
-    LaunchedEffect(massText) {
-        massError = validation.validateMass(massText, type)
-    }
-    
-    val isValid = nameError == null && massError == null && name.isNotBlank() && massText.isNotBlank()
-    val isCreate = component == null
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isCreate) "Create Component" else "Edit Component") },
+        title = { Text(if (component == null) "Add Component" else "Edit Component") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Name field
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name *") },
+                    onValueChange = { 
+                        name = it
+                        nameError = validation.validateName(it, component?.id)
+                    },
+                    label = { Text("Component Name") },
                     isError = nameError != null,
-                    supportingText = if (nameError != null) {
-                        { Text(nameError!!) }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    supportingText = nameError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
-                ExposedDropdownMenuBox(
-                    expanded = false,
-                    onExpandedChange = { }
-                ) {
-                    OutlinedTextField(
-                        value = type.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() },
-                        onValueChange = { },
-                        readOnly = true,
-                        label = { Text("Type") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = false) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    
-                    ExposedDropdownMenu(
-                        expanded = false,
-                        onDismissRequest = { }
-                    ) {
-                        PhysicalComponentType.values().filter { it != PhysicalComponentType.FILAMENT }.forEach { componentType ->
-                            DropdownMenuItem(
-                                text = { Text(componentType.name.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() }) },
-                                onClick = { type = componentType }
-                            )
-                        }
-                    }
-                }
+                // Category field
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { 
+                        category = it
+                        categoryError = validation.validateCategory(it)
+                    },
+                    label = { Text("Category") },
+                    isError = categoryError != null,
+                    supportingText = categoryError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 
+                // Mass field
                 OutlinedTextField(
                     value = massText,
-                    onValueChange = { massText = it },
-                    label = { Text("Mass (grams) *") },
-                    isError = massError != null,
-                    supportingText = if (massError != null) {
-                        { Text(massError!!) }
-                    } else null,
+                    onValueChange = { 
+                        massText = it
+                        massError = validation.validateMass(it, category)
+                    },
+                    label = { Text("Mass (grams)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    suffix = { Text("g") }
+                    isError = massError != null,
+                    supportingText = massError?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
+                // Variable mass checkbox
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = variableMass,
+                        onCheckedChange = { variableMass = it }
+                    )
+                    Text("Variable mass (changes over time)")
+                }
+                
+                // Manufacturer field
                 OutlinedTextField(
                     value = manufacturer,
                     onValueChange = { manufacturer = it },
-                    label = { Text("Manufacturer") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    label = { Text("Manufacturer (optional)") },
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
+                // Description field
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Description") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
+                    label = { Text("Description (optional)") },
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    val mass = massText.toFloat()
-                    val newComponent = if (isCreate) {
-                        PhysicalComponent(
-                            id = "user_${System.currentTimeMillis()}",
+                    val mass = massText.toFloatOrNull()
+                    if (mass != null && nameError == null && categoryError == null && massError == null) {
+                        val newComponent = component?.copy(
                             name = name.trim(),
-                            type = type,
+                            category = category.trim(),
                             massGrams = mass,
-                            variableMass = false,
-                            manufacturer = manufacturer.trim().ifBlank { "Custom" },
+                            manufacturer = manufacturer.trim(),
                             description = description.trim(),
-                            isUserDefined = true
-                        )
-                    } else {
-                        component!!.copy(
+                            variableMass = variableMass,
+                            fullMassGrams = if (variableMass) mass else null
+                        ) ?: Component(
+                            id = "component_${System.currentTimeMillis()}",
                             name = name.trim(),
-                            type = type,
+                            category = category.trim(),
                             massGrams = mass,
-                            manufacturer = manufacturer.trim().ifBlank { "Custom" },
-                            description = description.trim()
+                            manufacturer = manufacturer.trim(),
+                            description = description.trim(),
+                            variableMass = variableMass,
+                            fullMassGrams = if (variableMass) mass else null
                         )
+                        onSave(newComponent)
                     }
-                    onSave(newComponent)
                 },
-                enabled = isValid
+                enabled = name.isNotBlank() && 
+                         category.isNotBlank() && 
+                         massText.isNotBlank() && 
+                         nameError == null && 
+                         categoryError == null && 
+                         massError == null
             ) {
-                Text(if (isCreate) "Create" else "Save")
+                Text("Save")
             }
         },
         dismissButton = {
@@ -305,104 +398,74 @@ fun ComponentEditDialog(
 }
 
 /**
- * Dialog for copying an existing component with pre-filled form
+ * Component selection dialog for adding to inventory items
  */
 @Composable
-fun ComponentCopyDialog(
-    sourceComponent: PhysicalComponent,
-    onSave: (PhysicalComponent) -> Unit,
+fun ComponentSelectionDialog(
+    availableComponents: List<Component>,
+    selectedComponents: List<String>,
+    onSelectionChanged: (List<String>) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Create a copy template with modified name
-    val copyTemplate = sourceComponent.copy(
-        id = "user_${System.currentTimeMillis()}", // Will be regenerated
-        name = "${sourceComponent.name} (Copy)",
-        isUserDefined = true
-    )
-    
-    ComponentEditDialog(
-        component = copyTemplate,
-        onSave = onSave,
-        onDismiss = onDismiss,
-        modifier = modifier
-    )
-}
-
-/**
- * Confirmation dialog for deleting a component
- */
-@Composable
-fun ComponentDeleteConfirmationDialog(
-    component: PhysicalComponent,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val inventoryRepository = remember { InventoryRepository(context) }
-    var isInUse by remember { mutableStateOf(false) }
-    var usageDetails by remember { mutableStateOf<String?>(null) }
-    
-    LaunchedEffect(component.id) {
-        // Check if component is in use
-        val inventoryItems = inventoryRepository.getInventoryItems()
-        val itemsUsingComponent = inventoryItems.filter { component.id in it.components }
-        isInUse = itemsUsingComponent.isNotEmpty()
-        
-        if (isInUse) {
-            usageDetails = "Used in ${itemsUsingComponent.size} inventory item(s)"
-        }
-    }
+    var currentSelection by remember { mutableStateOf(selectedComponents) }
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { 
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error
-            ) 
-        },
-        title = { Text("Delete Component") },
+        title = { Text("Select Components") },
         text = {
             Column {
-                Text("Are you sure you want to delete \"${component.name}\"?")
+                Text(
+                    text = "Select components to add:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
                 
-                if (isInUse) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
+                availableComponents.forEach { component ->
+                    val isSelected = component.id in currentSelection
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "⚠️ Cannot delete: $usageDetails",
-                            modifier = Modifier.padding(12.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { checked ->
+                                currentSelection = if (checked) {
+                                    currentSelection + component.id
+                                } else {
+                                    currentSelection - component.id
+                                }
+                            }
                         )
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = component.name,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "${component.category} • ${formatMass(component.massGrams)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
-                } else {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "This action cannot be undone.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         },
         confirmButton = {
-            if (!isInUse) {
-                TextButton(
-                    onClick = onConfirm,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Delete")
+            TextButton(
+                onClick = {
+                    onSelectionChanged(currentSelection)
+                    onDismiss()
                 }
+            ) {
+                Text("Add Selected")
             }
         },
         dismissButton = {
@@ -411,4 +474,26 @@ fun ComponentDeleteConfirmationDialog(
             }
         }
     )
+}
+
+// Helper functions
+private fun getCategoryIcon(category: String) = when (category.lowercase()) {
+    "filament" -> Icons.Default.Polymer
+    "spool" -> Icons.Default.Circle
+    "core" -> Icons.Default.CircleOutlined
+    "adapter" -> Icons.Default.Transform
+    "packaging" -> Icons.Default.LocalShipping
+    "rfid-tag" -> Icons.Default.Sensors
+    "filament-tray" -> Icons.Default.Inventory
+    else -> Icons.Default.Category
+}
+
+private fun formatMass(massGrams: Float?): String {
+    return if (massGrams == null) {
+        "Unknown"
+    } else if (massGrams >= 1000f) {
+        "${String.format("%.1f", massGrams / 1000f)}kg"
+    } else {
+        "${String.format("%.1f", massGrams)}g"
+    }
 }
