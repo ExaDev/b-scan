@@ -119,6 +119,13 @@ fun AppNavigation(
         
         composable("settings") {
             SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToComponents = { navController.navigate("components") }
+            )
+        }
+        
+        composable("components") {
+            PhysicalComponentsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
