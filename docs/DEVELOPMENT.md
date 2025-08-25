@@ -35,7 +35,7 @@ The app requires physical testing with actual Bambu Lab RFID tags, as the emulat
 ### Test Requirements
 
 - Android device with NFC enabled
-- Bambu Lab filament spools with RFID tags
+- Bambu Lab filament reels with RFID tags
 - Tags must be Mifare Classic 1K format
 
 ### Manual Testing Steps
@@ -43,7 +43,7 @@ The app requires physical testing with actual Bambu Lab RFID tags, as the emulat
 1. Install debug APK on NFC-enabled device
 2. Enable NFC in device settings
 3. Launch B-Scan app
-4. Hold device near Bambu Lab spool tag for 2-3 seconds
+4. Hold device near Bambu Lab filament reel tag for 2-3 seconds
 5. Verify filament information displays correctly
 
 ## Architecture

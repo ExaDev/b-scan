@@ -1,11 +1,11 @@
 # B-Scan - Bambu RFID Tag Reader
 
-A simple Android application for reading and displaying Bambu Lab 3D printer filament spool RFID tags. This app provides a clean, read-only interface to view filament information directly from NFC-enabled Bambu Lab spools.
+A simple Android application for reading and displaying Bambu Lab 3D printer filament reel RFID tags. This app provides a clean, read-only interface to view filament information directly from NFC-enabled Bambu Lab filament reels.
 
 ## Features
 
-- **NFC Tag Scanning**: Tap your Android device against Bambu Lab filament spools to read their RFID data
-- **Filament Information Display**: View detailed spool information including:
+- **NFC Tag Scanning**: Tap your Android device against Bambu Lab filament reels to read their RFID data
+- **Filament Information Display**: View detailed filament reel information including:
   - Filament type (PLA, PETG, ABS, etc.)
   - Color name and hex code with visual preview
   - Material specifications (diameter, weight, length)  
@@ -18,7 +18,7 @@ A simple Android application for reading and displaying Bambu Lab 3D printer fil
 
 - Android device with NFC capability
 - Android 10 (API level 29) or higher
-- Bambu Lab filament spools with RFID tags
+- Bambu Lab filament reels with RFID tags
 
 ## Installation
 
@@ -30,7 +30,7 @@ A simple Android application for reading and displaying Bambu Lab 3D printer fil
 ## Usage
 
 1. **Launch the app** and ensure NFC is enabled on your device
-2. **Hold your phone** near the RFID tag on a Bambu Lab filament spool
+2. **Hold your phone** near the RFID tag on a Bambu Lab filament reel
 3. **Wait 2-3 seconds** for the tag to be read completely
 4. **View the results** displaying all filament specifications and properties
 
