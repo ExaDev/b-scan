@@ -8,7 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bscan.repository.SpoolDetails
+import com.bscan.repository.FilamentReelDetails
 import com.bscan.ui.components.common.StatisticDisplay
 import com.bscan.ui.components.common.StatisticGrid
 import java.time.format.DateTimeFormatter
@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpoolOverviewCard(
-    spoolDetails: SpoolDetails,
+    spoolDetails: FilamentReelDetails,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -57,7 +57,7 @@ fun SpoolOverviewCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssociatedTagsCard(
-    spoolDetails: SpoolDetails,
+    spoolDetails: FilamentReelDetails,
     modifier: Modifier = Modifier
 ) {
     Card(

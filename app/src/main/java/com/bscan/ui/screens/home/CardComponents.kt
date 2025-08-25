@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
 import com.bscan.model.ScanResult
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.ScanStateIndicator
 import com.bscan.ui.components.FilamentColorBox
@@ -30,7 +30,7 @@ import java.time.format.DateTimeFormatter
 data class SkuInfo(
     val skuKey: String,
     val filamentInfo: com.bscan.model.FilamentInfo,
-    val spoolCount: Int,
+    val filamentReelCount: Int,
     val totalScans: Int,
     val successfulScans: Int,
     val lastScanned: java.time.LocalDateTime,
@@ -40,15 +40,15 @@ data class SkuInfo(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpoolCard(
-    spool: UniqueSpool,
+fun FilamentReelCard(
+    filamentReel: UniqueFilamentReel,
     modifier: Modifier = Modifier,
     onClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        onClick = { onClick?.invoke(spool.filamentInfo.trayUid) }
+        onClick = { onClick?.invoke(filamentReel.filamentInfo.trayUid) }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -57,8 +57,8 @@ fun SpoolCard(
         ) {
             // Color preview
             FilamentColorBox(
-                colorHex = spool.filamentInfo.colorHex,
-                filamentType = spool.filamentInfo.filamentType,
+                colorHex = filamentReel.filamentInfo.colorHex,
+                filamentType = filamentReel.filamentInfo.filamentType,
                 size = 48.dp
             )
             
@@ -67,20 +67,20 @@ fun SpoolCard(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = spool.filamentInfo.colorName,
+                    text = filamentReel.filamentInfo.colorName,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
                 )
                 
                 Text(
-                    text = "${spool.filamentInfo.filamentType} • ${spool.filamentInfo.trayUid}",
+                    text = "${filamentReel.filamentInfo.filamentType} • ${filamentReel.filamentInfo.trayUid}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Text(
-                    text = "${spool.scanCount} scans • ${(spool.successRate * 100).toInt()}% success",
+                    text = "${filamentReel.scanCount} scans • ${(filamentReel.successRate * 100).toInt()}% success",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -88,7 +88,7 @@ fun SpoolCard(
             
             // Success rate indicator
             when {
-                spool.successRate >= 0.9f -> {
+                filamentReel.successRate >= 0.9f -> {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = "High success rate",
@@ -96,7 +96,7 @@ fun SpoolCard(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-                spool.successRate >= 0.7f -> {
+                filamentReel.successRate >= 0.7f -> {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = "Good success rate", 
@@ -362,10 +362,10 @@ fun SkuCard(
                 )
                 
                 Text(
-                    text = if (sku.spoolCount == 0 && sku.totalScans == 0) {
+                    text = if (sku.filamentReelCount == 0 && sku.totalScans == 0) {
                         "Available • Not scanned"
                     } else {
-                        "${sku.spoolCount} spool${if (sku.spoolCount != 1) "s" else ""} • ${sku.totalScans} scans • ${(sku.successRate * 100).toInt()}% success"
+                        "${sku.filamentReelCount} reel${if (sku.filamentReelCount != 1) "s" else ""} • ${sku.totalScans} scans • ${(sku.successRate * 100).toInt()}% success"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -377,7 +377,7 @@ fun SkuCard(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 when {
-                    sku.spoolCount == 0 && sku.totalScans == 0 -> {
+                    sku.filamentReelCount == 0 && sku.totalScans == 0 -> {
                         // Unscanned product - show shopping cart
                         Icon(
                             imageVector = Icons.Default.ShoppingCart,
@@ -413,7 +413,7 @@ fun SkuCard(
                 }
                 
                 Text(
-                    text = if (sku.spoolCount == 0 && sku.totalScans == 0) "0" else "${sku.spoolCount}",
+                    text = if (sku.filamentReelCount == 0 && sku.totalScans == 0) "0" else "${sku.filamentReelCount}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

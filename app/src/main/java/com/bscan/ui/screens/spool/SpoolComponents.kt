@@ -11,7 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.ui.components.ColorPreviewCard
 import com.bscan.ui.components.common.EmptyStateView
 import com.bscan.ui.components.common.StatisticDisplay
@@ -19,8 +19,8 @@ import com.bscan.ui.components.common.StatisticGrid
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun SpoolStatisticsCard(
-    spools: List<UniqueSpool>,
+fun FilamentReelStatisticsCard(
+    filamentReels: List<UniqueFilamentReel>,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -40,15 +40,15 @@ fun SpoolStatisticsCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            val totalSpools = spools.size
-            val uniqueTypes = spools.map { it.filamentInfo.filamentType }.toSet().size
-            val totalScans = spools.sumOf { it.scanCount }
-            val avgSuccessRate = if (spools.isNotEmpty()) {
-                (spools.sumOf { it.successRate.toDouble() } / spools.size * 100).toInt()
+            val totalFilamentReels = filamentReels.size
+            val uniqueTypes = filamentReels.map { it.filamentInfo.filamentType }.toSet().size
+            val totalScans = filamentReels.sumOf { it.scanCount }
+            val avgSuccessRate = if (filamentReels.isNotEmpty()) {
+                (filamentReels.sumOf { it.successRate.toDouble() } / filamentReels.size * 100).toInt()
             } else 0
             
             val statistics = listOf(
-                "Unique Spools" to totalSpools.toString(),
+                "Unique Reels" to totalFilamentReels.toString(),
                 "Types" to uniqueTypes.toString(),
                 "Total Scans" to totalScans.toString(),
                 "Avg Success" to "$avgSuccessRate%"
@@ -60,7 +60,7 @@ fun SpoolStatisticsCard(
             )
             
             // Most recent scan info
-            spools.maxByOrNull { it.lastScanned }?.let { mostRecent ->
+            filamentReels.maxByOrNull { it.lastScanned }?.let { mostRecent ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Most recent scan: ${mostRecent.lastScanned.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}",
@@ -73,7 +73,7 @@ fun SpoolStatisticsCard(
 }
 
 @Composable
-fun SpoolFilterSection(
+fun FilamentReelFilterSection(
     selectedFilter: String,
     onFilterChanged: (String) -> Unit,
     selectedTypeFilter: String,
@@ -119,15 +119,15 @@ fun SpoolFilterSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpoolCard(
-    spool: UniqueSpool,
+fun FilamentReelCard(
+    filamentReel: UniqueFilamentReel,
     modifier: Modifier = Modifier,
     onClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        onClick = { onClick?.invoke(spool.filamentInfo.trayUid) }
+        onClick = { onClick?.invoke(filamentReel.filamentInfo.trayUid) }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -135,9 +135,9 @@ fun SpoolCard(
         ) {
             // Color preview with name
             ColorPreviewCard(
-                colorHex = spool.filamentInfo.colorHex,
-                colorName = spool.filamentInfo.colorName,
-                filamentType = spool.filamentInfo.filamentType,
+                colorHex = filamentReel.filamentInfo.colorHex,
+                colorName = filamentReel.filamentInfo.colorName,
+                filamentType = filamentReel.filamentInfo.filamentType,
                 modifier = Modifier.fillMaxWidth()
             )
             
@@ -157,15 +157,15 @@ fun SpoolCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = spool.filamentInfo.detailedFilamentType.ifEmpty { spool.filamentInfo.filamentType },
+                        text = filamentReel.filamentInfo.detailedFilamentType.ifEmpty { filamentReel.filamentInfo.filamentType },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium
                     )
-                    if (spool.filamentInfo.detailedFilamentType.isNotEmpty() && 
-                        spool.filamentInfo.detailedFilamentType != spool.filamentInfo.filamentType) {
+                    if (filamentReel.filamentInfo.detailedFilamentType.isNotEmpty() && 
+                        filamentReel.filamentInfo.detailedFilamentType != filamentReel.filamentInfo.filamentType) {
                         Text(
-                            text = spool.filamentInfo.filamentType,
+                            text = filamentReel.filamentInfo.filamentType,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -188,16 +188,16 @@ fun SpoolCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${spool.scanCount} scans",
+                        text = "${filamentReel.scanCount} scans",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${(spool.successRate * 100).toInt()}% success rate",
+                        text = "${(filamentReel.successRate * 100).toInt()}% success rate",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (spool.successRate >= 0.8f) {
+                        color = if (filamentReel.successRate >= 0.8f) {
                             MaterialTheme.colorScheme.primary
-                        } else if (spool.successRate >= 0.5f) {
+                        } else if (filamentReel.successRate >= 0.5f) {
                             MaterialTheme.colorScheme.secondary
                         } else {
                             MaterialTheme.colorScheme.error
@@ -215,12 +215,12 @@ fun SpoolCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = spool.lastScanned.format(DateTimeFormatter.ofPattern("MMM dd")),
+                        text = filamentReel.lastScanned.format(DateTimeFormatter.ofPattern("MMM dd")),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = spool.lastScanned.format(DateTimeFormatter.ofPattern("yyyy HH:mm")),
+                        text = filamentReel.lastScanned.format(DateTimeFormatter.ofPattern("yyyy HH:mm")),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -242,7 +242,7 @@ fun SpoolCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = spool.uid,
+                        text = filamentReel.uid,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -256,13 +256,13 @@ fun SpoolCard(
                         .padding(4.dp)
                 ) {
                     when {
-                        spool.successRate >= 0.8f -> Icon(
+                        filamentReel.successRate >= 0.8f -> Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = "High Success Rate",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
-                        spool.successRate >= 0.5f -> Icon(
+                        filamentReel.successRate >= 0.5f -> Icon(
                             Icons.Default.Warning,
                             contentDescription = "Medium Success Rate",
                             tint = MaterialTheme.colorScheme.secondary,
@@ -282,33 +282,33 @@ fun SpoolCard(
 }
 
 @Composable
-fun SpoolListEmptyState(
-    hasSpools: Boolean,
+fun FilamentReelListEmptyState(
+    hasFilamentReels: Boolean,
     currentFilter: String,
     modifier: Modifier = Modifier
 ) {
-    val (title, subtitle, icon) = if (hasSpools) {
+    val (title, subtitle, icon) = if (hasFilamentReels) {
         when (currentFilter) {
             "Successful Only" -> Triple(
-                "No successfully scanned spools", 
+                "No successfully scanned reels", 
                 "Try adjusting your filters",
                 Icons.Default.FilterList
             )
             "High Success Rate" -> Triple(
-                "No high-success spools found",
-                "Spools with 80%+ success rate will appear here",
+                "No high-success reels found",
+                "Filament reels with 80%+ success rate will appear here",
                 Icons.Default.FilterList
             )
             else -> Triple(
-                "No spools match your filters",
+                "No filament reels match your filters",
                 "Try adjusting your filters", 
                 Icons.Default.FilterList
             )
         }
     } else {
         Triple(
-            "No spools in your collection yet",
-            "Scan NFC tags to build your spool collection",
+            "No filament reels in your collection yet",
+            "Scan NFC tags to build your filament collection",
             Icons.Default.Nfc
         )
     }

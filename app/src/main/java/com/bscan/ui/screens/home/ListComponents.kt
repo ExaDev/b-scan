@@ -26,7 +26,7 @@ import com.bscan.model.ScanProgress
 import com.bscan.model.ScanResult
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.ScanPromptScreen
@@ -182,8 +182,8 @@ fun OverscrollListWrapper(
 }
 
 @Composable
-fun SpoolsList(
-    spools: List<UniqueSpool>,
+fun FilamentReelsList(
+    filamentReels: List<UniqueFilamentReel>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
@@ -197,27 +197,27 @@ fun SpoolsList(
     fullPromptHeightDp: Dp = 400.dp,
     hasData: Boolean = false
 ) {
-    val filteredGroupedAndSortedSpools = remember(spools, sortProperty, sortDirection, groupByOption, filterState) {
-        val filtered = spools.filter { spool ->
+    val filteredGroupedAndSortedSpools = remember(filamentReels, sortProperty, sortDirection, groupByOption, filterState) {
+        val filtered = filamentReels.filter { filamentReel ->
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
                 true
             } else {
-                filterState.filamentTypes.contains(spool.filamentInfo.filamentType)
+                filterState.filamentTypes.contains(filamentReel.filamentInfo.filamentType)
             }
             
             // Filter by colors
             val matchesColor = if (filterState.colors.isEmpty()) {
                 true
             } else {
-                filterState.colors.contains(spool.filamentInfo.colorName)
+                filterState.colors.contains(filamentReel.filamentInfo.colorName)
             }
             
             // Filter by base materials
             val matchesBaseMaterial = if (filterState.baseMaterials.isEmpty()) {
                 true
             } else {
-                val baseMaterial = spool.filamentInfo.filamentType.split(" ").firstOrNull() ?: ""
+                val baseMaterial = filamentReel.filamentInfo.filamentType.split(" ").firstOrNull() ?: ""
                 filterState.baseMaterials.contains(baseMaterial)
             }
             
@@ -225,25 +225,25 @@ fun SpoolsList(
             val matchesMaterialSeries = if (filterState.materialSeries.isEmpty()) {
                 true
             } else {
-                val parts = spool.filamentInfo.filamentType.split(" ")
+                val parts = filamentReel.filamentInfo.filamentType.split(" ")
                 val series = if (parts.size >= 2) parts.drop(1).joinToString(" ") else ""
                 filterState.materialSeries.contains(series)
             }
             
             // Filter by success rate
-            val matchesSuccessRate = spool.successRate >= filterState.minSuccessRate
+            val matchesSuccessRate = filamentReel.successRate >= filterState.minSuccessRate
             
             // Filter by success/failure only
             val matchesResultFilter = when {
-                filterState.showSuccessOnly -> spool.successRate == 1.0f
-                filterState.showFailuresOnly -> spool.successRate < 1.0f
+                filterState.showSuccessOnly -> filamentReel.successRate == 1.0f
+                filterState.showFailuresOnly -> filamentReel.successRate < 1.0f
                 else -> true
             }
             
             // Filter by date range
             val matchesDateRange = filterState.dateRangeDays?.let { days ->
                 val cutoffDate = LocalDateTime.now().minusDays(days.toLong())
-                spool.lastScanned.isAfter(cutoffDate)
+                filamentReel.lastScanned.isAfter(cutoffDate)
             } ?: true
             
             matchesFilamentType && matchesColor && matchesBaseMaterial && matchesMaterialSeries && 
@@ -284,7 +284,7 @@ fun SpoolsList(
             }
         }
         
-        // Group the sorted spools if grouping is enabled
+        // Group the sorted filamentReels if grouping is enabled
         when (groupByOption) {
             GroupByOption.NONE -> sorted.map { "ungrouped" to listOf(it) }
             GroupByOption.COLOR -> sorted.groupBy { it.filamentInfo.colorName }.toList()
@@ -320,12 +320,12 @@ fun SpoolsList(
                     }
                 }
                 
-                // Show spools in the group
-                items(groupSpools, key = { it.uid }) { spool ->
-                    SpoolCard(
-                        spool = spool,
+                // Show filamentReels in the group
+                items(groupSpools, key = { it.uid }) { filamentReel ->
+                    FilamentReelCard(
+                        filamentReel = filamentReel,
                         onClick = { trayUid ->
-                            onNavigateToDetails?.invoke(DetailType.SPOOL, trayUid)
+                            onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, trayUid)
                         }
                     )
                 }
@@ -359,7 +359,7 @@ fun SkusList(
                 val mostRecentScan = scans.maxByOrNull { it.timestamp }
                 val filamentInfo = mostRecentScan?.filamentInfo
                 if (filamentInfo != null) {
-                    val uniqueSpools = scans.groupBy { it.filamentInfo!!.trayUid }.size
+                    val uniqueFilamentReels = scans.groupBy { it.filamentInfo!!.trayUid }.size
                     val totalScans = scans.size
                     val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
                     val lastScanned = scans.maxByOrNull { it.timestamp }?.timestamp
@@ -367,7 +367,7 @@ fun SkusList(
                     SkuInfo(
                         skuKey = skuKey,
                         filamentInfo = filamentInfo,
-                        spoolCount = uniqueSpools,
+                        filamentReelCount = uniqueFilamentReels,
                         totalScans = totalScans,
                         successfulScans = successfulScans,
                         lastScanned = lastScanned ?: LocalDateTime.now(),
@@ -516,7 +516,7 @@ fun SkusList(
 
 @Composable
 fun TagsList(
-    individualTags: List<UniqueSpool>,
+    individualTags: List<UniqueFilamentReel>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
@@ -529,21 +529,21 @@ fun TagsList(
     compactPromptHeightDp: Dp = 100.dp,
     fullPromptHeightDp: Dp = 400.dp
 ) {
-    // Convert UniqueSpool data to the format expected by the rest of the function
+    // Convert UniqueFilamentReel data to the format expected by the rest of the function
     val uniqueTags = remember(individualTags) {
-        individualTags.map { spool ->
+        individualTags.map { filamentReel ->
             // Create a dummy InterpretedScan with the spool's information for display
             val dummyEncrypted = EncryptedScanData(
-                timestamp = spool.lastScanned,
-                tagUid = spool.uid,
+                timestamp = filamentReel.lastScanned,
+                tagUid = filamentReel.uid,
                 technology = "NFC",
                 encryptedData = ByteArray(0),
                 tagSizeBytes = 1024,
                 sectorCount = 16
             )
             val dummyDecrypted = DecryptedScanData(
-                timestamp = spool.lastScanned,
-                tagUid = spool.uid,
+                timestamp = filamentReel.lastScanned,
+                tagUid = filamentReel.uid,
                 technology = "NFC",
                 scanResult = ScanResult.SUCCESS,
                 decryptedBlocks = emptyMap(),
@@ -558,15 +558,15 @@ fun TagsList(
             val dummyScan = InterpretedScan(
                 encryptedData = dummyEncrypted,
                 decryptedData = dummyDecrypted,
-                filamentInfo = spool.filamentInfo
+                filamentInfo = filamentReel.filamentInfo
             )
-            Triple(spool.uid, dummyScan, spool.filamentInfo)
+            Triple(filamentReel.uid, dummyScan, filamentReel.filamentInfo)
         }
     }
     
     val filteredGroupedAndSortedTags = remember(uniqueTags, sortProperty, sortDirection, groupByOption, filterState, individualTags) {
-        val tagSuccessRates = individualTags.associate { spool ->
-            spool.uid to spool.successRate
+        val tagSuccessRates = individualTags.associate { filamentReel ->
+            filamentReel.uid to filamentReel.successRate
         }
         
         val filtered = uniqueTags.filter { (uid, mostRecentScan, filamentInfo) ->

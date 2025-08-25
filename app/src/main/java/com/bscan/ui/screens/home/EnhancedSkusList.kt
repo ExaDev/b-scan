@@ -41,8 +41,8 @@ fun EnhancedSkusList(
     
     val filteredGroupedAndSortedSkus = remember(allSkus, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = allSkus.filter { sku ->
-            // Filter by minimum spool count (0 = show all products, 1+ = only owned)
-            val matchesSpoolCount = sku.spoolCount >= filterState.minSpoolCount
+            // Filter by minimum filament reel count (0 = show all products, 1+ = only owned)
+            val matchesSpoolCount = sku.filamentReelCount >= filterState.minSpoolCount
             
             // Filter by filament types
             val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
@@ -85,8 +85,8 @@ fun EnhancedSkusList(
                 else -> true
             }
             
-            // Filter by date range (skip for unscanned products with spoolCount = 0)
-            val matchesDateRange = if (sku.spoolCount == 0) {
+            // Filter by date range (skip for unscanned products with filamentReelCount = 0)
+            val matchesDateRange = if (sku.filamentReelCount == 0) {
                 true // Unscanned products always match date range
             } else {
                 filterState.dateRangeDays?.let { days ->

@@ -23,7 +23,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.ScanPromptScreen
@@ -37,8 +37,8 @@ fun DataBrowserScreen(
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    spools: List<UniqueSpool>,
-    individualTags: List<UniqueSpool>,
+    filamentReels: List<UniqueFilamentReel>,
+    individualTags: List<UniqueFilamentReel>,
     allScans: List<InterpretedScan>,
     availableFilamentTypes: Set<String>,
     availableColors: Set<String>,
@@ -368,8 +368,8 @@ fun DataBrowserScreen(
             ) { page ->
                 val actualPage = page % tabCount
                 when (ViewMode.values()[actualPage]) {
-                    ViewMode.INVENTORY -> SpoolsList(
-                        spools = spools, 
+                    ViewMode.INVENTORY -> FilamentReelsList(
+                        filamentReels = filamentReels, 
                         sortProperty = sortProperty, 
                         sortDirection = sortDirection, 
                         groupByOption = groupByOption, 
@@ -381,7 +381,7 @@ fun DataBrowserScreen(
                         onSimulateScan = onSimulateScan,
                         compactPromptHeightDp = compactPromptHeightDp,
                         fullPromptHeightDp = fullPromptHeightDp,
-                        hasData = spools.isNotEmpty()
+                        hasData = filamentReels.isNotEmpty()
                     )
                     ViewMode.SKUS -> EnhancedSkusList(
                         allScans = allScans,
