@@ -1,5 +1,6 @@
 package com.bscan.navigation
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +39,7 @@ fun AppNavigation(
             scanUiState.filamentInfo?.let { filamentInfo ->
                 val trayUid = filamentInfo.trayUid
                 // Navigate to spool details page after successful scan
-                navController.navigate("details/spool/$trayUid") {
+                navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/$trayUid") {
                     // Optional: clear the back stack to prevent going back to scanning state
                     // popUpTo("main") { inclusive = false }
                 }
@@ -131,25 +132,71 @@ fun AppNavigation(
         }
         
         composable("details/{type}/{identifier}") { backStackEntry ->
-            val typeStr = backStackEntry.arguments?.getString("type") ?: return@composable
-            val identifier = backStackEntry.arguments?.getString("identifier") ?: return@composable
+            val typeStr = backStackEntry.arguments?.getString("type")
+            val identifier = backStackEntry.arguments?.getString("identifier")
             
-            val detailType = when (typeStr.lowercase()) {
+            Log.d("AppNavigation", "Navigating to details with type: $typeStr, identifier: $identifier")
+            
+            // Validate parameters
+            if (typeStr.isNullOrBlank()) {
+                Log.e("AppNavigation", "Missing or empty type parameter in navigation")
+                // Navigate back to main screen on invalid parameters
+                LaunchedEffect(Unit) {
+                    navController.navigate("main") {
+                        popUpTo("main") { inclusive = true }
+                    }
+                }
+                return@composable
+            }
+            
+            if (identifier.isNullOrBlank()) {
+                Log.e("AppNavigation", "Missing or empty identifier parameter in navigation")
+                // Navigate back to main screen on invalid parameters
+                LaunchedEffect(Unit) {
+                    navController.navigate("main") {
+                        popUpTo("main") { inclusive = true }
+                    }
+                }
+                return@composable
+            }
+            
+            val detailType = when (typeStr.lowercase().trim()) {
                 "scan" -> DetailType.SCAN
                 "tag" -> DetailType.TAG
-                "spool" -> DetailType.SPOOL
+                "spool" -> DetailType.INVENTORY_STOCK
+                "inventory_stock" -> DetailType.INVENTORY_STOCK
                 "sku" -> DetailType.SKU
-                else -> return@composable
+                else -> {
+                    Log.e("AppNavigation", "Unknown detail type: $typeStr")
+                    // Navigate back to main screen on unknown type
+                    LaunchedEffect(Unit) {
+                        navController.navigate("main") {
+                            popUpTo("main") { inclusive = true }
+                        }
+                    }
+                    return@composable
+                }
             }
+            
+            Log.d("AppNavigation", "Valid navigation parameters, showing DetailScreen for $detailType")
             
             DetailScreen(
                 detailType = detailType,
-                identifier = identifier,
-                onNavigateBack = { navController.popBackStack() },
+                identifier = identifier.trim(),
+                onNavigateBack = { 
+                    Log.d("AppNavigation", "Navigating back from DetailScreen")
+                    navController.popBackStack() 
+                },
                 onNavigateToDetails = { newDetailType, newIdentifier ->
-                    navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                    if (newIdentifier.isNotBlank()) {
+                        Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
+                        navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                    } else {
+                        Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                    }
                 },
                 onPurgeCache = { tagUid ->
+                    Log.d("AppNavigation", "Cache purge requested for tagUid: $tagUid")
                     // Handle cache purging if needed
                     // This could call the existing cache management functionality
                 }
