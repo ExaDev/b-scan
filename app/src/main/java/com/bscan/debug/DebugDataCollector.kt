@@ -11,7 +11,8 @@ class DebugDataCollector {
     private val authenticatedSectors = mutableListOf<Int>()
     private val failedSectors = mutableListOf<Int>()
     private val usedKeyTypes = mutableMapOf<Int, String>()
-    private val blockData = mutableMapOf<Int, String>()
+    private val blockData = mutableMapOf<Int, String>() // Legacy: data blocks only
+    private val allBlockData = mutableMapOf<Int, String>() // Complete: all blocks including trailers
     private val derivedKeys = mutableListOf<String>()
     private val errorMessages = mutableListOf<String>()
     private val parsingDetails = mutableMapOf<String, Any?>()
@@ -19,7 +20,8 @@ class DebugDataCollector {
     private var tagSizeBytes = 0
     private var sectorCount = 0
     private var cacheHit = false
-    private var fullRawData: ByteArray = ByteArray(0)
+    private var fullRawData: ByteArray = ByteArray(0) // Legacy 768-byte format
+    private var completeTagData: ByteArray = ByteArray(0) // Complete 1024-byte format
     private var decryptedData: ByteArray = ByteArray(0)
     
     private val tagDetector = TagDetector()
@@ -40,6 +42,18 @@ class DebugDataCollector {
     
     fun recordBlockData(block: Int, hexData: String) {
         blockData[block] = hexData
+    }
+    
+    /**
+     * Record block data for ALL blocks including trailer blocks
+     */
+    fun recordAllBlockData(block: Int, hexData: String, isTrailerBlock: Boolean) {
+        allBlockData[block] = hexData
+        
+        // Also record in legacy format for data blocks only
+        if (!isTrailerBlock) {
+            blockData[block] = hexData
+        }
     }
     
     fun recordDerivedKeys(keys: Array<ByteArray>) {
@@ -69,6 +83,13 @@ class DebugDataCollector {
         fullRawData = rawData.copyOf()
     }
     
+    /**
+     * Record complete tag data including trailer blocks
+     */
+    fun recordCompleteTagData(completeData: ByteArray) {
+        completeTagData = completeData.copyOf()
+    }
+    
     fun recordDecryptedData(decryptedData: ByteArray) {
         this.decryptedData = decryptedData.copyOf()
     }
@@ -91,13 +112,17 @@ class DebugDataCollector {
         sectorCount = 0
         cacheHit = false
         fullRawData = ByteArray(0)
+        completeTagData = ByteArray(0)
         decryptedData = ByteArray(0)
+        allBlockData.clear()
     }
     
     // Getter methods for accessing collected data
     fun getFullRawData(): ByteArray = fullRawData.copyOf()
+    fun getCompleteTagData(): ByteArray = completeTagData.copyOf()
     fun getDecryptedData(): ByteArray = decryptedData.copyOf()
     fun getBlockData(): Map<Int, String> = blockData.toMap()
+    fun getAllBlockData(): Map<Int, String> = allBlockData.toMap()
     fun getAuthenticatedSectors(): List<Int> = authenticatedSectors.toList()
     fun getFailedSectors(): List<Int> = failedSectors.toList()
     fun getUsedKeyTypes(): Map<Int, String> = usedKeyTypes.toMap()
@@ -124,7 +149,8 @@ class DebugDataCollector {
             technology = technology,
             tagFormat = detection.tagFormat,
             manufacturerName = detection.manufacturerName,
-            encryptedData = getFullRawData(),
+            encryptedData = getFullRawData(), // Legacy 768-byte format for compatibility
+            completeTagData = getCompleteTagData().takeIf { it.isNotEmpty() }, // Complete 1024-byte format with trailers
             tagSizeBytes = tagSizeBytes,
             sectorCount = sectorCount,
             scanDurationMs = scanDurationMs
@@ -152,7 +178,8 @@ class DebugDataCollector {
             tagFormat = detection.tagFormat,
             manufacturerName = detection.manufacturerName,
             scanResult = result,
-            decryptedBlocks = getBlockData(),
+            decryptedBlocks = getBlockData(), // Legacy: data blocks only for compatibility
+            allBlocks = getAllBlockData(), // Complete: all blocks including trailers
             authenticatedSectors = getAuthenticatedSectors(),
             failedSectors = getFailedSectors(),
             usedKeys = getUsedKeyTypes(),

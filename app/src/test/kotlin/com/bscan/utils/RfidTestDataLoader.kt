@@ -164,8 +164,8 @@ object RfidTestDataLoader {
         val processedData = when {
             actualSize == 1024 -> binData // Standard Mifare Classic 1K
             actualSize == 1152 -> {
-                // Some files might have additional metadata or different structure
-                println("Processing 1152-byte BIN file - using first 1024 bytes")
+                // Extended format: 1024 bytes standard dump + 128 bytes metadata/keys
+                println("Processing 1152-byte BIN file - extracting standard 1024-byte section")
                 binData.take(1024).toByteArray()
             }
             actualSize == 768 -> {
@@ -200,16 +200,21 @@ object RfidTestDataLoader {
             }
         }
         
+        // Extract sector keys if this is a 1152-byte file
+        val sectorKeys = if (actualSize == 1152) {
+            extractSectorKeysFromExtendedData(binData.drop(1024).toByteArray())
+        } else null
+
         return BambuDumpFormat(
             Created = "bin-file-parser",
-            FileType = "mfc bin",
+            FileType = if (actualSize == 1152) "mfc bin extended" else "mfc bin",
             Card = CardInfo(
                 UID = uid,
                 ATQA = "0400", // Default for Mifare Classic 1K
                 SAK = "08"     // Default for Mifare Classic 1K
             ),
             blocks = blocks,
-            SectorKeys = null
+            SectorKeys = sectorKeys
         )
     }
     
@@ -287,6 +292,33 @@ object RfidTestDataLoader {
         }
         
         return expanded
+    }
+    
+    /**
+     * Extract sector keys from the extended 128-byte section of 1152-byte BIN files
+     * This appears to contain authentication keys or metadata for the RFID sectors
+     */
+    private fun extractSectorKeysFromExtendedData(extendedData: ByteArray): Map<String, SectorKeyInfo>? {
+        if (extendedData.size != 128) {
+            println("WARNING: Expected 128 bytes of extended data, got ${extendedData.size}")
+            return null
+        }
+        
+        // For now, just store the raw data - this could be enhanced to parse specific key formats
+        // The extended data appears to be mostly template/metadata rather than per-tag unique keys
+        val sectorKeys = mutableMapOf<String, SectorKeyInfo>()
+        
+        // Store first 16 bytes as potential key material
+        val keyData = extendedData.take(16).toByteArray()
+        val keyHex = keyData.joinToString("") { "%02X".format(it) }
+        
+        sectorKeys["extended_metadata"] = SectorKeyInfo(
+            KeyA = keyHex.take(12), // First 6 bytes as Key A
+            KeyB = keyHex.drop(12).take(12), // Next 6 bytes as Key B
+            AccessConditions = keyHex.drop(24) // Remaining as access conditions
+        )
+        
+        return sectorKeys
     }
 }
 

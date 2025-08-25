@@ -200,7 +200,8 @@ class NfcManager(private val activity: Activity) {
             mifareClassic.connect()
             
             val sectors = mifareClassic.sectorCount
-            val allData = ByteArray(sectors * 48) // Each sector has 3 data blocks * 16 bytes
+            val allData = ByteArray(sectors * 48) // Each sector has 3 data blocks * 16 bytes (legacy format)
+            val completeData = ByteArray(sectors * 64) // Each sector has 4 blocks * 16 bytes (including trailers)
             
             Log.d(TAG, "Reading MIFARE Classic tag:")
             Log.d(TAG, "UID: ${bytesToHex(tag.id)}")
@@ -321,18 +322,23 @@ class NfcManager(private val activity: Activity) {
                     }
                 }
                 
-                // Read blocks in sector (skip trailer block which contains keys)
+                // Read ALL blocks in sector (including trailer block)
                 val blocksInSector = mifareClassic.getBlockCountInSector(sector)
-                for (blockInSector in 0 until blocksInSector - 1) {
+                for (blockInSector in 0 until blocksInSector) {
                     val absoluteBlock = mifareClassic.sectorToBlock(sector) + blockInSector
-                    val dataOffset = sector * 48 + blockInSector * 16
+                    val isTrailerBlock = blockInSector == (blocksInSector - 1)
+                    
+                    // Calculate offsets for dual storage
+                    val completeDataOffset = sector * 64 + blockInSector * 16
+                    val legacyDataOffset = if (!isTrailerBlock) sector * 48 + blockInSector * 16 else -1
                     
                     // Report block reading progress
-                    val blockProgress = 0.75f + (sector * 0.015f) + (blockInSector * 0.005f) // 75% to 95%
+                    val blockProgress = 0.75f + (sector * 0.015f) + (blockInSector * 0.004f) // 75% to 95%
+                    val blockType = if (isTrailerBlock) "trailer" else "data"
                     progressCallback?.invoke(ScanProgress(
                         stage = ScanStage.READING_BLOCKS,
                         percentage = blockProgress,
-                        statusMessage = "Reading block ${absoluteBlock + 1}"
+                        statusMessage = "Reading $blockType block ${absoluteBlock + 1}"
                     ))
                     
                     try {
@@ -342,11 +348,18 @@ class NfcManager(private val activity: Activity) {
                             // Try to read without authentication for public blocks
                             mifareClassic.readBlock(absoluteBlock)
                         }
-                        System.arraycopy(blockData, 0, allData, dataOffset, 16)
+                        
+                        // Store in complete data array (all blocks)
+                        System.arraycopy(blockData, 0, completeData, completeDataOffset, 16)
+                        
+                        // Store in legacy data array (data blocks only, for compatibility)
+                        if (!isTrailerBlock && legacyDataOffset >= 0) {
+                            System.arraycopy(blockData, 0, allData, legacyDataOffset, 16)
+                        }
                         
                         // Log all block data for complete raw data capture
                         val hexData = blockData.joinToString("") { "%02X".format(it) }
-                        debugCollector.recordBlockData(absoluteBlock, hexData)
+                        debugCollector.recordAllBlockData(absoluteBlock, hexData, isTrailerBlock)
                         
                         // Enhanced logging for key blocks and temperature data
                         if (sector <= 1 || absoluteBlock <= 6) {
@@ -363,12 +376,15 @@ class NfcManager(private val activity: Activity) {
                             }
                         }
                     } catch (e: IOException) {
-                        val errorMsg = "Failed to read block $absoluteBlock: ${e.message}"
+                        val errorMsg = "Failed to read block $absoluteBlock ($blockType): ${e.message}"
                         debugCollector.recordError(errorMsg)
                         Log.w(TAG, errorMsg)
-                        // Fill with zeros if read fails
-                        for (i in 0 until 16) {
-                            allData[dataOffset + i] = 0
+                        
+                        // Fill with zeros if read fails - update both arrays
+                        val zeroBlock = ByteArray(16)
+                        System.arraycopy(zeroBlock, 0, completeData, completeDataOffset, 16)
+                        if (!isTrailerBlock && legacyDataOffset >= 0) {
+                            System.arraycopy(zeroBlock, 0, allData, legacyDataOffset, 16)
                         }
                     }
                 }
@@ -383,8 +399,9 @@ class NfcManager(private val activity: Activity) {
             
             mifareClassic.close()
             
-            // Record complete raw data for debug analysis
-            debugCollector.recordFullRawData(allData)
+            // Record both legacy and complete raw data for debug analysis
+            debugCollector.recordFullRawData(allData) // Legacy 768-byte format for compatibility
+            debugCollector.recordCompleteTagData(completeData) // Complete 1024-byte format with trailers
             
             // Create decrypted data array (same as allData since blocks are read post-authentication)
             // In the future, this could be enhanced to store pre-authentication data separately

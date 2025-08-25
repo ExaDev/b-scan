@@ -29,7 +29,7 @@ data class ScanDebugInfo(
 
 /**
  * Raw encrypted scan data captured before authentication.
- * This is the complete 1024-byte dump from the Mifare Classic tag.
+ * Supports dual storage for compatibility and future enhancement.
  */
 data class EncryptedScanData(
     val id: Long = 0,
@@ -38,7 +38,8 @@ data class EncryptedScanData(
     val technology: String,
     val tagFormat: TagFormat = TagFormat.UNKNOWN,
     val manufacturerName: String = "Unknown", // Manufacturer name from tag data
-    val encryptedData: ByteArray, // Complete raw dump from the tag (varies by format)
+    val encryptedData: ByteArray, // Legacy 768-byte compressed format (data blocks only)
+    val completeTagData: ByteArray? = null, // Complete 1024-byte dump including trailer blocks
     val tagSizeBytes: Int,
     val sectorCount: Int,
     val scanDurationMs: Long = 0
@@ -56,6 +57,10 @@ data class EncryptedScanData(
         if (tagFormat != other.tagFormat) return false
         if (manufacturerName != other.manufacturerName) return false
         if (!encryptedData.contentEquals(other.encryptedData)) return false
+        if (completeTagData != null) {
+            if (other.completeTagData == null) return false
+            if (!completeTagData.contentEquals(other.completeTagData)) return false
+        } else if (other.completeTagData != null) return false
         if (tagSizeBytes != other.tagSizeBytes) return false
         if (sectorCount != other.sectorCount) return false
         if (scanDurationMs != other.scanDurationMs) return false
@@ -71,6 +76,7 @@ data class EncryptedScanData(
         result = 31 * result + tagFormat.hashCode()
         result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + encryptedData.contentHashCode()
+        result = 31 * result + (completeTagData?.contentHashCode() ?: 0)
         result = 31 * result + tagSizeBytes
         result = 31 * result + sectorCount
         result = 31 * result + scanDurationMs.hashCode()
@@ -93,8 +99,11 @@ data class DecryptedScanData(
     val scanResult: ScanResult,
     
     // Decrypted block data (after successful authentication)
-    // Map of block number -> 16-byte block data in hex format
+    // Map of block number -> 16-byte block data in hex format (data blocks only - legacy)
     val decryptedBlocks: Map<Int, String>,
+    
+    // Complete block data including trailer blocks (Map of absolute block number -> hex data)
+    val allBlocks: Map<Int, String> = emptyMap(),
     
     // Authentication metadata
     val authenticatedSectors: List<Int>,
@@ -127,6 +136,7 @@ data class DecryptedScanData(
         if (manufacturerName != other.manufacturerName) return false
         if (scanResult != other.scanResult) return false
         if (decryptedBlocks != other.decryptedBlocks) return false
+        if (allBlocks != other.allBlocks) return false
         if (authenticatedSectors != other.authenticatedSectors) return false
         if (failedSectors != other.failedSectors) return false
         if (usedKeys != other.usedKeys) return false
@@ -149,6 +159,7 @@ data class DecryptedScanData(
         result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + scanResult.hashCode()
         result = 31 * result + decryptedBlocks.hashCode()
+        result = 31 * result + allBlocks.hashCode()
         result = 31 * result + authenticatedSectors.hashCode()
         result = 31 * result + failedSectors.hashCode()
         result = 31 * result + usedKeys.hashCode()
