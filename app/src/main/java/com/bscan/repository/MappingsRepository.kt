@@ -106,6 +106,39 @@ class MappingsRepository(private val context: Context) {
     }
     
     /**
+     * Get complete product catalog
+     */
+    fun getProductCatalog(): List<com.bscan.model.ProductEntry> {
+        return getCurrentMappings().productCatalog
+    }
+    
+    /**
+     * Find products matching filament type and color with complete weight information
+     */
+    fun findProductsWithWeightInfo(filamentType: String, colorName: String): List<com.bscan.model.ProductEntry> {
+        return getCurrentMappings().productCatalog.filter { product ->
+            val materialMatches = product.materialType == filamentType ||
+                                product.productName.contains(filamentType, ignoreCase = true)
+            val colorMatches = product.colorName.contains(colorName, ignoreCase = true) ||
+                             colorName.contains(product.colorName.split(" ")[0], ignoreCase = true)
+            val hasWeightInfo = product.hasCompleteWeightInfo()
+            
+            materialMatches && colorMatches && hasWeightInfo
+        }
+    }
+    
+    /**
+     * Find best matching product by exact material type and color
+     */
+    fun findBestProductMatch(filamentType: String, colorName: String): com.bscan.model.ProductEntry? {
+        val productsWithWeight = findProductsWithWeightInfo(filamentType, colorName)
+        
+        // Prefer exact material type matches, then fall back to name matches
+        return productsWithWeight.firstOrNull { it.materialType == filamentType }
+            ?: productsWithWeight.firstOrNull()
+    }
+    
+    /**
      * Get RFID mappings, loading from assets if needed
      */
     fun getRfidMappings(): RfidMappings {

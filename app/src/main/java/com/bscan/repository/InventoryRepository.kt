@@ -3,7 +3,7 @@ package com.bscan.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.*
-import com.bscan.logic.WeightCalculationService
+import com.bscan.logic.MassCalculationService
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
@@ -21,8 +21,9 @@ class InventoryRepository(private val context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("inventory_data", Context.MODE_PRIVATE)
     
-    private val spoolWeightRepository by lazy { SpoolWeightRepository(context) }
-    private val calculationService by lazy { WeightCalculationService() }
+    private val physicalComponentRepository by lazy { PhysicalComponentRepository(context) }
+    private val calculationService = MassCalculationService()
+    private val mappingsRepository by lazy { MappingsRepository(context) }
     
     // Custom LocalDateTime adapter for Gson
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -86,6 +87,55 @@ class InventoryRepository(private val context: Context) {
     }
     
     /**
+     * Create automatic component setup for a new Bambu scan
+     */
+    fun createBambuInventoryItem(
+        trayUid: String,
+        filamentInfo: FilamentInfo,
+        includeRefillableSpool: Boolean = false
+    ): InventoryItem {
+        // Create filament component from scan data
+        val filamentComponent = physicalComponentRepository.createFilamentComponent(
+            filamentType = filamentInfo.filamentType,
+            colorName = filamentInfo.colorName,
+            colorHex = filamentInfo.colorHex,
+            massGrams = 1000f, // Default to 1kg - will be updated from SKU or measurement
+            manufacturer = filamentInfo.manufacturerName
+        )
+        
+        // Save the filament component
+        physicalComponentRepository.saveComponent(filamentComponent)
+        
+        // Create component setup  
+        val componentIds = mutableListOf<String>()
+        componentIds.add(filamentComponent.id)
+        componentIds.add("bambu_cardboard_core")
+        if (includeRefillableSpool) {
+            componentIds.add("bambu_refillable_spool")
+        }
+        
+        // Try to get mass from SKU data if available
+        val skuMass = getFilamentMassFromSku(filamentInfo.filamentType, filamentInfo.colorName)
+        
+        return InventoryItem(
+            trayUid = trayUid,
+            components = componentIds,
+            totalMeasuredMass = null, // User will measure manually
+            measurements = emptyList(),
+            lastUpdated = LocalDateTime.now(),
+            notes = "Automatically created from Bambu scan"
+        )
+    }
+    
+    /**
+     * Try to get filament mass from SKU data
+     */
+    private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float? {
+        val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+        return bestMatch?.filamentWeightGrams
+    }
+    
+    /**
      * Delete an inventory item
      */
     fun deleteInventoryItem(trayUid: String) {
@@ -100,12 +150,12 @@ class InventoryRepository(private val context: Context) {
             .apply()
     }
     
-    // === Weight Measurement Integration ===
+    // === Mass Measurement Integration ===
     
     /**
-     * Add a weight measurement to an inventory item
+     * Add a mass measurement to an inventory item
      */
-    fun addWeightMeasurement(trayUid: String, measurement: FilamentWeightMeasurement) {
+    fun addMassMeasurement(trayUid: String, measurement: MassMeasurement) {
         val existingItem = getInventoryItem(trayUid)
         val updatedMeasurements = (existingItem?.measurements ?: emptyList()) + measurement
         
@@ -114,49 +164,51 @@ class InventoryRepository(private val context: Context) {
             lastUpdated = LocalDateTime.now()
         ) ?: InventoryItem(
             trayUid = trayUid,
-            currentConfigurationId = measurement.spoolConfigurationId,
-            expectedFilamentWeightGrams = null,
+            components = emptyList(), // Will be set separately
+            totalMeasuredMass = measurement.measuredMassGrams,
             measurements = listOf(measurement),
             lastUpdated = LocalDateTime.now()
         )
         
         saveInventoryItem(inventoryItem)
-        
-        // Also save to SpoolWeightRepository for global access
-        spoolWeightRepository.saveMeasurement(measurement)
     }
     
     /**
-     * Set spool configuration for an inventory item
+     * Update total measured mass and recalculate filament mass
      */
-    fun setSpoolConfiguration(trayUid: String, configurationId: String) {
-        val existingItem = getInventoryItem(trayUid)
-        val inventoryItem = existingItem?.copy(
-            currentConfigurationId = configurationId,
-            lastUpdated = LocalDateTime.now()
-        ) ?: InventoryItem(
-            trayUid = trayUid,
-            currentConfigurationId = configurationId,
-            expectedFilamentWeightGrams = null,
-            measurements = emptyList(),
+    fun updateTotalMeasuredMass(trayUid: String, totalMassGrams: Float) {
+        val existingItem = getInventoryItem(trayUid) ?: return
+        
+        // Get components for this inventory item
+        val components = physicalComponentRepository.getComponents()
+            .filter { it.id in existingItem.components }
+        
+        // Update variable mass components based on new total
+        val updatedComponents = calculationService.updateVariableComponents(components, totalMassGrams)
+        
+        // Save updated components
+        updatedComponents.forEach { component ->
+            physicalComponentRepository.saveComponent(component)
+        }
+        
+        // Update inventory item with new total mass
+        val updatedItem = existingItem.copy(
+            totalMeasuredMass = totalMassGrams,
             lastUpdated = LocalDateTime.now()
         )
         
-        saveInventoryItem(inventoryItem)
+        saveInventoryItem(updatedItem)
     }
     
     /**
-     * Set expected filament weight for an inventory item
+     * Add a component to an inventory item
      */
-    fun setExpectedFilamentWeight(trayUid: String, expectedWeightGrams: Float) {
+    fun addComponentToInventoryItem(trayUid: String, componentId: String) {
         val existingItem = getInventoryItem(trayUid)
-        val inventoryItem = existingItem?.copy(
-            expectedFilamentWeightGrams = expectedWeightGrams,
-            lastUpdated = LocalDateTime.now()
-        ) ?: InventoryItem(
+        val inventoryItem = existingItem?.withComponent(componentId) ?: InventoryItem(
             trayUid = trayUid,
-            currentConfigurationId = null,
-            expectedFilamentWeightGrams = expectedWeightGrams,
+            components = listOf(componentId),
+            totalMeasuredMass = null,
             measurements = emptyList(),
             lastUpdated = LocalDateTime.now()
         )
@@ -173,125 +225,115 @@ class InventoryRepository(private val context: Context) {
         val inventoryItem = getInventoryItem(trayUid)
         if (inventoryItem == null) {
             return FilamentStatus(
-                remainingWeightGrams = 0f,
+                remainingMassGrams = 0f,
                 remainingPercentage = 0f,
-                consumedWeightGrams = 0f,
+                consumedMassGrams = 0f,
                 lastMeasurement = null,
-                spoolConfiguration = null,
+                components = emptyList(),
                 calculationSuccess = false,
                 errorMessage = "Inventory item not found"
             )
         }
         
-        val configuration = inventoryItem.currentConfigurationId?.let { 
-            spoolWeightRepository.getConfiguration(it) 
-        }
+        // Get components for this inventory item
+        val components = physicalComponentRepository.getComponents()
+            .filter { it.id in inventoryItem.components }
         
-        if (configuration == null) {
+        if (components.isEmpty()) {
             return FilamentStatus(
-                remainingWeightGrams = 0f,
+                remainingMassGrams = 0f,
                 remainingPercentage = 0f,
-                consumedWeightGrams = 0f,
+                consumedMassGrams = 0f,
                 lastMeasurement = inventoryItem.latestMeasurement,
-                spoolConfiguration = null,
+                components = emptyList(),
                 calculationSuccess = false,
-                errorMessage = "No spool configuration set"
+                errorMessage = "No components defined"
             )
         }
         
-        val components = spoolWeightRepository.getComponents()
+        // Validate component combination
+        val validation = calculationService.validateComponents(components)
+        if (!validation.valid) {
+            return FilamentStatus(
+                remainingMassGrams = 0f,
+                remainingPercentage = 0f,
+                consumedMassGrams = 0f,
+                lastMeasurement = inventoryItem.latestMeasurement,
+                components = components,
+                calculationSuccess = false,
+                errorMessage = validation.message
+            )
+        }
+        
         val latestMeasurement = inventoryItem.latestMeasurement
+        val filamentComponents = components.filter { it.variableMass }
+        val currentFilamentMass = filamentComponents.sumOf { it.massGrams.toDouble() }.toFloat()
         
-        if (latestMeasurement == null) {
+        // If we don't have measurements, return current component mass
+        if (latestMeasurement == null || inventoryItem.totalMeasuredMass == null) {
             return FilamentStatus(
-                remainingWeightGrams = 0f,
-                remainingPercentage = 0f,
-                consumedWeightGrams = 0f,
-                lastMeasurement = null,
-                spoolConfiguration = configuration,
-                calculationSuccess = false,
-                errorMessage = "No weight measurements available"
-            )
-        }
-        
-        // Calculate current filament weight from latest measurement
-        val calculationResult = calculationService.calculateFilamentWeight(
-            latestMeasurement.measuredWeightGrams,
-            configuration,
-            components,
-            latestMeasurement.measurementType
-        )
-        
-        if (!calculationResult.success) {
-            return FilamentStatus(
-                remainingWeightGrams = 0f,
-                remainingPercentage = 0f,
-                consumedWeightGrams = 0f,
-                lastMeasurement = latestMeasurement,
-                spoolConfiguration = configuration,
-                calculationSuccess = false,
-                errorMessage = calculationResult.errorMessage
-            )
-        }
-        
-        val currentFilamentWeight = calculationResult.filamentWeightGrams
-        
-        // Calculate consumption based on expected weight or first measurement
-        val initialFilamentWeight = inventoryItem.expectedFilamentWeightGrams 
-            ?: findInitialFilamentWeight(inventoryItem, configuration, components)
-        
-        if (initialFilamentWeight == null || initialFilamentWeight <= 0) {
-            return FilamentStatus(
-                remainingWeightGrams = currentFilamentWeight,
+                remainingMassGrams = currentFilamentMass,
                 remainingPercentage = 1f, // Unknown percentage
-                consumedWeightGrams = 0f,
+                consumedMassGrams = 0f,
                 lastMeasurement = latestMeasurement,
-                spoolConfiguration = configuration,
+                components = components,
                 calculationSuccess = true,
                 errorMessage = null
             )
         }
         
-        val consumedWeight = maxOf(0f, initialFilamentWeight - currentFilamentWeight)
-        val remainingPercentage = if (initialFilamentWeight > 0) {
-            maxOf(0f, minOf(1f, currentFilamentWeight / initialFilamentWeight))
+        // Get initial filament mass (from first measurement or SKU data)
+        val initialFilamentMass = findInitialFilamentMass(inventoryItem, components)
+        
+        if (initialFilamentMass == null || initialFilamentMass <= 0) {
+            return FilamentStatus(
+                remainingMassGrams = currentFilamentMass,
+                remainingPercentage = 1f, // Unknown percentage
+                consumedMassGrams = 0f,
+                lastMeasurement = latestMeasurement,
+                components = components,
+                calculationSuccess = true,
+                errorMessage = null
+            )
+        }
+        
+        val consumedMass = maxOf(0f, initialFilamentMass - currentFilamentMass)
+        val remainingPercentage = if (initialFilamentMass > 0) {
+            maxOf(0f, minOf(1f, currentFilamentMass / initialFilamentMass))
         } else 1f
         
         return FilamentStatus(
-            remainingWeightGrams = currentFilamentWeight,
+            remainingMassGrams = currentFilamentMass,
             remainingPercentage = remainingPercentage,
-            consumedWeightGrams = consumedWeight,
+            consumedMassGrams = consumedMass,
             lastMeasurement = latestMeasurement,
-            spoolConfiguration = configuration,
+            components = components,
             calculationSuccess = true,
             errorMessage = null
         )
     }
     
     /**
-     * Find initial filament weight from first measurement or highest measurement
+     * Find the initial filament mass from measurements or SKU data
      */
-    private fun findInitialFilamentWeight(
-        inventoryItem: InventoryItem,
-        configuration: SpoolConfiguration,
-        components: List<SpoolComponent>
+    private fun findInitialFilamentMass(
+        inventoryItem: InventoryItem, 
+        components: List<PhysicalComponent>
     ): Float? {
-        if (inventoryItem.measurements.isEmpty()) return null
+        // Try to get from earliest measurement
+        val earliestMeasurement = inventoryItem.measurements.minByOrNull { it.measuredAt }
+        if (earliestMeasurement != null && earliestMeasurement.measurementType == MeasurementType.FULL_WEIGHT) {
+            val fixedComponentsMass = components.filter { !it.variableMass }
+                .sumOf { it.massGrams.toDouble() }.toFloat()
+            return earliestMeasurement.measuredMassGrams - fixedComponentsMass
+        }
         
-        // Find the highest filament weight from measurements (likely the initial one)
-        val components = spoolWeightRepository.getComponents()
-        val highestFilamentWeight = inventoryItem.measurements.mapNotNull { measurement ->
-            val result = calculationService.calculateFilamentWeight(
-                measurement.measuredWeightGrams,
-                configuration,
-                components,
-                measurement.measurementType
-            )
-            if (result.success) result.filamentWeightGrams else null
-        }.maxOrNull()
-        
-        return highestFilamentWeight
+        // Fallback to current filament component mass (from SKU or default)
+        return components.filter { it.variableMass }
+            .sumOf { it.massGrams.toDouble() }.toFloat()
+            .takeIf { it > 0 }
     }
+    
     
     /**
      * Get all inventory items with calculated status
