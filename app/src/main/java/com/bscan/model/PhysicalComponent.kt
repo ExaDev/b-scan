@@ -10,7 +10,8 @@ data class PhysicalComponent(
     val id: String,                         // Unique identifier for this component
     val name: String,                       // Display name (e.g., "PLA Basic Filament", "Cardboard Core")
     val type: PhysicalComponentType,        // Type of component
-    val massGrams: Float,                   // Current mass in grams
+    val massGrams: Float,                   // Current/remaining mass in grams
+    val fullMassGrams: Float? = null,       // Original/maximum mass (used for variable components)
     val variableMass: Boolean,              // True for filament, false for fixed hardware
     val manufacturer: String = "Unknown",   // Component manufacturer
     val description: String = "",           // Optional description
@@ -33,6 +34,65 @@ data class PhysicalComponent(
             this // Return unchanged for fixed mass components
         }
     }
+    
+    /**
+     * Create a copy with updated full mass (only for variable mass components)
+     */
+    fun withUpdatedFullMass(newFullMassGrams: Float): PhysicalComponent {
+        return if (variableMass) {
+            copy(fullMassGrams = newFullMassGrams)
+        } else {
+            this // Return unchanged for fixed mass components
+        }
+    }
+    
+    /**
+     * Set both current and full mass (for initial setup of variable mass components)
+     */
+    fun withFullMass(fullMass: Float, currentMass: Float = fullMass): PhysicalComponent {
+        return if (variableMass) {
+            copy(
+                massGrams = currentMass,
+                fullMassGrams = fullMass
+            )
+        } else {
+            this // Return unchanged for fixed mass components
+        }
+    }
+    
+    /**
+     * Calculate remaining percentage based on full vs current mass
+     */
+    fun getRemainingPercentage(): Float? {
+        return if (variableMass && fullMassGrams != null && fullMassGrams > 0) {
+            maxOf(0f, minOf(1f, massGrams / fullMassGrams))
+        } else {
+            null // Not applicable for fixed mass or unknown full mass
+        }
+    }
+    
+    /**
+     * Calculate consumed mass based on full vs current mass
+     */
+    fun getConsumedMass(): Float? {
+        return if (variableMass && fullMassGrams != null) {
+            maxOf(0f, fullMassGrams - massGrams)
+        } else {
+            null // Not applicable for fixed mass or unknown full mass
+        }
+    }
+    
+    /**
+     * Check if component is running low (less than 20% remaining)
+     */
+    val isRunningLow: Boolean
+        get() = getRemainingPercentage()?.let { it < 0.2f } ?: false
+        
+    /**
+     * Check if component is nearly empty (less than 5% remaining)
+     */
+    val isNearlyEmpty: Boolean
+        get() = getRemainingPercentage()?.let { it < 0.05f } ?: false
 }
 
 /**

@@ -31,7 +31,8 @@ class SkuWeightService(
             colorName = filamentInfo.colorName,
             colorHex = filamentInfo.colorHex,
             massGrams = skuMass ?: 1000f, // Default to 1kg if no SKU data
-            manufacturer = filamentInfo.manufacturerName
+            manufacturer = filamentInfo.manufacturerName,
+            fullMassGrams = skuMass // Use SKU mass as full mass when available
         )
         
         // Save the filament component

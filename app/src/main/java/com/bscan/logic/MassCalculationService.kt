@@ -100,16 +100,179 @@ class MassCalculationService {
             return components
         }
         
-        // For now, distribute equally among variable components
-        val massPerVariableComponent = availableFilamentMass / variableComponents.size
+        if (availableFilamentMass <= 0) {
+            return components.map { component ->
+                if (component.variableMass) {
+                    component.copy(massGrams = 0f)
+                } else {
+                    component
+                }
+            }
+        }
+        
+        // Distribute proportionally based on current masses
+        val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
         
         return components.map { component ->
-            if (component.variableMass) {
-                component.copy(massGrams = massPerVariableComponent)
+            if (!component.variableMass) {
+                component
+            } else if (currentVariableMass > 0) {
+                val proportion = component.massGrams / currentVariableMass
+                component.copy(massGrams = availableFilamentMass * proportion)
+            } else {
+                // Equal distribution if no current mass
+                component.copy(massGrams = availableFilamentMass / variableComponents.size)
+            }
+        }
+    }
+    
+    /**
+     * Calculate new total mass when a component's mass changes
+     */
+    fun calculateTotalFromComponents(components: List<PhysicalComponent>): Float {
+        return components.sumOf { it.massGrams.toDouble() }.toFloat()
+    }
+    
+    /**
+     * Distribute total mass proportionally to variable components
+     */
+    fun distributeToVariableComponents(
+        components: List<PhysicalComponent>,
+        newTotalMass: Float
+    ): DistributionResult {
+        val fixedComponents = components.filter { !it.variableMass }
+        val variableComponents = components.filter { it.variableMass }
+        
+        val fixedMass = fixedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val availableForVariable = newTotalMass - fixedMass
+        
+        if (availableForVariable < 0) {
+            return DistributionResult(
+                success = false,
+                updatedComponents = components,
+                errorMessage = "Total mass is less than fixed component mass (${formatWeight(fixedMass, WeightUnit.GRAMS)})"
+            )
+        }
+        
+        if (variableComponents.isEmpty()) {
+            return DistributionResult(
+                success = newTotalMass == fixedMass,
+                updatedComponents = components,
+                errorMessage = if (newTotalMass != fixedMass) 
+                    "No variable components to adjust for mass difference" else null
+            )
+        }
+        
+        // Calculate proportional distribution
+        val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val updatedComponents = components.map { component ->
+            if (!component.variableMass) {
+                component
+            } else if (currentVariableMass > 0) {
+                val proportion = component.massGrams / currentVariableMass
+                component.withUpdatedMass(availableForVariable * proportion)
+            } else {
+                // Equal distribution if no current variable mass
+                val equalShare = availableForVariable / variableComponents.size
+                component.withUpdatedMass(equalShare)
+            }
+        }
+        
+        return DistributionResult(
+            success = true,
+            updatedComponents = updatedComponents,
+            errorMessage = null
+        )
+    }
+    
+    /**
+     * Update a single component and recalculate total
+     */
+    fun updateSingleComponent(
+        components: List<PhysicalComponent>,
+        componentId: String,
+        newMass: Float,
+        newFullMass: Float? = null
+    ): SingleComponentUpdateResult {
+        val targetComponent = components.find { it.id == componentId }
+            ?: return SingleComponentUpdateResult(
+                success = false,
+                updatedComponents = components,
+                newTotalMass = calculateTotalFromComponents(components),
+                errorMessage = "Component not found"
+            )
+        
+        // Validate mass constraints
+        if (newMass < 0) {
+            return SingleComponentUpdateResult(
+                success = false,
+                updatedComponents = components,
+                newTotalMass = calculateTotalFromComponents(components),
+                errorMessage = "Mass cannot be negative"
+            )
+        }
+        
+        if (targetComponent.variableMass && newFullMass != null && newMass > newFullMass) {
+            return SingleComponentUpdateResult(
+                success = false,
+                updatedComponents = components,
+                newTotalMass = calculateTotalFromComponents(components),
+                errorMessage = "Current mass cannot exceed full mass"
+            )
+        }
+        
+        // Update the component
+        val updatedComponents = components.map { component ->
+            if (component.id == componentId) {
+                var updated = if (component.variableMass) {
+                    component.withUpdatedMass(newMass)
+                } else {
+                    component.copy(massGrams = newMass)
+                }
+                if (newFullMass != null && component.variableMass) {
+                    updated = updated.withUpdatedFullMass(newFullMass)
+                }
+                updated
             } else {
                 component
             }
         }
+        
+        val newTotalMass = calculateTotalFromComponents(updatedComponents)
+        
+        return SingleComponentUpdateResult(
+            success = true,
+            updatedComponents = updatedComponents,
+            newTotalMass = newTotalMass,
+            errorMessage = null
+        )
+    }
+    
+    /**
+     * Validate mass relationships in components
+     */
+    fun validateMassConstraints(components: List<PhysicalComponent>): MassValidationResult {
+        val errors = mutableListOf<String>()
+        
+        components.forEach { component ->
+            if (component.massGrams < 0) {
+                errors.add("${component.name}: Mass cannot be negative")
+            }
+            
+            if (component.variableMass && component.fullMassGrams != null) {
+                if (component.fullMassGrams < 0) {
+                    errors.add("${component.name}: Full mass cannot be negative")
+                }
+                if (component.massGrams > component.fullMassGrams) {
+                    errors.add("${component.name}: Current mass cannot exceed full mass")
+                }
+            }
+        }
+        
+        return MassValidationResult(
+            valid = errors.isEmpty(),
+            errors = errors
+        )
     }
     
     /**
@@ -232,4 +395,31 @@ enum class WeightUnit {
 data class ValidationResult(
     val valid: Boolean,
     val message: String
+)
+
+/**
+ * Result of mass distribution to variable components
+ */
+data class DistributionResult(
+    val success: Boolean,
+    val updatedComponents: List<PhysicalComponent>,
+    val errorMessage: String?
+)
+
+/**
+ * Result of single component mass update
+ */
+data class SingleComponentUpdateResult(
+    val success: Boolean,
+    val updatedComponents: List<PhysicalComponent>,
+    val newTotalMass: Float,
+    val errorMessage: String?
+)
+
+/**
+ * Result of mass constraint validation
+ */
+data class MassValidationResult(
+    val valid: Boolean,
+    val errors: List<String>
 )
