@@ -1,36 +1,39 @@
 package com.bscan.ui.screens
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.SpoolDetails
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.FilamentReelDetails
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.home.SkuInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 
 enum class DetailType {
-    SCAN, TAG, SPOOL, SKU
+    SCAN, TAG, INVENTORY_STOCK, SKU
 }
 
 data class DetailUiState(
     val isLoading: Boolean = true,
-    val detailType: DetailType = DetailType.SPOOL,
+    val detailType: DetailType = DetailType.INVENTORY_STOCK,
     val identifier: String = "",
     val error: String? = null,
     // Primary entity data
     val primaryScan: InterpretedScan? = null,
     val primaryTag: InterpretedScan? = null, // Most recent scan for this tag UID
-    val primarySpool: SpoolDetails? = null,
+    val primarySpool: FilamentReelDetails? = null,
     val primarySku: SkuInfo? = null,
     // Related data
     val relatedScans: List<InterpretedScan> = emptyList(),
     val relatedTags: List<String> = emptyList(), // Tag UIDs
-    val relatedSpools: List<UniqueSpool> = emptyList(),
+    val relatedFilamentReels: List<UniqueFilamentReel> = emptyList(),
     val relatedSkus: List<SkuInfo> = emptyList()
 )
 
@@ -40,6 +43,18 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
     
     fun loadDetails(detailType: DetailType, identifier: String) {
+        Log.d("DetailViewModel", "Loading details for type: $detailType, identifier: $identifier")
+        
+        // Validate inputs before proceeding
+        if (identifier.isBlank()) {
+            Log.e("DetailViewModel", "Empty identifier provided for detail type: $detailType")
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Invalid identifier provided"
+            )
+            return
+        }
+        
         _uiState.value = _uiState.value.copy(
             isLoading = true,
             detailType = detailType,
@@ -49,16 +64,23 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         
         viewModelScope.launch {
             try {
-                when (detailType) {
-                    DetailType.SCAN -> loadScanDetails(identifier)
-                    DetailType.TAG -> loadTagDetails(identifier)
-                    DetailType.SPOOL -> loadSpoolDetails(identifier)
-                    DetailType.SKU -> loadSkuDetails(identifier)
+                Log.d("DetailViewModel", "Starting load operation for $detailType")
+                
+                withContext(Dispatchers.IO) {
+                    when (detailType) {
+                        DetailType.SCAN -> loadScanDetails(identifier)
+                        DetailType.TAG -> loadTagDetails(identifier)
+                        DetailType.INVENTORY_STOCK -> loadSpoolDetails(identifier)
+                        DetailType.SKU -> loadSkuDetails(identifier)
+                    }
                 }
+                
+                Log.d("DetailViewModel", "Successfully loaded details for $detailType")
             } catch (e: Exception) {
+                Log.e("DetailViewModel", "Failed to load details for $detailType", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Failed to load details: ${e.message}"
+                    error = "Failed to load details: ${e.message ?: "Unknown error"}"
                 )
             }
         }
@@ -100,7 +122,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         // Get related data
         val trayUid = primaryScan.filamentInfo?.trayUid
         val relatedSpools = if (trayUid != null) {
-            repository.getSpoolDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+            repository.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
         } else {
             emptyList()
         }
@@ -122,7 +144,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
             primaryScan = primaryScan,
             relatedScans = relatedScans,
             relatedTags = relatedTags,
-            relatedSpools = relatedSpools.map { spoolDetailsToUniqueSpool(it) },
+            relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
             relatedSkus = associatedSku
         )
     }
@@ -143,7 +165,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         // Get related data
         val trayUid = primaryTag.filamentInfo?.trayUid
         val relatedSpools = if (trayUid != null) {
-            repository.getSpoolDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+            repository.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
         } else {
             emptyList()
         }
@@ -164,32 +186,61 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
             primaryTag = primaryTag,
             relatedScans = tagScans,
             relatedTags = relatedTags,
-            relatedSpools = relatedSpools.map { spoolDetailsToUniqueSpool(it) },
+            relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
             relatedSkus = associatedSku
         )
     }
     
     private suspend fun loadSpoolDetails(trayUid: String) {
-        val spoolDetails = repository.getSpoolDetails(trayUid)
+        Log.d("DetailViewModel", "Loading spool details for trayUid: $trayUid")
         
-        if (spoolDetails == null) {
+        try {
+            val filamentReelDetails = repository.getFilamentReelDetails(trayUid)
+            
+            if (filamentReelDetails == null) {
+                Log.w("DetailViewModel", "No filament reel found for trayUid: $trayUid")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Filament reel not found for ID: $trayUid"
+                )
+                return
+            }
+            
+            Log.d("DetailViewModel", "Found filament reel details, loading associated data")
+            
+            // Safely get associated SKU with error handling
+            val associatedSku = try {
+                getAssociatedSku(filamentReelDetails.filamentInfo)
+            } catch (e: Exception) {
+                Log.e("DetailViewModel", "Failed to get associated SKU for filament reel", e)
+                emptyList()
+            }
+            
+            // Safely convert to unique component representation
+            val uniqueComponent = try {
+                filamentReelDetailsToUniqueComponent(filamentReelDetails)
+            } catch (e: Exception) {
+                Log.e("DetailViewModel", "Failed to convert filament reel details to unique component", e)
+                null
+            }
+            
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = "Spool not found"
+                primarySpool = filamentReelDetails,
+                relatedScans = filamentReelDetails.allScans,
+                relatedTags = filamentReelDetails.tagUids,
+                relatedFilamentReels = if (uniqueComponent != null) listOf(uniqueComponent) else emptyList(),
+                relatedSkus = associatedSku
             )
-            return
+            
+            Log.d("DetailViewModel", "Successfully loaded filament reel details with ${filamentReelDetails.allScans.size} related scans")
+        } catch (e: Exception) {
+            Log.e("DetailViewModel", "Exception loading filament reel details", e)
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Failed to load filament reel details: ${e.message}"
+            )
         }
-        
-        val associatedSku = getAssociatedSku(spoolDetails.filamentInfo)
-        
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            primarySpool = spoolDetails,
-            relatedScans = spoolDetails.allScans,
-            relatedTags = spoolDetails.tagUids,
-            relatedSpools = listOf(spoolDetailsToUniqueSpool(spoolDetails)),
-            relatedSkus = associatedSku
-        )
     }
     
     private suspend fun loadSkuDetails(skuKey: String) {
@@ -239,7 +290,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
             val primarySku = SkuInfo(
                 skuKey = skuKey,
                 filamentInfo = syntheticFilamentInfo,
-                spoolCount = 0,
+                filamentReelCount = 0,
                 totalScans = 0,
                 successfulScans = 0,
                 lastScanned = LocalDateTime.now(),
@@ -251,7 +302,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
                 primarySku = primarySku,
                 relatedScans = emptyList(),
                 relatedTags = emptyList(),
-                relatedSpools = emptyList(),
+                relatedFilamentReels = emptyList(),
                 relatedSkus = listOf(primarySku)
             )
             return
@@ -260,7 +311,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         val mostRecentScan = skuScans.maxByOrNull { it.timestamp }!!
         val filamentInfo = mostRecentScan.filamentInfo!!
         
-        val uniqueSpools = skuScans.groupBy { it.filamentInfo!!.trayUid }.size
+        val uniqueFilamentReels = skuScans.groupBy { it.filamentInfo!!.trayUid }.size
         val totalScans = skuScans.size
         val successfulScans = skuScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
         val lastScanned = skuScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
@@ -268,7 +319,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         val primarySku = SkuInfo(
             skuKey = skuKey,
             filamentInfo = filamentInfo,
-            spoolCount = uniqueSpools,
+            filamentReelCount = uniqueFilamentReels,
             totalScans = totalScans,
             successfulScans = successfulScans,
             lastScanned = lastScanned,
@@ -279,7 +330,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         val relatedSpools = skuScans
             .groupBy { it.filamentInfo!!.trayUid }
             .mapNotNull { (trayUid, scans) ->
-                repository.getSpoolDetails(trayUid)
+                repository.getFilamentReelDetails(trayUid)
             }
         
         val relatedTags = skuScans.map { it.uid }.distinct()
@@ -289,61 +340,111 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
             primarySku = primarySku,
             relatedScans = skuScans,
             relatedTags = relatedTags,
-            relatedSpools = relatedSpools.map { spoolDetailsToUniqueSpool(it) },
+            relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
             relatedSkus = listOf(primarySku)
         )
     }
     
     private fun getAssociatedSku(filamentInfo: com.bscan.model.FilamentInfo?): List<SkuInfo> {
-        if (filamentInfo == null) return emptyList()
-        
-        val allScans = repository.getAllScans()
-        // Find scans that match BOTH filament type AND color for this specific SKU
-        val skuScans = allScans.filter { 
-            it.filamentInfo?.filamentType == filamentInfo.filamentType &&
-            it.filamentInfo?.colorName == filamentInfo.colorName
+        if (filamentInfo == null) {
+            Log.d("DetailViewModel", "No filament info provided for SKU association")
+            return emptyList()
         }
         
-        if (skuScans.isEmpty()) return emptyList()
-        
-        // Create the single associated SKU
-        val skuKey = "${filamentInfo.filamentType}-${filamentInfo.colorName}"
-        val successfulScans = skuScans.filter { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
-        
-        if (successfulScans.isNotEmpty()) {
-            val mostRecentScan = successfulScans.maxByOrNull { it.timestamp }
-            val info = mostRecentScan?.filamentInfo ?: filamentInfo
-            val uniqueSpools = skuScans.groupBy { it.filamentInfo!!.trayUid }.size
-            val totalScans = skuScans.size
-            val successfulCount = successfulScans.size
-            val lastScanned = skuScans.maxByOrNull { it.timestamp }?.timestamp
+        try {
+            val allScans = repository.getAllScans()
             
-            val sku = SkuInfo(
-                skuKey = skuKey,
-                filamentInfo = info,
-                spoolCount = uniqueSpools,
-                totalScans = totalScans,
-                successfulScans = successfulCount,
-                lastScanned = lastScanned ?: LocalDateTime.now(),
-                successRate = if (totalScans > 0) successfulCount.toFloat() / totalScans else 0f
-            )
+            // Find scans that match BOTH filament type AND color for this specific SKU
+            val skuScans = allScans.filter { scan ->
+                try {
+                    scan.filamentInfo?.filamentType == filamentInfo.filamentType &&
+                    scan.filamentInfo?.colorName == filamentInfo.colorName
+                } catch (e: Exception) {
+                    Log.w("DetailViewModel", "Error filtering scan for SKU association", e)
+                    false
+                }
+            }
             
-            return listOf(sku)
+            if (skuScans.isEmpty()) {
+                Log.d("DetailViewModel", "No matching scans found for SKU: ${filamentInfo.filamentType}-${filamentInfo.colorName}")
+                return emptyList()
+            }
+            
+            // Create the single associated SKU
+            val skuKey = "${filamentInfo.filamentType}-${filamentInfo.colorName}"
+            val successfulScans = skuScans.filter { 
+                try {
+                    it.scanResult == com.bscan.model.ScanResult.SUCCESS 
+                } catch (e: Exception) {
+                    Log.w("DetailViewModel", "Error checking scan result", e)
+                    false
+                }
+            }
+            
+            if (successfulScans.isNotEmpty()) {
+                val mostRecentScan = successfulScans.maxByOrNull { it.timestamp }
+                val info = mostRecentScan?.filamentInfo ?: filamentInfo
+                
+                val uniqueFilamentReels = try {
+                    skuScans.groupBy { it.filamentInfo?.trayUid ?: "unknown" }.size
+                } catch (e: Exception) {
+                    Log.w("DetailViewModel", "Error calculating unique filament reels", e)
+                    1
+                }
+                
+                val totalScans = skuScans.size
+                val successfulCount = successfulScans.size
+                val lastScanned = skuScans.maxByOrNull { it.timestamp }?.timestamp
+                
+                val sku = SkuInfo(
+                    skuKey = skuKey,
+                    filamentInfo = info,
+                    filamentReelCount = uniqueFilamentReels,
+                    totalScans = totalScans,
+                    successfulScans = successfulCount,
+                    lastScanned = lastScanned ?: LocalDateTime.now(),
+                    successRate = if (totalScans > 0) successfulCount.toFloat() / totalScans else 0f
+                )
+                
+                Log.d("DetailViewModel", "Created SKU info: $skuKey with ${totalScans} scans")
+                return listOf(sku)
+            }
+            
+            Log.d("DetailViewModel", "No successful scans found for SKU: $skuKey")
+            return emptyList()
+        } catch (e: Exception) {
+            Log.e("DetailViewModel", "Error getting associated SKU", e)
+            return emptyList()
         }
-        
-        return emptyList()
     }
     
-    private fun spoolDetailsToUniqueSpool(spoolDetails: SpoolDetails): UniqueSpool {
-        return UniqueSpool(
-            uid = spoolDetails.trayUid, // Use tray UID as the identifier
-            filamentInfo = spoolDetails.filamentInfo,
-            scanCount = spoolDetails.totalScans,
-            successCount = spoolDetails.successfulScans,
-            lastScanned = spoolDetails.lastScanned,
-            successRate = if (spoolDetails.totalScans > 0) 
-                spoolDetails.successfulScans.toFloat() / spoolDetails.totalScans else 0f
-        )
+    private fun filamentReelDetailsToUniqueComponent(filamentReelDetails: FilamentReelDetails): UniqueFilamentReel {
+        return try {
+            UniqueFilamentReel(
+                uid = filamentReelDetails.trayUid, // Use tray UID as the identifier
+                filamentInfo = filamentReelDetails.filamentInfo,
+                scanCount = filamentReelDetails.totalScans,
+                successCount = filamentReelDetails.successfulScans,
+                lastScanned = filamentReelDetails.lastScanned,
+                successRate = if (filamentReelDetails.totalScans > 0) 
+                    filamentReelDetails.successfulScans.toFloat() / filamentReelDetails.totalScans else 0f
+            )
+        } catch (e: Exception) {
+            Log.e("DetailViewModel", "Error converting filament reel details to unique component", e)
+            // Return a minimal valid component if conversion fails
+            UniqueFilamentReel(
+                uid = filamentReelDetails.trayUid,
+                filamentInfo = filamentReelDetails.filamentInfo,
+                scanCount = 0,
+                successCount = 0,
+                lastScanned = LocalDateTime.now(),
+                successRate = 0f
+            )
+        }
+    }
+    
+    private fun filamentReelDetailsToUniqueFilamentReel(filamentReelDetails: FilamentReelDetails): UniqueFilamentReel {
+        return filamentReelDetailsToUniqueComponent(filamentReelDetails)
     }
     
     private fun createSyntheticFilamentInfo(filamentType: String, colorName: String): com.bscan.model.FilamentInfo {

@@ -1,11 +1,13 @@
 package com.bscan.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +16,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.InventoryRepository
 import com.bscan.repository.PhysicalComponentRepository
@@ -25,12 +31,17 @@ import com.bscan.ui.components.filament.*
 import com.bscan.ui.components.history.*
 import com.bscan.ui.components.spool.*
 import com.bscan.ui.components.weight.FilamentStatusCard
+import com.bscan.ui.components.inventory.InventoryComponentsCard
+import com.bscan.ui.components.inventory.MassEditDialog
+import com.bscan.ui.components.inventory.AddComponentDialog
+import com.bscan.ui.components.inventory.EditMassResult
 import com.bscan.ui.screens.home.SkuCard
-import com.bscan.ui.screens.home.SpoolCard
+import com.bscan.ui.screens.home.FilamentReelCard
 import com.bscan.ui.screens.home.TagCard
 import com.bscan.model.MassMeasurement
 import com.bscan.model.InventoryItem
 import com.bscan.model.FilamentStatus
+import com.bscan.model.PhysicalComponent
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,14 +54,28 @@ fun DetailScreen(
     onPurgeCache: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    Log.d("DetailScreen", "Starting DetailScreen with type: $detailType, identifier: $identifier")
+    
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
     val viewModel = remember { DetailViewModel(repository) }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
+    // Add comprehensive error logging
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            Log.e("DetailScreen", "UI State Error: $error for type: $detailType, identifier: $identifier")
+        }
+    }
+    
     LaunchedEffect(detailType, identifier) {
-        viewModel.loadDetails(detailType, identifier)
+        Log.d("DetailScreen", "Loading details for type: $detailType, identifier: $identifier")
+        try {
+            viewModel.loadDetails(detailType, identifier)
+        } catch (e: Exception) {
+            Log.e("DetailScreen", "Failed to load details", e)
+        }
     }
     
     Scaffold(
@@ -61,7 +86,7 @@ fun DetailScreen(
                         when (detailType) {
                             DetailType.SCAN -> "Scan Details"
                             DetailType.TAG -> "Tag Details" 
-                            DetailType.SPOOL -> "Spool Details"
+                            DetailType.INVENTORY_STOCK -> "Inventory Stock Details"
                             DetailType.SKU -> "SKU Details"
                         }
                     )
@@ -128,10 +153,19 @@ fun DetailScreen(
                             }
                         }
                     }
-                    DetailType.SPOOL -> {
+                    DetailType.INVENTORY_STOCK -> {
                         uiState.primarySpool?.let { spool ->
+                            // Add individual items instead of a single wrapped component
                             item {
-                                PrimarySpoolSection(spool = spool, onPurgeCache = onPurgeCache)
+                                Text(
+                                    text = "Inventory Stock Information",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            
+                            item {
+                                PrimaryFilamentReelContent(filamentReel = spool, onPurgeCache = onPurgeCache)
                             }
                         }
                     }
@@ -145,10 +179,10 @@ fun DetailScreen(
                 }
                 
                 // Related entities sections
-                if (detailType != DetailType.SPOOL && uiState.relatedSpools.isNotEmpty()) {
+                if (detailType != DetailType.INVENTORY_STOCK && uiState.relatedFilamentReels.isNotEmpty()) {
                     item {
-                        RelatedSpoolsSection(
-                            spools = uiState.relatedSpools,
+                        RelatedFilamentReelsSection(
+                            filamentReels = uiState.relatedFilamentReels,
                             onNavigateToDetails = onNavigateToDetails
                         )
                     }
@@ -261,100 +295,36 @@ fun PrimaryTagSection(tag: com.bscan.repository.InterpretedScan) {
 }
 
 @Composable
-fun PrimarySpoolSection(
-    spool: com.bscan.repository.SpoolDetails,
+fun PrimaryFilamentReelContent(
+    filamentReel: com.bscan.repository.FilamentReelDetails,
     onPurgeCache: ((String) -> Unit)?
 ) {
-    val context = LocalContext.current
-    val inventoryRepository = remember { InventoryRepository(context) }
-    val physicalComponentRepository = remember { PhysicalComponentRepository(context) }
-    val userPrefsRepository = remember { UserPreferencesRepository(context) }
-    val mappingsRepository = remember { MappingsRepository(context) }
-    val skuWeightService = remember { SkuWeightService(mappingsRepository, physicalComponentRepository) }
-    
-    // Weight management state
-    var inventoryItem by remember { mutableStateOf<InventoryItem?>(null) }
-    var filamentStatus by remember { mutableStateOf<FilamentStatus?>(null) }
-    // TODO: Add state for new weight measurement dialog
-    val preferredWeightUnit by remember { mutableStateOf(userPrefsRepository.getWeightUnit()) }
-    
-    // Load inventory data
-    LaunchedEffect(spool.trayUid) {
-        inventoryItem = inventoryRepository.getInventoryItem(spool.trayUid)
-        filamentStatus = inventoryRepository.calculateFilamentStatus(spool.trayUid)
-    }
-    
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = "Spool Information",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        
-        // Filament Color Preview
-        ColorPreviewCard(
-            colorHex = spool.filamentInfo.colorHex,
-            colorName = spool.filamentInfo.colorName,
-            filamentType = spool.filamentInfo.filamentType
-        )
-        
-        // Weight Management Section - Always show for all spools
-        val currentInventoryItem = inventoryItem ?: InventoryItem(
-            trayUid = spool.trayUid,
-            components = emptyList(),
-            totalMeasuredMass = null,
-            measurements = emptyList(),
-            lastUpdated = java.time.LocalDateTime.now()
-        )
-        val currentFilamentStatus = filamentStatus ?: inventoryRepository.calculateFilamentStatus(spool.trayUid)
-        
-        FilamentStatusCard(
-            inventoryItem = currentInventoryItem,
-            filamentStatus = currentFilamentStatus,
-            preferredWeightUnit = preferredWeightUnit,
-            onRecordWeight = { 
-                // TODO: Show weight measurement dialog
-            },
-            onSetupComponents = {
-                // TODO: Implement component setup dialog
-            }
-        )
-        
-        // Filament Type Info
-        InfoCard(
-            title = "Filament Type",
-            value = spool.filamentInfo.detailedFilamentType.ifEmpty { 
-                spool.filamentInfo.filamentType 
-            }
-        )
-        
-        // Specifications
-        SpecificationCard(filamentInfo = spool.filamentInfo)
-        
-        // Temperature Settings
-        TemperatureCard(filamentInfo = spool.filamentInfo)
-        
-        // Production Information
-        ProductionInfoCard(filamentInfo = spool.filamentInfo)
-        
-        // Spool Overview
-        SpoolOverviewCard(spoolDetails = spool)
-        
-        // Associated Tags
-        AssociatedTagsCard(spoolDetails = spool)
-        
-        // Cache Management
-        onPurgeCache?.let { purgeCallback ->
-            spool.tagUids.forEach { tagUid ->
-                CacheManagementCard(
-                    uid = tagUid,
-                    onPurgeCache = purgeCallback
-                )
-            }
+    // Simplified version to test layout constraints
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Filament Reel: ${filamentReel.trayUid}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Text(
+                text = "Material: ${filamentReel.filamentInfo.filamentType}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            
+            Text(
+                text = "Color: ${filamentReel.filamentInfo.colorName}",
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
-    
-    // TODO: Add simple weight measurement dialog for new component system
 }
 
 @Composable
@@ -378,8 +348,8 @@ fun PrimarySkuSection(sku: com.bscan.ui.screens.home.SkuInfo) {
         )
         
         InfoCard(
-            title = "Unique Spools",
-            value = "${sku.spoolCount} spools"
+            title = "Unique Reels",
+            value = "${sku.filamentReelCount} reels"
         )
         
         InfoCard(
@@ -404,22 +374,22 @@ fun PrimarySkuSection(sku: com.bscan.ui.screens.home.SkuInfo) {
 }
 
 @Composable
-fun RelatedSpoolsSection(
-    spools: List<com.bscan.repository.UniqueSpool>,
+fun RelatedFilamentReelsSection(
+    filamentReels: List<com.bscan.repository.UniqueFilamentReel>,
     onNavigateToDetails: ((DetailType, String) -> Unit)?
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Related Spools (${spools.size})",
+            text = "Related Inventory Stock (${filamentReels.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
         
-        spools.forEach { spool ->
-            SpoolCard(
-                spool = spool,
-                modifier = Modifier.clickable {
-                    onNavigateToDetails?.invoke(DetailType.SPOOL, spool.uid)
+        filamentReels.forEach { filamentReel ->
+            FilamentReelCard(
+                filamentReel = filamentReel,
+                onClick = { trayUid ->
+                    onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, trayUid)
                 }
             )
         }

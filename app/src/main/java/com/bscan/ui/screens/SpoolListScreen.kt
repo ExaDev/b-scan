@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.ui.screens.spool.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,30 +23,30 @@ fun SpoolListScreen(
 ) {
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
-    var spools by remember { mutableStateOf(listOf<UniqueSpool>()) }
+    var filamentReels by remember { mutableStateOf(listOf<UniqueFilamentReel>()) }
     var selectedFilter by remember { mutableStateOf("All") }
     var filterByType by remember { mutableStateOf("All Types") }
     
     LaunchedEffect(Unit) {
         try {
-            spools = repository.getUniqueSpoolsByTray() // Group by tray UID instead of tag UID
+            filamentReels = repository.getUniqueFilamentReelsByTray() // Group by tray UID instead of tag UID
         } catch (e: Exception) {
-            spools = emptyList()
+            filamentReels = emptyList()
         }
     }
     
     // Apply filters
-    val filteredSpools = spools.filter { spool ->
+    val filteredFilamentReels = filamentReels.filter { filamentReel ->
         val matchesSuccessFilter = when (selectedFilter) {
-            "Successful Only" -> spool.successCount > 0
-            "High Success Rate" -> spool.successRate >= 0.8f
+            "Successful Only" -> filamentReel.successCount > 0
+            "High Success Rate" -> filamentReel.successRate >= 0.8f
             else -> true
         }
         
         val matchesTypeFilter = when (filterByType) {
             "All Types" -> true
-            else -> spool.filamentInfo.filamentType == filterByType || 
-                    spool.filamentInfo.detailedFilamentType == filterByType
+            else -> filamentReel.filamentInfo.filamentType == filterByType || 
+                    filamentReel.filamentInfo.detailedFilamentType == filterByType
         }
         
         matchesSuccessFilter && matchesTypeFilter
@@ -86,12 +86,12 @@ fun SpoolListScreen(
         ) {
             // Statistics Card
             item {
-                SpoolStatisticsCard(spools = spools)
+                FilamentReelStatisticsCard(filamentReels = filamentReels)
             }
             
             // Filter Row
             item {
-                SpoolFilterSection(
+                FilamentReelFilterSection(
                     selectedFilter = selectedFilter,
                     onFilterChanged = { selectedFilter = it },
                     selectedTypeFilter = filterByType,
@@ -101,20 +101,20 @@ fun SpoolListScreen(
             }
             
             // Spools List
-            items(filteredSpools) { spool ->
-                SpoolCard(
-                    spool = spool,
+            items(filteredFilamentReels) { filamentReel ->
+                FilamentReelCard(
+                    filamentReel = filamentReel,
                     onClick = { trayUid ->
-                        onNavigateToDetails?.invoke(DetailType.SPOOL, trayUid)
+                        onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, trayUid)
                     }
                 )
             }
             
             // Empty state
-            if (filteredSpools.isEmpty()) {
+            if (filteredFilamentReels.isEmpty()) {
                 item {
-                    SpoolListEmptyState(
-                        hasSpools = spools.isNotEmpty(),
+                    FilamentReelListEmptyState(
+                        hasFilamentReels = filamentReels.isNotEmpty(),
                         currentFilter = selectedFilter
                     )
                 }

@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.UniqueSpool
+import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.home.*
 
@@ -36,8 +36,8 @@ fun HomeScreen(
     var filterState by remember { mutableStateOf(FilterState()) }
     
     // Data state
-    var spools by remember { mutableStateOf(listOf<UniqueSpool>()) }
-    var individualTags by remember { mutableStateOf(listOf<UniqueSpool>()) }
+    var filamentReels by remember { mutableStateOf(listOf<UniqueFilamentReel>()) }
+    var individualTags by remember { mutableStateOf(listOf<UniqueFilamentReel>()) }
     var allScans by remember { mutableStateOf(listOf<InterpretedScan>()) }
     var availableFilamentTypes by remember { mutableStateOf(setOf<String>()) }
     var availableColors by remember { mutableStateOf(setOf<String>()) }
@@ -49,8 +49,8 @@ fun HomeScreen(
     // Load data
     LaunchedEffect(Unit) {
         try {
-            spools = repository.getUniqueSpoolsByTray() // Group by tray UID for inventory tab
-            individualTags = repository.getUniqueSpools() // Individual tags for tags tab
+            filamentReels = repository.getUniqueFilamentReelsByTray() // Group by tray UID for inventory tab
+            individualTags = repository.getUniqueFilamentReels() // Individual tags for tags tab
             allScans = repository.getAllScans()
             availableFilamentTypes = allScans
                 .mapNotNull { it.filamentInfo?.detailedFilamentType }
@@ -70,7 +70,7 @@ fun HomeScreen(
                 }
                 .toSet()
         } catch (e: Exception) {
-            spools = emptyList()
+            filamentReels = emptyList()
             allScans = emptyList()
             availableFilamentTypes = emptySet()
             availableColors = emptySet()
@@ -98,7 +98,7 @@ fun HomeScreen(
             sortDirection = sortDirection,
             groupByOption = groupByOption,
             filterState = filterState,
-            spools = spools,
+            filamentReels = filamentReels,
             individualTags = individualTags,
             allScans = allScans,
             availableFilamentTypes = availableFilamentTypes,
