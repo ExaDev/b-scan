@@ -16,19 +16,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.InventoryRepository
-import com.bscan.repository.SpoolWeightRepository
+import com.bscan.repository.PhysicalComponentRepository
 import com.bscan.repository.UserPreferencesRepository
+import com.bscan.repository.MappingsRepository
+import com.bscan.logic.SkuWeightService
 import com.bscan.ui.components.*
 import com.bscan.ui.components.filament.*
 import com.bscan.ui.components.history.*
 import com.bscan.ui.components.spool.*
 import com.bscan.ui.components.weight.FilamentStatusCard
-import com.bscan.ui.components.weight.WeightInputDialog
-import com.bscan.ui.components.weight.ExpectedWeightInputDialog
 import com.bscan.ui.screens.home.SkuCard
 import com.bscan.ui.screens.home.SpoolCard
 import com.bscan.ui.screens.home.TagCard
-import com.bscan.model.FilamentWeightMeasurement
+import com.bscan.model.MassMeasurement
 import com.bscan.model.InventoryItem
 import com.bscan.model.FilamentStatus
 import java.time.format.DateTimeFormatter
@@ -267,14 +267,15 @@ fun PrimarySpoolSection(
 ) {
     val context = LocalContext.current
     val inventoryRepository = remember { InventoryRepository(context) }
-    val spoolWeightRepository = remember { SpoolWeightRepository(context) }
+    val physicalComponentRepository = remember { PhysicalComponentRepository(context) }
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    val mappingsRepository = remember { MappingsRepository(context) }
+    val skuWeightService = remember { SkuWeightService(mappingsRepository, physicalComponentRepository) }
     
     // Weight management state
     var inventoryItem by remember { mutableStateOf<InventoryItem?>(null) }
     var filamentStatus by remember { mutableStateOf<FilamentStatus?>(null) }
-    var showWeightDialog by remember { mutableStateOf(false) }
-    var showExpectedWeightDialog by remember { mutableStateOf(false) }
+    // TODO: Add state for new weight measurement dialog
     val preferredWeightUnit by remember { mutableStateOf(userPrefsRepository.getWeightUnit()) }
     
     // Load inventory data
@@ -300,8 +301,8 @@ fun PrimarySpoolSection(
         // Weight Management Section - Always show for all spools
         val currentInventoryItem = inventoryItem ?: InventoryItem(
             trayUid = spool.trayUid,
-            currentConfigurationId = null,
-            expectedFilamentWeightGrams = null,
+            components = emptyList(),
+            totalMeasuredMass = null,
             measurements = emptyList(),
             lastUpdated = java.time.LocalDateTime.now()
         )
@@ -311,11 +312,12 @@ fun PrimarySpoolSection(
             inventoryItem = currentInventoryItem,
             filamentStatus = currentFilamentStatus,
             preferredWeightUnit = preferredWeightUnit,
-            onRecordWeight = { showWeightDialog = true },
-            onSetConfiguration = {
-                // TODO: Implement configuration selection dialog
+            onRecordWeight = { 
+                // TODO: Show weight measurement dialog
             },
-            onSetExpectedWeight = { showExpectedWeightDialog = true }
+            onSetupComponents = {
+                // TODO: Implement component setup dialog
+            }
         )
         
         // Filament Type Info
@@ -352,55 +354,7 @@ fun PrimarySpoolSection(
         }
     }
     
-    // Weight input dialog
-    if (showWeightDialog) {
-        val configurations = spoolWeightRepository.getConfigurations()
-        val components = spoolWeightRepository.getComponents()
-        
-        WeightInputDialog(
-            trayUid = spool.trayUid,
-            availableConfigurations = configurations,
-            components = components,
-            preferredWeightUnit = preferredWeightUnit,
-            onMeasurementSaved = { measurement ->
-                // Save the measurement and refresh data
-                inventoryRepository.addWeightMeasurement(spool.trayUid, measurement)
-                inventoryItem = inventoryRepository.getInventoryItem(spool.trayUid)
-                filamentStatus = inventoryRepository.calculateFilamentStatus(spool.trayUid)
-                showWeightDialog = false
-            },
-            onDismiss = { showWeightDialog = false }
-        )
-    }
-    
-    // Expected weight input dialog
-    if (showExpectedWeightDialog) {
-        val components = spoolWeightRepository.getComponents()
-        
-        ExpectedWeightInputDialog(
-            trayUid = spool.trayUid,
-            components = components,
-            preferredWeightUnit = preferredWeightUnit,
-            onWeightConfigured = { measurement, configId ->
-                // Save the measurement, set expected weight, and refresh data
-                inventoryRepository.addWeightMeasurement(spool.trayUid, measurement)
-                // Calculate expected filament weight from the measurement
-                val config = spoolWeightRepository.getConfiguration(configId)
-                val spoolWeight = config?.let { 
-                    spoolWeightRepository.getComponents()
-                        .filter { it.id in config.components }
-                        .sumOf { it.weightGrams.toDouble() }
-                        .toFloat()
-                } ?: 0f
-                val expectedFilamentWeight = measurement.measuredWeightGrams - spoolWeight
-                inventoryRepository.setExpectedFilamentWeight(spool.trayUid, expectedFilamentWeight)
-                inventoryItem = inventoryRepository.getInventoryItem(spool.trayUid)
-                filamentStatus = inventoryRepository.calculateFilamentStatus(spool.trayUid)
-                showExpectedWeightDialog = false
-            },
-            onDismiss = { showExpectedWeightDialog = false }
-        )
-    }
+    // TODO: Add simple weight measurement dialog for new component system
 }
 
 @Composable

@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
@@ -29,9 +30,8 @@ import com.bscan.data.BambuProductDatabase
 import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.ui.components.FilamentColorBox
-import com.bscan.ui.components.weight.SpoolWeightSettingsCard
-import com.bscan.repository.SpoolWeightRepository
-import com.bscan.model.SpoolWeightPreset
+import com.bscan.repository.PhysicalComponentRepository
+// SpoolWeightRepository removed - using PhysicalComponentRepository instead
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -40,13 +40,14 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToComponents: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
     val exportManager = remember { DataExportManager(context) }
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
-    val spoolWeightRepository = remember { SpoolWeightRepository(context) }
+    val physicalComponentRepository = remember { PhysicalComponentRepository(context) }
     val scope = rememberCoroutineScope()
     
     // UI State
@@ -61,9 +62,10 @@ fun SettingsScreen(
     var materialDisplayMode by remember { mutableStateOf(userPrefsRepository.getMaterialDisplayMode()) }
     
     // Spool Weight State
-    var spoolWeightPresets by remember { mutableStateOf(emptyList<SpoolWeightPreset>()) }
-    var spoolConfigurations by remember { mutableStateOf(emptyList<com.bscan.model.SpoolConfiguration>()) }
-    var spoolComponents by remember { mutableStateOf(emptyList<com.bscan.model.SpoolComponent>()) }
+    // Physical Components State
+    var totalComponents by remember { mutableStateOf(0) }
+    var userDefinedComponents by remember { mutableStateOf(0) }
+    var builtInComponents by remember { mutableStateOf(0) }
     
     // Configuration State
     var generationMode by remember { mutableStateOf(DataGenerationMode.COMPLETE_COVERAGE) }
@@ -97,10 +99,11 @@ fun SettingsScreen(
             .distinct()
         totalSpools = uniqueTrayUids.size
         
-        // Load spool weight data
-        spoolWeightPresets = spoolWeightRepository.getPresets()
-        spoolConfigurations = spoolWeightRepository.getConfigurations() 
-        spoolComponents = spoolWeightRepository.getComponents()
+        // Load physical components data
+        val allComponents = physicalComponentRepository.getFixedComponents()
+        totalComponents = allComponents.size
+        userDefinedComponents = physicalComponentRepository.getUserDefinedComponents().size
+        builtInComponents = physicalComponentRepository.getBuiltInComponents().size
     }
     
     // Export file picker
@@ -216,6 +219,23 @@ fun SettingsScreen(
             
             item {
                 Text(
+                    text = "Physical Components",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            item {
+                PhysicalComponentsManagementCard(
+                    totalComponents = totalComponents,
+                    userDefinedComponents = userDefinedComponents,
+                    builtInComponents = builtInComponents,
+                    onManageComponents = onNavigateToComponents
+                )
+            }
+            
+            item {
+                Text(
                     text = "Data Management",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Medium
@@ -295,51 +315,7 @@ fun SettingsScreen(
                 )
             }
             
-            item {
-                Text(
-                    text = "Spool Weight Management",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            item {
-                SpoolWeightSettingsCard(
-                    presets = spoolWeightPresets,
-                    configurations = spoolConfigurations,
-                    components = spoolComponents,
-                    onPresetSelected = { preset ->
-                        // Handle preset selection
-                        userPrefsRepository.setDefaultSpoolConfigurationId(preset.configurationId)
-                        successMessage = "Default spool configuration set to ${preset.name}"
-                        showSuccessMessage = true
-                    },
-                    onEditPreset = { preset ->
-                        // TODO: Open preset edit dialog
-                        successMessage = "Preset editing will be implemented in a future update"
-                        showSuccessMessage = true
-                    },
-                    onResetPreset = { presetId ->
-                        scope.launch {
-                            try {
-                                spoolWeightRepository.resetPresetToDefault(presetId)
-                                // Reload data
-                                spoolWeightPresets = spoolWeightRepository.getPresets()
-                                successMessage = "Preset reset to factory defaults"
-                                showSuccessMessage = true
-                            } catch (e: Exception) {
-                                successMessage = "Failed to reset preset: ${e.message}"
-                                showSuccessMessage = true
-                            }
-                        }
-                    },
-                    onCreateCustom = {
-                        // TODO: Open custom configuration creator
-                        successMessage = "Custom configuration creator will be implemented in a future update"
-                        showSuccessMessage = true
-                    }
-                )
-            }
+            // Legacy spool weight management section removed
             
             item {
                 Text(
@@ -869,6 +845,96 @@ private fun MaterialDisplayPreferenceCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * Card for managing physical components
+ */
+@Composable
+private fun PhysicalComponentsManagementCard(
+    totalComponents: Int,
+    userDefinedComponents: Int,
+    builtInComponents: Int,
+    onManageComponents: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Component Management",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Text(
+                text = "Manage the physical components used for inventory tracking",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // Component statistics
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ComponentStatistic(
+                    label = "Total",
+                    value = totalComponents.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+                ComponentStatistic(
+                    label = "Built-in",
+                    value = builtInComponents.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+                ComponentStatistic(
+                    label = "User-created",
+                    value = userDefinedComponents.toString(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Button(
+                onClick = onManageComponents,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Manage Components")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComponentStatistic(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
