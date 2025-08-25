@@ -18,7 +18,9 @@ data class ProductEntry(
     val manufacturer: String,       // Always "Bambu Lab" for scraped products
     val materialType: String,       // e.g., "PLA_BASIC", "PLA_MATTE", "ABS"
     val internalCode: String,       // Bambu internal code (e.g., "GFL00")
-    val lastUpdated: String         // ISO timestamp when this entry was scraped
+    val lastUpdated: String,        // ISO timestamp when this entry was scraped
+    val filamentWeightGrams: Float?, // Expected filament weight in grams (e.g., 500, 750, 1000)
+    val spoolType: SpoolPackaging?   // Packaging type: REFILL or WITH_SPOOL
 ) {
     /**
      * Extract a clean color name suitable for display by removing variant information.
@@ -60,4 +62,33 @@ data class ProductEntry(
         
         return hexMatches && materialMatches
     }
+    
+    /**
+     * Check if this product has complete weight information for brand new spool setup
+     */
+    fun hasCompleteWeightInfo(): Boolean {
+        return filamentWeightGrams != null && spoolType != null
+    }
+    
+    /**
+     * Get expected total weight for a brand new spool including spool components
+     */
+    fun getExpectedTotalWeight(cardboardCoreWeight: Float = 33f, emptySpoolWeight: Float = 212f): Float? {
+        return filamentWeightGrams?.let { filamentWeight ->
+            val spoolComponentWeight = when (spoolType) {
+                SpoolPackaging.REFILL -> cardboardCoreWeight
+                SpoolPackaging.WITH_SPOOL -> cardboardCoreWeight + emptySpoolWeight
+                null -> 0f
+            }
+            filamentWeight + spoolComponentWeight
+        }
+    }
+}
+
+/**
+ * Spool packaging type extracted from product catalog
+ */
+enum class SpoolPackaging {
+    REFILL,      // Just cardboard core (33g)
+    WITH_SPOOL   // Cardboard core + reusable spool (245g total)
 }

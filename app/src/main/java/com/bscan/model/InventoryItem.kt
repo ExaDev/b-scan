@@ -3,48 +3,87 @@ package com.bscan.model
 import java.time.LocalDateTime
 
 /**
- * Represents an inventory item that links a FilamentReel with weight tracking data.
+ * Represents an inventory item that combines physical components with mass tracking.
  * 
- * This combines the logical filament reel with physical weight measurements,
- * enabling calculation of remaining filament based on spool configuration and
- * measured weights over time.
+ * This links a FilamentReel with its constituent physical components (filament, core, spool, etc.)
+ * and enables precise mass tracking with automatic filament consumption calculation.
  */
 data class InventoryItem(
     val trayUid: String,                        // Links to FilamentReel
-    val currentConfigurationId: String?,        // Current spool configuration (null if not set)
-    val expectedFilamentWeightGrams: Float?,    // Expected weight when new (null if unknown)
-    val measurements: List<FilamentWeightMeasurement>, // Weight history
+    val components: List<String>,               // List of PhysicalComponent IDs
+    val totalMeasuredMass: Float?,              // User-measured total mass (null if not measured)
+    val measurements: List<MassMeasurement>,    // Mass measurement history
     val lastUpdated: LocalDateTime,             // When inventory was last modified
     val notes: String = ""                      // Optional user notes
 ) {
     /**
-     * Get the most recent weight measurement
+     * Get the most recent mass measurement
      */
-    val latestMeasurement: FilamentWeightMeasurement? 
+    val latestMeasurement: MassMeasurement? 
         get() = measurements.maxByOrNull { it.measuredAt }
     
     /**
-     * Check if inventory item has an active spool configuration
+     * Check if inventory item has any components defined
      */
-    val hasSpoolConfiguration: Boolean
-        get() = currentConfigurationId != null
+    val hasComponents: Boolean
+        get() = components.isNotEmpty()
         
     /**
-     * Check if we have weight measurements for this item
+     * Check if we have mass measurements for this item
      */
-    val hasWeightMeasurements: Boolean
+    val hasMassMeasurements: Boolean
         get() = measurements.isNotEmpty()
+        
+    /**
+     * Check if we have a manually measured total mass
+     */
+    val hasMeasuredTotalMass: Boolean
+        get() = totalMeasuredMass != null
+        
+    /**
+     * Create a new measurement and add to history
+     */
+    fun withNewMeasurement(measurement: MassMeasurement): InventoryItem {
+        return copy(
+            measurements = measurements + measurement,
+            lastUpdated = LocalDateTime.now()
+        )
+    }
+    
+    /**
+     * Update the total measured mass
+     */
+    fun withUpdatedTotalMass(massGrams: Float): InventoryItem {
+        return copy(
+            totalMeasuredMass = massGrams,
+            lastUpdated = LocalDateTime.now()
+        )
+    }
+    
+    /**
+     * Add a new component to this inventory item
+     */
+    fun withComponent(componentId: String): InventoryItem {
+        return if (componentId !in components) {
+            copy(
+                components = components + componentId,
+                lastUpdated = LocalDateTime.now()
+            )
+        } else {
+            this
+        }
+    }
 }
 
 /**
- * Calculated status of filament remaining based on measurements and configuration
+ * Calculated status of filament remaining based on measurements and components
  */
 data class FilamentStatus(
-    val remainingWeightGrams: Float,           // Calculated remaining filament weight
-    val remainingPercentage: Float,            // Percentage remaining (0.0 - 1.0)
-    val consumedWeightGrams: Float,            // Amount consumed since initial measurement
-    val lastMeasurement: FilamentWeightMeasurement?, // Most recent measurement
-    val spoolConfiguration: SpoolConfiguration?, // Configuration used for calculations
+    val remainingMassGrams: Float,              // Calculated remaining filament mass
+    val remainingPercentage: Float,             // Percentage remaining (0.0 - 1.0)
+    val consumedMassGrams: Float,               // Amount consumed since initial measurement
+    val lastMeasurement: MassMeasurement?,     // Most recent measurement
+    val components: List<PhysicalComponent>,   // Components used for calculations
     val calculationSuccess: Boolean,           // Whether calculation was successful
     val errorMessage: String? = null           // Error if calculation failed
 ) {
@@ -61,11 +100,11 @@ data class FilamentStatus(
         get() = calculationSuccess && remainingPercentage < 0.05f
         
     /**
-     * Get formatted remaining weight string
+     * Get formatted remaining mass string
      */
-    fun getFormattedRemainingWeight(unit: com.bscan.logic.WeightUnit): String {
+    fun getFormattedRemainingMass(unit: com.bscan.logic.WeightUnit): String {
         return if (calculationSuccess) {
-            com.bscan.logic.WeightCalculationService().formatWeight(remainingWeightGrams, unit)
+            com.bscan.logic.MassCalculationService().formatWeight(remainingMassGrams, unit)
         } else {
             "Unknown"
         }
@@ -77,6 +116,5 @@ data class FilamentStatus(
  */
 data class FilamentStatusRequest(
     val inventoryItem: InventoryItem,
-    val spoolConfiguration: SpoolConfiguration?,
-    val components: List<SpoolComponent>
+    val components: List<PhysicalComponent>
 )
