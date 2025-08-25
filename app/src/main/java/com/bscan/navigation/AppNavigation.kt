@@ -21,12 +21,14 @@ import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.*
 import com.bscan.viewmodel.UpdateViewModel
+import com.bscan.ble.BlePermissionHandler
 
 @Composable
 fun AppNavigation(
     viewModel: MainViewModel,
     updateViewModel: UpdateViewModel,
     nfcManager: NfcManager,
+    blePermissionHandler: BlePermissionHandler,
     navController: NavHostController = rememberNavController()
 ) {
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
@@ -121,7 +123,8 @@ fun AppNavigation(
         composable("settings") {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToComponents = { navController.navigate("components") }
+                onNavigateToComponents = { navController.navigate("components") },
+                blePermissionHandler = blePermissionHandler
             )
         }
         

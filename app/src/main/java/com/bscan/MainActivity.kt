@@ -16,12 +16,14 @@ import com.bscan.nfc.handlers.HapticFeedbackProvider
 import com.bscan.nfc.handlers.NfcIntentProcessor
 import com.bscan.ui.theme.BScanTheme
 import com.bscan.viewmodel.UpdateViewModel
+import com.bscan.ble.BlePermissionHandler
 
 class MainActivity : ComponentActivity() {
     
     private lateinit var nfcManager: NfcManager
     private lateinit var nfcIntentProcessor: NfcIntentProcessor
     private lateinit var hapticFeedbackProvider: HapticFeedbackProvider
+    private lateinit var blePermissionHandler: BlePermissionHandler
     
     private val viewModel: MainViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
@@ -37,6 +39,7 @@ class MainActivity : ComponentActivity() {
         
         nfcManager = NfcManager(this)
         hapticFeedbackProvider = HapticFeedbackProvider(this)
+        blePermissionHandler = BlePermissionHandler(this)
         nfcIntentProcessor = NfcIntentProcessor(
             nfcManager = nfcManager,
             viewModel = viewModel,
@@ -55,7 +58,8 @@ class MainActivity : ComponentActivity() {
                 AppNavigation(
                     viewModel = viewModel,
                     updateViewModel = updateViewModel,
-                    nfcManager = nfcManager
+                    nfcManager = nfcManager,
+                    blePermissionHandler = blePermissionHandler
                 )
             }
         }
