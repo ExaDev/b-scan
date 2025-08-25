@@ -200,7 +200,7 @@ class NfcManager(private val activity: Activity) {
             mifareClassic.connect()
             
             val sectors = mifareClassic.sectorCount
-            val allData = ByteArray(sectors * 48) // Each sector has 3 data blocks * 16 bytes (legacy format)
+            // Use complete format to preserve trailer blocks for future analysis
             val completeData = ByteArray(sectors * 64) // Each sector has 4 blocks * 16 bytes (including trailers)
             
             Log.d(TAG, "Reading MIFARE Classic tag:")
@@ -328,9 +328,8 @@ class NfcManager(private val activity: Activity) {
                     val absoluteBlock = mifareClassic.sectorToBlock(sector) + blockInSector
                     val isTrailerBlock = blockInSector == (blocksInSector - 1)
                     
-                    // Calculate offsets for dual storage
+                    // Calculate offset for complete storage
                     val completeDataOffset = sector * 64 + blockInSector * 16
-                    val legacyDataOffset = if (!isTrailerBlock) sector * 48 + blockInSector * 16 else -1
                     
                     // Report block reading progress
                     val blockProgress = 0.75f + (sector * 0.015f) + (blockInSector * 0.004f) // 75% to 95%
@@ -349,17 +348,12 @@ class NfcManager(private val activity: Activity) {
                             mifareClassic.readBlock(absoluteBlock)
                         }
                         
-                        // Store in complete data array (all blocks)
+                        // Store block data in complete format
                         System.arraycopy(blockData, 0, completeData, completeDataOffset, 16)
                         
-                        // Store in legacy data array (data blocks only, for compatibility)
-                        if (!isTrailerBlock && legacyDataOffset >= 0) {
-                            System.arraycopy(blockData, 0, allData, legacyDataOffset, 16)
-                        }
-                        
-                        // Log all block data for complete raw data capture
+                        // Log block data for debug capture
                         val hexData = blockData.joinToString("") { "%02X".format(it) }
-                        debugCollector.recordAllBlockData(absoluteBlock, hexData, isTrailerBlock)
+                        debugCollector.recordBlockData(absoluteBlock, hexData)
                         
                         // Enhanced logging for key blocks and temperature data
                         if (sector <= 1 || absoluteBlock <= 6) {
@@ -380,12 +374,9 @@ class NfcManager(private val activity: Activity) {
                         debugCollector.recordError(errorMsg)
                         Log.w(TAG, errorMsg)
                         
-                        // Fill with zeros if read fails - update both arrays
+                        // Fill with zeros if read fails
                         val zeroBlock = ByteArray(16)
                         System.arraycopy(zeroBlock, 0, completeData, completeDataOffset, 16)
-                        if (!isTrailerBlock && legacyDataOffset >= 0) {
-                            System.arraycopy(zeroBlock, 0, allData, legacyDataOffset, 16)
-                        }
                     }
                 }
             }
@@ -399,13 +390,12 @@ class NfcManager(private val activity: Activity) {
             
             mifareClassic.close()
             
-            // Record both legacy and complete raw data for debug analysis
-            debugCollector.recordFullRawData(allData) // Legacy 768-byte format for compatibility
-            debugCollector.recordCompleteTagData(completeData) // Complete 1024-byte format with trailers
+            // Record complete raw data for debug analysis
+            debugCollector.recordRawData(completeData) // Complete 1024-byte format with trailers
             
-            // Create decrypted data array (same as allData since blocks are read post-authentication)
+            // Create decrypted data array (same as completeData since blocks are read post-authentication)
             // In the future, this could be enhanced to store pre-authentication data separately
-            debugCollector.recordDecryptedData(allData)
+            debugCollector.recordDecryptedData(completeData)
             
             // Check if we have any successful authentications
             if (!debugCollector.hasAuthenticatedSectors()) {
@@ -422,7 +412,7 @@ class NfcManager(private val activity: Activity) {
             
             NfcTagData(
                 uid = bytesToHex(tag.id),
-                bytes = allData,
+                bytes = completeData,
                 technology = "MifareClassic"
             )
         } catch (e: IOException) {
@@ -530,7 +520,7 @@ class NfcManager(private val activity: Activity) {
         }
         
         // Populate debugCollector with reconstructed data
-        debugCollector.recordFullRawData(bytes)
+        debugCollector.recordRawData(bytes)
         debugCollector.recordDecryptedData(bytes)
         
         // Record block data for FilamentInterpreter - this is crucial for interpretation

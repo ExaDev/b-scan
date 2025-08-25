@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.ScanResult
+import com.bscan.model.RfidDataFormat
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.repository.MappingsRepository
 import com.google.gson.*

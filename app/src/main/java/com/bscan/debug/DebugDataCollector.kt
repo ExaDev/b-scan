@@ -4,6 +4,7 @@ import com.bscan.model.ScanResult
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.TagFormat
+import com.bscan.model.RfidDataFormat
 import com.bscan.detector.TagDetector
 import java.time.LocalDateTime
 
@@ -11,8 +12,7 @@ class DebugDataCollector {
     private val authenticatedSectors = mutableListOf<Int>()
     private val failedSectors = mutableListOf<Int>()
     private val usedKeyTypes = mutableMapOf<Int, String>()
-    private val blockData = mutableMapOf<Int, String>() // Legacy: data blocks only
-    private val allBlockData = mutableMapOf<Int, String>() // Complete: all blocks including trailers
+    private val blockData = mutableMapOf<Int, String>() // All available blocks based on scan format
     private val derivedKeys = mutableListOf<String>()
     private val errorMessages = mutableListOf<String>()
     private val parsingDetails = mutableMapOf<String, Any?>()
@@ -20,8 +20,7 @@ class DebugDataCollector {
     private var tagSizeBytes = 0
     private var sectorCount = 0
     private var cacheHit = false
-    private var fullRawData: ByteArray = ByteArray(0) // Legacy 768-byte format
-    private var completeTagData: ByteArray = ByteArray(0) // Complete 1024-byte format
+    private var rawData: ByteArray = ByteArray(0) // Unified storage: 768-byte or 1024-byte format
     private var decryptedData: ByteArray = ByteArray(0)
     
     private val tagDetector = TagDetector()
@@ -40,20 +39,11 @@ class DebugDataCollector {
         }
     }
     
+    /**
+     * Record block data (supports both data-only and complete formats)
+     */
     fun recordBlockData(block: Int, hexData: String) {
         blockData[block] = hexData
-    }
-    
-    /**
-     * Record block data for ALL blocks including trailer blocks
-     */
-    fun recordAllBlockData(block: Int, hexData: String, isTrailerBlock: Boolean) {
-        allBlockData[block] = hexData
-        
-        // Also record in legacy format for data blocks only
-        if (!isTrailerBlock) {
-            blockData[block] = hexData
-        }
     }
     
     fun recordDerivedKeys(keys: Array<ByteArray>) {
@@ -79,15 +69,11 @@ class DebugDataCollector {
         cacheHit = true
     }
     
-    fun recordFullRawData(rawData: ByteArray) {
-        fullRawData = rawData.copyOf()
-    }
-    
     /**
-     * Record complete tag data including trailer blocks
+     * Record raw tag data (supports both 768-byte and 1024-byte formats)
      */
-    fun recordCompleteTagData(completeData: ByteArray) {
-        completeTagData = completeData.copyOf()
+    fun recordRawData(data: ByteArray) {
+        rawData = data.copyOf()
     }
     
     fun recordDecryptedData(decryptedData: ByteArray) {
@@ -111,18 +97,14 @@ class DebugDataCollector {
         tagSizeBytes = 0
         sectorCount = 0
         cacheHit = false
-        fullRawData = ByteArray(0)
-        completeTagData = ByteArray(0)
+        rawData = ByteArray(0)
         decryptedData = ByteArray(0)
-        allBlockData.clear()
     }
     
     // Getter methods for accessing collected data
-    fun getFullRawData(): ByteArray = fullRawData.copyOf()
-    fun getCompleteTagData(): ByteArray = completeTagData.copyOf()
+    fun getRawData(): ByteArray = rawData.copyOf()
     fun getDecryptedData(): ByteArray = decryptedData.copyOf()
     fun getBlockData(): Map<Int, String> = blockData.toMap()
-    fun getAllBlockData(): Map<Int, String> = allBlockData.toMap()
     fun getAuthenticatedSectors(): List<Int> = authenticatedSectors.toList()
     fun getFailedSectors(): List<Int> = failedSectors.toList()
     fun getUsedKeyTypes(): Map<Int, String> = usedKeyTypes.toMap()
@@ -140,7 +122,8 @@ class DebugDataCollector {
         scanDurationMs: Long = 0
     ): EncryptedScanData {
         // Detect format from raw data
-        val detection = tagDetector.detectFromData(technology, getFullRawData())
+        val rawData = getRawData()
+        val detection = tagDetector.detectFromData(technology, rawData)
         
         return EncryptedScanData(
             id = System.currentTimeMillis(),
@@ -149,8 +132,7 @@ class DebugDataCollector {
             technology = technology,
             tagFormat = detection.tagFormat,
             manufacturerName = detection.manufacturerName,
-            encryptedData = getFullRawData(), // Legacy 768-byte format for compatibility
-            completeTagData = getCompleteTagData().takeIf { it.isNotEmpty() }, // Complete 1024-byte format with trailers
+            encryptedData = rawData, // Unified storage: 768-byte or 1024-byte format
             tagSizeBytes = tagSizeBytes,
             sectorCount = sectorCount,
             scanDurationMs = scanDurationMs
@@ -168,7 +150,8 @@ class DebugDataCollector {
         authenticationTimeMs: Long = 0
     ): DecryptedScanData {
         // Detect format from raw data
-        val detection = tagDetector.detectFromData(technology, getFullRawData())
+        val rawData = getRawData()
+        val detection = tagDetector.detectFromData(technology, rawData)
         
         return DecryptedScanData(
             id = System.currentTimeMillis() + 1, // Ensure different ID from encrypted
@@ -178,8 +161,7 @@ class DebugDataCollector {
             tagFormat = detection.tagFormat,
             manufacturerName = detection.manufacturerName,
             scanResult = result,
-            decryptedBlocks = getBlockData(), // Legacy: data blocks only for compatibility
-            allBlocks = getAllBlockData(), // Complete: all blocks including trailers
+            decryptedBlocks = getBlockData(), // All available blocks based on scan format
             authenticatedSectors = getAuthenticatedSectors(),
             failedSectors = getFailedSectors(),
             usedKeys = getUsedKeyTypes(),

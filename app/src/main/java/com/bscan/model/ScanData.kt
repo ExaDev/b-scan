@@ -29,7 +29,9 @@ data class ScanDebugInfo(
 
 /**
  * Raw encrypted scan data captured before authentication.
- * Supports dual storage for compatibility and future enhancement.
+ * Supports intelligent format detection based on data size:
+ * - 768 bytes: data blocks only (16 sectors × 3 blocks × 16 bytes)
+ * - 1024 bytes: complete dump with trailer blocks (16 sectors × 4 blocks × 16 bytes)
  */
 data class EncryptedScanData(
     val id: Long = 0,
@@ -38,8 +40,7 @@ data class EncryptedScanData(
     val technology: String,
     val tagFormat: TagFormat = TagFormat.UNKNOWN,
     val manufacturerName: String = "Unknown", // Manufacturer name from tag data
-    val encryptedData: ByteArray, // Legacy 768-byte compressed format (data blocks only)
-    val completeTagData: ByteArray? = null, // Complete 1024-byte dump including trailer blocks
+    val encryptedData: ByteArray, // Unified storage: 768-byte or 1024-byte format
     val tagSizeBytes: Int,
     val sectorCount: Int,
     val scanDurationMs: Long = 0
@@ -57,10 +58,6 @@ data class EncryptedScanData(
         if (tagFormat != other.tagFormat) return false
         if (manufacturerName != other.manufacturerName) return false
         if (!encryptedData.contentEquals(other.encryptedData)) return false
-        if (completeTagData != null) {
-            if (other.completeTagData == null) return false
-            if (!completeTagData.contentEquals(other.completeTagData)) return false
-        } else if (other.completeTagData != null) return false
         if (tagSizeBytes != other.tagSizeBytes) return false
         if (sectorCount != other.sectorCount) return false
         if (scanDurationMs != other.scanDurationMs) return false
@@ -76,7 +73,6 @@ data class EncryptedScanData(
         result = 31 * result + tagFormat.hashCode()
         result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + encryptedData.contentHashCode()
-        result = 31 * result + (completeTagData?.contentHashCode() ?: 0)
         result = 31 * result + tagSizeBytes
         result = 31 * result + sectorCount
         result = 31 * result + scanDurationMs.hashCode()
@@ -99,11 +95,9 @@ data class DecryptedScanData(
     val scanResult: ScanResult,
     
     // Decrypted block data (after successful authentication)
-    // Map of block number -> 16-byte block data in hex format (data blocks only - legacy)
+    // Map of block number -> 16-byte block data in hex format
+    // Includes all available blocks based on scan format
     val decryptedBlocks: Map<Int, String>,
-    
-    // Complete block data including trailer blocks (Map of absolute block number -> hex data)
-    val allBlocks: Map<Int, String> = emptyMap(),
     
     // Authentication metadata
     val authenticatedSectors: List<Int>,
@@ -136,7 +130,6 @@ data class DecryptedScanData(
         if (manufacturerName != other.manufacturerName) return false
         if (scanResult != other.scanResult) return false
         if (decryptedBlocks != other.decryptedBlocks) return false
-        if (allBlocks != other.allBlocks) return false
         if (authenticatedSectors != other.authenticatedSectors) return false
         if (failedSectors != other.failedSectors) return false
         if (usedKeys != other.usedKeys) return false
@@ -159,7 +152,6 @@ data class DecryptedScanData(
         result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + scanResult.hashCode()
         result = 31 * result + decryptedBlocks.hashCode()
-        result = 31 * result + allBlocks.hashCode()
         result = 31 * result + authenticatedSectors.hashCode()
         result = 31 * result + failedSectors.hashCode()
         result = 31 * result + usedKeys.hashCode()
@@ -171,4 +163,101 @@ data class DecryptedScanData(
         result = 31 * result + authenticationTimeMs.hashCode()
         return result
     }
+}
+
+/**
+ * Format detection and data conversion utilities for RFID scan data
+ */
+object RfidDataFormat {
+    const val DATA_ONLY_SIZE = 768    // 16 sectors × 3 blocks × 16 bytes (data blocks only)
+    const val COMPLETE_SIZE = 1024    // 16 sectors × 4 blocks × 16 bytes (including trailers)
+    
+    /**
+     * Detect the format of RFID data based on size
+     */
+    fun detectFormat(data: ByteArray): RfidFormat = when (data.size) {
+        DATA_ONLY_SIZE -> RfidFormat.DATA_ONLY
+        COMPLETE_SIZE -> RfidFormat.COMPLETE
+        else -> RfidFormat.UNKNOWN
+    }
+    
+    /**
+     * Check if data includes trailer blocks
+     */
+    fun hasTrailerBlocks(data: ByteArray): Boolean = data.size == COMPLETE_SIZE
+    
+    /**
+     * Extract data blocks from complete format (remove trailer blocks)
+     * If already in data-only format, returns the original data
+     */
+    fun extractDataBlocks(data: ByteArray): ByteArray = when (data.size) {
+        COMPLETE_SIZE -> {
+            // Extract 3 blocks per sector (skip every 4th block which is trailer)
+            val dataBlocks = ByteArray(DATA_ONLY_SIZE)
+            var dataOffset = 0
+            for (sector in 0 until 16) {
+                val sectorStartComplete = sector * 64    // 4 blocks × 16 bytes
+                val sectorStartData = sector * 48        // 3 blocks × 16 bytes
+                // Copy 3 data blocks (48 bytes), skip trailer block
+                System.arraycopy(data, sectorStartComplete, dataBlocks, sectorStartData, 48)
+            }
+            dataBlocks
+        }
+        DATA_ONLY_SIZE -> data // Already in correct format
+        else -> data // Unknown format, return as-is
+    }
+    
+    /**
+     * Get all blocks from the data as a map of block number to hex string
+     */
+    fun getAllBlocks(data: ByteArray): Map<Int, String> = when (detectFormat(data)) {
+        RfidFormat.DATA_ONLY -> getDataOnlyBlocks(data)
+        RfidFormat.COMPLETE -> getCompleteBlocks(data)
+        RfidFormat.UNKNOWN -> emptyMap()
+    }
+    
+    /**
+     * Get data blocks only (legacy format)
+     */
+    fun getDataBlocks(data: ByteArray): Map<Int, String> = when (detectFormat(data)) {
+        RfidFormat.DATA_ONLY -> getDataOnlyBlocks(data)
+        RfidFormat.COMPLETE -> getDataOnlyBlocks(extractDataBlocks(data))
+        RfidFormat.UNKNOWN -> emptyMap()
+    }
+    
+    private fun getDataOnlyBlocks(data: ByteArray): Map<Int, String> {
+        val blocks = mutableMapOf<Int, String>()
+        if (data.size != DATA_ONLY_SIZE) return blocks
+        
+        for (sector in 0 until 16) {
+            for (blockInSector in 0 until 3) { // Only data blocks
+                val absoluteBlock = sector * 4 + blockInSector
+                val dataOffset = sector * 48 + blockInSector * 16
+                val blockData = data.copyOfRange(dataOffset, dataOffset + 16)
+                blocks[absoluteBlock] = blockData.joinToString("") { "%02X".format(it) }
+            }
+        }
+        return blocks
+    }
+    
+    private fun getCompleteBlocks(data: ByteArray): Map<Int, String> {
+        val blocks = mutableMapOf<Int, String>()
+        if (data.size != COMPLETE_SIZE) return blocks
+        
+        for (sector in 0 until 16) {
+            for (blockInSector in 0 until 4) { // All blocks including trailers
+                val absoluteBlock = sector * 4 + blockInSector
+                val dataOffset = sector * 64 + blockInSector * 16
+                val blockData = data.copyOfRange(dataOffset, dataOffset + 16)
+                blocks[absoluteBlock] = blockData.joinToString("") { "%02X".format(it) }
+            }
+        }
+        return blocks
+    }
+}
+
+enum class RfidFormat {
+    DATA_ONLY,    // 768 bytes: data blocks only
+    COMPLETE,     // 1024 bytes: includes trailer blocks
+    UNKNOWN       // Other sizes
 }
