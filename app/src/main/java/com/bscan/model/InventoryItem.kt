@@ -83,7 +83,7 @@ data class FilamentStatus(
     val remainingPercentage: Float,             // Percentage remaining (0.0 - 1.0)
     val consumedMassGrams: Float,               // Amount consumed since initial measurement
     val lastMeasurement: MassMeasurement?,     // Most recent measurement
-    val components: List<PhysicalComponent>,   // Components used for calculations
+    val components: List<Component>,   // Components used for calculations
     val calculationSuccess: Boolean,           // Whether calculation was successful
     val errorMessage: String? = null           // Error if calculation failed
 ) {
@@ -116,5 +116,5 @@ data class FilamentStatus(
  */
 data class FilamentStatusRequest(
     val inventoryItem: InventoryItem,
-    val components: List<PhysicalComponent>
+    val components: List<Component>
 )

@@ -259,7 +259,7 @@ class InventoryRepository(private val context: Context) {
             .filter { it.id in existingItem.components }
             .map { if (it.id == componentId) updatedComponent else it }
         
-        val newTotalMass = allComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val newTotalMass = allComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         
         // Update inventory item with new total
         val updatedItem = existingItem.copy(
@@ -291,7 +291,7 @@ class InventoryRepository(private val context: Context) {
         
         // Calculate mass distribution
         val fixedMass = components.filter { !it.variableMass }
-            .sumOf { it.massGrams.toDouble() }.toFloat()
+            .sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         val availableForVariable = newTotalMass - fixedMass
         
         if (availableForVariable < 0) {
@@ -301,13 +301,13 @@ class InventoryRepository(private val context: Context) {
         
         val variableComponents = components.filter { it.variableMass }
         if (variableComponents.isNotEmpty()) {
-            val currentVariableMass = variableComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            val currentVariableMass = variableComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
             
             if (currentVariableMass > 0) {
                 // Distribute proportionally
                 val ratio = availableForVariable / currentVariableMass
                 variableComponents.forEach { component ->
-                    val newComponentMass = component.massGrams * ratio
+                    val newComponentMass = (component.massGrams ?: 0f) * ratio
                     val updatedComponent = component.withUpdatedMass(newComponentMass)
                     componentRepository.saveComponent(updatedComponent)
                 }
@@ -332,7 +332,7 @@ class InventoryRepository(private val context: Context) {
     /**
      * Get components for an inventory item with current data
      */
-    fun getInventoryItemComponents(trayUid: String): List<PhysicalComponent> {
+    fun getInventoryItemComponents(trayUid: String): List<Component> {
         val inventoryItem = getInventoryItem(trayUid) ?: return emptyList()
         return componentRepository.getComponents()
             .filter { it.id in inventoryItem.components }
@@ -346,7 +346,7 @@ class InventoryRepository(private val context: Context) {
         trayUid: String,
         filamentInfo: FilamentInfo,
         includeRefillableSpool: Boolean = false
-    ): List<PhysicalComponent> {
+    ): List<Component> {
         android.util.Log.i(TAG, "Setting up Bambu components for trayUid=$trayUid, type=${filamentInfo.filamentType}, color=${filamentInfo.colorName}")
         
         try {
@@ -366,10 +366,7 @@ class InventoryRepository(private val context: Context) {
             val finalFilamentComponent = createFilamentComponent(
                 filamentType = filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC",
                 colorName = filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color",
-                colorHex = filamentInfo.colorHex.takeIf { it.isNotBlank() } ?: "#808080",
-                massGrams = filamentMass,
-                manufacturer = filamentInfo.manufacturerName.takeIf { it.isNotBlank() } ?: "Bambu Lab",
-                fullMassGrams = skuMass ?: filamentMass // Use SKU mass as full mass when available, otherwise use current mass
+                estimatedMass = skuMass ?: filamentMass // Use SKU mass as full mass when available, otherwise use current mass
             )
             
             // Save the filament component
@@ -460,16 +457,17 @@ class InventoryRepository(private val context: Context) {
         trayUid: String,
         filamentInfo: FilamentInfo,
         includeRefillableSpool: Boolean
-    ): List<PhysicalComponent> {
+    ): List<Component> {
         try {
             android.util.Log.w(TAG, "Creating emergency fallback components")
             
             // Create minimal filament component with hardcoded defaults
             val componentId = "emergency_filament_${System.currentTimeMillis()}"
-            val emergencyFilamentComponent = PhysicalComponent(
+            val emergencyFilamentComponent = Component(
                 id = componentId,
+                uniqueIdentifier = "emergency_$trayUid",
                 name = "${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA"} - ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown"}",
-                type = PhysicalComponentType.FILAMENT,
+                category = "filament",
                 massGrams = 1000f, // Default 1kg
                 variableMass = true,
                 manufacturer = "Bambu Lab",
@@ -552,7 +550,7 @@ class InventoryRepository(private val context: Context) {
         
         val latestMeasurement = inventoryItem.latestMeasurement
         val filamentComponents = components.filter { it.variableMass }
-        val currentFilamentMass = filamentComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val currentFilamentMass = filamentComponents.sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
         
         // If we don't have measurements, return current component mass
         if (latestMeasurement == null || inventoryItem.totalMeasuredMass == null) {
@@ -603,19 +601,19 @@ class InventoryRepository(private val context: Context) {
      */
     private fun findInitialFilamentMass(
         inventoryItem: InventoryItem, 
-        components: List<PhysicalComponent>
+        components: List<Component>
     ): Float? {
         // Try to get from earliest measurement
         val earliestMeasurement = inventoryItem.measurements.minByOrNull { it.measuredAt }
         if (earliestMeasurement != null && earliestMeasurement.measurementType == MeasurementType.FULL_WEIGHT) {
             val fixedComponentsMass = components.filter { !it.variableMass }
-                .sumOf { it.massGrams.toDouble() }.toFloat()
+                .sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
             return earliestMeasurement.measuredMassGrams - fixedComponentsMass
         }
         
         // Fallback to current filament component mass (from SKU or default)
         return components.filter { it.variableMass }
-            .sumOf { it.massGrams.toDouble() }.toFloat()
+            .sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
             .takeIf { it > 0 }
     }
     
@@ -637,13 +635,13 @@ class InventoryRepository(private val context: Context) {
     ): Component {
         return Component(
             id = "filament_${System.currentTimeMillis()}",
+            uniqueIdentifier = "filament_${filamentType}_${colorName}",
             name = "$colorName $filamentType Filament",
             category = "filament",
             massGrams = estimatedMass,
             variableMass = true,
             fullMassGrams = estimatedMass,
-            manufacturer = "Bambu Lab",
-            uniqueId = "filament_${filamentType}_${colorName}"
+            manufacturer = "Bambu Lab"
         )
     }
     
@@ -654,12 +652,12 @@ class InventoryRepository(private val context: Context) {
     private fun createBambuCoreComponent(): Component {
         return Component(
             id = "core_${System.currentTimeMillis()}",
+            uniqueIdentifier = "bambu_core",
             name = "Bambu Core Ring",
             category = "core",
             massGrams = 10f, // Typical core ring mass
             variableMass = false,
-            manufacturer = "Bambu Lab",
-            uniqueId = "bambu_core"
+            manufacturer = "Bambu Lab"
         )
     }
     
@@ -670,12 +668,12 @@ class InventoryRepository(private val context: Context) {
     private fun createBambuSpoolComponent(): Component {
         return Component(
             id = "spool_${System.currentTimeMillis()}",
+            uniqueIdentifier = "bambu_spool",
             name = "Bambu Spool",
             category = "spool",
             massGrams = 240f, // Typical Bambu spool mass
             variableMass = false,
-            manufacturer = "Bambu Lab",
-            uniqueId = "bambu_spool"
+            manufacturer = "Bambu Lab"
         )
     }
     
