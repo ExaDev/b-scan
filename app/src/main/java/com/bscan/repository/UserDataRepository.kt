@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.interpreter.InterpreterFactory
 import com.google.gson.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -236,33 +237,136 @@ class UserDataRepository(private val context: Context) {
     }
     
     // === Interpreted Scan Methods ===
-    // These methods bridge the gap between the new architecture and the existing ScanHistoryRepository
-    // until we fully migrate to the new data structure
+    // Direct implementation using the new data structure
     
-    private val scanHistoryRepository by lazy { ScanHistoryRepository(context) }
-    
-    /**
-     * Get all interpreted scans using existing ScanHistoryRepository
-     * TODO: This is a temporary bridge - replace with direct access to new data structure
-     */
-    fun getAllInterpretedScans(): List<InterpretedScan> {
-        return scanHistoryRepository.getAllScans()
+    private val interpreterFactory by lazy { 
+        val catalogRepo = CatalogRepository(context)
+        val unifiedDataAccess = UnifiedDataAccess(catalogRepo, this)
+        InterpreterFactory(unifiedDataAccess)
     }
     
     /**
-     * Get scans filtered by tag UID using existing ScanHistoryRepository
-     * TODO: This is a temporary bridge - replace with direct access to new data structure
+     * Get all interpreted scans from the new data structure
      */
-    fun getScansByTagUid(tagUid: String): List<InterpretedScan> {
-        return scanHistoryRepository.getScansByTagUid(tagUid)
+    fun getAllInterpretedScans(): List<com.bscan.repository.InterpretedScan> {
+        val userData = getUserData()
+        val results = mutableListOf<com.bscan.repository.InterpretedScan>()
+        
+        // Process each encrypted scan
+        userData.scans.encryptedScans.forEach { (encryptedId, encryptedScan) ->
+            val decryptedScan = userData.scans.decryptedScans[encryptedId]
+            
+            if (decryptedScan != null) {
+                // We have both encrypted and decrypted data
+                val filamentInfo = if (decryptedScan.scanResult == ScanResult.SUCCESS) {
+                    interpreterFactory.interpret(decryptedScan)
+                } else null
+                
+                results.add(com.bscan.repository.InterpretedScan(encryptedScan, decryptedScan, filamentInfo))
+            } else {
+                // Only encrypted data (authentication failed completely)
+                val syntheticDecrypted = createFailedDecryptedScan(encryptedScan)
+                results.add(com.bscan.repository.InterpretedScan(encryptedScan, syntheticDecrypted, null))
+            }
+        }
+        
+        return results.sortedByDescending { it.timestamp }
+    }
+    
+    /**
+     * Get scans filtered by tag UID from the new data structure
+     */
+    fun getScansByTagUid(tagUid: String): List<com.bscan.repository.InterpretedScan> {
+        return getAllInterpretedScans().filter { it.uid == tagUid }
     }
     
     /**
      * Get detailed information about a filament reel by tray UID or tag UID
-     * TODO: This is a temporary bridge - replace with direct access to new data structure
      */
-    fun getFilamentReelDetails(identifier: String): FilamentReelDetails? {
-        return scanHistoryRepository.getFilamentReelDetails(identifier)
+    fun getFilamentReelDetails(identifier: String): com.bscan.repository.FilamentReelDetails? {
+        val allScans = getAllInterpretedScans()
+        
+        // First try to find scans with matching tray UID
+        var matchingScans = allScans.filter { 
+            it.filamentInfo?.trayUid == identifier 
+        }
+        
+        // If none found, try tag UID
+        if (matchingScans.isEmpty()) {
+            matchingScans = allScans.filter { it.uid == identifier }
+        }
+        
+        if (matchingScans.isEmpty()) return null
+        
+        // Get most recent successful scan for filament info
+        val mostRecentSuccess = matchingScans
+            .filter { it.scanResult == ScanResult.SUCCESS }
+            .maxByOrNull { it.timestamp }
+            ?: return null
+        
+        val filamentInfo = mostRecentSuccess.filamentInfo
+            ?: createUnknownTagFilamentInfo(mostRecentSuccess)
+        
+        val tagUids = matchingScans
+            .map { it.filamentInfo?.tagUid ?: it.uid }
+            .distinct()
+        
+        val scansByTag = matchingScans.groupBy { it.filamentInfo?.tagUid ?: it.uid }
+        
+        return com.bscan.repository.FilamentReelDetails(
+            trayUid = filamentInfo.trayUid,
+            filamentInfo = filamentInfo,
+            tagUids = tagUids,
+            allScans = matchingScans.sortedByDescending { it.timestamp },
+            scansByTag = scansByTag,
+            totalScans = matchingScans.size,
+            successfulScans = matchingScans.count { it.scanResult == ScanResult.SUCCESS },
+            lastScanned = matchingScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+        )
+    }
+    
+    /**
+     * Create synthetic DecryptedScanData for failed authentication
+     */
+    private fun createFailedDecryptedScan(encryptedScan: EncryptedScanData): DecryptedScanData {
+        return DecryptedScanData(
+            id = encryptedScan.id + 1000000,
+            timestamp = encryptedScan.timestamp,
+            tagUid = encryptedScan.tagUid,
+            technology = encryptedScan.technology,
+            scanResult = ScanResult.AUTHENTICATION_FAILED,
+            decryptedBlocks = emptyMap(),
+            authenticatedSectors = emptyList(),
+            failedSectors = (0..15).toList(),
+            usedKeys = emptyMap(),
+            derivedKeys = emptyList(),
+            keyDerivationTimeMs = 0,
+            authenticationTimeMs = 0,
+            errors = listOf("Complete authentication failure")
+        )
+    }
+    
+    /**
+     * Create placeholder FilamentInfo for unknown tags
+     */
+    private fun createUnknownTagFilamentInfo(scan: com.bscan.repository.InterpretedScan): FilamentInfo {
+        return FilamentInfo(
+            tagUid = scan.uid,
+            trayUid = scan.uid,
+            filamentType = "Unknown",
+            detailedFilamentType = "Unknown Tag",
+            colorHex = "#808080",
+            colorName = "Unknown",
+            spoolWeight = 0,
+            filamentDiameter = 1.75f,
+            filamentLength = 0,
+            productionDate = "Unknown",
+            minTemperature = 0,
+            maxTemperature = 0,
+            bedTemperature = 0,
+            dryingTemperature = 0,
+            dryingTime = 0
+        )
     }
     
     /**
@@ -422,3 +526,4 @@ data class UserDataStatistics(
     val customRfidMappings: Int,
     val lastModified: LocalDateTime
 )
+
