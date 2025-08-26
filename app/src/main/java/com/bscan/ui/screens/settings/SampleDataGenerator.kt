@@ -204,8 +204,6 @@ class SampleDataGenerator {
                 tagUid = tagUid,
                 technology = "MifareClassic",
                 encryptedData = ByteArray(1024) { Random.nextInt(256).toByte() },
-                tagSizeBytes = 1024,
-                sectorCount = 16,
                 scanDurationMs = Random.nextLong(1000, 5000)
             )
             
@@ -223,8 +221,6 @@ class SampleDataGenerator {
                 failedSectors = if (isSuccess) emptyList() else (0..15).toList(),
                 usedKeys = createSampleUsedKeys(isSuccess),
                 derivedKeys = listOf("KEY1", "KEY2", "KEY3"),
-                tagSizeBytes = 1024,
-                sectorCount = 16,
                 errors = if (isSuccess) emptyList() else listOf("Authentication failed"),
                 keyDerivationTimeMs = Random.nextLong(100, 500),
                 authenticationTimeMs = Random.nextLong(500, 2000)

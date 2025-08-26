@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
         // Initialize the key cache system
         CachedBambuKeyDerivation.initialize(this)
         
+        
         nfcManager = NfcManager(this)
         hapticFeedbackProvider = HapticFeedbackProvider(this)
         blePermissionHandler = BlePermissionHandler(this)
