@@ -75,8 +75,33 @@ class UnifiedDataAccess(
         // Add catalog products (if any)
         products.addAll(catalogRepo.getProducts(manufacturerId))
         
-        // TODO: Add user-added products from UserDataRepository
-        // products.addAll(userRepo.getUserProducts(manufacturerId))
+        // Add user-added products from custom manufacturers
+        val customManufacturer = userRepo.getUserData().customMappings.manufacturers[manufacturerId]
+        if (customManufacturer != null) {
+            // Convert custom manufacturer products to ProductEntry format
+            customManufacturer.materials.forEach { (materialId, material) ->
+                customManufacturer.colorPalette.forEach { (hex, colorName) ->
+                    val productEntry = ProductEntry(
+                        variantId = "${manufacturerId}_${materialId}_${hex.replace("#", "")}",
+                        productHandle = material.displayName.lowercase().replace(" ", "-"),
+                        productName = material.displayName,
+                        colorName = colorName,
+                        colorHex = hex,
+                        colorCode = materialId,
+                        price = 0.0, // Custom products don't have pricing
+                        available = true,
+                        url = "", // Custom products don't have store URLs
+                        manufacturer = customManufacturer.displayName,
+                        materialType = materialId.uppercase(),
+                        internalCode = materialId,
+                        lastUpdated = java.time.LocalDateTime.now().toString(),
+                        filamentWeightGrams = 1000f, // Default 1kg for custom materials
+                        spoolType = SpoolPackaging.REFILL // Default for custom products
+                    )
+                    products.add(productEntry)
+                }
+            }
+        }
         
         return products
     }
@@ -462,24 +487,22 @@ class UnifiedDataAccess(
     }
     
     private fun createFilamentInfoFromCustomMapping(mapping: CustomRfidMapping): FilamentInfo {
-        // TODO: Implement proper FilamentInfo creation from custom mapping
-        // This is placeholder code that needs to be updated to match the actual FilamentInfo constructor
         return FilamentInfo(
-            tagUid = "unknown",
-            trayUid = "unknown", 
+            tagUid = mapping.tagUid,
+            trayUid = mapping.tagUid, // Use tag UID as tray UID for custom mappings
             filamentType = mapping.material,
             detailedFilamentType = mapping.material,
-            colorHex = mapping.hex ?: "#FFFFFF",
+            colorHex = mapping.hex ?: "#808080",
             colorName = mapping.color,
-            spoolWeight = 1000,
+            spoolWeight = getDefaultSpoolWeight(mapping.material),
             filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            productionDate = "2024-01",
-            minTemperature = 190,
-            maxTemperature = 220,
-            bedTemperature = 60,
-            dryingTemperature = 45,
-            dryingTime = 6
+            filamentLength = estimateFilamentLength(getDefaultSpoolWeight(mapping.material)),
+            productionDate = "Custom",
+            minTemperature = getDefaultMinTemp(mapping.material),
+            maxTemperature = getDefaultMaxTemp(mapping.material),
+            bedTemperature = getDefaultBedTemp(mapping.material),
+            dryingTemperature = getDefaultDryingTemp(mapping.material),
+            dryingTime = getDefaultDryingTime(mapping.material)
         )
     }
     
@@ -487,25 +510,111 @@ class UnifiedDataAccess(
         manufacturerId: String,
         mapping: RfidMapping
     ): FilamentInfo {
-        // TODO: Implement proper FilamentInfo creation from catalog mapping
-        // This is placeholder code that needs to be updated to match the actual FilamentInfo constructor
+        val manufacturer = catalogRepo.getManufacturer(manufacturerId)
+        val materialDef = manufacturer?.materials?.get(mapping.material)
+        val tempProfile = materialDef?.temperatureProfile?.let { profileId ->
+            manufacturer.temperatureProfiles[profileId]
+        }
+        
         return FilamentInfo(
-            tagUid = "unknown",
-            trayUid = "unknown",
-            filamentType = mapping.material,
-            detailedFilamentType = mapping.material,
-            colorHex = mapping.hex ?: "#FFFFFF",
+            tagUid = mapping.rfidCode,
+            trayUid = mapping.rfidCode, // Use RFID code as tray UID for catalog mappings
+            manufacturerName = manufacturer?.displayName ?: manufacturerId,
+            filamentType = materialDef?.displayName ?: mapping.material,
+            detailedFilamentType = materialDef?.displayName ?: mapping.material,
+            colorHex = mapping.hex ?: "#808080",
             colorName = mapping.color,
-            spoolWeight = 1000,
-            filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            productionDate = "2024-01",
-            minTemperature = 190,
-            maxTemperature = 220,
-            bedTemperature = 60,
-            dryingTemperature = 45,
-            dryingTime = 6
+            spoolWeight = getDefaultSpoolWeight(mapping.material),
+            filamentDiameter = 1.75f, // MaterialDefinition doesn't have diameter property
+            filamentLength = estimateFilamentLength(getDefaultSpoolWeight(mapping.material)),
+            productionDate = "Catalog",
+            minTemperature = tempProfile?.minNozzle ?: getDefaultMinTemp(mapping.material),
+            maxTemperature = tempProfile?.maxNozzle ?: getDefaultMaxTemp(mapping.material),
+            bedTemperature = tempProfile?.bed ?: getDefaultBedTemp(mapping.material),
+            dryingTemperature = getDefaultDryingTemp(mapping.material), // TemperatureProfile doesn't have drying properties
+            dryingTime = getDefaultDryingTime(mapping.material)
         )
+    }
+    
+    // === Helper Methods for FilamentInfo Creation ===
+    
+    private fun getDefaultSpoolWeight(materialType: String): Int {
+        return when (materialType.uppercase()) {
+            "TPU" -> 500
+            "PVA", "SUPPORT" -> 500
+            "PC", "PA", "PAHT" -> 1000
+            else -> 1000 // Standard 1kg for PLA, PETG, ABS, ASA
+        }
+    }
+    
+    private fun getDefaultMinTemp(materialType: String): Int {
+        return when (materialType.uppercase()) {
+            "PLA" -> 190
+            "ABS" -> 220
+            "PETG" -> 220
+            "TPU" -> 200
+            "ASA" -> 230
+            "PC" -> 260
+            "PA", "PAHT" -> 250
+            else -> 190
+        }
+    }
+    
+    private fun getDefaultMaxTemp(materialType: String): Int {
+        return when (materialType.uppercase()) {
+            "PLA" -> 220
+            "ABS" -> 250
+            "PETG" -> 250
+            "TPU" -> 230
+            "ASA" -> 250
+            "PC" -> 280
+            "PA", "PAHT" -> 280
+            else -> 220
+        }
+    }
+    
+    private fun getDefaultBedTemp(materialType: String): Int {
+        return when (materialType.uppercase()) {
+            "PLA" -> 60
+            "ABS" -> 80
+            "PETG" -> 70
+            "TPU" -> 50
+            "ASA" -> 85
+            "PC" -> 90
+            "PA", "PAHT" -> 80
+            else -> 60
+        }
+    }
+    
+    private fun getDefaultDryingTemp(materialType: String): Int {
+        return when (materialType.uppercase()) {
+            "PLA" -> 45
+            "ABS" -> 60
+            "PETG" -> 65
+            "TPU" -> 40
+            "ASA" -> 60
+            "PC" -> 70
+            "PA", "PAHT" -> 80
+            else -> 45
+        }
+    }
+    
+    private fun getDefaultDryingTime(materialType: String): Int {
+        return when (materialType.uppercase()) {
+            "TPU" -> 12
+            "PETG" -> 8
+            "ABS" -> 4
+            "ASA" -> 4
+            "PC" -> 6
+            "PA", "PAHT" -> 8
+            else -> 6
+        }
+    }
+    
+    private fun estimateFilamentLength(spoolWeightGrams: Int): Int {
+        // Rough estimate: 1kg PLA ≈ 330m at 1.75mm diameter
+        // Adjust based on weight
+        return (spoolWeightGrams * 330) / 1000
     }
 }
 
