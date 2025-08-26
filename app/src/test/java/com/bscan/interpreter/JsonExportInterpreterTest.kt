@@ -42,9 +42,7 @@ class JsonExportInterpreterTest {
         mockCatalogRepository = mock(CatalogRepository::class.java)
         mockUserDataRepository = mock(UserDataRepository::class.java)
         
-        // Mock empty mappings for fallback testing
-        val emptyMappings = FilamentMappings.empty()
-        `when`(mockCatalogRepository.getCurrentMappings()).thenReturn(emptyMappings)
+        // Mock basic catalog operations for fallback testing
         `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(null)
         
         // Mock UserDataRepository
@@ -64,7 +62,7 @@ class JsonExportInterpreterTest {
         // Create UnifiedDataAccess with mock repositories
         unifiedDataAccess = UnifiedDataAccess(mockCatalogRepository, mockUserDataRepository)
         
-        interpreter = BambuFormatInterpreter(emptyMappings, unifiedDataAccess)
+        interpreter = BambuFormatInterpreter(FilamentMappings(), unifiedDataAccess)
     }
     
     @Test

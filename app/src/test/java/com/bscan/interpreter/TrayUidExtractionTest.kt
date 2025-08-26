@@ -56,9 +56,7 @@ class TrayUidExtractionTest {
         `when`(mockEditor.apply()).then { /* no-op */ }
         `when`(mockSharedPreferences.getString(anyString(), any())).thenReturn(null)
         
-        // Mock CatalogRepository to return empty mappings for test
-        val emptyMappings = FilamentMappings.empty()
-        `when`(mockCatalogRepository.getCurrentMappings()).thenReturn(emptyMappings)
+        // Mock CatalogRepository for basic operations
         `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(null)
         
         // Mock UserDataRepository
