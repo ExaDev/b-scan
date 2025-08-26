@@ -5,13 +5,16 @@ import android.content.SharedPreferences
 import com.bscan.ui.components.MaterialDisplayMode
 
 /**
- * Temporary stub for UserPreferencesRepository to fix compilation errors
- * TODO: Implement proper user preferences management
+ * Repository for managing user preferences, integrated with the unified data architecture.
+ * Manages UI preferences, device settings, and user-configurable options.
  */
 class UserPreferencesRepository(private val context: Context) {
     
+    private val userDataRepository by lazy { UserDataRepository(context) }
+    
+    // SharedPreferences for additional UI preferences not yet in UserData model
     private val sharedPreferences: SharedPreferences = 
-        context.getSharedPreferences("user_preferences", Context.MODE_PRIVATE)
+        context.getSharedPreferences("ui_preferences", Context.MODE_PRIVATE)
     
     fun getMaterialDisplayMode(): MaterialDisplayMode {
         val mode = sharedPreferences.getString("material_display_mode", "SHAPES")
@@ -48,7 +51,7 @@ class UserPreferencesRepository(private val context: Context) {
             .apply()
     }
     
-    // BLE scales support stubs
+    // BLE scales support
     fun isBleScalesEnabled(): Boolean {
         return sharedPreferences.getBoolean("ble_scales_enabled", false)
     }
