@@ -74,6 +74,7 @@ class DebugDataCollector {
      */
     fun recordRawData(data: ByteArray) {
         rawData = data.copyOf()
+        android.util.Log.d("DebugDataCollector", "recordRawData called with ${data.size} bytes")
     }
     
     fun recordDecryptedData(decryptedData: ByteArray) {
@@ -121,17 +122,14 @@ class DebugDataCollector {
         technology: String,
         scanDurationMs: Long = 0
     ): EncryptedScanData {
-        // Detect format from raw data
         val rawData = getRawData()
-        val detection = tagDetector.detectFromData(technology, rawData)
+        android.util.Log.d("DebugDataCollector", "createEncryptedScanData: rawData.size=${rawData.size}, tagSizeBytes=$tagSizeBytes, sectorCount=$sectorCount")
         
         return EncryptedScanData(
             id = System.currentTimeMillis(),
             timestamp = LocalDateTime.now(),
             tagUid = uid,
             technology = technology,
-            tagFormat = detection.tagFormat,
-            manufacturerName = detection.manufacturerName,
             encryptedData = rawData, // Unified storage: 768-byte or 1024-byte format
             tagSizeBytes = tagSizeBytes,
             sectorCount = sectorCount,
@@ -149,17 +147,11 @@ class DebugDataCollector {
         keyDerivationTimeMs: Long = 0,
         authenticationTimeMs: Long = 0
     ): DecryptedScanData {
-        // Detect format from raw data
-        val rawData = getRawData()
-        val detection = tagDetector.detectFromData(technology, rawData)
-        
         return DecryptedScanData(
             id = System.currentTimeMillis() + 1, // Ensure different ID from encrypted
             timestamp = LocalDateTime.now(),
             tagUid = uid,
             technology = technology,
-            tagFormat = detection.tagFormat,
-            manufacturerName = detection.manufacturerName,
             scanResult = result,
             decryptedBlocks = getBlockData(), // All available blocks based on scan format
             authenticatedSectors = getAuthenticatedSectors(),
