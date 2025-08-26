@@ -25,28 +25,6 @@ data class FilamentMappings(
         }
     }
     
-    /**
-     * Get color name from product catalog with fallback to basic color name if not found
-     */
-    fun getColorName(hex: String, materialType: String? = null): String {
-        // First try to find in product catalog
-        val matchingProducts = findProductsByColor(hex, materialType)
-        if (matchingProducts.isNotEmpty()) {
-            return matchingProducts.first().getDisplayColorName()
-        }
-        
-        // Fallback to basic color name based on hex value patterns
-        return hex.removePrefix("#").let { hexCode ->
-            when {
-                hexCode.equals("000000", ignoreCase = true) -> "Black"
-                hexCode.equals("FFFFFF", ignoreCase = true) -> "White"
-                hexCode.startsWith("FF", ignoreCase = true) && hexCode.endsWith("0000", ignoreCase = true) -> "Red"
-                hexCode.startsWith("00FF", ignoreCase = true) -> "Green"
-                hexCode.endsWith("FF", ignoreCase = true) && hexCode.startsWith("0000", ignoreCase = true) -> "Blue"
-                else -> "Unknown Color (#$hexCode)"
-            }
-        }
-    }
     
     /**
      * Get material name with fallback to code if not found
