@@ -99,65 +99,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             
             withContext(Dispatchers.Main) {
-                _uiState.value = when (result) {
-                    is TagReadResult.Success -> {
-                        _scanProgress.value = ScanProgress(
-                            stage = ScanStage.COMPLETED,
-                            percentage = 1.0f,
-                            statusMessage = "Scan completed successfully"
-                        )
-                    BScanUiState(
-                        filamentInfo = result.filamentInfo,
-                        scanState = ScanState.SUCCESS,
-                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
+                _scanProgress.value = when (result) {
+                    is TagReadResult.Success -> ScanProgress(
+                        stage = ScanStage.COMPLETED,
+                        percentage = 1.0f,
+                        statusMessage = "Scan completed successfully"
                     )
-                }
-                is TagReadResult.InvalidTag -> {
-                    _scanProgress.value = ScanProgress(
+                    is TagReadResult.InvalidTag -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Invalid or unsupported tag"
                     )
-                    BScanUiState(
-                        error = "Invalid or unsupported tag",
-                        scanState = ScanState.ERROR,
-                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                is TagReadResult.ReadError -> {
-                    _scanProgress.value = ScanProgress(
+                    is TagReadResult.ReadError -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Error reading or authenticating tag"
                     )
-                    BScanUiState(
-                        error = "Error reading or authenticating tag", 
-                        scanState = ScanState.ERROR,
-                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                is TagReadResult.InsufficientData -> {
-                    _scanProgress.value = ScanProgress(
+                    is TagReadResult.InsufficientData -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Insufficient data on tag"
                     )
-                    BScanUiState(
-                        error = "Insufficient data on tag",
-                        scanState = ScanState.ERROR,
-                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                else -> {
-                    _scanProgress.value = ScanProgress(
+                    else -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Unknown error occurred"
                     )
-                    BScanUiState(
+                }
+                
+                _uiState.value = when (result) {
+                    is TagReadResult.Success -> BScanUiState(
+                        filamentInfo = result.filamentInfo,
+                        scanState = ScanState.SUCCESS,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    is TagReadResult.InvalidTag -> BScanUiState(
+                        error = "Invalid or unsupported tag",
+                        scanState = ScanState.ERROR,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    is TagReadResult.ReadError -> BScanUiState(
+                        error = "Error reading or authenticating tag", 
+                        scanState = ScanState.ERROR,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    is TagReadResult.InsufficientData -> BScanUiState(
+                        error = "Insufficient data on tag",
+                        scanState = ScanState.ERROR,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    else -> BScanUiState(
                         error = "Unknown error occurred",
                         scanState = ScanState.ERROR,
-                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
             }
@@ -167,7 +161,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Helper method to create ScanDebugInfo from DecryptedScanData
      */
-    fun createDebugInfoFromDecryptedData(decryptedData: DecryptedScanData): ScanDebugInfo {
+    private fun createDebugInfoFromDecryptedData(decryptedData: DecryptedScanData): ScanDebugInfo {
         return ScanDebugInfo(
             uid = decryptedData.tagUid,
             tagSizeBytes = decryptedData.tagSizeBytes,
@@ -343,7 +337,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Get default printing temperatures based on material type
      */
-    fun getDefaultMinTemp(materialType: String): Int = when {
+    private fun getDefaultMinTemp(materialType: String): Int = when {
         materialType.contains("PLA") -> 190
         materialType.contains("ABS") -> 220
         materialType.contains("PETG") -> 220
@@ -351,7 +345,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         else -> 190
     }
     
-    fun getDefaultMaxTemp(materialType: String): Int = when {
+    private fun getDefaultMaxTemp(materialType: String): Int = when {
         materialType.contains("PLA") -> 220
         materialType.contains("ABS") -> 250
         materialType.contains("PETG") -> 250
@@ -359,7 +353,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         else -> 220
     }
     
-    fun getDefaultBedTemp(materialType: String): Int = when {
+    private fun getDefaultBedTemp(materialType: String): Int = when {
         materialType.contains("PLA") -> 60
         materialType.contains("ABS") -> 80
         materialType.contains("PETG") -> 70
@@ -367,7 +361,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         else -> 60
     }
     
-    fun getDefaultDryingTemp(materialType: String): Int = when {
+    private fun getDefaultDryingTemp(materialType: String): Int = when {
         materialType.contains("PLA") -> 45
         materialType.contains("ABS") -> 60
         materialType.contains("PETG") -> 65
@@ -375,7 +369,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         else -> 45
     }
     
-    fun getDefaultDryingTime(materialType: String): Int = when {
+    private fun getDefaultDryingTime(materialType: String): Int = when {
         materialType.contains("TPU") -> 12
         materialType.contains("PETG") -> 8
         materialType.contains("ABS") -> 4
