@@ -203,8 +203,6 @@ class SampleDataGenerator {
                 timestamp = scanTime,
                 tagUid = tagUid,
                 technology = "MifareClassic",
-                tagFormat = TagFormat.BAMBU_PROPRIETARY,
-                manufacturerName = "Bambu Lab",
                 encryptedData = ByteArray(1024) { Random.nextInt(256).toByte() },
                 tagSizeBytes = 1024,
                 sectorCount = 16,
@@ -215,8 +213,6 @@ class SampleDataGenerator {
                 timestamp = scanTime,
                 tagUid = tagUid,
                 technology = "MifareClassic",
-                tagFormat = TagFormat.BAMBU_PROPRIETARY,
-                manufacturerName = "Bambu Lab",
                 scanResult = if (isSuccess) ScanResult.SUCCESS else ScanResult.AUTHENTICATION_FAILED,
                 decryptedBlocks = if (isSuccess) createSampleBlocks(
                     product = product,
