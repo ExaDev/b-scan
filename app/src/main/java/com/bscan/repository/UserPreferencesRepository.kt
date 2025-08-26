@@ -4,16 +4,19 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.logic.WeightUnit
+import com.bscan.utils.DeviceCapabilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * Repository for managing user preferences
  */
-class UserPreferencesRepository(context: Context) {
+class UserPreferencesRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("user_preferences", Context.MODE_PRIVATE)
+    
+    private val deviceCapabilities = DeviceCapabilities(context)
     
     /**
      * Get the current material display mode preference
@@ -184,6 +187,80 @@ class UserPreferencesRepository(context: Context) {
             .apply()
     }
     
+    // === Visual Effects Preferences ===
+    
+    /**
+     * Check if accelerometer-based effects are enabled
+     * Uses smart defaults based on device performance
+     */
+    fun isAccelerometerEffectsEnabled(): Boolean {
+        // If user has never set this preference, use smart default
+        if (!sharedPreferences.contains(ACCELEROMETER_EFFECTS_KEY)) {
+            val defaultValue = getAccelerometerEffectsDefault()
+            // Cache the smart default so it's consistent
+            sharedPreferences.edit()
+                .putBoolean(ACCELEROMETER_EFFECTS_KEY, defaultValue)
+                .putBoolean(ACCELEROMETER_EFFECTS_AUTO_SET_KEY, true)
+                .apply()
+            return defaultValue
+        }
+        
+        return sharedPreferences.getBoolean(ACCELEROMETER_EFFECTS_KEY, getAccelerometerEffectsDefault())
+    }
+    
+    /**
+     * Set accelerometer effects enabled state (marks as user-set)
+     */
+    suspend fun setAccelerometerEffectsEnabled(enabled: Boolean) = withContext(Dispatchers.IO) {
+        sharedPreferences.edit()
+            .putBoolean(ACCELEROMETER_EFFECTS_KEY, enabled)
+            .putBoolean(ACCELEROMETER_EFFECTS_AUTO_SET_KEY, false) // User manually changed it
+            .apply()
+    }
+    
+    /**
+     * Check if accelerometer effects were automatically disabled due to performance
+     */
+    fun wasAccelerometerEffectsAutoDisabled(): Boolean {
+        return sharedPreferences.getBoolean(ACCELEROMETER_EFFECTS_AUTO_SET_KEY, false) &&
+                !isAccelerometerEffectsEnabled()
+    }
+    
+    /**
+     * Get device performance info for accelerometer effects
+     */
+    fun getAccelerometerEffectsDeviceInfo(): String {
+        return if (deviceCapabilities.shouldDisableAccelerometerEffects()) {
+            deviceCapabilities.getDisableReason()
+        } else {
+            "Device supports motion effects"
+        }
+    }
+    
+    /**
+     * Get motion sensitivity setting (0.1 = subtle, 1.0 = maximum)
+     */
+    fun getMotionSensitivity(): Float {
+        return sharedPreferences.getFloat(MOTION_SENSITIVITY_KEY, DEFAULT_MOTION_SENSITIVITY)
+    }
+    
+    /**
+     * Set motion sensitivity setting
+     */
+    suspend fun setMotionSensitivity(sensitivity: Float) = withContext(Dispatchers.IO) {
+        val clampedSensitivity = sensitivity.coerceIn(MIN_MOTION_SENSITIVITY, MAX_MOTION_SENSITIVITY)
+        sharedPreferences.edit()
+            .putFloat(MOTION_SENSITIVITY_KEY, clampedSensitivity)
+            .apply()
+    }
+    
+    /**
+     * Get the smart default for accelerometer effects based on device performance
+     */
+    private fun getAccelerometerEffectsDefault(): Boolean {
+        return !deviceCapabilities.shouldDisableAccelerometerEffects()
+    }
+    
     companion object {
         private const val MATERIAL_DISPLAY_MODE_KEY = "material_display_mode"
         
@@ -199,6 +276,16 @@ class UserPreferencesRepository(context: Context) {
         private const val BLE_SCALES_ENABLED_KEY = "ble_scales_enabled"
         private const val BLE_SCALES_AUTO_CONNECT_KEY = "ble_scales_auto_connect"
         
+        // Visual effects keys
+        private const val ACCELEROMETER_EFFECTS_KEY = "accelerometer_effects_enabled"
+        private const val ACCELEROMETER_EFFECTS_AUTO_SET_KEY = "accelerometer_effects_auto_set"
+        private const val MOTION_SENSITIVITY_KEY = "motion_sensitivity"
+        
         private const val DEFAULT_WEIGHT_TOLERANCE = 5f // 5% tolerance
+        
+        // Motion sensitivity constants
+        private const val DEFAULT_MOTION_SENSITIVITY = 0.7f // Balanced default
+        private const val MIN_MOTION_SENSITIVITY = 0.1f     // Very subtle
+        private const val MAX_MOTION_SENSITIVITY = 1.0f     // Maximum movement
     }
 }
