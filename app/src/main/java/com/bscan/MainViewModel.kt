@@ -334,16 +334,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Expose user data repository for direct access where needed
     fun getUserDataRepository() = userDataRepository
     
-    // Expose repositories through unified data access for UI components that need reactive flows
-    // Note: These return mock repositories until UI components are updated to use unifiedDataAccess directly
-    fun getInventoryTrackingRepository() = object {
-        // TODO: Implement reactive flows from unifiedDataAccess
-        // This is a temporary compatibility layer
-    }
-    fun getMappingsRepository() = object {
-        // TODO: Implement reactive flows from unifiedDataAccess
-        // This is a temporary compatibility layer
-    }
+    // Inventory tracking methods with proper reactive flows
+    fun getInventoryItems() = unifiedDataAccess.getInventoryItems()
+    
+    fun getInventoryItem(trayUid: String) = unifiedDataAccess.getInventoryItem(trayUid)
+    
+    fun saveInventoryItem(item: InventoryItem) = unifiedDataAccess.saveInventoryItem(item)
+    
+    // Mappings access methods
+    fun getManufacturers() = unifiedDataAccess.getAllManufacturers()
+    
+    fun getManufacturer(manufacturerId: String) = unifiedDataAccess.getManufacturer(manufacturerId)
+    
+    fun getProducts(manufacturerId: String) = unifiedDataAccess.getProducts(manufacturerId)
     
     /**
      * Refresh the FilamentInterpreter with updated mappings
