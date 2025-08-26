@@ -140,47 +140,6 @@ class CatalogRepository(private val context: Context) {
         }
     }
     
-    /**
-     * Find best product match by material type and color name (deprecated - use UnifiedDataAccess)
-     * @deprecated Use UnifiedDataAccess.findBestProductMatch() instead
-     */
-    @Deprecated("Use UnifiedDataAccess.findBestProductMatch() instead")
-    fun findBestProductMatch(filamentType: String, colorName: String): ProductEntry? {
-        // This method is kept for backward compatibility but should not be used
-        // Product data is now managed through UnifiedDataAccess
-        return null
-    }
-    
-    /**
-     * Get current mappings in legacy format (deprecated - use UnifiedDataAccess)
-     * @deprecated Use UnifiedDataAccess for product data and CatalogRepository for catalog metadata
-     */
-    @Deprecated("Use UnifiedDataAccess for product data")
-    fun getCurrentMappings(): FilamentMappings {
-        val catalog = getCatalog()
-        
-        // Convert to legacy format - this is a simplified conversion
-        // Note: This no longer includes product data as that's handled by UnifiedDataAccess
-        val materialMappings = mutableMapOf<String, String>()
-        val brandMappings = mutableMapOf<String, String>()
-        
-        catalog.manufacturers.forEach { (manufacturerId, manufacturer) ->
-            // Add brand mapping
-            brandMappings[manufacturerId] = manufacturer.displayName
-            
-            // Add material mappings
-            manufacturer.materials.forEach { (materialId, material) ->
-                materialMappings[materialId] = material.displayName
-            }
-        }
-        
-        return FilamentMappings(
-            productCatalog = emptyList(), // Products now come from UnifiedDataAccess
-            materialMappings = materialMappings,
-            brandMappings = brandMappings,
-            version = catalog.version
-        )
-    }
 
     /**
      * Force reload catalog from assets (useful for testing)
