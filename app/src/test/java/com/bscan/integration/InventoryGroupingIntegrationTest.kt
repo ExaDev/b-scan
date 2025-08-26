@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.bscan.model.*
 import com.bscan.repository.*
 import com.bscan.interpreter.InterpreterFactory
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
@@ -57,7 +58,7 @@ class InventoryGroupingIntegrationTest {
         catalogRepository = CatalogRepository(mockContext)
         userDataRepository = UserDataRepository(mockContext)
         unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
-        scanHistoryRepository = ScanHistoryRepository(mockContext, unifiedDataAccess)
+        scanHistoryRepository = ScanHistoryRepository(mockContext)
         interpreterFactory = InterpreterFactory(unifiedDataAccess)
     }
 
@@ -68,18 +69,12 @@ class InventoryGroupingIntegrationTest {
         val tag2 = createMockInterpretedScan("658127A5", "TRAY002", "PETG", "Blue") 
         val tag3 = createMockInterpretedScan("17F3F42B", "TRAY003", "ABS", "Green")
         
-        // When - store scans in repository
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag1.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag1.uid, "TRAY001"))
-        scanHistoryRepository.storeInterpretedScan(tag1)
-        
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag2.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag2.uid, "TRAY002"))
-        scanHistoryRepository.storeInterpretedScan(tag2)
-        
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag3.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag3.uid, "TRAY003"))
-        scanHistoryRepository.storeInterpretedScan(tag3)
+        // When - store scans in repository using new method
+        runBlocking {
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag1.uid), createMockDecryptedScan(tag1.uid, "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY002"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag3.uid), createMockDecryptedScan(tag3.uid, "TRAY003"))
+        }
         
         // Then - should have 3 separate inventory items, not 1 with 3 related tags
         val inventoryItems = scanHistoryRepository.getUniqueFilamentReels()
@@ -124,13 +119,10 @@ class InventoryGroupingIntegrationTest {
         val tag2 = createMockInterpretedScan("45FF5A05", "TRAY001", "PLA", "Red") // Same tray, different tag
         
         // When - store scans in repository
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag1.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag1.uid, "TRAY001"))
-        scanHistoryRepository.storeInterpretedScan(tag1)
-        
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag2.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag2.uid, "TRAY001"))
-        scanHistoryRepository.storeInterpretedScan(tag2)
+        runBlocking {
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag1.uid), createMockDecryptedScan(tag1.uid, "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY001"))
+        }
         
         // Then - should have 1 inventory item with 2 related tags
         val inventoryItems = scanHistoryRepository.getUniqueFilamentReels()
@@ -158,17 +150,11 @@ class InventoryGroupingIntegrationTest {
         val tag3 = createMockInterpretedScan("17F3F42B", "TRAY003", "ABS", "Green")
         
         // When - store scans with properly extracted tray UIDs (post-fix)
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag1.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag1.uid, "TRAY001"))
-        scanHistoryRepository.storeInterpretedScan(tag1)
-        
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag2.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag2.uid, "TRAY002"))
-        scanHistoryRepository.storeInterpretedScan(tag2)
-        
-        scanHistoryRepository.storeEncryptedScan(createMockEncryptedScan(tag3.uid))
-        scanHistoryRepository.storeDecryptedScan(createMockDecryptedScan(tag3.uid, "TRAY003"))
-        scanHistoryRepository.storeInterpretedScan(tag3)
+        runBlocking {
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag1.uid), createMockDecryptedScan(tag1.uid, "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY002"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan(tag3.uid), createMockDecryptedScan(tag3.uid, "TRAY003"))
+        }
         
         // Then - should have 3 separate inventory items (fix working correctly)
         val inventoryItems = scanHistoryRepository.getUniqueFilamentReels()
@@ -215,12 +201,12 @@ class InventoryGroupingIntegrationTest {
             dryingTime = 8
         )
         
+        val encryptedScan = createMockEncryptedScan(tagUid)
+        val decryptedScan = createMockDecryptedScan(tagUid, trayUid)
+        
         return InterpretedScan(
-            id = tagUid.hashCode().toLong(),
-            timestamp = LocalDateTime.now(),
-            uid = tagUid,
-            technology = "MifareClassic",
-            scanResult = ScanResult.SUCCESS,
+            encryptedData = encryptedScan,
+            decryptedData = decryptedScan,
             filamentInfo = filamentInfo
         )
     }
@@ -231,7 +217,7 @@ class InventoryGroupingIntegrationTest {
             timestamp = LocalDateTime.now(),
             tagUid = tagUid,
             technology = "MifareClassic",
-            encryptedBytes = ByteArray(1024) { 0x00 }
+            encryptedData = ByteArray(1024) { 0x00 }
         )
     }
     
