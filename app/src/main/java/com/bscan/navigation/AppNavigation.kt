@@ -113,8 +113,8 @@ fun AppNavigation(
             )
         }
         
-        composable("trayTracking") {
-            TrayTrackingScreen(
+        composable("inventory") {
+            InventoryScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() }
             )

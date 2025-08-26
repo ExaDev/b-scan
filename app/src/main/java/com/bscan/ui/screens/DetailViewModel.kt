@@ -3,7 +3,7 @@ package com.bscan.ui.screens
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.FilamentReelDetails
 import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
@@ -37,7 +37,7 @@ data class DetailUiState(
     val relatedSkus: List<SkuInfo> = emptyList()
 )
 
-class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel() {
+class DetailViewModel(private val unifiedDataAccess: UnifiedDataAccess) : ViewModel() {
     
     private val _uiState = MutableStateFlow(DetailUiState())
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
@@ -100,7 +100,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         val uid = parts.last()
         val timestampStr = parts.dropLast(1).joinToString("_")
         
-        val allScans = repository.getAllScans()
+        val allScans = unifiedDataAccess.getAllScans()
         
         // Try to find scan by generating the same ID format and comparing
         val primaryScan = allScans.find { scan ->
@@ -122,7 +122,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         // Get related data
         val trayUid = primaryScan.filamentInfo?.trayUid
         val relatedSpools = if (trayUid != null) {
-            repository.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+            unifiedDataAccess.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
         } else {
             emptyList()
         }
@@ -150,8 +150,8 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
     }
     
     private suspend fun loadTagDetails(tagUid: String) {
-        val allScans = repository.getAllScans()
-        val tagScans = repository.getScansByTagUid(tagUid)
+        val allScans = unifiedDataAccess.getAllScans()
+        val tagScans = unifiedDataAccess.getScansByTagUid(tagUid)
         val primaryTag = tagScans.maxByOrNull { it.timestamp }
         
         if (primaryTag == null) {
@@ -165,7 +165,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         // Get related data
         val trayUid = primaryTag.filamentInfo?.trayUid
         val relatedSpools = if (trayUid != null) {
-            repository.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+            unifiedDataAccess.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
         } else {
             emptyList()
         }
@@ -195,7 +195,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         Log.d("DetailViewModel", "Loading spool details for trayUid: $trayUid")
         
         try {
-            val filamentReelDetails = repository.getFilamentReelDetails(trayUid)
+            val filamentReelDetails = unifiedDataAccess.getFilamentReelDetails(trayUid)
             
             if (filamentReelDetails == null) {
                 Log.w("DetailViewModel", "No filament reel found for trayUid: $trayUid")
@@ -244,7 +244,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
     }
     
     private suspend fun loadSkuDetails(skuKey: String) {
-        val allScans = repository.getAllScans()
+        val allScans = unifiedDataAccess.getAllScans()
         
         // Parse the SKU key to understand what we're looking for
         val parts = skuKey.split("-")
@@ -330,7 +330,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         val relatedSpools = skuScans
             .groupBy { it.filamentInfo!!.trayUid }
             .mapNotNull { (trayUid, scans) ->
-                repository.getFilamentReelDetails(trayUid)
+                unifiedDataAccess.getFilamentReelDetails(trayUid)
             }
         
         val relatedTags = skuScans.map { it.uid }.distinct()
@@ -352,7 +352,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
         }
         
         try {
-            val allScans = repository.getAllScans()
+            val allScans = unifiedDataAccess.getAllScans()
             
             // Find scans that match BOTH filament type AND color for this specific SKU
             val skuScans = allScans.filter { scan ->

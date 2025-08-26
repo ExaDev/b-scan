@@ -1,21 +1,40 @@
 package com.bscan.ui.screens.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Error
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import com.bscan.repository.UserDataRepository
+import com.bscan.repository.UnifiedDataAccess
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import com.bscan.ScanState
-import com.bscan.model.ScanProgress
+import com.bscan.model.*
+import com.bscan.repository.CatalogRepository
 import com.bscan.repository.InterpretedScan
-import com.bscan.repository.SkuRepository
+import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.screens.DetailType
-import java.time.LocalDateTime
+import com.bscan.ui.screens.home.GroupHeader
 
+/**
+ * Multi-manufacturer product catalog browser
+ * Displays products from all manufacturers with filtering and grouping
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedSkusList(
     allScans: List<InterpretedScan>,
@@ -32,119 +51,51 @@ fun EnhancedSkusList(
     fullPromptHeightDp: Dp = 400.dp
 ) {
     val context = LocalContext.current
-    val skuRepository = remember { SkuRepository(context) }
+    val catalogRepository = remember { CatalogRepository(context) }
+    val userDataRepository = remember { UserDataRepository(context) }
+    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userDataRepository) }
     
-    // Get all SKUs from repository (includes both owned and virtual products)
-    val allSkus = remember(allScans) {
-        skuRepository.getAllSkus()
+    
+    // Get catalog data
+    val catalog by remember { derivedStateOf { catalogRepository.getCatalog() } }
+    
+    // Get all products across manufacturers using UnifiedDataAccess
+    val allProducts = remember(catalog) {
+        catalog.manufacturers.flatMap { (manufacturerId, manufacturerCatalog) ->
+            // Get products from UnifiedDataAccess (includes built-in BambuProductDatabase + catalog + future user products)
+            val products = unifiedDataAccess.getProducts(manufacturerId)
+            
+            products.map { product ->
+                ProductWithManufacturer(
+                    product = product,
+                    manufacturerId = manufacturerId,
+                    manufacturerName = manufacturerCatalog.displayName,
+                    hasRfidMapping = manufacturerCatalog.rfidMappings.values.any { 
+                        it.sku == product.variantId 
+                    },
+                    materialDefinition = manufacturerCatalog.materials[product.materialType],
+                    temperatureProfile = manufacturerCatalog.materials[product.materialType]?.let {
+                        manufacturerCatalog.temperatureProfiles[it.temperatureProfile]
+                    }
+                )
+            }
+        }.sortedWith(
+            compareBy<ProductWithManufacturer> { it.manufacturerName }
+                .thenBy { it.product.materialType }
+                .thenBy { it.product.colorName }
+        )
     }
     
-    val filteredGroupedAndSortedSkus = remember(allSkus, sortProperty, sortDirection, groupByOption, filterState) {
-        val filtered = allSkus.filter { sku ->
-            // Filter by minimum filament reel count (0 = show all products, 1+ = only owned)
-            val matchesSpoolCount = sku.filamentReelCount >= filterState.minSpoolCount
-            
-            // Filter by filament types
-            val matchesFilamentType = if (filterState.filamentTypes.isEmpty()) {
-                true
-            } else {
-                filterState.filamentTypes.contains(sku.filamentInfo.filamentType)
-            }
-            
-            // Filter by colors
-            val matchesColor = if (filterState.colors.isEmpty()) {
-                true
-            } else {
-                filterState.colors.contains(sku.filamentInfo.colorName)
-            }
-            
-            // Filter by base materials
-            val matchesBaseMaterial = if (filterState.baseMaterials.isEmpty()) {
-                true
-            } else {
-                val baseMaterial = sku.filamentInfo.filamentType.split(" ").firstOrNull() ?: ""
-                filterState.baseMaterials.contains(baseMaterial)
-            }
-            
-            // Filter by material series
-            val matchesMaterialSeries = if (filterState.materialSeries.isEmpty()) {
-                true
-            } else {
-                val parts = sku.filamentInfo.filamentType.split(" ")
-                val series = if (parts.size >= 2) parts.drop(1).joinToString(" ") else ""
-                filterState.materialSeries.contains(series)
-            }
-            
-            // Filter by success rate
-            val matchesSuccessRate = sku.successRate >= filterState.minSuccessRate
-            
-            // Filter by success/failure only
-            val matchesResultFilter = when {
-                filterState.showSuccessOnly -> sku.successRate == 1.0f
-                filterState.showFailuresOnly -> sku.successRate < 1.0f
-                else -> true
-            }
-            
-            // Filter by date range (skip for unscanned products with filamentReelCount = 0)
-            val matchesDateRange = if (sku.filamentReelCount == 0) {
-                true // Unscanned products always match date range
-            } else {
-                filterState.dateRangeDays?.let { days ->
-                    val cutoffDate = LocalDateTime.now().minusDays(days.toLong())
-                    sku.lastScanned.isAfter(cutoffDate)
-                } ?: true
-            }
-            
-            matchesSpoolCount && matchesFilamentType && matchesColor && matchesBaseMaterial && 
-            matchesMaterialSeries && matchesSuccessRate && matchesResultFilter && matchesDateRange
-        }
-        
-        val sorted = when (sortProperty) {
-            SortProperty.FIRST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
-                // Sort by first scan date; unscanned products (epoch time) come first
-                filtered.sortedBy { it.lastScanned }
-            } else {
-                // Sort by first scan date desc; scanned products come first
-                filtered.sortedByDescending { it.lastScanned }
-            }
-            SortProperty.LAST_SCAN -> if (sortDirection == SortDirection.ASCENDING) {
-                // Sort by last scan date; unscanned products (epoch time) come first
-                filtered.sortedBy { it.lastScanned }
-            } else {
-                // Sort by last scan date desc; recently scanned products come first
-                filtered.sortedByDescending { it.lastScanned }
-            }
-            SortProperty.NAME -> if (sortDirection == SortDirection.ASCENDING) {
-                filtered.sortedBy { it.filamentInfo.colorName }
-            } else {
-                filtered.sortedByDescending { it.filamentInfo.colorName }
-            }
-            SortProperty.SUCCESS_RATE -> if (sortDirection == SortDirection.ASCENDING) {
-                filtered.sortedBy { it.successRate }
-            } else {
-                filtered.sortedByDescending { it.successRate }
-            }
-            SortProperty.COLOR -> if (sortDirection == SortDirection.ASCENDING) {
-                filtered.sortedBy { it.filamentInfo.colorName }
-            } else {
-                filtered.sortedByDescending { it.filamentInfo.colorName }
-            }
-            SortProperty.MATERIAL_TYPE -> if (sortDirection == SortDirection.ASCENDING) {
-                filtered.sortedBy { it.filamentInfo.filamentType }
-            } else {
-                filtered.sortedByDescending { it.filamentInfo.filamentType }
-            }
-        }
-        
-        // Group the sorted SKUs if grouping is enabled
+    // Group products based on groupByOption (following pattern from ListComponents.kt)
+    val filteredGroupedAndSortedProducts = remember(allProducts, groupByOption) {
         when (groupByOption) {
-            GroupByOption.NONE -> sorted.map { "ungrouped" to listOf(it) }
-            GroupByOption.COLOR -> sorted.groupBy { it.filamentInfo.colorName }.toList()
-            GroupByOption.BASE_MATERIAL -> sorted.groupBy { 
-                it.filamentInfo.filamentType.split(" ").firstOrNull() ?: "Unknown"
+            GroupByOption.NONE -> allProducts.map { "ungrouped" to listOf(it) }
+            GroupByOption.COLOR -> allProducts.groupBy { it.product.colorName }.toList()
+            GroupByOption.BASE_MATERIAL -> allProducts.groupBy { 
+                it.product.materialType.split(" ").firstOrNull() ?: "Unknown"
             }.toList()
-            GroupByOption.MATERIAL_SERIES -> sorted.groupBy { 
-                val parts = it.filamentInfo.filamentType.split(" ")
+            GroupByOption.MATERIAL_SERIES -> allProducts.groupBy { 
+                val parts = it.product.materialType.split(" ")
                 if (parts.size >= 2) parts.drop(1).joinToString(" ") else "Basic"
             }.toList()
         }
@@ -164,22 +115,149 @@ fun EnhancedSkusList(
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            filteredGroupedAndSortedSkus.forEach { (groupKey, groupSkus) ->
+            
+            // Display grouped products
+            filteredGroupedAndSortedProducts.forEach { (groupKey, groupProducts) ->
                 // Show group header if grouping is enabled
                 if (groupByOption != GroupByOption.NONE) {
                     item(key = "header_$groupKey") {
-                        GroupHeader(title = groupKey, itemCount = groupSkus.size)
+                        GroupHeader(title = groupKey, itemCount = groupProducts.size)
                     }
                 }
                 
-                // Show SKUs in the group
-                items(groupSkus, key = { it.skuKey }) { sku ->
-                    SkuCard(
-                        sku = sku,
-                        onClick = { skuKey ->
-                            onNavigateToDetails?.invoke(DetailType.SKU, skuKey)
+                // Products in this group
+                items(groupProducts, key = { "${it.manufacturerId}_${it.product.variantId}" }) { productInfo ->
+                    ProductCard(
+                        productInfo = productInfo,
+                        onClick = {
+                            onNavigateToDetails?.invoke(
+                                DetailType.SKU, 
+                                "${productInfo.manufacturerId}:${productInfo.product.variantId}"
+                            )
                         }
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Product information combined with manufacturer details
+ */
+data class ProductWithManufacturer(
+    val product: ProductEntry,
+    val manufacturerId: String,
+    val manufacturerName: String,
+    val hasRfidMapping: Boolean,
+    val materialDefinition: MaterialDefinition?,
+    val temperatureProfile: TemperatureProfile?
+)
+
+
+
+
+
+
+/**
+ * Individual product card
+ */
+@Composable
+fun ProductCard(
+    productInfo: ProductWithManufacturer,
+    onClick: () -> Unit
+) {
+    val product = productInfo.product
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Color preview
+            product.colorHex?.let { hex ->
+                FilamentColorBox(
+                    colorHex = hex,
+                    filamentType = product.materialType,
+                    modifier = Modifier.size(40.dp)
+                )
+            } ?: Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.outline)
+            )
+            
+            // Product information
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = product.colorName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Text(
+                    text = "${product.materialType} • SKU: ${product.variantId}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                // Temperature info if available
+                productInfo.temperatureProfile?.let { profile ->
+                    Text(
+                        text = "${profile.minNozzle}-${profile.maxNozzle}°C • Bed: ${profile.bed}°C",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            // Status indicators
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // RFID mapping status
+                Icon(
+                    imageVector = if (productInfo.hasRfidMapping) {
+                        Icons.Outlined.CheckCircle
+                    } else {
+                        Icons.Outlined.Error
+                    },
+                    contentDescription = if (productInfo.hasRfidMapping) {
+                        "Has RFID mapping"
+                    } else {
+                        "No RFID mapping"
+                    },
+                    tint = if (productInfo.hasRfidMapping) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
+                    modifier = Modifier.size(20.dp)
+                )
+                
+                // Material category badge
+                productInfo.materialDefinition?.properties?.category?.let { category ->
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = category.name,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
         }

@@ -27,7 +27,9 @@ import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.InventoryRepository
 import com.bscan.repository.PhysicalComponentRepository
 import com.bscan.repository.UserPreferencesRepository
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
+import com.bscan.repository.UnifiedDataAccess
 import com.bscan.logic.SkuWeightService
 import com.bscan.ui.components.*
 import com.bscan.ui.components.filament.*
@@ -61,8 +63,10 @@ fun DetailScreen(
     Log.d("DetailScreen", "Starting DetailScreen with type: $detailType, identifier: $identifier")
     
     val context = LocalContext.current
-    val repository = remember { ScanHistoryRepository(context) }
-    val viewModel = remember { DetailViewModel(repository) }
+    val catalogRepository = remember { CatalogRepository(context) }
+    val userRepository = remember { UserDataRepository(context) }
+    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userRepository) }
+    val viewModel = remember { DetailViewModel(unifiedDataAccess) }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
