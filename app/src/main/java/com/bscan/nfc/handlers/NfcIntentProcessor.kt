@@ -28,7 +28,7 @@ class NfcIntentProcessor(
             hapticFeedbackProvider.provideFeedback()
             
             // Skip cache for now and go directly to full read
-            // TODO: Implement caching for new data model
+            // Could implement caching optimization for dual EncryptedScanData/DecryptedScanData model
             processSlowTagRead(intent)
         }
     }

@@ -172,7 +172,7 @@ fun SettingsScreen(
                         scope.launch {
                             isExporting = true
                             try {
-                                // TODO: Implement actual export with file picker
+                                // DataExportManager integration: needs file picker and scope selection
                                 kotlinx.coroutines.delay(1000) // Simulate export
                             } finally {
                                 isExporting = false

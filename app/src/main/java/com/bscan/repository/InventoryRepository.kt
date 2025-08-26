@@ -627,7 +627,7 @@ class InventoryRepository(private val context: Context) {
         }
     }
     
-    // Temporary wrapper methods for compatibility - TODO: migrate to proper factory pattern
+    // Temporary wrapper methods for compatibility - BambuComponentFactory should be used instead
     private fun createFilamentComponent(
         filamentType: String,
         colorName: String,
