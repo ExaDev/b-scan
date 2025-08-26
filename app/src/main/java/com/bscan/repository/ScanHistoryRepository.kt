@@ -11,8 +11,6 @@ import com.bscan.repository.MappingsRepository
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.lang.reflect.Type
 import java.time.LocalDateTime
@@ -139,9 +137,9 @@ class ScanHistoryRepository(private val context: Context) {
             gson.fromJson(scansJson, type) ?: emptyList()
         } catch (e: JsonSyntaxException) {
             // If data is corrupted, return empty list and clear storage
-            GlobalScope.launch {
-                clearEncryptedHistory()
-            }
+            sharedPreferences.edit()
+                .remove("encrypted_scans")
+                .apply()
             emptyList()
         }
     }
@@ -157,9 +155,9 @@ class ScanHistoryRepository(private val context: Context) {
             gson.fromJson(scansJson, type) ?: emptyList()
         } catch (e: JsonSyntaxException) {
             // If data is corrupted, return empty list and clear storage
-            GlobalScope.launch {
-                clearDecryptedHistory()
-            }
+            sharedPreferences.edit()
+                .remove("decrypted_scans")
+                .apply()
             emptyList()
         }
     }
