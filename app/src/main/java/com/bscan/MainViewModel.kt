@@ -109,7 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         filamentInfo = result.filamentInfo,
                         scanState = ScanState.SUCCESS,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 is TagReadResult.InvalidTag -> {
@@ -121,7 +121,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Invalid or unsupported tag",
                         scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 is TagReadResult.ReadError -> {
@@ -133,7 +133,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Error reading or authenticating tag", 
                         scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 is TagReadResult.InsufficientData -> {
@@ -145,7 +145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Insufficient data on tag",
                         scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
                 else -> {
@@ -157,7 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     BScanUiState(
                         error = "Unknown error occurred",
                         scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                        debugInfo = this@MainViewModel.createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
             }
@@ -307,11 +307,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 filamentDiameter = 1.75f,
                 filamentLength = kotlin.random.Random.nextInt(100000, 500000),
                 productionDate = "2024-${kotlin.random.Random.nextInt(1, 13).toString().padStart(2, '0')}",
-                minTemperature = getDefaultMinTemp(product.productLine),
-                maxTemperature = getDefaultMaxTemp(product.productLine),
-                bedTemperature = getDefaultBedTemp(product.productLine),
-                dryingTemperature = getDefaultDryingTemp(product.productLine),
-                dryingTime = getDefaultDryingTime(product.productLine),
+                minTemperature = this@MainViewModel.getDefaultMinTemp(product.productLine),
+                maxTemperature = this@MainViewModel.getDefaultMaxTemp(product.productLine),
+                bedTemperature = this@MainViewModel.getDefaultBedTemp(product.productLine),
+                dryingTemperature = this@MainViewModel.getDefaultDryingTemp(product.productLine),
+                dryingTime = this@MainViewModel.getDefaultDryingTime(product.productLine),
                 bambuProduct = product
             )
             
