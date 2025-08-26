@@ -272,11 +272,16 @@ class ScanHistoryRepository(private val context: Context) {
         val decryptedByUid = decryptedScans.groupBy { it.tagUid }
         val encryptedByUid = encryptedScans.groupBy { it.tagUid }
         
-        val allUids = (decryptedByUid.keys + encryptedByUid.keys).toSet()
+        android.util.Log.d("ScanHistoryRepository", "getAllScans: ${decryptedScans.size} decrypted, ${encryptedScans.size} encrypted")
         
-        return allUids.mapNotNull { uid ->
+        val allUids = (decryptedByUid.keys + encryptedByUid.keys).toSet()
+        android.util.Log.d("ScanHistoryRepository", "getAllScans: ${allUids.size} unique UIDs: $allUids")
+        
+        val result = allUids.mapNotNull { uid ->
             val encrypted = encryptedByUid[uid]?.firstOrNull()
             val decrypted = decryptedByUid[uid]?.firstOrNull()
+            
+            android.util.Log.d("ScanHistoryRepository", "Processing UID $uid: encrypted=${encrypted != null}, decrypted=${decrypted != null}, scanResult=${decrypted?.scanResult}")
             
             // We need at least encrypted data to show a scan
             if (encrypted != null) {
@@ -285,9 +290,13 @@ class ScanHistoryRepository(private val context: Context) {
                 val effectiveDecrypted = decrypted ?: createFailedDecryptedScan(encrypted)
                 InterpretedScan(encrypted, effectiveDecrypted, filamentInfo)
             } else {
+                android.util.Log.w("ScanHistoryRepository", "No encrypted data for UID $uid - skipping")
                 null
             }
         }
+        
+        android.util.Log.d("ScanHistoryRepository", "getAllScans: returning ${result.size} interpreted scans")
+        return result
     }
     
     /**
@@ -316,6 +325,31 @@ class ScanHistoryRepository(private val context: Context) {
     }
     
     /**
+     * Create placeholder FilamentInfo for unknown tags that scan successfully but can't be interpreted
+     */
+    private fun createUnknownTagFilamentInfo(scan: InterpretedScan): com.bscan.model.FilamentInfo {
+        return com.bscan.model.FilamentInfo(
+            tagUid = scan.uid,
+            trayUid = scan.uid, // Use tag UID as tray UID for unknown tags
+            tagFormat = com.bscan.model.TagFormat.UNKNOWN,
+            manufacturerName = scan.decryptedData.manufacturerName,
+            filamentType = "Unknown",
+            detailedFilamentType = "Unknown Tag",
+            colorHex = "#808080", // Gray color for unknown
+            colorName = "Unknown",
+            spoolWeight = 0,
+            filamentDiameter = 1.75f, // Default diameter
+            filamentLength = 0,
+            productionDate = "Unknown",
+            minTemperature = 0,
+            maxTemperature = 0,
+            bedTemperature = 0,
+            dryingTemperature = 0,
+            dryingTime = 0
+        )
+    }
+    
+    /**
      * UI compatibility method: Get scans by tag UID
      */
     fun getScansByTagUid(tagUid: String): List<InterpretedScan> {
@@ -332,11 +366,15 @@ class ScanHistoryRepository(private val context: Context) {
         val scansByUid = allScans.groupBy { it.uid }
         
         return scansByUid.mapNotNull { (uid, scans) ->
-            // Find the most recent successful scan with filament info
+            // Find the most recent successful scan (with or without filament info for unknown tags)
             val mostRecentSuccessfulScan = scans
-                .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+                .filter { it.scanResult == ScanResult.SUCCESS }
                 .maxByOrNull { it.timestamp }
                 ?: return@mapNotNull null
+            
+            // If no filament info (unknown tag), create a placeholder
+            val effectiveFilamentInfo = mostRecentSuccessfulScan.filamentInfo 
+                ?: createUnknownTagFilamentInfo(mostRecentSuccessfulScan)
             
             val scanCount = scans.size
             val successCount = scans.count { it.scanResult == ScanResult.SUCCESS }
@@ -345,7 +383,7 @@ class ScanHistoryRepository(private val context: Context) {
             
             UniqueFilamentReel(
                 uid = uid,
-                filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
+                filamentInfo = effectiveFilamentInfo,
                 scanCount = scanCount,
                 successCount = successCount,
                 lastScanned = lastScanned,
@@ -360,17 +398,27 @@ class ScanHistoryRepository(private val context: Context) {
     fun getUniqueFilamentReelsByTray(): List<UniqueFilamentReel> {
         val allScans = getAllScans()
         
-        // Group by tray UID
-        val scansByTrayUid = allScans
+        // Group by tray UID for known tags, tag UID for unknown tags
+        val knownScansGrouped = allScans
             .filter { it.filamentInfo?.trayUid?.isNotEmpty() == true }
             .groupBy { it.filamentInfo!!.trayUid }
         
+        val unknownScansGrouped = allScans
+            .filter { it.scanResult == ScanResult.SUCCESS && (it.filamentInfo?.trayUid?.isNullOrEmpty() != false) }
+            .groupBy { it.uid }
+        
+        val scansByTrayUid = knownScansGrouped + unknownScansGrouped
+        
         return scansByTrayUid.mapNotNull { (trayUid, scans) ->
-            // Find the most recent successful scan with filament info from this tray
+            // Find the most recent successful scan from this tray (with or without filament info for unknown tags)
             val mostRecentSuccessfulScan = scans
-                .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+                .filter { it.scanResult == ScanResult.SUCCESS }
                 .maxByOrNull { it.timestamp }
                 ?: return@mapNotNull null
+            
+            // If no filament info (unknown tag), create a placeholder
+            val effectiveFilamentInfo = mostRecentSuccessfulScan.filamentInfo 
+                ?: createUnknownTagFilamentInfo(mostRecentSuccessfulScan)
             
             val scanCount = scans.size
             val successCount = scans.count { it.scanResult == ScanResult.SUCCESS }
@@ -378,8 +426,8 @@ class ScanHistoryRepository(private val context: Context) {
             val successRate = if (scanCount > 0) successCount.toFloat() / scanCount else 0f
             
             UniqueFilamentReel(
-                uid = trayUid, // Use tray UID instead of tag UID
-                filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
+                uid = trayUid, // Use tray UID instead of tag UID (or tag UID for unknown tags)
+                filamentInfo = effectiveFilamentInfo,
                 scanCount = scanCount,
                 successCount = successCount,
                 lastScanned = lastScanned,
