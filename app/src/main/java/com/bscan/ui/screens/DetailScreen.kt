@@ -42,6 +42,8 @@ import com.bscan.ui.screens.home.FilamentReelCard
 import com.bscan.ui.screens.home.TagCard
 import com.bscan.model.InventoryItem
 import com.bscan.model.PhysicalComponent
+import com.bscan.model.sectorCount
+import com.bscan.model.tagSizeBytes
 import com.bscan.model.tagFormat
 import com.bscan.model.manufacturerName
 import java.time.format.DateTimeFormatter

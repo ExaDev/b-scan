@@ -537,9 +537,7 @@ fun TagsList(
                 timestamp = filamentReel.lastScanned,
                 tagUid = filamentReel.uid,
                 technology = "NFC",
-                encryptedData = ByteArray(0),
-                tagSizeBytes = 1024,
-                sectorCount = 16
+                encryptedData = ByteArray(0)
             )
             val dummyDecrypted = DecryptedScanData(
                 timestamp = filamentReel.lastScanned,
@@ -551,8 +549,6 @@ fun TagsList(
                 failedSectors = emptyList(),
                 usedKeys = emptyMap(),
                 derivedKeys = emptyList(),
-                tagSizeBytes = 1024,
-                sectorCount = 16,
                 errors = emptyList()
             )
             val dummyScan = InterpretedScan(

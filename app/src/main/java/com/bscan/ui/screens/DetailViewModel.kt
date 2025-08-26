@@ -201,7 +201,7 @@ class DetailViewModel(private val repository: ScanHistoryRepository) : ViewModel
                 Log.w("DetailViewModel", "No filament reel found for trayUid: $trayUid")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Filament reel not found for ID: $trayUid"
+                    error = "Inventory item not found for ID: $trayUid"
                 )
                 return
             }
