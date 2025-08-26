@@ -445,36 +445,60 @@ class ScanHistoryRepository(private val context: Context) {
     }
     
     /**
-     * Get filament reel details by tray UID
+     * Get filament reel details by identifier (tray UID or tag UID)
      */
-    fun getFilamentReelDetails(trayUid: String): FilamentReelDetails? {
+    fun getFilamentReelDetails(identifier: String): FilamentReelDetails? {
         val allScans = getAllScans()
         
-        // Get all scans for this inventory item (tray UID)
-        val inventoryScans = allScans.filter { 
-            it.filamentInfo?.trayUid == trayUid 
+        // First attempt: Look for scans with the given tray UID (existing behavior)
+        var inventoryScans = allScans.filter { 
+            it.filamentInfo?.trayUid == identifier 
         }
         
-        if (inventoryScans.isEmpty()) return null
+        // Fallback: If no results, treat identifier as a tag UID for unknown tags
+        if (inventoryScans.isEmpty()) {
+            android.util.Log.d("ScanHistoryRepository", "No scans found with tray UID '$identifier', trying as tag UID")
+            inventoryScans = allScans.filter { 
+                it.uid == identifier && it.scanResult == ScanResult.SUCCESS 
+            }
+            
+            if (inventoryScans.isNotEmpty()) {
+                android.util.Log.d("ScanHistoryRepository", "Found ${inventoryScans.size} scans with tag UID '$identifier'")
+            }
+        } else {
+            android.util.Log.d("ScanHistoryRepository", "Found ${inventoryScans.size} scans with tray UID '$identifier'")
+        }
+        
+        if (inventoryScans.isEmpty()) {
+            android.util.Log.w("ScanHistoryRepository", "No scans found for identifier '$identifier' (tried both tray UID and tag UID)")
+            return null
+        }
         
         // Get the most recent successful scan for filament info
         val mostRecentSuccessfulScan = inventoryScans
-            .filter { it.scanResult == ScanResult.SUCCESS && it.filamentInfo != null }
+            .filter { it.scanResult == ScanResult.SUCCESS }
             .maxByOrNull { it.timestamp }
             ?: return null
+            
+        // For unknown tags, create placeholder filament info if needed
+        val effectiveFilamentInfo = mostRecentSuccessfulScan.filamentInfo
+            ?: createUnknownTagFilamentInfo(mostRecentSuccessfulScan)
         
         // Get all unique tag UIDs for this inventory item
         val tagUids = inventoryScans
-            .mapNotNull { it.filamentInfo?.tagUid }
+            .map { it.filamentInfo?.tagUid ?: it.uid } // Use tag UID directly for unknown tags
             .distinct()
         
         // Get scans grouped by tag UID
-        val scansByTag = inventoryScans.groupBy { it.filamentInfo?.tagUid ?: "" }
+        val scansByTag = inventoryScans.groupBy { it.filamentInfo?.tagUid ?: it.uid }
             .filter { it.key.isNotEmpty() }
         
+        // Use the effective tray UID (which might be the tag UID for unknown tags)
+        val effectiveTrayUid = effectiveFilamentInfo.trayUid
+        
         return FilamentReelDetails(
-            trayUid = trayUid,
-            filamentInfo = mostRecentSuccessfulScan.filamentInfo!!,
+            trayUid = effectiveTrayUid,
+            filamentInfo = effectiveFilamentInfo,
             tagUids = tagUids,
             allScans = inventoryScans.sortedByDescending { it.timestamp },
             scansByTag = scansByTag,
