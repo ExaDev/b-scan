@@ -1,3 +1,23 @@
+## [3.17.1](https://github.com/Mearman/b-scan/compare/v3.17.0...v3.17.1) (2025-08-26)
+
+
+### Bug Fixes
+
+* resolve additional Kotlin compilation errors and add worktree build script ([b2cb869](https://github.com/Mearman/b-scan/commit/b2cb869ff377b7e63547a656578930ed93d8deee))
+* resolve all remaining Kotlin compilation errors ([063623c](https://github.com/Mearman/b-scan/commit/063623cd24a5b9194a9cc1a9438b7a86ebf49906))
+* resolve getAllScans corrupted JSON test failure ([d07c268](https://github.com/Mearman/b-scan/commit/d07c26817a6010985c573d964024f04c9fc657f9))
+* resolve Kotlin compilation errors for CI ([01a2978](https://github.com/Mearman/b-scan/commit/01a2978b9d9da1837c327d6048b996a1b98e47eb)), closes [#15](https://github.com/Mearman/b-scan/issues/15)
+* resolve test compilation errors for suspend functions ([aef8d10](https://github.com/Mearman/b-scan/commit/aef8d10298961a1b88875d28a180a71591e4d535))
+
+
+### Performance Improvements
+
+* add coroutine dispatchers to repository operations ([755b0e1](https://github.com/Mearman/b-scan/commit/755b0e196838bd6c2b4700e477c83d041778a17f))
+* improve threading performance in ViewModels ([5379bfb](https://github.com/Mearman/b-scan/commit/5379bfb13f7d85194d59d9c00c21a9e738b6805e))
+* improve threading performance in ViewModels ([#15](https://github.com/Mearman/b-scan/issues/15)) ([f60de9e](https://github.com/Mearman/b-scan/commit/f60de9e45fef816b1f09e5504b2c4dc128ff4884))
+* optimise lint configuration for build performance ([e3934a5](https://github.com/Mearman/b-scan/commit/e3934a541253c553fa3607eb5d7cd7c11ab1857e))
+* update Compose BOM to 2025.06.01 for performance ([69b2d98](https://github.com/Mearman/b-scan/commit/69b2d98d83b7e577c9ddc3dcfb1d09ed286b4ecb))
+
 # [3.17.0](https://github.com/Mearman/b-scan/compare/v3.16.0...v3.17.0) (2025-08-25)
 
 
