@@ -29,6 +29,8 @@ data class ScanDebugInfo(
 
 /**
  * Raw encrypted scan data captured before authentication.
+ * Contains only the actual data read from the tag - no interpretation.
+ * Tag format and manufacturer are derived at runtime via TagDetector.
  * Supports intelligent format detection based on data size:
  * - 768 bytes: data blocks only (16 sectors × 3 blocks × 16 bytes)
  * - 1024 bytes: complete dump with trailer blocks (16 sectors × 4 blocks × 16 bytes)
@@ -38,8 +40,6 @@ data class EncryptedScanData(
     val timestamp: LocalDateTime,
     val tagUid: String, // Individual tag UID (unique per tag)
     val technology: String,
-    val tagFormat: TagFormat = TagFormat.UNKNOWN,
-    val manufacturerName: String = "Unknown", // Manufacturer name from tag data
     val encryptedData: ByteArray, // Unified storage: 768-byte or 1024-byte format
     val tagSizeBytes: Int,
     val sectorCount: Int,
@@ -55,8 +55,6 @@ data class EncryptedScanData(
         if (timestamp != other.timestamp) return false
         if (tagUid != other.tagUid) return false
         if (technology != other.technology) return false
-        if (tagFormat != other.tagFormat) return false
-        if (manufacturerName != other.manufacturerName) return false
         if (!encryptedData.contentEquals(other.encryptedData)) return false
         if (tagSizeBytes != other.tagSizeBytes) return false
         if (sectorCount != other.sectorCount) return false
@@ -70,8 +68,6 @@ data class EncryptedScanData(
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + tagUid.hashCode()
         result = 31 * result + technology.hashCode()
-        result = 31 * result + tagFormat.hashCode()
-        result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + encryptedData.contentHashCode()
         result = 31 * result + tagSizeBytes
         result = 31 * result + sectorCount
@@ -82,6 +78,8 @@ data class EncryptedScanData(
 
 /**
  * Decrypted scan data after successful authentication.
+ * Contains only the actual decrypted data from the tag - no interpretation.
+ * Tag format and manufacturer are derived at runtime via TagDetector.
  * Contains the uninterpreted bytes that can be re-interpreted 
  * with updated mappings without needing to rescan.
  */
@@ -90,8 +88,6 @@ data class DecryptedScanData(
     val timestamp: LocalDateTime,
     val tagUid: String, // Individual tag UID (unique per tag)
     val technology: String,
-    val tagFormat: TagFormat = TagFormat.UNKNOWN,
-    val manufacturerName: String = "Unknown", // Manufacturer name from tag data
     val scanResult: ScanResult,
     
     // Decrypted block data (after successful authentication)
@@ -126,8 +122,6 @@ data class DecryptedScanData(
         if (timestamp != other.timestamp) return false
         if (tagUid != other.tagUid) return false
         if (technology != other.technology) return false
-        if (tagFormat != other.tagFormat) return false
-        if (manufacturerName != other.manufacturerName) return false
         if (scanResult != other.scanResult) return false
         if (decryptedBlocks != other.decryptedBlocks) return false
         if (authenticatedSectors != other.authenticatedSectors) return false
@@ -148,8 +142,6 @@ data class DecryptedScanData(
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + tagUid.hashCode()
         result = 31 * result + technology.hashCode()
-        result = 31 * result + tagFormat.hashCode()
-        result = 31 * result + manufacturerName.hashCode()
         result = 31 * result + scanResult.hashCode()
         result = 31 * result + decryptedBlocks.hashCode()
         result = 31 * result + authenticatedSectors.hashCode()
