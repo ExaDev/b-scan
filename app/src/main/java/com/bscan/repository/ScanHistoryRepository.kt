@@ -154,6 +154,7 @@ class ScanHistoryRepository(private val context: Context) {
             val type = object : TypeToken<List<DecryptedScanData>>() {}.type
             gson.fromJson(scansJson, type) ?: emptyList()
         } catch (e: JsonSyntaxException) {
+<<<<<<< HEAD
             // If data is corrupted, return empty list and clear storage
             sharedPreferences.edit()
                 .remove("decrypted_scans")
