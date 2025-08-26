@@ -2,8 +2,10 @@ package com.bscan.interpreter
 
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.model.TagFormat
+import com.bscan.model.TagFormat.*
 import com.bscan.data.BambuProductDatabase
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.UnifiedDataAccess
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.*
@@ -15,7 +17,7 @@ import kotlin.math.*
  */
 class BambuFormatInterpreter(
     private val mappings: FilamentMappings,
-    private val mappingsRepository: MappingsRepository
+    private val unifiedDataAccess: UnifiedDataAccess
 ) : TagInterpreter {
     
     override val tagFormat = TagFormat.BAMBU_PROPRIETARY
@@ -110,7 +112,7 @@ class BambuFormatInterpreter(
         val extractedColorHex = interpretColor(extractBytes(decryptedData, 5, 0, 4), baseFilamentType)
         
         // Look up exact SKU mapping for enrichment
-        val rfidMapping = mappingsRepository.getRfidMappingByCode(materialId, variantId)
+        val rfidMapping = unifiedDataAccess.getRfidMappingByCode(materialId, variantId)
         
         // Determine final values: use mapping if available, otherwise use extracted values
         val finalFilamentType = rfidMapping?.material ?: baseFilamentType.ifEmpty { "Unknown Material" }

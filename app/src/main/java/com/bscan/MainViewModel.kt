@@ -5,15 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.*
-import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.TrayTrackingRepository
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.UnifiedDataAccess
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.data.BambuProductDatabase
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.util.Log
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -23,12 +24,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _scanProgress = MutableStateFlow<ScanProgress?>(null)
     val scanProgress: StateFlow<ScanProgress?> = _scanProgress.asStateFlow()
     
-    private val scanHistoryRepository = ScanHistoryRepository(application)
-    private val trayTrackingRepository = TrayTrackingRepository(application)
-    private val mappingsRepository = MappingsRepository(application)
+    private val catalogRepository = CatalogRepository(application)
+    private val userDataRepository = UserDataRepository(application)
+    private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
+    
+    // Note: Repository access now unified through UnifiedDataAccess
     
     // InterpreterFactory for runtime interpretation
-    private var interpreterFactory = InterpreterFactory(mappingsRepository)
+    private var interpreterFactory = InterpreterFactory(unifiedDataAccess)
     
     // Track simulation state to cycle through all products
     private var simulationProductIndex = 0
@@ -71,9 +74,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             
-            // Store the raw scan data first
-            scanHistoryRepository.saveScan(encryptedData, decryptedData)
-            trayTrackingRepository.recordScan(decryptedData)
+            // Store the raw scan data and record the scan
+            unifiedDataAccess.recordScan(encryptedData, decryptedData)
+            
+            // Create or update inventory item with components
+            if (decryptedData.scanResult == ScanResult.SUCCESS) {
+                createOrUpdateInventoryItem(decryptedData)
+            }
             
             val result = if (decryptedData.scanResult == ScanResult.SUCCESS) {
                 try {
@@ -215,8 +222,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         
         // Save to history even for failed scans
         viewModelScope.launch(Dispatchers.IO) {
-            scanHistoryRepository.saveScan(encryptedData, decryptedData)
-            trayTrackingRepository.recordScan(decryptedData)
+            unifiedDataAccess.recordScan(encryptedData, decryptedData)
         }
         
         _uiState.value = _uiState.value.copy(
@@ -322,15 +328,87 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // Expose repositories for UI access
-    fun getTrayTrackingRepository(): TrayTrackingRepository = trayTrackingRepository
-    fun getMappingsRepository(): MappingsRepository = mappingsRepository
+    // Expose unified data access for UI access
+    fun getUnifiedDataAccess() = unifiedDataAccess
+    
+    // Expose user data repository for direct access where needed
+    fun getUserDataRepository() = userDataRepository
+    
+    // Expose repositories through unified data access for UI components that need reactive flows
+    // Note: These return mock repositories until UI components are updated to use unifiedDataAccess directly
+    fun getInventoryTrackingRepository() = object {
+        // TODO: Implement reactive flows from unifiedDataAccess
+        // This is a temporary compatibility layer
+    }
+    fun getMappingsRepository() = object {
+        // TODO: Implement reactive flows from unifiedDataAccess
+        // This is a temporary compatibility layer
+    }
     
     /**
      * Refresh the FilamentInterpreter with updated mappings
      */
     fun refreshMappings() {
         interpreterFactory.refreshMappings()
+    }
+    
+    /**
+     * Create or update inventory item with proper component setup for successful scans
+     */
+    private suspend fun createOrUpdateInventoryItem(decryptedData: DecryptedScanData) {
+        // Try to interpret the scan to get trayUid
+        val filamentInfo = interpreterFactory.interpret(decryptedData)
+        val trayUid = filamentInfo?.trayUid ?: return
+        
+        // Check if inventory item already exists
+        val existingItem = unifiedDataAccess.getInventoryItem(trayUid)
+        if (existingItem == null) {
+            // Create new inventory item with default components for Bambu Lab
+            try {
+                val manufacturerId = "bambu_lab"
+                val filamentType = detectFilamentTypeFromScan(decryptedData)
+                
+                if (filamentType != null) {
+                    unifiedDataAccess.createInventoryItemWithComponents(
+                        trayUid = trayUid,
+                        manufacturerId = manufacturerId,
+                        filamentType = filamentType
+                    )
+                    Log.d("MainViewModel", "Created inventory item with components for tray $trayUid")
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to create inventory item for tray $trayUid", e)
+            }
+        }
+    }
+    
+    /**
+     * Detect filament type from scan data for component creation
+     */
+    private fun detectFilamentTypeFromScan(decryptedData: DecryptedScanData): String? {
+        // Try to extract material type from the decrypted blocks
+        // This is a simplified version - in reality this would use the interpreters
+        decryptedData.decryptedBlocks.forEach { (blockNumber, hexData) ->
+            // Convert hex string to bytes for text analysis
+            try {
+                val bytes = hexData.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                val dataStr = String(bytes, Charsets.UTF_8).trim('\u0000')
+                when {
+                    dataStr.contains("PLA", ignoreCase = true) -> return "pla_basic"
+                    dataStr.contains("ABS", ignoreCase = true) -> return "abs_basic"
+                    dataStr.contains("PETG", ignoreCase = true) -> return "petg_basic"
+                    dataStr.contains("TPU", ignoreCase = true) -> return "tpu_95a"
+                    dataStr.contains("ASA", ignoreCase = true) -> return "asa_basic"
+                    dataStr.contains("PC", ignoreCase = true) -> return "pc_basic"
+                    dataStr.contains("PA", ignoreCase = true) -> return "pa_cf"
+                }
+            } catch (e: Exception) {
+                // Skip this block if hex conversion fails
+            }
+        }
+        
+        // Default to PLA if we can't detect the type
+        return "pla_basic"
     }
     
     /**

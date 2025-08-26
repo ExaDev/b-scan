@@ -11,7 +11,7 @@ import com.bscan.model.manufacturerName
 import com.bscan.model.sectorCount
 import com.bscan.model.tagSizeBytes
 import com.bscan.interpreter.InterpreterFactory
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.CatalogRepository
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -26,8 +26,10 @@ class ScanHistoryRepository(private val context: Context) {
         context.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE)
     
     // InterpreterFactory for runtime interpretation
-    private val mappingsRepository by lazy { MappingsRepository(context) }
-    private var interpreterFactory = InterpreterFactory(mappingsRepository)
+    private val catalogRepository by lazy { CatalogRepository(context) }
+    private val userRepository by lazy { UserDataRepository(context) }
+    private val unifiedDataAccess by lazy { UnifiedDataAccess(catalogRepository, userRepository) }
+    private var interpreterFactory = InterpreterFactory(unifiedDataAccess)
     
     // Custom LocalDateTime adapter for Gson
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
