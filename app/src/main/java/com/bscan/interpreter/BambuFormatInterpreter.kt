@@ -133,7 +133,7 @@ class BambuFormatInterpreter(
             validDetailedType ?: baseFilamentType.ifEmpty { "Unknown Material" }
         }
         val finalColorHex = rfidMapping?.hex ?: extractedColorHex
-        val finalColorName = rfidMapping?.color ?: mappings.getColorName(extractedColorHex, baseFilamentType)
+        val finalColorName = rfidMapping?.color ?: getColorNameFromProducts(extractedColorHex, baseFilamentType)
         
         if (rfidMapping != null) {
             Log.i(TAG, "SKU enrichment applied: ${rfidMapping.sku} for $rfidCode")
@@ -321,6 +321,102 @@ class BambuFormatInterpreter(
         }
     }
     
+    
+    /**
+     * Get colour name by looking up products with matching hex and material type
+     */
+    private fun getColorNameFromProducts(hexColor: String, materialType: String): String {
+        Log.d(TAG, "Looking up colour name for hex: $hexColor, material: $materialType")
+        
+        // Try exact hex match first
+        val exactMatchingProducts = unifiedDataAccess.findProducts("bambu", hex = hexColor, materialType = materialType)
+        if (exactMatchingProducts.isNotEmpty()) {
+            val colorName = exactMatchingProducts.first().getDisplayColorName()
+            Log.d(TAG, "Found exact colour match: '$colorName' for hex $hexColor")
+            return colorName
+        }
+        
+        // Try with base material type for exact match
+        val baseMaterialType = materialType.split("_").firstOrNull() ?: materialType
+        if (baseMaterialType != materialType) {
+            val baseExactProducts = unifiedDataAccess.findProducts("bambu", hex = hexColor, materialType = baseMaterialType)
+            if (baseExactProducts.isNotEmpty()) {
+                val colorName = baseExactProducts.first().getDisplayColorName()
+                Log.d(TAG, "Found exact base material match: '$colorName' for hex $hexColor")
+                return colorName
+            }
+        }
+        
+        // If no exact match, try colour similarity matching
+        Log.d(TAG, "No exact hex match found, trying colour similarity matching")
+        val allProducts = unifiedDataAccess.getProducts("bambu").filter { product ->
+            product.materialType.equals(materialType, ignoreCase = true) || 
+            product.getBaseMaterialType().equals(baseMaterialType, ignoreCase = true)
+        }
+        
+        val bestMatch = findBestColorMatch(hexColor, allProducts)
+        if (bestMatch != null) {
+            Log.d(TAG, "Found similar colour match: '${bestMatch.getDisplayColorName()}' (${bestMatch.colorHex}) for hex $hexColor")
+            return bestMatch.getDisplayColorName()
+        }
+        
+        Log.d(TAG, "No products found for hex $hexColor and material $materialType")
+        return "Unknown Color ($hexColor)"
+    }
+    
+    /**
+     * Find the best colour match using colour distance
+     */
+    private fun findBestColorMatch(targetHex: String, products: List<ProductEntry>): ProductEntry? {
+        if (products.isEmpty()) return null
+        
+        val targetRgb = hexToRgb(targetHex) ?: return null
+        var bestMatch: ProductEntry? = null
+        var bestDistance = Double.MAX_VALUE
+        
+        for (product in products) {
+            product.colorHex?.let { productHex ->
+                val productRgb = hexToRgb(productHex)
+                if (productRgb != null) {
+                    val distance = colorDistance(targetRgb, productRgb)
+                    if (distance < bestDistance && distance < 100.0) { // Only accept reasonably close colours
+                        bestDistance = distance
+                        bestMatch = product
+                    }
+                }
+            }
+        }
+        
+        return bestMatch
+    }
+    
+    /**
+     * Calculate Euclidean distance between two RGB colours
+     */
+    private fun colorDistance(rgb1: Triple<Int, Int, Int>, rgb2: Triple<Int, Int, Int>): Double {
+        val (r1, g1, b1) = rgb1
+        val (r2, g2, b2) = rgb2
+        return kotlin.math.sqrt(
+            ((r1 - r2) * (r1 - r2) + (g1 - g2) * (g1 - g2) + (b1 - b2) * (b1 - b2)).toDouble()
+        )
+    }
+    
+    /**
+     * Convert hex colour to RGB triple
+     */
+    private fun hexToRgb(hex: String): Triple<Int, Int, Int>? {
+        val cleanHex = hex.removePrefix("#")
+        if (cleanHex.length != 6) return null
+        
+        return try {
+            val r = cleanHex.substring(0, 2).toInt(16)
+            val g = cleanHex.substring(2, 4).toInt(16) 
+            val b = cleanHex.substring(4, 6).toInt(16)
+            Triple(r, g, b)
+        } catch (e: NumberFormatException) {
+            null
+        }
+    }
     
     /**
      * Clean and normalize material names extracted from RFID blocks
