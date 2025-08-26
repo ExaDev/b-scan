@@ -12,6 +12,8 @@ import com.bscan.model.PhysicalComponent
 class InventoryDiagnostics(private val context: Context) {
     
     private val catalogRepository by lazy { CatalogRepository(context) }
+    private val userDataRepository by lazy { UserDataRepository(context) }
+    private val unifiedDataAccess by lazy { UnifiedDataAccess(catalogRepository, userDataRepository) }
     private val inventoryRepository by lazy { InventoryRepository(context) }
     private val physicalComponentRepository by lazy { PhysicalComponentRepository(context) }
     
@@ -55,7 +57,7 @@ class InventoryDiagnostics(private val context: Context) {
         val status = MappingsStatus()
         
         try {
-            val mappings = catalogRepository.getCurrentMappings()
+            val mappings = unifiedDataAccess.getCurrentMappings()
             status.loaded = true
             status.productCount = mappings.productCatalog.size
             status.materialMappingCount = mappings.materialMappings.size
@@ -94,7 +96,7 @@ class InventoryDiagnostics(private val context: Context) {
         
         return testScenarios.map { test ->
             try {
-                val result = catalogRepository.findBestProductMatch(test.filamentType, test.colorName)
+                val result = unifiedDataAccess.findBestProductMatch(test.filamentType, test.colorName)
                 test.found = result != null
                 test.productName = result?.productName
                 test.massFound = result?.filamentWeightGrams != null
@@ -254,7 +256,7 @@ class InventoryDiagnostics(private val context: Context) {
     fun quickHealthCheck(): Boolean {
         return try {
             // Test basic functionality
-            val mappings = catalogRepository.getCurrentMappings()
+            val mappings = unifiedDataAccess.getCurrentMappings()
             val core = physicalComponentRepository.getBambuCoreComponent()
             
             val testFilamentInfo = createMockFilamentInfo("HEALTH_CHECK", "PLA_BASIC", "Black", "#000000")
