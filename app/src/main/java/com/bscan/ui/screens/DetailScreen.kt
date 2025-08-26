@@ -30,7 +30,6 @@ import com.bscan.ui.components.*
 import com.bscan.ui.components.filament.*
 import com.bscan.ui.components.history.*
 import com.bscan.ui.components.spool.*
-import com.bscan.ui.components.weight.FilamentStatusCard
 import com.bscan.ui.components.inventory.InventoryComponentsCard
 import com.bscan.ui.components.inventory.MassEditDialog
 import com.bscan.ui.components.inventory.AddComponentDialog
@@ -38,9 +37,7 @@ import com.bscan.ui.components.inventory.EditMassResult
 import com.bscan.ui.screens.home.SkuCard
 import com.bscan.ui.screens.home.FilamentReelCard
 import com.bscan.ui.screens.home.TagCard
-import com.bscan.model.MassMeasurement
 import com.bscan.model.InventoryItem
-import com.bscan.model.FilamentStatus
 import com.bscan.model.PhysicalComponent
 import java.time.format.DateTimeFormatter
 
