@@ -79,16 +79,7 @@ class BambuFormatInterpreter(
         val rfidCode = "$materialId:$variantId"
         Log.d(TAG, "RFID Code extracted: $rfidCode")
         
-        // Look up exact SKU mapping
-        val rfidMapping = mappingsRepository.getRfidMappingByCode(materialId, variantId)
-        if (rfidMapping == null) {
-            Log.w(TAG, "No exact mapping found for RFID code: $rfidCode")
-            return null  // Only return results for exact mappings
-        }
-        
-        Log.i(TAG, "Exact SKU match found: ${rfidMapping.sku} for $rfidCode")
-        
-        // Extract remaining fields for completeness
+        // Extract all block data regardless of mapping availability
         val trayUid = extractHexString(decryptedData, 9, 0, 16)
         val productionDate = extractString(decryptedData, 12, 0, 16)
         val spoolWeight = extractInt(decryptedData, 5, 4, 2)
@@ -103,18 +94,37 @@ class BambuFormatInterpreter(
         val maxTemp = extractInt(decryptedData, 6, 8, 2)
         val minTemp = extractInt(decryptedData, 6, 10, 2)
         
-        // Color from RFID mapping (authoritative) or extract from tag
-        val colorHex = rfidMapping.hex ?: interpretColor(extractBytes(decryptedData, 5, 0, 4))
+        // Extract material types from blocks
+        val baseFilamentType = extractString(decryptedData, 2, 0, 16) // Block 2: Base type (PLA, PETG, etc.)
+        val detailedFilamentType = extractString(decryptedData, 4, 0, 16) // Block 4: Detailed type (PLA Matte, etc.)
+        
+        // Extract color from tag
+        val extractedColorHex = interpretColor(extractBytes(decryptedData, 5, 0, 4))
+        
+        // Look up exact SKU mapping for enrichment
+        val rfidMapping = mappingsRepository.getRfidMappingByCode(materialId, variantId)
+        
+        // Determine final values: use mapping if available, otherwise use extracted values
+        val finalFilamentType = rfidMapping?.material ?: baseFilamentType.ifEmpty { "Unknown Material" }
+        val finalDetailedType = rfidMapping?.material ?: detailedFilamentType.ifEmpty { baseFilamentType }
+        val finalColorHex = rfidMapping?.hex ?: extractedColorHex
+        val finalColorName = rfidMapping?.color ?: mappings.getColorName(extractedColorHex, baseFilamentType)
+        
+        if (rfidMapping != null) {
+            Log.i(TAG, "SKU enrichment applied: ${rfidMapping.sku} for $rfidCode")
+        } else {
+            Log.i(TAG, "Using block-extracted data for unmapped RFID code: $rfidCode")
+        }
         
         return FilamentInfo(
             tagUid = decryptedData.tagUid,
             trayUid = trayUid,
             tagFormat = TagFormat.BAMBU_PROPRIETARY,
             manufacturerName = "Bambu Lab",
-            filamentType = rfidMapping.material,
-            detailedFilamentType = rfidMapping.material,
-            colorHex = colorHex,
-            colorName = rfidMapping.color,
+            filamentType = finalFilamentType,
+            detailedFilamentType = finalDetailedType,
+            colorHex = finalColorHex,
+            colorName = finalColorName,
             spoolWeight = spoolWeight,
             filamentDiameter = filamentDiameter,
             filamentLength = filamentLength,
@@ -126,7 +136,7 @@ class BambuFormatInterpreter(
             dryingTime = dryingTime,
             
             // RFID-specific fields
-            exactSku = rfidMapping.sku,
+            exactSku = rfidMapping?.sku, // Only set if mapping available
             rfidCode = rfidCode,
             materialVariantId = variantId,
             materialId = materialId,
