@@ -16,11 +16,75 @@ object TagDetectionHelper {
     }
     
     /**
-     * Detect tag format from decrypted scan data by reconstructing raw data
+     * Detect tag format from decrypted scan data by analyzing block structure
      */
     fun detectFormat(decryptedScan: DecryptedScanData): TagDetectionResult {
-        val rawData = reconstructRawDataFromBlocks(decryptedScan.decryptedBlocks)
-        return tagDetector.detectFromData(decryptedScan.technology, rawData)
+        // For decrypted scans, we can analyze the block structure directly
+        // without needing to reconstruct the full raw data
+        return detectFromBlockStructure(decryptedScan.technology, decryptedScan.decryptedBlocks, decryptedScan.tagSizeBytes, decryptedScan.sectorCount)
+    }
+    
+    /**
+     * Detect tag format from block structure and metadata
+     */
+    private fun detectFromBlockStructure(technology: String, blocks: Map<Int, String>, tagSizeBytes: Int, sectorCount: Int): TagDetectionResult {
+        android.util.Log.d("TagDetectionHelper", "detectFromBlockStructure: technology=$technology, sectorCount=$sectorCount, tagSizeBytes=$tagSizeBytes, blocks=${blocks.size}")
+        
+        return when {
+            // Mifare Classic with proper Bambu structure
+            technology == "MifareClassic" && sectorCount == 16 && blocks.isNotEmpty() -> {
+                // Check for Bambu indicators in the blocks
+                val block2 = blocks[2] // Filament type block
+                val block4 = blocks[4] // Detailed type block
+                
+                if (block2?.startsWith("504C41") == true || // "PLA"
+                    block2?.startsWith("504554") == true || // "PET" (PETG)
+                    block2?.startsWith("414253") == true || // "ABS"
+                    block2?.startsWith("415341") == true || // "ASA"
+                    block2?.startsWith("545055") == true || // "TPU"
+                    block4?.contains("4D6174746") == true) { // "Matte"
+                    android.util.Log.d("TagDetectionHelper", "Detected Bambu tag from block analysis")
+                    TagDetectionResult(
+                        tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                        technology = TagTechnology.MIFARE_CLASSIC,
+                        confidence = 0.9f,
+                        detectionReason = "Mifare Classic with Bambu block structure (${sectorCount} sectors)",
+                        manufacturerName = "Bambu Lab"
+                    )
+                } else {
+                    // Fall back to size-based detection
+                    detectFromSize(technology, tagSizeBytes, sectorCount)
+                }
+            }
+            else -> detectFromSize(technology, tagSizeBytes, sectorCount)
+        }
+    }
+    
+    /**
+     * Fallback detection based on size and sector count
+     */
+    private fun detectFromSize(technology: String, tagSizeBytes: Int, sectorCount: Int): TagDetectionResult {
+        return when {
+            technology == "MifareClassic" && sectorCount == 16 -> {
+                android.util.Log.d("TagDetectionHelper", "Detected Bambu tag from size/structure")
+                TagDetectionResult(
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                    technology = TagTechnology.MIFARE_CLASSIC,
+                    confidence = 0.8f,
+                    detectionReason = "16-sector Mifare Classic matches Bambu format",
+                    manufacturerName = "Bambu Lab"
+                )
+            }
+            else -> {
+                android.util.Log.w("TagDetectionHelper", "Unknown tag format: technology=$technology, sectorCount=$sectorCount")
+                TagDetectionResult(
+                    tagFormat = TagFormat.UNKNOWN,
+                    technology = TagTechnology.UNKNOWN,
+                    confidence = 0.0f,
+                    detectionReason = "Unrecognized format: $technology with $sectorCount sectors"
+                )
+            }
+        }
     }
     
     /**
