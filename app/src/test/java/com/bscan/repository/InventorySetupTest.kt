@@ -23,7 +23,7 @@ class InventorySetupTest {
     private lateinit var context: Context
     private lateinit var inventoryRepository: InventoryRepository
     private lateinit var mappingsRepository: MappingsRepository
-    private lateinit var physicalComponentRepository: PhysicalComponentRepository
+    private lateinit var componentRepository: ComponentRepository
     private lateinit var diagnostics: InventoryDiagnostics
     
     @Before
@@ -31,11 +31,11 @@ class InventorySetupTest {
         context = ApplicationProvider.getApplicationContext()
         inventoryRepository = InventoryRepository(context)
         mappingsRepository = MappingsRepository(context)
-        physicalComponentRepository = PhysicalComponentRepository(context)
+        componentRepository = ComponentRepository(context)
         diagnostics = InventoryDiagnostics(context)
         
         // Clear any existing test data
-        physicalComponentRepository.clearComponents()
+        componentRepository.clearComponents()
     }
     
     @Test
@@ -65,7 +65,7 @@ class InventorySetupTest {
     @Test
     fun testComponentCreation() {
         // Test basic component creation
-        val filamentComponent = physicalComponentRepository.createFilamentComponent(
+        val filamentComponent = componentRepository.createFilamentComponent(
             filamentType = "PLA_BASIC",
             colorName = "Black",
             colorHex = "#000000",
@@ -78,13 +78,13 @@ class InventorySetupTest {
         assertTrue(filamentComponent.variableMass)
         
         // Test core component
-        val coreComponent = physicalComponentRepository.getBambuCoreComponent()
+        val coreComponent = componentRepository.getBambuCoreComponent()
         assertNotNull(coreComponent)
         assertEquals(33f, coreComponent.massGrams)
         assertTrue(!coreComponent.variableMass)
         
         // Test spool component
-        val spoolComponent = physicalComponentRepository.getBambuSpoolComponent()
+        val spoolComponent = componentRepository.getBambuSpoolComponent()
         assertNotNull(spoolComponent)
         assertEquals(212f, spoolComponent.massGrams)
         assertTrue(!spoolComponent.variableMass)

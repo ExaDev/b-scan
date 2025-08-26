@@ -424,11 +424,11 @@ class MassCalculationEdgeCasesTest {
 
     // === Helper Methods ===
 
-    private fun createFilamentComponent(id: String, mass: Float, fullMass: Float): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createFilamentComponent(id: String, mass: Float, fullMass: Float): Component {
+        return Component(
             id = id,
             name = "Test Filament $id",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = mass,
             variableMass = true,
             manufacturer = "Test Lab",
@@ -437,11 +437,11 @@ class MassCalculationEdgeCasesTest {
         )
     }
 
-    private fun createCoreComponent(id: String, mass: Float): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createCoreComponent(id: String, mass: Float): Component {
+        return Component(
             id = id,
             name = "Test Core $id",
-            type = PhysicalComponentType.CORE_RING,
+            category = "core",
             massGrams = mass,
             variableMass = false,
             manufacturer = "Test Lab",

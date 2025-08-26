@@ -1,8 +1,7 @@
 package com.bscan.repository
 
 import com.bscan.model.InventoryItem
-import com.bscan.model.PhysicalComponent
-import com.bscan.model.PhysicalComponentType
+import com.bscan.model.Component
 import org.junit.Test
 import java.time.LocalDateTime
 
@@ -47,53 +46,49 @@ class ComponentAdditionUnitTest {
     }
 
     @Test
-    fun testPhysicalComponent_createFilamentComponent_setsCorrectProperties() {
-        val component = PhysicalComponent(
+    fun testComponent_createFilamentComponent_setsCorrectProperties() {
+        val component = Component(
             id = "test_filament",
             name = "PLA_BASIC - Black",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = 1000f,
             fullMassGrams = 1000f,
             variableMass = true,
             manufacturer = "Bambu Lab",
-            description = "Test filament component",
-            isUserDefined = false,
-            createdAt = System.currentTimeMillis()
+            description = "Test filament component"
         )
 
         assert(component.variableMass) { "Filament components should be variable mass" }
-        assert(component.type == PhysicalComponentType.FILAMENT) { "Should have correct type" }
+        assert(component.category == "filament") { "Should have correct category" }
         assert(component.massGrams == 1000f) { "Should have correct mass" }
         assert(component.fullMassGrams == 1000f) { "Should have correct full mass" }
         assert(component.getRemainingPercentage() == 1.0f) { "Should be 100% remaining when mass equals full mass" }
     }
 
     @Test
-    fun testPhysicalComponent_createFixedComponent_setsCorrectProperties() {
-        val component = PhysicalComponent(
+    fun testComponent_createFixedComponent_setsCorrectProperties() {
+        val component = Component(
             id = "bambu_cardboard_core",
             name = "Bambu Cardboard Core",
-            type = PhysicalComponentType.CORE_RING,
+            category = "core",
             massGrams = 33f,
             variableMass = false,
             manufacturer = "Bambu Lab",
-            description = "Standard Bambu Lab cardboard core (33g)",
-            isUserDefined = false,
-            createdAt = System.currentTimeMillis()
+            description = "Standard Bambu Lab cardboard core (33g)"
         )
 
         assert(!component.variableMass) { "Core components should be fixed mass" }
-        assert(component.type == PhysicalComponentType.CORE_RING) { "Should have correct type" }
+        assert(component.category == "core") { "Should have correct category" }
         assert(component.massGrams == 33f) { "Should have correct mass" }
         assert(component.fullMassGrams == null) { "Fixed components don't need full mass" }
     }
 
     @Test
-    fun testPhysicalComponent_withUpdatedMass_updatesCorrectly() {
-        val originalComponent = PhysicalComponent(
+    fun testComponent_withUpdatedMass_updatesCorrectly() {
+        val originalComponent = Component(
             id = "test_filament",
             name = "PLA_BASIC - Black",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = 1000f,
             fullMassGrams = 1000f,
             variableMass = true,
@@ -110,11 +105,11 @@ class ComponentAdditionUnitTest {
     }
 
     @Test
-    fun testPhysicalComponent_consumptionCalculations() {
-        val component = PhysicalComponent(
+    fun testComponent_consumptionCalculations() {
+        val component = Component(
             id = "test_filament",
             name = "PLA_BASIC - Black",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = 750f,
             fullMassGrams = 1000f,
             variableMass = true,
@@ -129,11 +124,11 @@ class ComponentAdditionUnitTest {
     }
 
     @Test
-    fun testPhysicalComponent_runningLowCalculations() {
-        val runningLowComponent = PhysicalComponent(
+    fun testComponent_runningLowCalculations() {
+        val runningLowComponent = Component(
             id = "test_filament",
             name = "PLA_BASIC - Black",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = 150f,
             fullMassGrams = 1000f,
             variableMass = true,
@@ -147,11 +142,11 @@ class ComponentAdditionUnitTest {
     }
 
     @Test
-    fun testPhysicalComponent_nearlyEmptyCalculations() {
-        val nearlyEmptyComponent = PhysicalComponent(
+    fun testComponent_nearlyEmptyCalculations() {
+        val nearlyEmptyComponent = Component(
             id = "test_filament", 
             name = "PLA_BASIC - Black",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = 30f,
             fullMassGrams = 1000f,
             variableMass = true,

@@ -35,8 +35,8 @@ class ComponentManagementLogicTest {
         // Arrange
         val components = listOf(
             createFilamentComponent("filament", 800f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f),
-            createFixedComponent("spool", PhysicalComponentType.BASE_SPOOL, 212f)
+            createFixedComponent("core", "core", 33f),
+            createFixedComponent("spool", "spool", 212f)
         )
         val totalMeasuredMass = 1045f
         
@@ -59,7 +59,7 @@ class ComponentManagementLogicTest {
         // Arrange
         val components = listOf(
             createFilamentComponent("filament", 0f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         val emptyMass = 33f
         
@@ -79,7 +79,7 @@ class ComponentManagementLogicTest {
     @Test
     fun calculateFilamentMassFromTotal_negativeMass_returnsError() {
         // Arrange
-        val components = listOf(createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f))
+        val components = listOf(createFixedComponent("core", "core", 33f))
         
         // Act
         val result = massCalculationService.calculateFilamentMassFromTotal(
@@ -124,7 +124,7 @@ class ComponentManagementLogicTest {
         val components = listOf(
             createFilamentComponent("f1", 600f), // 60% of variable mass
             createFilamentComponent("f2", 400f), // 40% of variable mass
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         val newTotalMass = 1133f // Should give 800f to variables (600 + 200)
         
@@ -155,7 +155,7 @@ class ComponentManagementLogicTest {
         val components = listOf(
             createFilamentComponent("f1", 0f),
             createFilamentComponent("f2", 0f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         val newTotalMass = 1033f
         
@@ -177,7 +177,7 @@ class ComponentManagementLogicTest {
         // Arrange: Total mass less than fixed components
         val components = listOf(
             createFilamentComponent("f1", 100f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 200f)
+            createFixedComponent("core", "core", 200f)
         )
         val insufficientTotal = 150f
         
@@ -197,7 +197,7 @@ class ComponentManagementLogicTest {
         val components = listOf(
             createFilamentComponent("f1", 300f), // 75% of current variable
             createFilamentComponent("f2", 100f), // 25% of current variable
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 50f)
+            createFixedComponent("core", "core", 50f)
         )
         val newTotalMass = 850f // 800f available for variables
         
@@ -221,7 +221,7 @@ class ComponentManagementLogicTest {
         // Arrange
         val components = listOf(
             createFilamentComponent("f1", 100f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 200f)
+            createFixedComponent("core", "core", 200f)
         )
         val insufficientTotal = 150f
         
@@ -239,8 +239,8 @@ class ComponentManagementLogicTest {
     fun distributeToVariableComponents_noVariableComponents_success() {
         // Arrange: Only fixed components
         val components = listOf(
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f),
-            createFixedComponent("spool", PhysicalComponentType.BASE_SPOOL, 212f)
+            createFixedComponent("core", "core", 33f),
+            createFixedComponent("spool", "spool", 212f)
         )
         val exactTotal = 245f
         
@@ -267,7 +267,7 @@ class ComponentManagementLogicTest {
         // Arrange
         val components = listOf(
             createFilamentComponent("f1", 500f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         val newMass = 750f
         
@@ -375,8 +375,8 @@ class ComponentManagementLogicTest {
         // Arrange: One filament + fixed components
         val components = listOf(
             createFilamentComponent("f1", 500f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f),
-            createFixedComponent("spool", PhysicalComponentType.BASE_SPOOL, 212f)
+            createFixedComponent("core", "core", 33f),
+            createFixedComponent("spool", "spool", 212f)
         )
         
         // Act
@@ -401,8 +401,8 @@ class ComponentManagementLogicTest {
     fun validateComponents_noFilamentComponent_fails() {
         // Arrange: Only fixed components
         val components = listOf(
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f),
-            createFixedComponent("spool", PhysicalComponentType.BASE_SPOOL, 212f)
+            createFixedComponent("core", "core", 33f),
+            createFixedComponent("spool", "spool", 212f)
         )
         
         // Act
@@ -420,7 +420,7 @@ class ComponentManagementLogicTest {
         val components = listOf(
             createFilamentComponent("f1", 500f),
             createFilamentComponent("f2", 300f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         
         // Act
@@ -439,7 +439,7 @@ class ComponentManagementLogicTest {
         // Arrange
         val components = listOf(
             createFilamentComponent("f1", 500f, 1000f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         
         // Act
@@ -455,7 +455,7 @@ class ComponentManagementLogicTest {
         // Arrange
         val components = listOf(
             createFilamentComponent("f1", -100f),
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f)
+            createFixedComponent("core", "core", 33f)
         )
         
         // Act
@@ -564,11 +564,11 @@ class ComponentManagementLogicTest {
 
     // ===== HELPER METHODS =====
 
-    private fun createFilamentComponent(id: String, mass: Float, fullMass: Float? = null): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createFilamentComponent(id: String, mass: Float, fullMass: Float? = null): Component {
+        return Component(
             id = id,
             name = "Test Filament",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = mass,
             fullMassGrams = fullMass,
             variableMass = true,
@@ -576,11 +576,11 @@ class ComponentManagementLogicTest {
         )
     }
 
-    private fun createFixedComponent(id: String, type: PhysicalComponentType, mass: Float): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createFixedComponent(id: String, category: String, mass: Float): Component {
+        return Component(
             id = id,
-            name = "Test ${type.name}",
-            type = type,
+            name = "Test $category",
+            category = category,
             massGrams = mass,
             variableMass = false,
             manufacturer = "Test Manufacturer"

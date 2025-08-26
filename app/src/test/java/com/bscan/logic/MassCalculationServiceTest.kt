@@ -12,7 +12,7 @@ import org.junit.Test
 class MassCalculationServiceTest {
 
     private lateinit var service: MassCalculationService
-    private lateinit var testComponents: List<PhysicalComponent>
+    private lateinit var testComponents: List<Component>
 
     @Before
     fun setUp() {
@@ -369,11 +369,11 @@ class MassCalculationServiceTest {
 
     // === Helper Methods ===
 
-    private fun createFilamentComponent(id: String, mass: Float, fullMass: Float): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createFilamentComponent(id: String, mass: Float, fullMass: Float): Component {
+        return Component(
             id = id,
             name = "Filament Component",
-            type = PhysicalComponentType.FILAMENT,
+            category = "filament",
             massGrams = mass,
             variableMass = true,
             manufacturer = "Bambu Lab",
@@ -382,11 +382,11 @@ class MassCalculationServiceTest {
         )
     }
 
-    private fun createCoreComponent(id: String, mass: Float): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createCoreComponent(id: String, mass: Float): Component {
+        return Component(
             id = id,
             name = "Core Component",
-            type = PhysicalComponentType.CORE_RING,
+            category = "core",
             massGrams = mass,
             variableMass = false,
             manufacturer = "Bambu Lab",
@@ -395,7 +395,7 @@ class MassCalculationServiceTest {
         )
     }
 
-    private fun PhysicalComponent.withMassUpdate(newMass: Float): PhysicalComponent {
+    private fun Component.withMassUpdate(newMass: Float): Component {
         return if (variableMass) {
             withUpdatedMass(newMass)
         } else {
@@ -403,11 +403,11 @@ class MassCalculationServiceTest {
         }
     }
 
-    private fun createSpoolComponent(id: String, mass: Float): PhysicalComponent {
-        return PhysicalComponent(
+    private fun createSpoolComponent(id: String, mass: Float): Component {
+        return Component(
             id = id,
             name = "Spool Component",
-            type = PhysicalComponentType.BASE_SPOOL,
+            category = "spool",
             massGrams = mass,
             variableMass = false,
             manufacturer = "Bambu Lab",
