@@ -4,7 +4,9 @@ import android.content.Context
 import android.util.Log
 import com.bscan.model.*
 import com.bscan.repository.ComponentRepository
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
+import com.bscan.repository.UnifiedDataAccess
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -15,7 +17,9 @@ import java.util.UUID
 class BambuComponentFactory(private val context: Context) {
     
     private val componentRepository = ComponentRepository(context)
-    private val mappingsRepository = MappingsRepository(context)
+    private val catalogRepository = CatalogRepository(context)
+    private val userDataRepository = UserDataRepository(context)
+    private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
     
     /**
      * Process an RFID scan and create/update the component hierarchy
@@ -91,13 +95,7 @@ class BambuComponentFactory(private val context: Context) {
             massGrams = null, // Will be calculated from children
             manufacturer = "Bambu Lab",
             description = "Bambu filament tray with RFID tags, filament, and core",
-            metadata = mapOf(
-                "trayUid" to trayUid,
-                "filamentType" to filamentInfo.filamentType,
-                "colorName" to filamentInfo.colorName,
-                "colorHex" to filamentInfo.colorHex,
-                "source" to "bambu-scan"
-            ),
+            metadata = buildTrayMetadata(trayUid, filamentInfo),
             createdAt = System.currentTimeMillis(),
             lastUpdated = LocalDateTime.now()
         )
@@ -156,13 +154,7 @@ class BambuComponentFactory(private val context: Context) {
             variableMass = true,
             manufacturer = "Bambu Lab",
             description = "Bambu Lab ${filamentInfo.filamentType} filament in ${filamentInfo.colorName}",
-            metadata = mapOf(
-                "filamentType" to filamentInfo.filamentType,
-                "colorName" to filamentInfo.colorName,
-                "colorHex" to filamentInfo.colorHex,
-                "diameter" to filamentInfo.filamentDiameter.toString(),
-                "source" to "sku-data"
-            )
+            metadata = buildFilamentMetadata(filamentInfo, filamentMass)
         )
     }
     
@@ -212,7 +204,7 @@ class BambuComponentFactory(private val context: Context) {
      */
     private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float {
         return try {
-            val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+            val bestMatch = unifiedDataAccess.findBestProductMatch(filamentType, colorName)
             if (bestMatch?.filamentWeightGrams != null) {
                 Log.d(TAG, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
                 bestMatch.filamentWeightGrams
@@ -225,6 +217,76 @@ class BambuComponentFactory(private val context: Context) {
             Log.e(TAG, "Error looking up SKU mass for $filamentType/$colorName", e)
             getDefaultMassByMaterial(filamentType)
         }
+    }
+    
+    /**
+     * Build comprehensive metadata for tray component with SKU linking
+     */
+    private fun buildTrayMetadata(trayUid: String, filamentInfo: FilamentInfo): Map<String, String> {
+        val metadata = mutableMapOf<String, String>(
+            "trayUid" to trayUid,
+            "filamentType" to filamentInfo.filamentType,
+            "colorName" to filamentInfo.colorName,
+            "colorHex" to filamentInfo.colorHex,
+            "source" to "bambu-scan"
+        )
+        
+        // Add SKU information if available
+        try {
+            val bestMatch = unifiedDataAccess.findBestProductMatch(filamentInfo.filamentType, filamentInfo.colorName)
+            if (bestMatch != null) {
+                metadata["linkedSku"] = bestMatch.variantId
+                metadata["productName"] = bestMatch.productName
+                metadata["internalCode"] = bestMatch.internalCode
+                metadata["skuSource"] = "automatic-match"
+                metadata["purchaseUrl"] = bestMatch.url
+                bestMatch.filamentWeightGrams?.let {
+                    metadata["expectedWeightGrams"] = it.toString()
+                }
+                Log.i(TAG, "Auto-linked tray $trayUid to SKU: ${bestMatch.variantId}")
+            } else {
+                metadata["skuLinkStatus"] = "no-match-found"
+                Log.d(TAG, "No SKU match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
+            }
+        } catch (e: Exception) {
+            metadata["skuLinkStatus"] = "lookup-error"
+            Log.e(TAG, "Error looking up SKU for tray metadata", e)
+        }
+        
+        return metadata
+    }
+    
+    /**
+     * Build comprehensive metadata for filament component with SKU details
+     */
+    private fun buildFilamentMetadata(filamentInfo: FilamentInfo, actualMass: Float): Map<String, String> {
+        val metadata = mutableMapOf<String, String>(
+            "filamentType" to filamentInfo.filamentType,
+            "colorName" to filamentInfo.colorName,
+            "colorHex" to filamentInfo.colorHex,
+            "diameter" to filamentInfo.filamentDiameter.toString(),
+            "actualMassGrams" to actualMass.toString(),
+            "source" to "sku-data"
+        )
+        
+        // Add additional filament properties
+        metadata["minTemperature"] = filamentInfo.minTemperature.toString()
+        metadata["maxTemperature"] = filamentInfo.maxTemperature.toString()
+        metadata["bedTemperature"] = filamentInfo.bedTemperature.toString()
+        metadata["productionDate"] = filamentInfo.productionDate
+        
+        // Add exact SKU if available from scan
+        filamentInfo.exactSku?.let { sku ->
+            metadata["exactSku"] = sku
+            metadata["skuSource"] = "rfid-scan"
+        }
+        
+        filamentInfo.bambuProduct?.let { product ->
+            metadata["retailSku"] = product.retailSku ?: ""
+            metadata["productLine"] = product.productLine
+        }
+        
+        return metadata
     }
     
     /**
@@ -303,6 +365,56 @@ class BambuComponentFactory(private val context: Context) {
         
         Log.i(TAG, "Inferred and added component: $componentName (${inferredMass}g) to tray $trayUid")
         return inferredComponent
+    }
+    
+    /**
+     * Create an InventoryItem for the tray component
+     */
+    private fun createInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) {
+        try {
+            val inventoryItem = InventoryItem(
+                trayUid = trayComponent.uniqueIdentifier!!,
+                components = trayComponent.childComponents,
+                totalMeasuredMass = null, // User hasn't measured yet
+                measurements = emptyList(),
+                lastUpdated = LocalDateTime.now(),
+                notes = "Auto-created from Bambu RFID scan - ${filamentInfo.filamentType} ${filamentInfo.colorName}"
+            )
+            
+            // Save to UserDataRepository
+            userDataRepository.saveInventoryItem(inventoryItem)
+            
+            Log.i(TAG, "Created inventory item for tray: ${trayComponent.uniqueIdentifier}")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
+        }
+    }
+    
+    /**
+     * Update existing InventoryItem when new RFID tags are scanned
+     */
+    private fun updateInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) {
+        try {
+            val existingItem = userDataRepository.getInventoryItem(trayComponent.uniqueIdentifier!!)
+            if (existingItem != null) {
+                // Update component list and timestamp
+                val updatedItem = existingItem.copy(
+                    components = trayComponent.childComponents,
+                    lastUpdated = LocalDateTime.now(),
+                    notes = existingItem.notes + " | Additional RFID tag scanned"
+                )
+                
+                userDataRepository.saveInventoryItem(updatedItem)
+                Log.i(TAG, "Updated inventory item for tray: ${trayComponent.uniqueIdentifier}")
+            } else {
+                // Create new inventory item if somehow missing
+                createInventoryItemForTray(trayComponent, filamentInfo)
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
+        }
     }
     
     companion object {

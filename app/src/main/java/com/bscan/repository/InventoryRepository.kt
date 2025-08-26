@@ -24,7 +24,7 @@ class InventoryRepository(private val context: Context) {
     
     private val componentRepository by lazy { ComponentRepository(context) }
     private val calculationService = MassCalculationService()
-    private val mappingsRepository by lazy { MappingsRepository(context) }
+    private val catalogRepository by lazy { CatalogRepository(context) }
     private val bambuComponentFactory by lazy { BambuComponentFactory(context) }
     
     // Custom LocalDateTime adapter for Gson
@@ -107,7 +107,7 @@ class InventoryRepository(private val context: Context) {
      */
     private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float? {
         try {
-            val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+            val bestMatch = catalogRepository.findBestProductMatch(filamentType, colorName)
             if (bestMatch?.filamentWeightGrams != null) {
                 android.util.Log.d(TAG, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
                 return bestMatch.filamentWeightGrams

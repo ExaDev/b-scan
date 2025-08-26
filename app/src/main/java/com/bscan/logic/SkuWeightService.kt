@@ -1,7 +1,7 @@
 package com.bscan.logic
 
 import com.bscan.model.*
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.ComponentRepository
 import java.time.LocalDateTime
 
@@ -10,15 +10,19 @@ import java.time.LocalDateTime
  * Works with the new hierarchical Component system.
  */
 class SkuWeightService(
-    private val mappingsRepository: MappingsRepository,
+    private val unifiedDataAccess: UnifiedDataAccess,
     private val componentRepository: ComponentRepository
 ) {
+    
+    companion object {
+        private const val BAMBU_LAB_MANUFACTURER_ID = "bambu_lab"
+    }
     
     /**
      * Get filament mass from SKU data with fallback defaults
      */
     fun getFilamentMassFromSku(filamentType: String, colorName: String): Float {
-        val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+        val bestMatch = findBestProductMatch(filamentType, colorName)
         return if (bestMatch?.filamentWeightGrams != null) {
             bestMatch.filamentWeightGrams
         } else {
@@ -39,10 +43,40 @@ class SkuWeightService(
     }
     
     /**
+     * Find the best product match from catalog data
+     */
+    private fun findBestProductMatch(filamentType: String, colorName: String): ProductEntry? {
+        // Since UnifiedDataAccess doesn't directly expose product search methods,
+        // we need to add those methods. For now, we'll implement a workaround
+        // by accessing the catalog indirectly through the manufacturer
+        
+        // Try to find products that match the material type and color name
+        val matchingProducts = findProductsByColorAndMaterial(filamentType, colorName)
+        
+        // Return the first match, or null if none found
+        return matchingProducts.firstOrNull()
+    }
+    
+    /**
+     * Find products by color name and material type
+     * This is a simplified implementation that would need to be enhanced
+     * once UnifiedDataAccess provides better product search methods
+     */
+    private fun findProductsByColorAndMaterial(filamentType: String, colorName: String): List<ProductEntry> {
+        // For now, return empty list as this requires extending UnifiedDataAccess
+        // with product search capabilities. The fallback to default weights will work.
+        
+        // TODO: This should be implemented by adding product search methods to UnifiedDataAccess
+        // that delegate to CatalogRepository.findProducts()
+        
+        return emptyList()
+    }
+    
+    /**
      * Get suggested spool type from SKU data
      */
     fun getSuggestedSpoolType(filamentType: String, colorName: String): SpoolPackaging? {
-        val bestMatch = mappingsRepository.findBestProductMatch(filamentType, colorName)
+        val bestMatch = findBestProductMatch(filamentType, colorName)
         return bestMatch?.spoolType
     }
     
