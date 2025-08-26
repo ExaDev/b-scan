@@ -25,6 +25,8 @@ class InventoryRepository(private val context: Context) {
     private val componentRepository by lazy { ComponentRepository(context) }
     private val calculationService = MassCalculationService()
     private val catalogRepository by lazy { CatalogRepository(context) }
+    private val userDataRepository by lazy { UserDataRepository(context) }
+    private val unifiedDataAccess by lazy { UnifiedDataAccess(catalogRepository, userDataRepository) }
     private val bambuComponentFactory by lazy { BambuComponentFactory(context) }
     
     // Custom LocalDateTime adapter for Gson
@@ -88,26 +90,13 @@ class InventoryRepository(private val context: Context) {
         saveInventoryItems(items)
     }
     
-    /**
-     * Create automatic component setup for a new Bambu scan (Legacy method - use setupBambuComponents)
-     */
-    @Deprecated("Use setupBambuComponents instead", ReplaceWith("setupBambuComponents(trayUid, filamentInfo, includeRefillableSpool)"))
-    fun createBambuInventoryItem(
-        trayUid: String,
-        filamentInfo: FilamentInfo,
-        includeRefillableSpool: Boolean = false
-    ): InventoryItem {
-        // Use the new setupBambuComponents method
-        setupBambuComponents(trayUid, filamentInfo, includeRefillableSpool)
-        return getInventoryItem(trayUid) ?: throw IllegalStateException("Failed to create inventory item")
-    }
     
     /**
      * Try to get filament mass from SKU data with comprehensive fallback strategy
      */
     private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float? {
         try {
-            val bestMatch = catalogRepository.findBestProductMatch(filamentType, colorName)
+            val bestMatch = unifiedDataAccess.findBestProductMatch(filamentType, colorName)
             if (bestMatch?.filamentWeightGrams != null) {
                 android.util.Log.d(TAG, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
                 return bestMatch.filamentWeightGrams
