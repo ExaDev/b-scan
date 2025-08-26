@@ -129,7 +129,7 @@ fun AppNavigation(
         }
         
         composable("components") {
-            PhysicalComponentsScreen(
+            ComponentsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

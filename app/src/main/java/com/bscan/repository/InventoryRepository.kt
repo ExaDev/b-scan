@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.*
 import com.bscan.logic.MassCalculationService
+import com.bscan.service.BambuComponentFactory
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
@@ -21,9 +22,10 @@ class InventoryRepository(private val context: Context) {
     private val sharedPreferences: SharedPreferences = 
         context.getSharedPreferences("inventory_data", Context.MODE_PRIVATE)
     
-    private val physicalComponentRepository by lazy { PhysicalComponentRepository(context) }
+    private val componentRepository by lazy { ComponentRepository(context) }
     private val calculationService = MassCalculationService()
     private val mappingsRepository by lazy { MappingsRepository(context) }
+    private val bambuComponentFactory by lazy { BambuComponentFactory(context) }
     
     // Custom LocalDateTime adapter for Gson
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -180,7 +182,7 @@ class InventoryRepository(private val context: Context) {
         val existingItem = getInventoryItem(trayUid) ?: return
         
         // Get components for this inventory item
-        val components = physicalComponentRepository.getComponents()
+        val components = componentRepository.getComponents()
             .filter { it.id in existingItem.components }
         
         // Update variable mass components based on new total
@@ -188,7 +190,7 @@ class InventoryRepository(private val context: Context) {
         
         // Save updated components
         updatedComponents.forEach { component ->
-            physicalComponentRepository.saveComponent(component)
+            componentRepository.saveComponent(component)
         }
         
         // Update inventory item with new total mass
@@ -205,7 +207,7 @@ class InventoryRepository(private val context: Context) {
      */
     fun addComponentToInventoryItem(trayUid: String, componentId: String) {
         // Validate that component exists before adding
-        val component = physicalComponentRepository.getComponent(componentId)
+        val component = componentRepository.getComponent(componentId)
         if (component == null) {
             android.util.Log.e(TAG, "Cannot add component $componentId: component not found")
             throw IllegalArgumentException("Component with ID '$componentId' not found")
@@ -243,17 +245,17 @@ class InventoryRepository(private val context: Context) {
         val existingItem = getInventoryItem(trayUid) ?: return
         
         // Get the component and update its mass
-        val component = physicalComponentRepository.getComponent(componentId) ?: return
+        val component = componentRepository.getComponent(componentId) ?: return
         var updatedComponent = component.withUpdatedMass(newMass)
         if (newFullMass != null && component.variableMass) {
             updatedComponent = updatedComponent.withUpdatedFullMass(newFullMass)
         }
         
         // Save the updated component
-        physicalComponentRepository.saveComponent(updatedComponent)
+        componentRepository.saveComponent(updatedComponent)
         
         // Recalculate total mass from all components
-        val allComponents = physicalComponentRepository.getComponents()
+        val allComponents = componentRepository.getComponents()
             .filter { it.id in existingItem.components }
             .map { if (it.id == componentId) updatedComponent else it }
         
@@ -274,7 +276,7 @@ class InventoryRepository(private val context: Context) {
         val existingItem = getInventoryItem(trayUid) ?: return
         
         // Get all components for this inventory item
-        val components = physicalComponentRepository.getComponents()
+        val components = componentRepository.getComponents()
             .filter { it.id in existingItem.components }
         
         if (components.isEmpty()) {
@@ -307,14 +309,14 @@ class InventoryRepository(private val context: Context) {
                 variableComponents.forEach { component ->
                     val newComponentMass = component.massGrams * ratio
                     val updatedComponent = component.withUpdatedMass(newComponentMass)
-                    physicalComponentRepository.saveComponent(updatedComponent)
+                    componentRepository.saveComponent(updatedComponent)
                 }
             } else {
                 // Distribute equally among variable components
                 val equalShare = availableForVariable / variableComponents.size
                 variableComponents.forEach { component ->
                     val updatedComponent = component.withUpdatedMass(equalShare)
-                    physicalComponentRepository.saveComponent(updatedComponent)
+                    componentRepository.saveComponent(updatedComponent)
                 }
             }
         }
@@ -332,7 +334,7 @@ class InventoryRepository(private val context: Context) {
      */
     fun getInventoryItemComponents(trayUid: String): List<PhysicalComponent> {
         val inventoryItem = getInventoryItem(trayUid) ?: return emptyList()
-        return physicalComponentRepository.getComponents()
+        return componentRepository.getComponents()
             .filter { it.id in inventoryItem.components }
     }
     
@@ -361,7 +363,7 @@ class InventoryRepository(private val context: Context) {
             }
             
             // Create filament component with resilient data handling
-            val finalFilamentComponent = physicalComponentRepository.createFilamentComponent(
+            val finalFilamentComponent = createFilamentComponent(
                 filamentType = filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC",
                 colorName = filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color",
                 colorHex = filamentInfo.colorHex.takeIf { it.isNotBlank() } ?: "#808080",
@@ -371,26 +373,26 @@ class InventoryRepository(private val context: Context) {
             )
             
             // Save the filament component
-            physicalComponentRepository.saveComponent(finalFilamentComponent)
+            componentRepository.saveComponent(finalFilamentComponent)
             android.util.Log.d(TAG, "Created filament component: ${finalFilamentComponent.id}")
             
             // Get built-in components (these should always work)
             val coreComponent = try {
-                physicalComponentRepository.getBambuCoreComponent()
+                getBambuCoreComponent()
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Error getting core component, creating fallback", e)
-                physicalComponentRepository.createBambuCoreComponent().also {
-                    physicalComponentRepository.saveComponent(it)
+                createBambuCoreComponent().also {
+                    componentRepository.saveComponent(it)
                 }
             }
             
             val spoolComponent = if (includeRefillableSpool) {
                 try {
-                    physicalComponentRepository.getBambuSpoolComponent()
+                    getBambuSpoolComponent()
                 } catch (e: Exception) {
                     android.util.Log.e(TAG, "Error getting spool component, creating fallback", e)
-                    physicalComponentRepository.createBambuSpoolComponent().also {
-                        physicalComponentRepository.saveComponent(it)
+                    createBambuSpoolComponent().also {
+                        componentRepository.saveComponent(it)
                     }
                 }
             } else null
@@ -476,7 +478,7 @@ class InventoryRepository(private val context: Context) {
             )
             
             // Save emergency component
-            physicalComponentRepository.saveComponent(emergencyFilamentComponent)
+            componentRepository.saveComponent(emergencyFilamentComponent)
             
             // Create minimal inventory item
             val emergencyItem = InventoryItem(
@@ -519,7 +521,7 @@ class InventoryRepository(private val context: Context) {
         }
         
         // Get components for this inventory item
-        val components = physicalComponentRepository.getComponents()
+        val components = componentRepository.getComponents()
             .filter { it.id in inventoryItem.components }
         
         if (components.isEmpty()) {
@@ -625,6 +627,56 @@ class InventoryRepository(private val context: Context) {
         return getInventoryItems().map { item ->
             item to calculateFilamentStatus(item.trayUid)
         }
+    }
+    
+    // Temporary wrapper methods for compatibility - TODO: migrate to proper factory pattern
+    private fun createFilamentComponent(
+        filamentType: String,
+        colorName: String,
+        estimatedMass: Float
+    ): Component {
+        return Component(
+            id = "filament_${System.currentTimeMillis()}",
+            name = "$colorName $filamentType Filament",
+            category = "filament",
+            massGrams = estimatedMass,
+            variableMass = true,
+            fullMassGrams = estimatedMass,
+            manufacturer = "Bambu Lab",
+            uniqueId = "filament_${filamentType}_${colorName}"
+        )
+    }
+    
+    private fun getBambuCoreComponent(): Component {
+        return componentRepository.findComponentByUniqueId("bambu_core") ?: createBambuCoreComponent()
+    }
+    
+    private fun createBambuCoreComponent(): Component {
+        return Component(
+            id = "core_${System.currentTimeMillis()}",
+            name = "Bambu Core Ring",
+            category = "core",
+            massGrams = 10f, // Typical core ring mass
+            variableMass = false,
+            manufacturer = "Bambu Lab",
+            uniqueId = "bambu_core"
+        )
+    }
+    
+    private fun getBambuSpoolComponent(): Component {
+        return componentRepository.findComponentByUniqueId("bambu_spool") ?: createBambuSpoolComponent()
+    }
+    
+    private fun createBambuSpoolComponent(): Component {
+        return Component(
+            id = "spool_${System.currentTimeMillis()}",
+            name = "Bambu Spool",
+            category = "spool",
+            massGrams = 240f, // Typical Bambu spool mass
+            variableMass = false,
+            manufacturer = "Bambu Lab",
+            uniqueId = "bambu_spool"
+        )
     }
     
     companion object {
