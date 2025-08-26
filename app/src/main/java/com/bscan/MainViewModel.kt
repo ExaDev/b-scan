@@ -10,11 +10,10 @@ import com.bscan.repository.TrayTrackingRepository
 import com.bscan.repository.MappingsRepository
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.data.BambuProductDatabase
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -59,16 +58,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * New method to process scan data using the FilamentInterpreter
      */
     fun processScanData(encryptedData: EncryptedScanData, decryptedData: DecryptedScanData) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                scanState = ScanState.PROCESSING,
-                error = null
-            )
-            _scanProgress.value = ScanProgress(
-                stage = ScanStage.PARSING,
-                percentage = 0.9f,
-                statusMessage = "Interpreting filament data"
-            )
+        viewModelScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                _uiState.value = _uiState.value.copy(
+                    scanState = ScanState.PROCESSING,
+                    error = null
+                )
+                _scanProgress.value = ScanProgress(
+                    stage = ScanStage.PARSING,
+                    percentage = 0.9f,
+                    statusMessage = "Interpreting filament data"
+                )
+            }
             
             // Store the raw scan data first
             scanHistoryRepository.saveScan(encryptedData, decryptedData)
@@ -97,62 +98,57 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             
-            _uiState.value = when (result) {
-                is TagReadResult.Success -> {
-                    _scanProgress.value = ScanProgress(
+            withContext(Dispatchers.Main) {
+                _scanProgress.value = when (result) {
+                    is TagReadResult.Success -> ScanProgress(
                         stage = ScanStage.COMPLETED,
                         percentage = 1.0f,
                         statusMessage = "Scan completed successfully"
                     )
-                    BScanUiState(
-                        filamentInfo = result.filamentInfo,
-                        scanState = ScanState.SUCCESS,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                is TagReadResult.InvalidTag -> {
-                    _scanProgress.value = ScanProgress(
+                    is TagReadResult.InvalidTag -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Invalid or unsupported tag"
                     )
-                    BScanUiState(
-                        error = "Invalid or unsupported tag",
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                is TagReadResult.ReadError -> {
-                    _scanProgress.value = ScanProgress(
+                    is TagReadResult.ReadError -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Error reading or authenticating tag"
                     )
-                    BScanUiState(
-                        error = "Error reading or authenticating tag", 
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                is TagReadResult.InsufficientData -> {
-                    _scanProgress.value = ScanProgress(
+                    is TagReadResult.InsufficientData -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Insufficient data on tag"
                     )
-                    BScanUiState(
-                        error = "Insufficient data on tag",
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
-                else -> {
-                    _scanProgress.value = ScanProgress(
+                    else -> ScanProgress(
                         stage = ScanStage.ERROR,
                         percentage = 0.0f,
                         statusMessage = "Unknown error occurred"
                     )
-                    BScanUiState(
+                }
+                
+                _uiState.value = when (result) {
+                    is TagReadResult.Success -> BScanUiState(
+                        filamentInfo = result.filamentInfo,
+                        scanState = ScanState.SUCCESS,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    is TagReadResult.InvalidTag -> BScanUiState(
+                        error = "Invalid or unsupported tag",
+                        scanState = ScanState.ERROR,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    is TagReadResult.ReadError -> BScanUiState(
+                        error = "Error reading or authenticating tag", 
+                        scanState = ScanState.ERROR,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    is TagReadResult.InsufficientData -> BScanUiState(
+                        error = "Insufficient data on tag",
+                        scanState = ScanState.ERROR,
+                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                    )
+                    else -> BScanUiState(
                         error = "Unknown error occurred",
                         scanState = ScanState.ERROR,
                         debugInfo = createDebugInfoFromDecryptedData(decryptedData)
@@ -219,7 +215,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         
         // Save to history even for failed scans
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             scanHistoryRepository.saveScan(encryptedData, decryptedData)
             trayTrackingRepository.recordScan(decryptedData)
         }
@@ -305,11 +301,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 filamentDiameter = 1.75f,
                 filamentLength = kotlin.random.Random.nextInt(100000, 500000),
                 productionDate = "2024-${kotlin.random.Random.nextInt(1, 13).toString().padStart(2, '0')}",
-                minTemperature = getDefaultMinTemp(product.productLine),
-                maxTemperature = getDefaultMaxTemp(product.productLine),
-                bedTemperature = getDefaultBedTemp(product.productLine),
-                dryingTemperature = getDefaultDryingTemp(product.productLine),
-                dryingTime = getDefaultDryingTime(product.productLine),
+                minTemperature = this@MainViewModel.getDefaultMinTemp(product.productLine),
+                maxTemperature = this@MainViewModel.getDefaultMaxTemp(product.productLine),
+                bedTemperature = this@MainViewModel.getDefaultBedTemp(product.productLine),
+                dryingTemperature = this@MainViewModel.getDefaultDryingTemp(product.productLine),
+                dryingTime = this@MainViewModel.getDefaultDryingTime(product.productLine),
                 bambuProduct = product
             )
             
@@ -379,7 +375,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         materialType.contains("ABS") -> 4
         else -> 6
     }
-    
 }
 
 data class BScanUiState(

@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.*
 import com.bscan.repository.ScanHistoryRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
@@ -101,7 +102,9 @@ class ScanHistoryIntegrationTest {
         )
         
         // When - save the scan
-        repository.saveScan(encryptedScan, decryptedScan)
+        runBlocking {
+            repository.saveScan(encryptedScan, decryptedScan)
+        }
         
         // Then - verify save was called with correct data for both encrypted and decrypted
         verify(mockEditor, atLeast(2)).putString(any(), any()) // Called for both encrypted and decrypted
@@ -131,7 +134,9 @@ class ScanHistoryIntegrationTest {
         )
         
         // When
-        repository.saveScan(encryptedScan, decryptedScan)
+        runBlocking {
+            repository.saveScan(encryptedScan, decryptedScan)
+        }
         
         // Then
         assertEquals("Should record failed result", ScanResult.AUTHENTICATION_FAILED, decryptedScan.scanResult)
@@ -164,7 +169,9 @@ class ScanHistoryIntegrationTest {
                 technology = "MifareClassic",
                 result = scanData.result
             )
-            repository.saveScan(encryptedScan, decryptedScan)
+            runBlocking {
+                repository.saveScan(encryptedScan, decryptedScan)
+            }
         }
         
         // Then - verify all saves occurred (2 saves per scan: encrypted + decrypted)
@@ -202,7 +209,9 @@ class ScanHistoryIntegrationTest {
         )
         
         // When
-        repository.saveScan(encryptedScan, decryptedScan)
+        runBlocking {
+            repository.saveScan(encryptedScan, decryptedScan)
+        }
         
         // Then - should save without serialization errors
         verify(mockEditor, atLeast(2)).putString(any(), any())
