@@ -51,7 +51,7 @@ fun FilamentDetailsScreen(
         // Show purchase links if product information is available
         filamentInfo.bambuProduct?.let { product ->
             item {
-                PurchaseLinksCard(product = product)
+                StoreLinksCard(bambuProduct = product)
             }
         }
         

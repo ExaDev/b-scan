@@ -80,6 +80,13 @@ fun FilamentReelDetailsScreen(
                         )
                     }
                     
+                    // Store Links
+                    details.filamentInfo.bambuProduct?.let { product ->
+                        item {
+                            StoreLinksCard(bambuProduct = product)
+                        }
+                    }
+                    
                     // Filament Type Info
                     item {
                         InfoCard(
