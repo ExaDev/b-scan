@@ -41,8 +41,6 @@ data class EncryptedScanData(
     val tagUid: String, // Individual tag UID (unique per tag)
     val technology: String,
     val encryptedData: ByteArray, // Unified storage: 768-byte or 1024-byte format
-    val tagSizeBytes: Int,
-    val sectorCount: Int,
     val scanDurationMs: Long = 0
 ) {
     override fun equals(other: Any?): Boolean {
@@ -56,8 +54,6 @@ data class EncryptedScanData(
         if (tagUid != other.tagUid) return false
         if (technology != other.technology) return false
         if (!encryptedData.contentEquals(other.encryptedData)) return false
-        if (tagSizeBytes != other.tagSizeBytes) return false
-        if (sectorCount != other.sectorCount) return false
         if (scanDurationMs != other.scanDurationMs) return false
         
         return true
@@ -69,8 +65,6 @@ data class EncryptedScanData(
         result = 31 * result + tagUid.hashCode()
         result = 31 * result + technology.hashCode()
         result = 31 * result + encryptedData.contentHashCode()
-        result = 31 * result + tagSizeBytes
-        result = 31 * result + sectorCount
         result = 31 * result + scanDurationMs.hashCode()
         return result
     }
@@ -101,10 +95,6 @@ data class DecryptedScanData(
     val usedKeys: Map<Int, String>, // Sector number -> key type used ("KeyA" or "KeyB")
     val derivedKeys: List<String>, // KDF-derived keys used in hex format
     
-    // Scanning metadata
-    val tagSizeBytes: Int,
-    val sectorCount: Int,
-    
     // Error tracking for debugging
     val errors: List<String>,
     
@@ -128,8 +118,6 @@ data class DecryptedScanData(
         if (failedSectors != other.failedSectors) return false
         if (usedKeys != other.usedKeys) return false
         if (derivedKeys != other.derivedKeys) return false
-        if (tagSizeBytes != other.tagSizeBytes) return false
-        if (sectorCount != other.sectorCount) return false
         if (errors != other.errors) return false
         if (keyDerivationTimeMs != other.keyDerivationTimeMs) return false
         if (authenticationTimeMs != other.authenticationTimeMs) return false
@@ -148,8 +136,6 @@ data class DecryptedScanData(
         result = 31 * result + failedSectors.hashCode()
         result = 31 * result + usedKeys.hashCode()
         result = 31 * result + derivedKeys.hashCode()
-        result = 31 * result + tagSizeBytes
-        result = 31 * result + sectorCount
         result = 31 * result + errors.hashCode()
         result = 31 * result + keyDerivationTimeMs.hashCode()
         result = 31 * result + authenticationTimeMs.hashCode()

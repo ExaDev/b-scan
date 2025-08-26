@@ -131,8 +131,6 @@ class DebugDataCollector {
             tagUid = uid,
             technology = technology,
             encryptedData = rawData, // Unified storage: 768-byte or 1024-byte format
-            tagSizeBytes = tagSizeBytes,
-            sectorCount = sectorCount,
             scanDurationMs = scanDurationMs
         )
     }
@@ -158,8 +156,6 @@ class DebugDataCollector {
             failedSectors = getFailedSectors(),
             usedKeys = getUsedKeyTypes(),
             derivedKeys = getDerivedKeys(),
-            tagSizeBytes = tagSizeBytes,
-            sectorCount = sectorCount,
             errors = getErrorMessages(),
             keyDerivationTimeMs = keyDerivationTimeMs,
             authenticationTimeMs = authenticationTimeMs

@@ -8,6 +8,8 @@ import com.bscan.model.ScanResult
 import com.bscan.model.RfidDataFormat
 import com.bscan.model.tagFormat
 import com.bscan.model.manufacturerName
+import com.bscan.model.sectorCount
+import com.bscan.model.tagSizeBytes
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.repository.MappingsRepository
 import com.google.gson.*
@@ -256,11 +258,19 @@ class ScanHistoryRepository(private val context: Context) {
     private fun interpretScanData(decryptedData: DecryptedScanData): com.bscan.model.FilamentInfo? {
         return if (decryptedData.scanResult == ScanResult.SUCCESS) {
             try {
-                interpreterFactory.interpret(decryptedData)
+                val result = interpreterFactory.interpret(decryptedData)
+                if (result == null) {
+                    android.util.Log.w("ScanHistoryRepository", "Failed to interpret tag UID: ${decryptedData.tagUid}")
+                } else {
+                    android.util.Log.d("ScanHistoryRepository", "Successfully interpreted tag UID: ${decryptedData.tagUid} -> ${result.filamentType}")
+                }
+                result
             } catch (e: Exception) {
+                android.util.Log.e("ScanHistoryRepository", "Exception interpreting tag UID: ${decryptedData.tagUid}", e)
                 null
             }
         } else {
+            android.util.Log.d("ScanHistoryRepository", "Skipping interpretation for failed scan: ${decryptedData.tagUid}")
             null
         }
     }
@@ -316,8 +326,6 @@ class ScanHistoryRepository(private val context: Context) {
             failedSectors = (0..15).toList(), // Assume all sectors failed
             usedKeys = emptyMap(),
             derivedKeys = emptyList(),
-            tagSizeBytes = encrypted.tagSizeBytes,
-            sectorCount = encrypted.sectorCount,
             keyDerivationTimeMs = 0,
             authenticationTimeMs = 0,
             errors = listOf("Complete authentication failure - no decrypted data available")
