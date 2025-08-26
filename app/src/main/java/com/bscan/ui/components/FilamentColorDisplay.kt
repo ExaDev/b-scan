@@ -32,6 +32,24 @@ enum class FilamentFinish {
     TRANSLUCENT
 }
 
+/**
+ * Determines reflection blur intensity based on material type and finish
+ */
+fun getReflectionBlurIntensity(materialType: MaterialType, finish: FilamentFinish, filamentType: String): Float {
+    return when {
+        // PETG HF gets same reflection as regular PLA (medium blur)
+        materialType == MaterialType.PETG && filamentType.contains("HF", ignoreCase = true) -> 0.5f
+        // Regular PETG gets strong reflection
+        materialType == MaterialType.PETG -> 0.1f
+        // Matte PLA gets very blurred reflection
+        materialType == MaterialType.PLA && finish == FilamentFinish.MATTE -> 0.9f
+        // Regular PLA gets medium blur
+        materialType == MaterialType.PLA && finish == FilamentFinish.BASIC -> 0.5f
+        // Other combinations get no reflection
+        else -> -1f // Use -1 to indicate no reflection should be applied
+    }
+}
+
 enum class MaterialType {
     PLA,      // Circle
     ABS,      // Triangle  
@@ -169,6 +187,12 @@ fun FilamentColorBox(
     // Get display mode from parameter or user preferences
     val actualDisplayMode = displayMode ?: userPrefsRepository.getMaterialDisplayMode()
     
+    // Get accelerometer effects preference and state
+    val accelerometerEffectsEnabled = userPrefsRepository.isAccelerometerEffectsEnabled()
+    val motionSensitivity = userPrefsRepository.getMotionSensitivity()
+    val tiltAngles = rememberAccelerometerState(accelerometerEffectsEnabled)
+    val (tiltOffsetX, tiltOffsetY) = tiltToPositionOffset(tiltAngles, sensitivity = motionSensitivity)
+    
     val originalColor = parseColorWithAlpha(colorHex)
     val finish = detectFilamentFinish(colorHex, filamentType)
     val materialType = detectMaterialType(filamentType)
@@ -247,7 +271,10 @@ fun FilamentColorBox(
                     drawSilkShimmer(
                         size = this.size,
                         offset = shimmerOffset,
-                        shape = actualShape
+                        shape = actualShape,
+                        tiltOffsetX = tiltOffsetX,
+                        tiltOffsetY = tiltOffsetY,
+                        motionSensitivity = motionSensitivity
                     )
                 }
             }
@@ -265,7 +292,24 @@ fun FilamentColorBox(
                 }
             }
             else -> {
-                // No additional effects for basic or translucent
+                // No additional finish effects for basic or translucent
+            }
+        }
+        
+        // Material-specific reflection effects
+        val blurIntensity = getReflectionBlurIntensity(materialType, finish, filamentType)
+        if (blurIntensity >= 0f) {
+            Canvas(
+                modifier = Modifier.matchParentSize()
+            ) {
+                drawReflection(
+                    size = this.size,
+                    blurIntensity = blurIntensity,
+                    shape = actualShape,
+                    tiltOffsetX = tiltOffsetX,
+                    tiltOffsetY = tiltOffsetY,
+                    motionSensitivity = motionSensitivity
+                )
             }
         }
         
@@ -324,10 +368,17 @@ private fun DrawScope.drawCheckerboard(
 private fun DrawScope.drawSilkShimmer(
     size: androidx.compose.ui.geometry.Size,
     offset: Float,
-    shape: Shape
+    shape: Shape,
+    tiltOffsetX: Float = 0f, // -1.0 to 1.0 horizontal position offset
+    tiltOffsetY: Float = 0f,  // -1.0 to 1.0 vertical position offset
+    motionSensitivity: Float = 0.7f // User's motion sensitivity setting
 ) {
     val shimmerWidth = size.width * 0.3f
-    val shimmerCenter = size.width * 0.5f + offset * size.width * 0.5f
+    // Apply tilt offset to shimmer position
+    val baseShimmerCenter = size.width * 0.5f + offset * size.width * 0.5f
+    // Scale shimmer movement based on sensitivity (max 30% at full sensitivity)
+    val shimmerMovement = 0.3f * motionSensitivity
+    val shimmerCenter = baseShimmerCenter + (tiltOffsetX * size.width * shimmerMovement)
     
     val shimmerBrush = Brush.linearGradient(
         colors = listOf(
@@ -337,8 +388,8 @@ private fun DrawScope.drawSilkShimmer(
             Color.White.copy(alpha = 0.2f),
             Color.Transparent
         ),
-        start = Offset(shimmerCenter - shimmerWidth, 0f),
-        end = Offset(shimmerCenter + shimmerWidth, size.height)
+        start = Offset(shimmerCenter - shimmerWidth, tiltOffsetY * size.height * 0.1f * motionSensitivity),
+        end = Offset(shimmerCenter + shimmerWidth, size.height + (tiltOffsetY * size.height * 0.1f * motionSensitivity))
     )
     
     // Create a path based on the shape for clipping
@@ -467,5 +518,94 @@ private fun DrawScope.drawSupportStripes(
             )
             x += stripeSpacing
         }
+    }
+}
+
+/**
+ * Draws reflection effect with configurable blur intensity
+ */
+private fun DrawScope.drawReflection(
+    size: androidx.compose.ui.geometry.Size,
+    blurIntensity: Float, // 0.0 = sharp reflection, 1.0 = very blurred
+    reflectionStrength: Float = 0.4f, // Opacity of the reflection
+    shape: Shape,
+    tiltOffsetX: Float = 0f, // -1.0 to 1.0 horizontal position offset
+    tiltOffsetY: Float = 0f,  // -1.0 to 1.0 vertical position offset
+    motionSensitivity: Float = 0.7f // User's motion sensitivity setting
+) {
+    val reflectionSize = size.minDimension * 0.5f
+    // Base position at top-right, then apply tilt offset
+    val baseX = size.width * 0.75f
+    val baseY = size.height * 0.25f
+    // Scale movement range based on sensitivity (max 40% at full sensitivity)
+    val movementRange = 0.4f * motionSensitivity
+    val centerX = baseX + (tiltOffsetX * size.width * movementRange)
+    val centerY = baseY + (tiltOffsetY * size.height * movementRange)
+    
+    // Create gradient with blur effect - more blur means more gradient stops
+    val gradientStops = if (blurIntensity < 0.3f) {
+        // Sharp reflection (PETG)
+        listOf(
+            0.0f to Color.White.copy(alpha = reflectionStrength),
+            0.3f to Color.White.copy(alpha = reflectionStrength * 0.7f),
+            0.6f to Color.White.copy(alpha = reflectionStrength * 0.3f),
+            1.0f to Color.Transparent
+        )
+    } else if (blurIntensity < 0.7f) {
+        // Medium blur (Regular PLA)
+        listOf(
+            0.0f to Color.White.copy(alpha = reflectionStrength * 0.8f),
+            0.4f to Color.White.copy(alpha = reflectionStrength * 0.5f),
+            0.7f to Color.White.copy(alpha = reflectionStrength * 0.2f),
+            1.0f to Color.Transparent
+        )
+    } else {
+        // High blur (Matte PLA)
+        listOf(
+            0.0f to Color.White.copy(alpha = reflectionStrength * 0.6f),
+            0.5f to Color.White.copy(alpha = reflectionStrength * 0.3f),
+            0.8f to Color.White.copy(alpha = reflectionStrength * 0.1f),
+            1.0f to Color.Transparent
+        )
+    }
+    
+    val reflectionBrush = Brush.radialGradient(
+        colorStops = gradientStops.toTypedArray(),
+        center = Offset(centerX, centerY),
+        radius = reflectionSize * (1.0f + blurIntensity) // Larger radius for more blur
+    )
+    
+    // Create a path based on the shape for clipping
+    val path = Path().apply {
+        when (shape) {
+            CircleShape -> {
+                addOval(
+                    androidx.compose.ui.geometry.Rect(
+                        Offset.Zero,
+                        size
+                    )
+                )
+            }
+            is RoundedCornerShape -> {
+                addRoundRect(
+                    androidx.compose.ui.geometry.RoundRect(
+                        androidx.compose.ui.geometry.Rect(Offset.Zero, size),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                            size.minDimension * 0.1f
+                        )
+                    )
+                )
+            }
+            else -> {
+                addRect(androidx.compose.ui.geometry.Rect(Offset.Zero, size))
+            }
+        }
+    }
+    
+    clipPath(path) {
+        drawRect(
+            brush = reflectionBrush,
+            size = size
+        )
     }
 }
