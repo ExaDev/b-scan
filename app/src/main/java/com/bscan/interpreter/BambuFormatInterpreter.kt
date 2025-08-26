@@ -135,6 +135,9 @@ class BambuFormatInterpreter(
         val finalColorHex = rfidMapping?.hex ?: extractedColorHex
         val finalColorName = rfidMapping?.color ?: getColorNameFromProducts(extractedColorHex, baseFilamentType)
         
+        // Find matching BambuProduct for store links
+        val matchingBambuProduct = findMatchingBambuProduct(finalColorHex, finalFilamentType, finalColorName)
+        
         if (rfidMapping != null) {
             Log.i(TAG, "SKU enrichment applied: ${rfidMapping.sku} for $rfidCode")
         } else {
@@ -172,7 +175,10 @@ class BambuFormatInterpreter(
             shortProductionDate = extractString(decryptedData, 13, 0, 16),
             colorCount = extractInt(decryptedData, 16, 2, 2),
             shortProductionDateHex = extractHex(decryptedData, 13, 0, 16),
-            unknownBlock17Hex = extractHex(decryptedData, 17, 0, 16)
+            unknownBlock17Hex = extractHex(decryptedData, 17, 0, 16),
+            
+            // Store information
+            bambuProduct = matchingBambuProduct
         )
     }
     
@@ -388,6 +394,61 @@ class BambuFormatInterpreter(
         }
         
         return bestMatch
+    }
+    
+    /**
+     * Find matching BambuProduct for store links
+     */
+    private fun findMatchingBambuProduct(colorHex: String, materialType: String, colorName: String): BambuProduct? {
+        Log.d(TAG, "Finding BambuProduct for hex: $colorHex, material: $materialType, color: $colorName")
+        
+        // Try to find exact match by hex and material type
+        val matchingProducts = unifiedDataAccess.findProducts("bambu", hex = colorHex, materialType = materialType)
+        if (matchingProducts.isNotEmpty()) {
+            val product = matchingProducts.first()
+            Log.d(TAG, "Found exact product match: ${product.productName} - ${product.colorName}")
+            return convertProductToBambuProduct(product)
+        }
+        
+        // Try with base material type
+        val baseMaterialType = materialType.split("_").firstOrNull() ?: materialType
+        if (baseMaterialType != materialType) {
+            val baseProducts = unifiedDataAccess.findProducts("bambu", hex = colorHex, materialType = baseMaterialType)
+            if (baseProducts.isNotEmpty()) {
+                val product = baseProducts.first()
+                Log.d(TAG, "Found base material product match: ${product.productName} - ${product.colorName}")
+                return convertProductToBambuProduct(product)
+            }
+        }
+        
+        // Try color name matching if hex matching failed
+        val colorNameProducts = unifiedDataAccess.findProducts("bambu", materialType = materialType).filter { product ->
+            product.getDisplayColorName().equals(colorName, ignoreCase = true)
+        }
+        if (colorNameProducts.isNotEmpty()) {
+            val product = colorNameProducts.first()
+            Log.d(TAG, "Found color name product match: ${product.productName} - ${product.colorName}")
+            return convertProductToBambuProduct(product)
+        }
+        
+        Log.d(TAG, "No matching BambuProduct found")
+        return null
+    }
+    
+    /**
+     * Convert ProductEntry to BambuProduct
+     */
+    private fun convertProductToBambuProduct(product: ProductEntry): BambuProduct {
+        return BambuProduct(
+            productLine = product.productName,
+            colorName = product.getDisplayColorName(),
+            internalCode = product.colorCode ?: "",
+            retailSku = product.variantId,
+            colorHex = product.colorHex ?: "",
+            spoolUrl = product.url,
+            refillUrl = null, // For now, we only have the one URL from the catalog
+            mass = "1kg" // Default, could be enhanced from product name parsing
+        )
     }
     
     /**
