@@ -3,6 +3,7 @@ package com.bscan.interpreter
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.FilamentInfo
 import com.bscan.model.TagFormat
+import com.bscan.model.tagFormat
 
 /**
  * Abstract interface for interpreting different RFID tag formats
