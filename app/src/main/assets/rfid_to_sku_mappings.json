@@ -652,6 +652,601 @@
       "color": "White",
       "hex": "#00AE42",
       "sampleCount": 2
+    },
+    "GFA01:A01-R1": {
+      "sku": "11109",
+      "material": "PLA Matte",
+      "color": "Scarlet Red",
+      "hex": "#DE4343",
+      "sampleCount": 1
+    },
+    "GFA01:A01-G1": {
+      "sku": "11108",
+      "material": "PLA Matte",
+      "color": "Grass Green",
+      "hex": "#61C680",
+      "sampleCount": 1
+    },
+    "GFA01:A01-D0": {
+      "sku": "11115",
+      "material": "PLA Matte",
+      "color": "Nardo Gray",
+      "hex": "#757575",
+      "sampleCount": 1
+    },
+    "GFA01:A01-B6": {
+      "sku": "11107",
+      "material": "PLA Matte",
+      "color": "Dark Blue",
+      "hex": "#042F56",
+      "sampleCount": 1
+    },
+    "GFA01:A01-W2": {
+      "sku": "11102",
+      "material": "PLA Matte",
+      "color": "Ivory White",
+      "hex": "#FFFFFF",
+      "sampleCount": 1
+    },
+    "GFG02:G02-K0": {
+      "sku": "31101",
+      "material": "PETG HF",
+      "color": "Black",
+      "hex": "#2C2C2C",
+      "sampleCount": 1
+    },
+    "GFA01:A01-A2": {
+      "sku": "11300",
+      "material": "PLA Matte",
+      "color": "Mandarin Orange",
+      "hex": "#F99963",
+      "sampleCount": 4
+    },
+    "GFA01:A01-B0": {
+      "sku": "11603",
+      "material": "PLA Matte",
+      "color": "Sky Blue",
+      "hex": "#56B7E6",
+      "sampleCount": 2
+    },
+    "GFA01:A01-B3": {
+      "sku": "11600",
+      "material": "PLA Matte",
+      "color": "Marine Blue",
+      "hex": "#0078BF",
+      "sampleCount": 2
+    },
+    "GFA01:A01-B4": {
+      "sku": "11601",
+      "material": "PLA Matte",
+      "color": "Ice Blue",
+      "hex": "#A3D8E1",
+      "sampleCount": 2
+    },
+    "GFA01:A01-D3": {
+      "sku": "11102",
+      "material": "PLA Matte",
+      "color": "Ash Grey",
+      "hex": "#9B9EA0",
+      "sampleCount": 2
+    },
+    "GFA01:A01-G0": {
+      "sku": "11502",
+      "material": "PLA Matte",
+      "color": "Apple Green",
+      "hex": "#C2E189",
+      "sampleCount": 2
+    },
+    "GFA01:A01-G7": {
+      "sku": "11501",
+      "material": "PLA Matte",
+      "color": "Dark Green",
+      "hex": "#68724D",
+      "sampleCount": 2
+    },
+    "GFA01:A01-K1": {
+      "sku": "11101",
+      "material": "PLA Matte",
+      "color": "Charcoal",
+      "hex": "#000000",
+      "sampleCount": 3
+    },
+    "GFA01:A01-N0": {
+      "sku": "11802",
+      "material": "PLA Matte",
+      "color": "Dark Chocolate",
+      "hex": "#4D3324",
+      "sampleCount": 2
+    },
+    "GFA01:A01-N1": {
+      "sku": "11800",
+      "material": "PLA Matte",
+      "color": "Latte Brown",
+      "hex": "#D3B7A7",
+      "sampleCount": 2
+    },
+    "GFA01:A01-N2": {
+      "sku": "11801",
+      "material": "PLA Matte",
+      "color": "Dark Brown",
+      "hex": "#7D6556",
+      "sampleCount": 2
+    },
+    "GFA01:A01-N3": {
+      "sku": "11803",
+      "material": "PLA Matte",
+      "color": "Caramel",
+      "hex": "#AE835B",
+      "sampleCount": 2
+    },
+    "GFA01:A01-P3": {
+      "sku": "11201",
+      "material": "PLA Matte",
+      "color": "Sakura Pink",
+      "hex": "#E8AFCF",
+      "sampleCount": 4
+    },
+    "GFA01:A01-P4": {
+      "sku": "TBD",
+      "material": "PLA Matte",
+      "color": "Lilac Purple",
+      "hex": "#AE96D4",
+      "sampleCount": 2
+    },
+    "GFA01:A01-R3": {
+      "sku": "11204",
+      "material": "PLA Matte",
+      "color": "Plum",
+      "hex": "#950051",
+      "sampleCount": 2
+    },
+    "GFA01:A01-R4": {
+      "sku": "11202",
+      "material": "PLA Matte",
+      "color": "Dark Red",
+      "hex": "#BB3D43",
+      "sampleCount": 2
+    },
+    "GFA01:A01-W3": {
+      "sku": "11103",
+      "material": "PLA Matte",
+      "color": "Bone White",
+      "hex": "#CBC6B8",
+      "sampleCount": 4
+    },
+    "GFA01:A01-Y2": {
+      "sku": "11400",
+      "material": "PLA Matte",
+      "color": "Lemon Yellow",
+      "hex": "#F7D959",
+      "sampleCount": 2
+    },
+    "GFA01:A01-Y3": {
+      "sku": "11401",
+      "material": "PLA Matte",
+      "color": "Desert Tan",
+      "hex": "#E8DBB7",
+      "sampleCount": 4
+    },
+    "GFA05:A05-B0": {
+      "sku": "13604",
+      "material": "PLA Silk",
+      "color": "Blue",
+      "hex": "#147BD1",
+      "sampleCount": 2
+    },
+    "GFA05:A05-P5": {
+      "sku": "13702",
+      "material": "PLA Silk",
+      "color": "Purple",
+      "hex": "#854CE4",
+      "sampleCount": 2
+    },
+    "GFA05:A05-T1": {
+      "sku": "TBD",
+      "material": "PLA Silk Multi-Color",
+      "color": "Gilded Rose (Pink-Gold)",
+      "hex": "#FF9425",
+      "sampleCount": 2
+    },
+    "GFA05:A05-T2": {
+      "sku": "TBD",
+      "material": "PLA Silk Multi-Color",
+      "color": "Midnight Blaze (Blue-Red)",
+      "hex": "#0047BB",
+      "sampleCount": 2
+    },
+    "GFA05:A05-T3": {
+      "sku": "TBD",
+      "material": "PLA Silk Multi-Color",
+      "color": "Neon City (Blue-Magenta)",
+      "hex": "#0047BB",
+      "sampleCount": 3
+    },
+    "GFA05:A05-T4": {
+      "sku": "TBD",
+      "material": "PLA Silk Multi-Color",
+      "color": "Blue Hawaii (Blue-Green)",
+      "hex": "#418FDE",
+      "sampleCount": 2
+    },
+    "GFA05:A05-T5": {
+      "sku": "TBD",
+      "material": "PLA Silk Multi-Color",
+      "color": "Velvet Eclipse (Black-Red)",
+      "hex": "#000000",
+      "sampleCount": 2
+    },
+    "GFA08:A08-B7": {
+      "sku": "TBD",
+      "material": "PLA Sparkle",
+      "color": "Royal Purple",
+      "hex": "#483D8B",
+      "sampleCount": 2
+    },
+    "GFA09:A09-A0": {
+      "sku": "TBD",
+      "material": "PLA Tough",
+      "color": "Orange",
+      "hex": "#FF7F41",
+      "sampleCount": 2
+    },
+    "GFA09:A09-B4": {
+      "sku": "10601",
+      "material": "PLA Basic",
+      "color": "Blue",
+      "hex": "#0085AD",
+      "sampleCount": 4
+    },
+    "GFA09:A09-B5": {
+      "sku": "TBD",
+      "material": "PLA Tough",
+      "color": "Lavender Blue",
+      "hex": "#6667AB",
+      "sampleCount": 2
+    },
+    "GFA09:A09-D1": {
+      "sku": "TBD",
+      "material": "PLA Tough",
+      "color": "Silver",
+      "hex": "#898D8D",
+      "sampleCount": 2
+    },
+    "GFA09:A09-R3": {
+      "sku": "TBD",
+      "material": "PLA Tough",
+      "color": "Vermilion Red",
+      "hex": "#C00D1E",
+      "sampleCount": 2
+    },
+    "GFA09:A09-Y0": {
+      "sku": "TBD",
+      "material": "PLA Tough",
+      "color": "Yellow",
+      "hex": "#FEDB00",
+      "sampleCount": 2
+    },
+    "GFA12:A12-A0": {
+      "sku": "15300",
+      "material": "PLA Glow",
+      "color": "Orange",
+      "hex": "#FF9D5B",
+      "sampleCount": 2
+    },
+    "GFA12:A12-B0": {
+      "sku": "15600",
+      "material": "PLA Glow",
+      "color": "Blue",
+      "hex": "#7AC0E9",
+      "sampleCount": 2
+    },
+    "GFA12:A12-G0": {
+      "sku": "15500",
+      "material": "PLA Glow",
+      "color": "Green",
+      "hex": "#A1FFAC",
+      "sampleCount": 2
+    },
+    "GFA12:A12-R0": {
+      "sku": "15200",
+      "material": "PLA Glow",
+      "color": "Pink",
+      "hex": "#F17B8F",
+      "sampleCount": 2
+    },
+    "GFA12:A12-Y0": {
+      "sku": "15400",
+      "material": "PLA Glow",
+      "color": "Yellow",
+      "hex": "#F8FF80",
+      "sampleCount": 2
+    },
+    "GFA18:A18-B0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Cyan",
+      "hex": "#4DAFDA",
+      "sampleCount": 2
+    },
+    "GFA18:A18-B1": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Blue",
+      "hex": "#004EA8",
+      "sampleCount": 2
+    },
+    "GFA18:A18-D0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Gray",
+      "hex": "#999D9D",
+      "sampleCount": 2
+    },
+    "GFA18:A18-K0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Black",
+      "hex": "#000000",
+      "sampleCount": 2
+    },
+    "GFA18:A18-P0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Matte Beige",
+      "hex": "#ECC3B2",
+      "sampleCount": 2
+    },
+    "GFA18:A18-R0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Red",
+      "hex": "#C6001A",
+      "sampleCount": 2
+    },
+    "GFA18:A18-W0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "White",
+      "hex": "#FFFFFF",
+      "sampleCount": 2
+    },
+    "GFA18:A18-Y0": {
+      "sku": "TBD",
+      "material": "PLA Lite",
+      "color": "Yellow",
+      "hex": "#EFE255",
+      "sampleCount": 2
+    },
+    "GFB00:B00-A0": {
+      "sku": "41300",
+      "material": "ABS",
+      "color": "Orange",
+      "hex": "#FF6A13",
+      "sampleCount": 2
+    },
+    "GFB00:B00-B0": {
+      "sku": "41600",
+      "material": "ABS",
+      "color": "Blue",
+      "hex": "#0A2CA5",
+      "sampleCount": 2
+    },
+    "GFB00:B00-B4": {
+      "sku": "40601",
+      "material": "ABS",
+      "color": "Azure",
+      "hex": "#489FDF",
+      "sampleCount": 2
+    },
+    "GFB00:B00-B6": {
+      "sku": "40602",
+      "material": "ABS",
+      "color": "Navy Blue",
+      "hex": "#0C2340",
+      "sampleCount": 2
+    },
+    "GFB00:B00-D1": {
+      "sku": "40102",
+      "material": "ABS",
+      "color": "Silver",
+      "hex": "#87909A",
+      "sampleCount": 2
+    },
+    "GFB00:B00-G6": {
+      "sku": "40500",
+      "material": "ABS",
+      "color": "Bambu Green",
+      "hex": "#00AE42",
+      "sampleCount": 4
+    },
+    "GFB00:B00-G7": {
+      "sku": "40502",
+      "material": "ABS",
+      "color": "Olive",
+      "hex": "#789D4A",
+      "sampleCount": 2
+    },
+    "GFB00:B00-K0": {
+      "sku": "41101",
+      "material": "ABS",
+      "color": "Black",
+      "hex": "#000000",
+      "sampleCount": 2
+    },
+    "GFB00:B00-R0": {
+      "sku": "41200",
+      "material": "ABS",
+      "color": "Red",
+      "hex": "#D32941",
+      "sampleCount": 4
+    },
+    "GFB00:B00-W0": {
+      "sku": "66100",
+      "material": "ABS",
+      "color": "White",
+      "hex": "#FFFFFF",
+      "sampleCount": 2
+    },
+    "GFB00:B00-Y1": {
+      "sku": "40402",
+      "material": "ABS",
+      "color": "Tangerine Yellow",
+      "hex": "#FFC72C",
+      "sampleCount": 2
+    },
+    "GFB02:B02-W0": {
+      "sku": "45100",
+      "material": "ASA Aero",
+      "color": "White",
+      "hex": "#E9E4D9",
+      "sampleCount": 2
+    },
+    "GFG00:G00-A0": {
+      "sku": "TBD",
+      "material": "PETG Basic",
+      "color": "Orange",
+      "hex": "#FF671F",
+      "sampleCount": 1
+    },
+    "GFG00:G00-D0": {
+      "sku": "TBD",
+      "material": "PETG Basic",
+      "color": "Gray",
+      "hex": "#9EA2A2",
+      "sampleCount": 2
+    },
+    "GFG00:G00-K0": {
+      "sku": "31100",
+      "material": "PETG Basic",
+      "color": "Black",
+      "hex": "#000000",
+      "sampleCount": 1
+    },
+    "GFG00:G00-R0": {
+      "sku": "TBD",
+      "material": "PETG Basic",
+      "color": "Red",
+      "hex": "#D6001C",
+      "sampleCount": 2
+    },
+    "GFG00:G00-W0": {
+      "sku": "TBD",
+      "material": "PETG Basic",
+      "color": "White",
+      "hex": "#FFFFFF",
+      "sampleCount": 1
+    },
+    "GFG02:G02-A0": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Orange",
+      "hex": "#F75403",
+      "sampleCount": 2
+    },
+    "GFG02:G02-B0": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Blue",
+      "hex": "#002E96",
+      "sampleCount": 2
+    },
+    "GFG02:G02-B1": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Lake Blue",
+      "hex": "#1F79E5",
+      "sampleCount": 2
+    },
+    "GFG02:G02-D0": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Gray",
+      "hex": "#ADB1B2",
+      "sampleCount": 2
+    },
+    "GFG02:G02-D1": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Dark Gray",
+      "hex": "#515151",
+      "sampleCount": 2
+    },
+    "GFG02:G02-G0": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Green",
+      "hex": "#00AE42",
+      "sampleCount": 2
+    },
+    "GFG02:G02-G1": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Lime Green",
+      "hex": "#6EE53C",
+      "sampleCount": 2
+    },
+    "GFG02:G02-G2": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Forest Green",
+      "hex": "#39541A",
+      "sampleCount": 2
+    },
+    "GFG02:G02-N1": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Peanut Brown",
+      "hex": "#875718",
+      "sampleCount": 2
+    },
+    "GFG02:G02-R0": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Red",
+      "hex": "#BC0900",
+      "sampleCount": 2
+    },
+    "GFG02:G02-Y0": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Yellow",
+      "hex": "#FFD00B",
+      "sampleCount": 2
+    },
+    "GFG02:G02-Y1": {
+      "sku": "TBD",
+      "material": "PETG HF",
+      "color": "Cream",
+      "hex": "#F9DFB9",
+      "sampleCount": 2
+    },
+    "GFG50:G50-K0": {
+      "sku": "31100",
+      "material": "PETG CF",
+      "color": "Black",
+      "hex": "#000000",
+      "sampleCount": 2
+    },
+    "GFG50:G50-P7": {
+      "sku": "31700",
+      "material": "PETG CF",
+      "color": "Violet Purple",
+      "hex": "#583061",
+      "sampleCount": 2
+    },
+    "GFS00:S00-W0": {
+      "sku": "65104",
+      "material": "Support for PLA-PETG",
+      "color": "White",
+      "hex": "#FFFFFF",
+      "sampleCount": 1
+    },
+    "GFS02:S02-W0": {
+      "sku": "65104",
+      "material": "Support for PLA-PETG",
+      "color": "White",
+      "hex": "#FFFFFF",
+      "sampleCount": 3
     }
   }
 }
