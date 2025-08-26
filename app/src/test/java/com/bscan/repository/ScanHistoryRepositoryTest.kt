@@ -221,9 +221,7 @@ class ScanHistoryRepositoryTest {
             technology = "MifareClassic",
             tagFormat = TagFormat.BAMBU_PROPRIETARY,
             manufacturerName = "Bambu Lab",
-            encryptedData = ByteArray(1024),
-            tagSizeBytes = 1024,
-            sectorCount = 16
+            encryptedData = ByteArray(1024)
         )
     }
     
@@ -245,8 +243,6 @@ class ScanHistoryRepositoryTest {
             failedSectors = emptyList(),
             usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
             derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
-            tagSizeBytes = 1024,
-            sectorCount = 16,
             errors = emptyList()
         )
     }

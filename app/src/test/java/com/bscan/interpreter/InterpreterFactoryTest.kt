@@ -141,16 +141,12 @@ class InterpreterFactoryTest {
             timestamp = timestamp,
             tagUid = uid,
             technology = "MifareClassic",
-            tagFormat = tagFormat,
-            manufacturerName = "Bambu Lab",
             scanResult = scanResult,
             decryptedBlocks = decryptedBlocks,
             authenticatedSectors = if (scanResult == ScanResult.SUCCESS) listOf(1, 2, 3) else emptyList(),
             failedSectors = if (scanResult != ScanResult.SUCCESS) listOf(1, 2, 3) else emptyList(),
             usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
             derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
-            tagSizeBytes = 1024,
-            sectorCount = 16,
             errors = when (scanResult) {
                 ScanResult.AUTHENTICATION_FAILED -> listOf("Authentication failed for sector 1")
                 ScanResult.INSUFFICIENT_DATA -> listOf("Not enough data blocks read")

@@ -188,9 +188,7 @@ class ScanHistoryIntegrationTest {
             timestamp = specificTime,
             tagUid = "12345678",
             technology = "MifareClassic",
-            encryptedData = ByteArray(1024),
-            tagSizeBytes = 1024,
-            sectorCount = 16
+            encryptedData = ByteArray(1024)
         )
         val decryptedScan = DecryptedScanData(
             id = 2,
@@ -203,8 +201,6 @@ class ScanHistoryIntegrationTest {
             failedSectors = emptyList(),
             usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
             derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
-            tagSizeBytes = 1024,
-            sectorCount = 16,
             errors = emptyList()
         )
         

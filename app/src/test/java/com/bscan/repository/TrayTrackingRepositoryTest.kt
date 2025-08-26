@@ -154,8 +154,6 @@ class TrayTrackingRepositoryTest {
             failedSectors = if (scanResult != ScanResult.SUCCESS) listOf(1, 2, 3) else emptyList(),
             usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
             derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
-            tagSizeBytes = 1024,
-            sectorCount = 16,
             errors = when (scanResult) {
                 ScanResult.AUTHENTICATION_FAILED -> listOf("Authentication failed")
                 ScanResult.INSUFFICIENT_DATA -> listOf("Insufficient data")
