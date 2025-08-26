@@ -6,6 +6,8 @@ import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.ScanResult
 import com.bscan.model.RfidDataFormat
+import com.bscan.model.tagFormat
+import com.bscan.model.manufacturerName
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.repository.MappingsRepository
 import com.google.gson.*
@@ -308,8 +310,6 @@ class ScanHistoryRepository(private val context: Context) {
             timestamp = encrypted.timestamp,
             tagUid = encrypted.tagUid,
             technology = encrypted.technology,
-            tagFormat = encrypted.tagFormat,
-            manufacturerName = encrypted.manufacturerName,
             scanResult = ScanResult.AUTHENTICATION_FAILED,
             decryptedBlocks = emptyMap(),
             authenticatedSectors = emptyList(),
