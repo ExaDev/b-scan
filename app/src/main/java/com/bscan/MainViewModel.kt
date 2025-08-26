@@ -153,7 +153,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
-                } // Close the _uiState.value = when(result) block
             }
         }
     }

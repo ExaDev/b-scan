@@ -127,36 +127,10 @@ data class MassMeasurement(
         return when (measurementType) {
             MeasurementType.FULL_WEIGHT -> measuredMassGrams - fixedComponentMassGrams
             MeasurementType.EMPTY_WEIGHT -> 0f // Empty measurement, no filament
+            MeasurementType.TOTAL_MASS -> measuredMassGrams - fixedComponentMassGrams
+            MeasurementType.COMPONENT_ONLY -> 0f // Component only, no filament
         }
     }
 }
 
-/**
- * Type of mass measurement
- */
-enum class MeasurementType {
-    FULL_WEIGHT,    // Weight with filament
-    EMPTY_WEIGHT    // Weight without filament (dry components only)
-}
-
-/**
- * Result of mass calculation operations
- */
-data class MassCalculationResult(
-    val success: Boolean,
-    val filamentMassGrams: Float = 0f,
-    val fixedComponentsMassGrams: Float = 0f,
-    val totalMassGrams: Float = 0f,
-    val errorMessage: String? = null
-)
-
-/**
- * Container for mass inference operations
- */
-data class MassInferenceRequest(
-    val knownTotalMass: Float,              // Measured total mass
-    val knownFilamentMass: Float?,          // Expected filament mass (if known)
-    val knownComponentIds: List<String>,    // Known component IDs
-    val targetComponentId: String           // Component to infer mass for
-)
 

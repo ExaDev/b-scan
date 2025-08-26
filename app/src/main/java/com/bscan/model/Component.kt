@@ -156,7 +156,9 @@ data class ComponentMeasurement(
  */
 enum class MeasurementType {
     TOTAL_MASS,     // Total mass of component and all children
-    COMPONENT_ONLY  // Mass of just this component (excluding children)
+    COMPONENT_ONLY, // Mass of just this component (excluding children)
+    FULL_WEIGHT,    // Weight with filament (PhysicalComponent compatibility)
+    EMPTY_WEIGHT    // Weight without filament (PhysicalComponent compatibility)
 }
 
 /**

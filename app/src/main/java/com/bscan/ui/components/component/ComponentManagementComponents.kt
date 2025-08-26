@@ -477,6 +477,116 @@ fun ComponentSelectionDialog(
     )
 }
 
+/**
+ * Dialog for copying an existing component with pre-filled form
+ */
+@Composable
+fun ComponentCopyDialog(
+    sourceComponent: Component,
+    onSave: (Component) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Create a copy template with modified name
+    val copyTemplate = sourceComponent.copy(
+        id = "component_${System.currentTimeMillis()}", // Will be regenerated
+        name = "${sourceComponent.name} (Copy)"
+    )
+    
+    ComponentEditDialog(
+        component = copyTemplate,
+        onSave = onSave,
+        onDismiss = onDismiss,
+        modifier = modifier
+    )
+}
+
+/**
+ * Confirmation dialog for deleting a component
+ */
+@Composable
+fun ComponentDeleteConfirmationDialog(
+    component: Component,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val componentRepository = remember { ComponentRepository(context) }
+    var isInUse by remember { mutableStateOf(false) }
+    var usageDetails by remember { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(component.id) {
+        // Check if component is in use as a child of other components
+        val allComponents = componentRepository.getComponents()
+        val componentsUsingThis = allComponents.filter { comp ->
+            component.id in comp.childComponents
+        }
+        isInUse = componentsUsingThis.isNotEmpty()
+        
+        if (isInUse) {
+            usageDetails = "Used in ${componentsUsingThis.size} component(s)"
+        }
+    }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { 
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            ) 
+        },
+        title = { Text("Delete Component") },
+        text = {
+            Column {
+                Text("Are you sure you want to delete \"${component.name}\"?")
+                
+                if (isInUse) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = "⚠️ Cannot delete: $usageDetails",
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "This action cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (!isInUse) {
+                TextButton(
+                    onClick = onConfirm,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 // Helper functions
 private fun getCategoryIcon(category: String) = when (category.lowercase()) {
     "filament" -> Icons.Default.Polymer
