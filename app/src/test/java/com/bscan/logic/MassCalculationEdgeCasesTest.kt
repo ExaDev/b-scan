@@ -42,7 +42,7 @@ class MassCalculationEdgeCasesTest {
             val result = service.distributeToVariableComponents(currentComponents, targetTotal)
             assertTrue("Operation should succeed for $targetTotal", result.success)
             
-            val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
             assertEquals("Total should be accurate for $targetTotal", 
                 targetTotal, calculatedTotal, PRECISION_TOLERANCE)
             
@@ -50,7 +50,7 @@ class MassCalculationEdgeCasesTest {
         }
         
         // Final verification - should still be mathematically consistent
-        val finalSum = currentComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val finalSum = currentComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Final sum should match last operation", operations.last(), finalSum, PRECISION_TOLERANCE)
     }
 
@@ -66,7 +66,7 @@ class MassCalculationEdgeCasesTest {
         val result = service.distributeToVariableComponents(components, newTotal)
         
         assertTrue("Should handle small increments", result.success)
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Small increment precision should be maintained", 
             newTotal, calculatedTotal, 0.0001f)
     }
@@ -83,7 +83,7 @@ class MassCalculationEdgeCasesTest {
         val result = service.distributeToVariableComponents(exactComponents, exactTotal)
         
         assertTrue("Exact decimal should succeed", result.success)
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Exact decimal should be preserved", exactTotal, calculatedTotal, 0.0f)
     }
 
@@ -101,7 +101,7 @@ class MassCalculationEdgeCasesTest {
         
         // Should either succeed or fail gracefully
         if (result.success) {
-            val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
             assertTrue("Large total should be finite", calculatedTotal.isFinite())
             
             // Allow larger tolerance for extreme values
@@ -124,7 +124,7 @@ class MassCalculationEdgeCasesTest {
         val result = service.distributeToVariableComponents(tinyComponents, tinyTotal)
         
         assertTrue("Should handle tiny masses", result.success)
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         
         assertTrue("Tiny total should be positive", calculatedTotal >= 0f)
         assertTrue("Tiny total should be finite", calculatedTotal.isFinite())
@@ -229,15 +229,15 @@ class MassCalculationEdgeCasesTest {
         
         variableComponents.forEach { component ->
             val originalComponent = components.find { it.id == component.id }!!
-            val expectedRatio = originalComponent.massGrams / originalVariableTotal
+            val expectedRatio = (originalComponent.massGrams ?: 0f) / originalVariableTotal
             val expectedNewMass = availableForVariable * expectedRatio
             
             assertEquals("Component ${component.id} should maintain proportion", 
-                expectedNewMass, component.massGrams, 0.01f)
+                expectedNewMass, component.massGrams ?: 0f, 0.01f)
         }
         
         // Verify total is exact
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Total should be exact with complex ratios", newTotal, calculatedTotal, PRECISION_TOLERANCE)
     }
 
@@ -257,21 +257,21 @@ class MassCalculationEdgeCasesTest {
             assertTrue("Each operation should succeed for $targetTotal", result.success)
             
             currentComponents = result.updatedComponents
-            val calculatedTotal = currentComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            val calculatedTotal = currentComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
             assertEquals("Total should be accurate for $targetTotal", 
                 targetTotal, calculatedTotal, PRECISION_TOLERANCE)
         }
         
         // Final state should be mathematically sound
-        val finalTotal = currentComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val finalTotal = currentComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Final total should match last operation", 800f, finalTotal, PRECISION_TOLERANCE)
         
         // Component masses should be reasonable
         currentComponents.forEach { component ->
             assertTrue("Component ${component.id} should have non-negative mass", 
-                component.massGrams >= 0f)
+                (component.massGrams ?: 0f) >= 0f)
             assertTrue("Component ${component.id} should have finite mass", 
-                component.massGrams.isFinite())
+                (component.massGrams ?: 0f).isFinite())
         }
     }
 
@@ -289,7 +289,7 @@ class MassCalculationEdgeCasesTest {
         
         assertTrue("Many small components should succeed", result.success)
         
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Total should be accurate with many components", 
             newTotal, calculatedTotal, PRECISION_TOLERANCE)
         
@@ -298,9 +298,9 @@ class MassCalculationEdgeCasesTest {
         val averageMass = (newTotal - 5f) / variableComponents.size
         
         variableComponents.forEach { component ->
-            assertTrue("Component should have positive mass", component.massGrams > 0f)
+            assertTrue("Component should have positive mass", (component.massGrams ?: 0f) > 0f)
             assertTrue("Component mass should be reasonable", 
-                abs(component.massGrams - averageMass) < averageMass)
+                abs((component.massGrams ?: 0f) - averageMass) < averageMass)
         }
     }
 
@@ -319,13 +319,13 @@ class MassCalculationEdgeCasesTest {
         
         assertTrue("Fractional distribution should succeed", result.success)
         
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Total should be maintained despite fractional distribution", 
             indivisibleTotal, calculatedTotal, PRECISION_TOLERANCE)
         
         // Verify the sum of variable components is correct
         val variableMass = result.updatedComponents.filter { it.variableMass }
-            .sumOf { it.massGrams.toDouble() }.toFloat()
+            .sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Variable mass should total 10f", 10f, variableMass, PRECISION_TOLERANCE)
     }
 
@@ -348,7 +348,7 @@ class MassCalculationEdgeCasesTest {
             assertTrue("Operation $iteration should succeed", result.success)
             
             components = result.updatedComponents
-            val calculatedTotal = components.sumOf { it.massGrams.toDouble() }.toFloat()
+            val calculatedTotal = components.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
             
             assertEquals("Total should be accurate after $iteration operations", 
                 targetTotal, calculatedTotal, PRECISION_TOLERANCE * 2) // Allow slightly more tolerance for accumulated operations
@@ -358,7 +358,7 @@ class MassCalculationEdgeCasesTest {
         val finalComponent = components.find { it.variableMass }
         assertNotNull("Variable component should exist", finalComponent)
         assertTrue("Final component mass should be reasonable", 
-            finalComponent!!.massGrams in 950f..1150f) // Should be close to 1050f ± variance
+            (finalComponent!!.massGrams ?: 0f) in 950f..1150f) // Should be close to 1050f ± variance
     }
 
     // === Test Mathematical Invariants ===
@@ -378,7 +378,7 @@ class MassCalculationEdgeCasesTest {
             assertTrue("Operation should succeed for total $targetTotal", result.success)
             
             // Test mass conservation
-            val totalMass = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            val totalMass = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
             assertEquals("Mass should be conserved for $targetTotal", 
                 targetTotal, totalMass, PRECISION_TOLERANCE)
             
@@ -391,7 +391,7 @@ class MassCalculationEdgeCasesTest {
             // Test non-negativity
             result.updatedComponents.forEach { component ->
                 assertTrue("Component ${component.id} mass should be non-negative", 
-                    component.massGrams >= 0f)
+                    (component.massGrams ?: 0f) >= 0f)
             }
         }
     }
@@ -417,7 +417,7 @@ class MassCalculationEdgeCasesTest {
         val component2 = result2.updatedComponents.find { it.id == "fil" }!!
         
         assertEquals("Component mass should be same", 
-            component1.massGrams, component2.massGrams, PRECISION_TOLERANCE)
+            component1.massGrams ?: 0f, component2.massGrams ?: 0f, PRECISION_TOLERANCE)
         assertEquals("Component full mass should be same", 
             component1.fullMassGrams ?: 0f, component2.fullMassGrams ?: 0f, PRECISION_TOLERANCE)
     }

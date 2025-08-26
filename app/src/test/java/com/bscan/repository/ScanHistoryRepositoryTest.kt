@@ -37,18 +37,24 @@ class ScanHistoryRepositoryTest {
     fun setup() {
         MockitoAnnotations.openMocks(this)
         
-        // Mock SharedPreferences for ScanHistoryRepository
+        // Mock SharedPreferences chains for all repositories ScanHistoryRepository needs
         `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
-        // Mock SharedPreferences for MappingsRepository (needed by ScanHistoryRepository constructor)
-        `when`(mockContext.getSharedPreferences("filament_mappings", Context.MODE_PRIVATE))
+        `when`(mockContext.getSharedPreferences("catalog_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(any(), any())).thenReturn(mockEditor)
         `when`(mockEditor.remove(any())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
-        `when`(mockSharedPreferences.getString("mappings", null)).thenReturn(null)
+        
+        // Mock data retrieval for all keys used by the repository chain
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("catalog_data", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("user_data", null)).thenReturn(null)
         
         repository = ScanHistoryRepository(mockContext)
     }
@@ -219,8 +225,6 @@ class ScanHistoryRepositoryTest {
             timestamp = timestamp,
             tagUid = uid,
             technology = "MifareClassic",
-            tagFormat = TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = "Bambu Lab",
             encryptedData = ByteArray(1024)
         )
     }
@@ -235,8 +239,6 @@ class ScanHistoryRepositoryTest {
             timestamp = timestamp,
             tagUid = uid,
             technology = "MifareClassic",
-            tagFormat = TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = "Bambu Lab",
             scanResult = result,
             decryptedBlocks = mapOf(4 to "00112233445566778899AABBCCDDEEFF"),
             authenticatedSectors = listOf(1, 2, 3),

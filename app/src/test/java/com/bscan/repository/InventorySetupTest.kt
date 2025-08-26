@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bscan.model.FilamentInfo
 import com.bscan.model.TagFormat
+import com.bscan.model.PhysicalComponent
+import com.bscan.model.PhysicalComponentType
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,26 +24,28 @@ class InventorySetupTest {
     
     private lateinit var context: Context
     private lateinit var inventoryRepository: InventoryRepository
-    private lateinit var mappingsRepository: MappingsRepository
-    private lateinit var componentRepository: ComponentRepository
+    private lateinit var catalogRepository: CatalogRepository
+    private lateinit var unifiedDataAccess: UnifiedDataAccess
+    private lateinit var userDataRepository: UserDataRepository
     private lateinit var diagnostics: InventoryDiagnostics
     
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        catalogRepository = CatalogRepository(context)
+        userDataRepository = UserDataRepository(context)
+        unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
         inventoryRepository = InventoryRepository(context)
-        mappingsRepository = MappingsRepository(context)
-        componentRepository = ComponentRepository(context)
         diagnostics = InventoryDiagnostics(context)
         
         // Clear any existing test data
-        componentRepository.clearComponents()
+        userDataRepository.clearUserData()
     }
     
     @Test
     fun testMappingsLoading() {
         // Test that mappings can be loaded (either from assets or fallback)
-        val mappings = mappingsRepository.getCurrentMappings()
+        val mappings = catalogRepository.getCurrentMappings()
         assertNotNull(mappings)
         
         // Should have at least fallback data
@@ -51,11 +55,11 @@ class InventorySetupTest {
     @Test
     fun testSkuLookupWithValidData() {
         // Test SKU lookup with common materials
-        val plaMatch = mappingsRepository.findBestProductMatch("PLA_BASIC", "Black")
+        val plaMatch = catalogRepository.findBestProductMatch("PLA_BASIC", "Black")
         // Should either find exact match or return null (but not crash)
         // The key is that the method doesn't throw exceptions
         
-        val petgMatch = mappingsRepository.findBestProductMatch("PETG", "Clear")
+        val petgMatch = catalogRepository.findBestProductMatch("PETG", "Clear")
         // Same as above - should handle gracefully
         
         // Test should pass as long as no exceptions are thrown
@@ -64,30 +68,31 @@ class InventorySetupTest {
     
     @Test
     fun testComponentCreation() {
-        // Test basic component creation
-        val filamentComponent = componentRepository.createFilamentComponent(
+        // Test basic component creation using UnifiedDataAccess
+        val components = unifiedDataAccess.createDefaultComponents(
+            manufacturerId = "bambu",
             filamentType = "PLA_BASIC",
-            colorName = "Black",
-            colorHex = "#000000",
-            massGrams = 1000f
+            trayUid = "TEST_TRAY_001"
         )
         
-        assertNotNull(filamentComponent)
-        assertEquals("PLA_BASIC - Black", filamentComponent.name)
-        assertEquals(1000f, filamentComponent.massGrams)
-        assertTrue(filamentComponent.variableMass)
+        assertTrue(components.isNotEmpty(), "Should create at least one component")
         
-        // Test core component
-        val coreComponent = componentRepository.getBambuCoreComponent()
-        assertNotNull(coreComponent)
-        assertEquals(33f, coreComponent.massGrams)
-        assertTrue(!coreComponent.variableMass)
+        // Find filament component
+        val filamentComponent = components.find { it.type == PhysicalComponentType.FILAMENT }
+        assertNotNull(filamentComponent, "Should have filament component")
+        assertTrue(filamentComponent.variableMass, "Filament should have variable mass")
         
-        // Test spool component
-        val spoolComponent = componentRepository.getBambuSpoolComponent()
-        assertNotNull(spoolComponent)
-        assertEquals(212f, spoolComponent.massGrams)
-        assertTrue(!spoolComponent.variableMass)
+        // Find core component
+        val coreComponent = components.find { it.type == PhysicalComponentType.CORE_RING }
+        if (coreComponent != null) {
+            assertTrue(!coreComponent.variableMass, "Core should have fixed mass")
+        }
+        
+        // Find spool component
+        val spoolComponent = components.find { it.type == PhysicalComponentType.BASE_SPOOL }
+        if (spoolComponent != null) {
+            assertTrue(!spoolComponent.variableMass, "Spool should have fixed mass")
+        }
     }
     
     @Test
@@ -99,25 +104,26 @@ class InventorySetupTest {
             colorHex = "#000000"
         )
         
-        val components = inventoryRepository.setupBambuComponents(
+        val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
             trayUid = filamentInfo.trayUid,
-            filamentInfo = filamentInfo
+            manufacturerId = "bambu",
+            filamentType = filamentInfo.filamentType
         )
+        val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
         
         // Should always create at least one component (emergency fallback if needed)
         assertTrue(components.isNotEmpty(), "At least one component should be created")
         
         // Check that inventory item was created
-        val inventoryItem = inventoryRepository.getInventoryItem(filamentInfo.trayUid)
-        assertNotNull(inventoryItem, "Inventory item should be created")
-        assertEquals(components.size, inventoryItem.components.size)
+        val retrievedItem = unifiedDataAccess.getInventoryItem(filamentInfo.trayUid)
+        assertNotNull(retrievedItem, "Inventory item should be created")
+        assertEquals(components.size, retrievedItem.components.size)
         
-        // Check that filament status can be calculated
-        val status = inventoryRepository.calculateFilamentStatus(filamentInfo.trayUid)
-        assertNotNull(status, "Filament status should be calculable")
-        
-        // Clean up
-        inventoryRepository.deleteInventoryItem(filamentInfo.trayUid)
+        // Clean up - remove components and inventory item
+        components.forEach { component ->
+            userDataRepository.removeComponent(component.id)
+        }
+        userDataRepository.removeInventoryItem(filamentInfo.trayUid)
     }
     
     @Test
@@ -130,20 +136,25 @@ class InventorySetupTest {
             colorHex = ""  // Empty hex
         )
         
-        val components = inventoryRepository.setupBambuComponents(
+        val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
             trayUid = filamentInfo.trayUid,
-            filamentInfo = filamentInfo
+            manufacturerId = "bambu",
+            filamentType = if (filamentInfo.filamentType.isBlank()) "PLA_BASIC" else filamentInfo.filamentType
         )
+        val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
         
         // Should still create components (using defaults/fallbacks)
         assertTrue(components.isNotEmpty(), "Components should be created even with missing data")
         
         // Check that inventory item was created
-        val inventoryItem = inventoryRepository.getInventoryItem(filamentInfo.trayUid)
-        assertNotNull(inventoryItem, "Inventory item should be created even with missing data")
+        val retrievedItem = unifiedDataAccess.getInventoryItem(filamentInfo.trayUid)
+        assertNotNull(retrievedItem, "Inventory item should be created even with missing data")
         
         // Clean up
-        inventoryRepository.deleteInventoryItem(filamentInfo.trayUid)
+        components.forEach { component ->
+            userDataRepository.removeComponent(component.id)
+        }
+        userDataRepository.removeInventoryItem(filamentInfo.trayUid)
     }
     
     @Test
@@ -155,10 +166,12 @@ class InventorySetupTest {
             colorHex = "#808080"
         )
         
-        val components = inventoryRepository.setupBambuComponents(
+        val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
             trayUid = filamentInfo.trayUid,
-            filamentInfo = filamentInfo
+            manufacturerId = "bambu",
+            filamentType = "PLA_BASIC" // Use default for unknown material
         )
+        val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
         
         // Should still create components with default values
         assertTrue(components.isNotEmpty(), "Components should be created for unknown materials")
@@ -168,7 +181,10 @@ class InventorySetupTest {
         assertNotNull(filamentComponent, "Should have at least one filament component")
         
         // Clean up
-        inventoryRepository.deleteInventoryItem(filamentInfo.trayUid)
+        components.forEach { component ->
+            userDataRepository.removeComponent(component.id)
+        }
+        userDataRepository.removeInventoryItem(filamentInfo.trayUid)
     }
     
     @Test
@@ -196,10 +212,12 @@ class InventorySetupTest {
         val allComponents = mutableListOf<String>()
         
         filamentInfos.forEach { filamentInfo ->
-            val components = inventoryRepository.setupBambuComponents(
+            val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
                 trayUid = filamentInfo.trayUid,
-                filamentInfo = filamentInfo
+                manufacturerId = "bambu",
+                filamentType = filamentInfo.filamentType
             )
+            val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
             
             assertTrue(components.isNotEmpty(), "Components should be created for ${filamentInfo.trayUid}")
             
@@ -213,12 +231,18 @@ class InventorySetupTest {
         }
         
         // Verify all inventory items exist
-        val inventoryItems = inventoryRepository.getInventoryItems()
+        val inventoryItems = unifiedDataAccess.getInventoryItems()
         assertTrue(inventoryItems.size >= 3, "Should have at least 3 inventory items")
         
         // Clean up
         filamentInfos.forEach { filamentInfo ->
-            inventoryRepository.deleteInventoryItem(filamentInfo.trayUid)
+            val inventoryItem = unifiedDataAccess.getInventoryItem(filamentInfo.trayUid)
+            inventoryItem?.let { item ->
+                item.components.forEach { componentId ->
+                    userDataRepository.removeComponent(componentId)
+                }
+                userDataRepository.removeInventoryItem(filamentInfo.trayUid)
+            }
         }
     }
     

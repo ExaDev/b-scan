@@ -1,7 +1,9 @@
 package com.bscan.interpreter
 
 import com.bscan.model.*
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.UnifiedDataAccess
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import org.junit.Test
@@ -18,7 +20,9 @@ import java.time.format.DateTimeFormatter
 class JsonExportInterpreterTest {
     
     private lateinit var interpreter: BambuFormatInterpreter
-    private lateinit var mockMappingsRepository: MappingsRepository
+    private lateinit var mockCatalogRepository: CatalogRepository
+    private lateinit var mockUserDataRepository: UserDataRepository
+    private lateinit var unifiedDataAccess: UnifiedDataAccess
     private lateinit var exportData: JsonExportData
     
     @Before
@@ -34,17 +38,33 @@ class JsonExportInterpreterTest {
         val jsonContent = resourceStream.bufferedReader().use { it.readText() }
         exportData = gson.fromJson(jsonContent, JsonExportData::class.java)
         
-        // Setup mock repository
-        mockMappingsRepository = mock(MappingsRepository::class.java)
+        // Setup mock repositories
+        mockCatalogRepository = mock(CatalogRepository::class.java)
+        mockUserDataRepository = mock(UserDataRepository::class.java)
         
         // Mock empty mappings for fallback testing
         val emptyMappings = FilamentMappings.empty()
-        `when`(mockMappingsRepository.getCurrentMappings()).thenReturn(emptyMappings)
+        `when`(mockCatalogRepository.getCurrentMappings()).thenReturn(emptyMappings)
+        `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(null)
         
-        // Mock no RFID mappings found to test fallback behavior
-        `when`(mockMappingsRepository.getRfidMappingByCode(anyString(), anyString())).thenReturn(null)
+        // Mock UserDataRepository
+        `when`(mockUserDataRepository.getUserData()).thenReturn(
+            UserData(
+                version = 1,
+                components = emptyMap(),
+                inventoryItems = emptyMap(),
+                scans = ScanDataContainer(emptyMap(), emptyMap()),
+                measurements = emptyList(),
+                customMappings = CustomMappings(emptyMap(), emptyMap()),
+                preferences = UserPreferences(),
+                metadata = UserDataMetadata(LocalDateTime.now(), "1.0.0")
+            )
+        )
         
-        interpreter = BambuFormatInterpreter(emptyMappings, mockMappingsRepository)
+        // Create UnifiedDataAccess with mock repositories
+        unifiedDataAccess = UnifiedDataAccess(mockCatalogRepository, mockUserDataRepository)
+        
+        interpreter = BambuFormatInterpreter(emptyMappings, unifiedDataAccess)
     }
     
     @Test

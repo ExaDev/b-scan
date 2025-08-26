@@ -3,7 +3,9 @@ package com.bscan.interpreter
 import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.*
-import com.bscan.repository.MappingsRepository
+import com.bscan.repository.UnifiedDataAccess
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
@@ -32,23 +34,48 @@ class InterpreterFactoryTest {
     @Mock
     private lateinit var mockEditor: SharedPreferences.Editor
 
-    private lateinit var mappingsRepository: MappingsRepository
+    @Mock
+    private lateinit var mockCatalogRepository: CatalogRepository
+    
+    @Mock
+    private lateinit var mockUserDataRepository: UserDataRepository
+
+    private lateinit var unifiedDataAccess: UnifiedDataAccess
     private lateinit var interpreterFactory: InterpreterFactory
 
     @Before
     fun setup() {
         MockitoAnnotations.openMocks(this)
         
-        // Mock SharedPreferences for MappingsRepository
-        `when`(mockContext.getSharedPreferences("filament_mappings", Context.MODE_PRIVATE))
+        // Mock SharedPreferences (still needed for UserDataRepository)
+        `when`(mockContext.getSharedPreferences(anyString(), anyInt()))
             .thenReturn(mockSharedPreferences)
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(anyString(), anyString())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
-        `when`(mockSharedPreferences.getString("mappings", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString(anyString(), any())).thenReturn(null)
         
-        mappingsRepository = MappingsRepository(mockContext)
-        interpreterFactory = InterpreterFactory(mappingsRepository)
+        // Mock CatalogRepository to return empty mappings for test
+        val emptyMappings = FilamentMappings.empty()
+        `when`(mockCatalogRepository.getCurrentMappings()).thenReturn(emptyMappings)
+        `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(null)
+        
+        // Mock UserDataRepository
+        `when`(mockUserDataRepository.getUserData()).thenReturn(
+            UserData(
+                version = 1,
+                components = emptyMap(),
+                inventoryItems = emptyMap(),
+                scans = ScanDataContainer(emptyMap(), emptyMap()),
+                measurements = emptyList(),
+                customMappings = CustomMappings(emptyMap(), emptyMap()),
+                preferences = UserPreferences(),
+                metadata = UserDataMetadata(LocalDateTime.now(), "1.0.0")
+            )
+        )
+        
+        unifiedDataAccess = UnifiedDataAccess(mockCatalogRepository, mockUserDataRepository)
+        interpreterFactory = InterpreterFactory(unifiedDataAccess)
     }
 
     @Test

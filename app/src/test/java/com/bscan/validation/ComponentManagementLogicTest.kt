@@ -49,9 +49,8 @@ class ComponentManagementLogicTest {
         
         // Assert
         assertTrue("Calculation should succeed", result.success)
-        assertEquals("Fixed component mass should be core + spool", 245f, result.fixedComponentsMassGrams)
-        assertEquals("Filament mass should be total - fixed", 800f, result.filamentMassGrams)
-        assertEquals("Total mass should match input", totalMeasuredMass, result.totalMassGrams)
+        assertEquals("Filament mass should be total - fixed", 800f, result.componentMass)
+        assertEquals("Total mass should match input", totalMeasuredMass, result.totalMass)
     }
 
     @Test
@@ -72,8 +71,8 @@ class ComponentManagementLogicTest {
         
         // Assert
         assertTrue("Empty weight calculation should succeed", result.success)
-        assertEquals("Filament mass should be 0 for empty measurement", 0f, result.filamentMassGrams)
-        assertEquals("Fixed mass should equal total for empty measurement", emptyMass, result.fixedComponentsMassGrams)
+        assertEquals("Filament mass should be 0 for empty measurement", 0f, result.componentMass)
+        assertEquals("Total mass should match input for empty measurement", emptyMass, result.totalMass)
     }
 
     @Test
@@ -98,8 +97,8 @@ class ComponentManagementLogicTest {
     fun calculateFilamentMassFromTotal_massLessThanFixed_returnsError() {
         // Arrange
         val components = listOf(
-            createFixedComponent("core", PhysicalComponentType.CORE_RING, 33f),
-            createFixedComponent("spool", PhysicalComponentType.BASE_SPOOL, 212f)
+            createFixedComponent("core", "core", 33f),
+            createFixedComponent("spool", "spool", 212f)
         )
         val insufficientMass = 200f // Less than fixed component total (245f)
         
@@ -137,15 +136,15 @@ class ComponentManagementLogicTest {
         val fixedComponent = updatedComponents.find { it.id == "core" }!!
         
         // Fixed component should not change
-        assertEquals("Fixed component should not change", 33f, fixedComponent.massGrams)
+        assertEquals("Fixed component should not change", 33f, fixedComponent.massGrams ?: 0f)
         
         // Variable components should maintain proportions
         val availableForVariable = newTotalMass - 33f // 1100f
-        assertEquals("F1 should get 60% of available", 660f, updatedF1.massGrams, 0.01f)
-        assertEquals("F2 should get 40% of available", 440f, updatedF2.massGrams, 0.01f)
+        assertEquals("F1 should get 60% of available", 660f, updatedF1.massGrams ?: 0f, 0.01f)
+        assertEquals("F2 should get 40% of available", 440f, updatedF2.massGrams ?: 0f, 0.01f)
         
         // Total should match
-        val calculatedTotal = updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Total should match new mass", newTotalMass, calculatedTotal, 0.01f)
     }
 
@@ -168,7 +167,7 @@ class ComponentManagementLogicTest {
         
         variableComponents.forEach { component ->
             assertEquals("Each variable component should get equal share", 
-                expectedPerVariable, component.massGrams)
+                expectedPerVariable, component.massGrams ?: 0f)
         }
     }
 
@@ -186,7 +185,7 @@ class ComponentManagementLogicTest {
         
         // Assert
         val variableComponent = updatedComponents.find { it.variableMass }!!
-        assertEquals("Variable component should be set to zero", 0f, variableComponent.massGrams)
+        assertEquals("Variable component should be set to zero", 0f, variableComponent.massGrams ?: 0f)
     }
 
     // ===== DISTRIBUTION ALGORITHMS =====
@@ -212,8 +211,8 @@ class ComponentManagementLogicTest {
         val updatedF2 = result.updatedComponents.find { it.id == "f2" }!!
         
         // Should maintain 75%/25% ratio
-        assertEquals("F1 should get 75% of 800f", 600f, updatedF1.massGrams, 0.01f)
-        assertEquals("F2 should get 25% of 800f", 200f, updatedF2.massGrams, 0.01f)
+        assertEquals("F1 should get 75% of 800f", 600f, updatedF1.massGrams ?: 0f, 0.01f)
+        assertEquals("F2 should get 25% of 800f", 200f, updatedF2.massGrams ?: 0f, 0.01f)
     }
 
     @Test
@@ -283,7 +282,7 @@ class ComponentManagementLogicTest {
         assertNull("Should not have error", result.errorMessage)
         
         val updatedComponent = result.updatedComponents.find { it.id == "f1" }!!
-        assertEquals("Component mass should be updated", newMass, updatedComponent.massGrams)
+        assertEquals("Component mass should be updated", newMass, updatedComponent.massGrams ?: 0f)
         assertEquals("Total should be recalculated", 783f, result.newTotalMass)
     }
 
@@ -306,8 +305,8 @@ class ComponentManagementLogicTest {
         assertTrue("Update should succeed", result.success)
         
         val updatedComponent = result.updatedComponents.find { it.id == "f1" }!!
-        assertEquals("Mass should be updated", newMass, updatedComponent.massGrams)
-        assertEquals("Full mass should be updated", newFullMass, updatedComponent.fullMassGrams)
+        assertEquals("Mass should be updated", newMass, updatedComponent.massGrams ?: 0f)
+        assertEquals("Full mass should be updated", newFullMass, updatedComponent.fullMassGrams ?: 0f)
     }
 
     @Test

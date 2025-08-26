@@ -1,22 +1,44 @@
 package com.bscan.repository
 
 import android.content.Context
+import android.content.SharedPreferences
 import com.bscan.model.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
+import org.junit.runner.RunWith
+import org.mockito.Mock
 import org.mockito.Mockito.*
+import org.mockito.MockitoAnnotations
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.time.LocalDateTime
 
 /**
  * Unit tests for the new hierarchical ComponentRepository
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29])
 class ComponentRepositoryTest {
 
-    private val mockContext = mock(Context::class.java)
+    private lateinit var context: Context
+    
+    @Before
+    fun setup() {
+        // Use real Android context from Robolectric instead of mocking
+        context = RuntimeEnvironment.getApplication()
+        
+        // Clear any existing SharedPreferences data
+        context.getSharedPreferences("component_data", Context.MODE_PRIVATE)
+            .edit().clear().apply()
+        context.getSharedPreferences("component_measurement_data", Context.MODE_PRIVATE)
+            .edit().clear().apply()
+    }
 
     @Test
     fun testComponentHierarchy_parentChildRelationships() {
-        val repository = ComponentRepository(mockContext)
+        val repository = ComponentRepository(context)
         
         // Create parent component (inventory item)
         val parentComponent = Component(
@@ -76,7 +98,7 @@ class ComponentRepositoryTest {
     
     @Test
     fun testMassCalculation_hierarchicalTotalMass() {
-        val repository = ComponentRepository(mockContext)
+        val repository = ComponentRepository(context)
         
         // Create components with known masses
         val filament = Component(
@@ -129,7 +151,7 @@ class ComponentRepositoryTest {
     
     @Test
     fun testMassInference_calculateUnknownComponent() {
-        val repository = ComponentRepository(mockContext)
+        val repository = ComponentRepository(context)
         
         // Create known components
         val knownComponent1 = Component(
@@ -161,7 +183,8 @@ class ComponentRepositoryTest {
             uniqueIdentifier = "PARENT_123",
             name = "Parent Component",
             category = "composite",
-            childComponents = listOf("known_001", "known_002", "unknown_001")
+            childComponents = listOf("known_001", "known_002", "unknown_001"),
+            massGrams = null
         )
         
         // Save components
@@ -187,27 +210,30 @@ class ComponentRepositoryTest {
     
     @Test
     fun testCategoryAndTagQueries() {
-        val repository = ComponentRepository(mockContext)
+        val repository = ComponentRepository(context)
         
         val component1 = Component(
             id = "comp_001",
             name = "PLA Filament",
             category = "filament",
-            tags = listOf("consumable", "pla", "bambu")
+            tags = listOf("consumable", "pla", "bambu"),
+            massGrams = 800f
         )
         
         val component2 = Component(
             id = "comp_002", 
             name = "PETG Filament",
             category = "filament",
-            tags = listOf("consumable", "petg", "bambu")
+            tags = listOf("consumable", "petg", "bambu"),
+            massGrams = 750f
         )
         
         val component3 = Component(
             id = "comp_003",
             name = "Cardboard Core",
             category = "core",
-            tags = listOf("reusable", "bambu")
+            tags = listOf("reusable", "bambu"),
+            massGrams = 33f
         )
         
         // Save components
@@ -236,7 +262,7 @@ class ComponentRepositoryTest {
     
     @Test
     fun testVariableMassComponents() {
-        val repository = ComponentRepository(mockContext)
+        val repository = ComponentRepository(context)
         
         val variableComponent = Component(
             id = "var_001",
@@ -281,20 +307,22 @@ class ComponentRepositoryTest {
     
     @Test
     fun testComponentUpdates_withChildAndParent() {
-        val repository = ComponentRepository(mockContext)
+        val repository = ComponentRepository(context)
         
         val parent = Component(
             id = "parent_001",
             uniqueIdentifier = "PARENT_ID",
             name = "Parent Component",
             category = "composite",
-            childComponents = emptyList()
+            childComponents = emptyList(),
+            massGrams = 0f
         )
         
         val child = Component(
             id = "child_001",
             name = "Child Component",
-            category = "part"
+            category = "part",
+            massGrams = 50f
         )
         
         repository.saveComponent(parent)

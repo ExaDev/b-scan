@@ -186,9 +186,9 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `getTrayTrackingRepository should return repository instance`() {
+    fun `getInventoryTrackingRepository should return repository instance`() {
         // When
-        val repository = viewModel.getTrayTrackingRepository()
+        val repository = viewModel.getInventoryTrackingRepository()
         
         // Then
         assertNotNull("Should return repository instance", repository)

@@ -60,7 +60,7 @@ class MassCalculationServiceTest {
         assertEquals("Fixed component should be unchanged", 100f, fixedComponent?.massGrams ?: 0f, 0.01f)
         
         // Verify total accuracy
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Total should match input", newTotalMass, calculatedTotal, 0.01f)
     }
 
@@ -83,7 +83,7 @@ class MassCalculationServiceTest {
         
         variableComponents.forEach { component ->
             assertEquals("Each variable component should get equal share", 
-                expectedPerComponent, component.massGrams, 0.01f)
+                expectedPerComponent, component.massGrams ?: 0f, 0.01f)
         }
     }
 
@@ -134,7 +134,7 @@ class MassCalculationServiceTest {
         
         val updatedFilament = result.updatedComponents.find { it.id == "filament_pla" }
         assertNotNull("Filament component should exist", updatedFilament)
-        assertEquals("Mass should be updated", newMass, updatedFilament!!.massGrams, 0.01f)
+        assertEquals("Mass should be updated", newMass, updatedFilament!!.massGrams ?: 0f, 0.01f)
         assertEquals("Full mass should be updated", newFullMass, updatedFilament.fullMassGrams ?: 0f, 0.01f)
         
         // Verify total recalculation
@@ -196,7 +196,7 @@ class MassCalculationServiceTest {
         val result = service.distributeToVariableComponents(components, newTotalMass)
         assertTrue("Should handle small masses", result.success)
         
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Small mass precision should be maintained", newTotalMass, calculatedTotal, 0.001f)
     }
 
@@ -211,7 +211,7 @@ class MassCalculationServiceTest {
         val result = service.distributeToVariableComponents(components, newTotalMass)
         assertTrue("Should handle large masses", result.success)
         
-        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Large mass accuracy should be maintained", newTotalMass, calculatedTotal, 0.1f)
     }
 
@@ -224,14 +224,14 @@ class MassCalculationServiceTest {
             val result = service.distributeToVariableComponents(currentComponents, targetTotal)
             assertTrue("Each operation should succeed for total $targetTotal", result.success)
             
-            val calculatedTotal = result.updatedComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+            val calculatedTotal = result.updatedComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
             assertEquals("Total should match target for $targetTotal", targetTotal, calculatedTotal, 0.01f)
             
             currentComponents = result.updatedComponents
         }
         
         // Final verification
-        val finalTotal = currentComponents.sumOf { it.massGrams.toDouble() }.toFloat()
+        val finalTotal = currentComponents.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         assertEquals("Final total should match last operation", 1100f, finalTotal, 0.01f)
     }
 
@@ -350,7 +350,7 @@ class MassCalculationServiceTest {
         assertFalse("Zero total should fail (less than fixed mass)", zeroResult.success)
         
         // Test exact fixed mass - should succeed with zero variable mass (empty spool)
-        val fixedMass = testComponents.filter { !it.variableMass }.sumOf { it.massGrams.toDouble() }.toFloat()
+        val fixedMass = testComponents.filter { !it.variableMass }.sumOf { it.massGrams?.toDouble() ?: 0.0 }.toFloat()
         val exactResult = service.distributeToVariableComponents(testComponents, fixedMass)
         assertTrue("Should succeed with zero variable mass (empty spool)", exactResult.success)
         

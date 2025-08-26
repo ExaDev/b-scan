@@ -22,15 +22,9 @@ class DebugDataCollectorTest {
         // When
         debugCollector.recordTagInfo(1024, 16)
         
-        // Then - we can't directly assert internal state, but we can test through createDecryptedScanData
-        val decryptedScan = debugCollector.createDecryptedScanData(
-            uid = "12345678",
-            technology = "MifareClassic",
-            result = ScanResult.SUCCESS
-        )
-        
-        assertEquals("Should record correct tag size", 1024, decryptedScan.tagSizeBytes)
-        assertEquals("Should record correct sector count", 16, decryptedScan.sectorCount)
+        // Then - verify internal state through getters since DecryptedScanData no longer has these fields
+        assertEquals("Should record correct tag size", 1024, debugCollector.getTagSizeBytes())
+        assertEquals("Should record correct sector count", 16, debugCollector.getSectorCount())
     }
 
     @Test
@@ -47,7 +41,7 @@ class DebugDataCollectorTest {
             result = ScanResult.SUCCESS
         )
         
-        assertEquals("Should record sector count", 16, decryptedScan.sectorCount)
+        assertEquals("Should record sector count", 16, debugCollector.getSectorCount())
         assertTrue("Should record authenticated sector", 1 in decryptedScan.authenticatedSectors)
         assertTrue("Should record failed sector", 2 in decryptedScan.failedSectors)
         assertEquals("Should record key type for authenticated sector", "KeyA", decryptedScan.usedKeys[1])
@@ -207,8 +201,8 @@ class DebugDataCollectorTest {
         assertEquals("Should have correct result", ScanResult.SUCCESS, decryptedScan.scanResult)
         
         with(decryptedScan) {
-            assertEquals("Should have tag size", 1024, tagSizeBytes)
-            assertEquals("Should have sector count", 16, sectorCount)
+            assertEquals("Should have tag size", 1024, debugCollector.getTagSizeBytes())
+            assertEquals("Should have sector count", 16, debugCollector.getSectorCount())
             assertTrue("Should have authenticated sector", 1 in authenticatedSectors)
             assertTrue("Should have failed sector", 15 in failedSectors)
             assertEquals("Should have key type", "KeyA", usedKeys[1])
