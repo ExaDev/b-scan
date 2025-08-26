@@ -170,7 +170,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             usedKeyTypes = decryptedData.usedKeys,
             blockData = decryptedData.decryptedBlocks,
             derivedKeys = decryptedData.derivedKeys,
-            rawColorBytes = "", // TODO: Extract from block data if needed
+            rawColorBytes = "", // Not available from DecryptedScanData (collected during real-time scan only)
             errorMessages = decryptedData.errors,
             parsingDetails = mapOf(), // Empty for now
             fullRawHex = "", // Not available in DecryptedScanData

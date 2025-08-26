@@ -135,7 +135,7 @@ enum class WeightUnit(val displayName: String, val abbreviation: String, val sca
          * Currently hardcoded to GRAMS, but can be extended for user preferences
          */
         fun isExpectedUnit(unit: WeightUnit): Boolean {
-            return unit == GRAMS // TODO: Make configurable per user preferences
+            return unit == GRAMS // User preference: could be made configurable via settings
         }
     }
     

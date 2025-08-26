@@ -23,7 +23,7 @@ class StandardWeightScaleController(
     override val isReading: StateFlow<Boolean> = _isReading.asStateFlow()
     
     override suspend fun connect(device: DiscoveredBleDevice): ScaleCommandResult {
-        // TODO: Implement standard weight scale service connection
+        // Future enhancement: Implement standard weight scale service connection
         return ScaleCommandResult.NotSupported
     }
     

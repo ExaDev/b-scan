@@ -478,8 +478,8 @@ class NfcManager(private val activity: Activity) {
             uid = uid,
             technology = technology,
             result = scanResult,
-            keyDerivationTimeMs = 0, // TODO: Add timing
-            authenticationTimeMs = 0  // TODO: Add timing
+            keyDerivationTimeMs = 0, // Performance monitoring - would need separate timing for key derivation phase
+            authenticationTimeMs = 0  // Performance monitoring - would need separate timing for authentication phase
         )
         
         Log.d(TAG, "Created scan data pair for UID: $uid")

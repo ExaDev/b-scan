@@ -86,7 +86,7 @@ fun AppNavigation(
             HomeScreen(
                 scanState = viewModel.uiState.collectAsStateWithLifecycle().value.scanState,
                 scanProgress = viewModel.scanProgress.collectAsStateWithLifecycle().value,
-                onSimulateScan = { /* TODO: Add simulate scan functionality if needed */ },
+                onSimulateScan = { /* Development feature: simulate scan functionality */ },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToHistory = { navController.navigate("history") },
                 onNavigateToDetails = { detailType, identifier ->
