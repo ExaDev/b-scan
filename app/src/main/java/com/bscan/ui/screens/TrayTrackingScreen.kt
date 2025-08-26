@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,6 +28,7 @@ fun TrayTrackingScreen(
     modifier: Modifier = Modifier
 ) {
     val trayTrackingRepository = viewModel.getTrayTrackingRepository()
+    val scope = rememberCoroutineScope()
     
     // Observe reactive data flows
     val trayData by trayTrackingRepository.trayDataFlow.collectAsStateWithLifecycle()
@@ -41,7 +44,9 @@ fun TrayTrackingScreen(
             message = "Remove filament ${formatTrayId(tray.trayUid)} and all its tracking data? This cannot be undone.",
             confirmText = "Remove",
             onConfirm = {
-                trayTrackingRepository.removeTray(tray.trayUid)
+                scope.launch {
+                    trayTrackingRepository.removeTray(tray.trayUid)
+                }
                 trayToDelete = null
             },
             onDismiss = { trayToDelete = null },
