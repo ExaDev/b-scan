@@ -1,12 +1,12 @@
 {
-  "version": 1756055633,
+  "version": 1756214792,
   "materialMappings": {
-    "UNKNOWN": "UNKNOWN",
-    "PA_NYLON": "PA (Nylon)",
     "PLA_WOOD": "PLA Wood-filled",
     "PLA_GLOW": "PLA Glow in the Dark",
     "TPU": "TPU (Flexible)",
+    "PA_NYLON": "PA (Nylon)",
     "PETG": "PETG",
+    "UNKNOWN": "UNKNOWN",
     "PET_CF": "PET-CF",
     "PC": "Polycarbonate",
     "ASA": "ASA",
@@ -111,151 +111,6 @@
     }
   },
   "productCatalog": [
-    {
-      "variantId": "41109904457788",
-      "productHandle": "pla-galaxy",
-      "productName": "PLA Galaxy",
-      "colorName": "Brown (13203) / Filament with spool / 1 kg",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904457788",
-      "manufacturer": "Bambu Lab",
-      "materialType": "UNKNOWN",
-      "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T17:39:09.007586"
-    },
-    {
-      "variantId": "41109904490556",
-      "productHandle": "pla-galaxy",
-      "productName": "PLA Galaxy",
-      "colorName": "Green (13503) / Filament with spool / 1 kg",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904490556",
-      "manufacturer": "Bambu Lab",
-      "materialType": "UNKNOWN",
-      "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T17:39:09.007586"
-    },
-    {
-      "variantId": "41109904523324",
-      "productHandle": "pla-galaxy",
-      "productName": "PLA Galaxy",
-      "colorName": "Nebulae (13504) / Filament with spool / 1 kg",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904523324",
-      "manufacturer": "Bambu Lab",
-      "materialType": "UNKNOWN",
-      "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T17:39:09.007586"
-    },
-    {
-      "variantId": "41109904556092",
-      "productHandle": "pla-galaxy",
-      "productName": "PLA Galaxy",
-      "colorName": "Purple (13602) / Filament with spool / 1 kg",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904556092",
-      "manufacturer": "Bambu Lab",
-      "materialType": "UNKNOWN",
-      "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T17:39:09.007586"
-    },
-    {
-      "variantId": "40577626767420",
-      "productHandle": "pla-sparkle",
-      "productName": "PLA Sparkle",
-      "colorName": "Alpine Green Sparkle (13501) / Filament with spool / 1 kg",
-      "colorHex": "#3F5443",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40577626767420",
-      "manufacturer": "Bambu Lab",
-      "materialType": "PA_NYLON",
-      "internalCode": "GFN04",
-      "lastUpdated": "2025-08-24T17:39:14.17602"
-    },
-    {
-      "variantId": "40577626800188",
-      "productHandle": "pla-sparkle",
-      "productName": "PLA Sparkle",
-      "colorName": "Crimson Red Sparkle (13200) / Filament with spool / 1 kg",
-      "colorHex": "#792B36",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40577626800188",
-      "manufacturer": "Bambu Lab",
-      "materialType": "PA_NYLON",
-      "internalCode": "GFN04",
-      "lastUpdated": "2025-08-24T17:39:14.17602"
-    },
-    {
-      "variantId": "40577626832956",
-      "productHandle": "pla-sparkle",
-      "productName": "PLA Sparkle",
-      "colorName": "Onyx Black Sparkle (13101) / Filament with spool / 1 kg",
-      "colorHex": "#2D2B28",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40577626832956",
-      "manufacturer": "Bambu Lab",
-      "materialType": "PA_NYLON",
-      "internalCode": "GFN04",
-      "lastUpdated": "2025-08-24T17:39:14.17602"
-    },
-    {
-      "variantId": "40645123047484",
-      "productHandle": "pla-sparkle",
-      "productName": "PLA Sparkle",
-      "colorName": "Slate Gray Sparkle (13102) / Filament with spool / 1 kg",
-      "colorHex": "#8E9089",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40645123047484",
-      "manufacturer": "Bambu Lab",
-      "materialType": "PA_NYLON",
-      "internalCode": "GFN04",
-      "lastUpdated": "2025-08-24T17:39:14.17602"
-    },
-    {
-      "variantId": "40645123080252",
-      "productHandle": "pla-sparkle",
-      "productName": "PLA Sparkle",
-      "colorName": "Royal Purple Sparkle (13700) / Filament with spool / 1 kg",
-      "colorHex": "#483D8B",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40645123080252",
-      "manufacturer": "Bambu Lab",
-      "materialType": "PA_NYLON",
-      "internalCode": "GFN04",
-      "lastUpdated": "2025-08-24T17:39:14.17602"
-    },
-    {
-      "variantId": "41905702699068",
-      "productHandle": "pla-sparkle",
-      "productName": "PLA Sparkle",
-      "colorName": "Classic Gold Sparkle (13402) / Filament with spool / 1 kg",
-      "colorCode": "Unknown",
-      "price": 22.99,
-      "available": true,
-      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d41905702699068",
-      "manufacturer": "Bambu Lab",
-      "materialType": "PA_NYLON",
-      "internalCode": "GFN04",
-      "lastUpdated": "2025-08-24T17:39:14.17602"
-    },
     {
       "variantId": "533417483736203275",
       "productHandle": "pla-wood",
@@ -1404,7 +1259,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189068348",
@@ -1419,7 +1274,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189101116",
@@ -1434,7 +1289,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189133884",
@@ -1449,7 +1304,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189166652",
@@ -1464,7 +1319,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189199420",
@@ -1479,7 +1334,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189232188",
@@ -1494,7 +1349,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189264956",
@@ -1509,7 +1364,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189297724",
@@ -1524,7 +1379,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189363260",
@@ -1539,7 +1394,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40206189396028",
@@ -1554,7 +1409,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40567645372476",
@@ -1569,7 +1424,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40589883670588",
@@ -1584,7 +1439,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40589883736124",
@@ -1599,7 +1454,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40589883768892",
@@ -1614,7 +1469,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40621342294076",
@@ -1629,7 +1484,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40630665674812",
@@ -1644,7 +1499,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "40674109751356",
@@ -1659,7 +1514,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465089261628",
@@ -1674,7 +1529,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465093718076",
@@ -1689,7 +1544,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465095782460",
@@ -1704,7 +1559,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465096077372",
@@ -1719,7 +1574,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465098207292",
@@ -1734,7 +1589,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465098960956",
@@ -1749,7 +1604,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "41465100435516",
@@ -1764,7 +1619,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42145706442812",
@@ -1779,7 +1634,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42145708441660",
@@ -1794,7 +1649,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301695131708",
@@ -1809,7 +1664,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301696049212",
@@ -1824,7 +1679,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301696475196",
@@ -1839,7 +1694,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301698408508",
@@ -1854,7 +1709,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301698670652",
@@ -1869,7 +1724,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301699129404",
@@ -1884,7 +1739,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301699850300",
@@ -1899,7 +1754,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301701652540",
@@ -1914,7 +1769,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "42301702012988",
@@ -1929,7 +1784,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "558068580753551360",
@@ -1944,7 +1799,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "558068580753551366",
@@ -1959,7 +1814,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "566023328024743937",
@@ -1974,7 +1829,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "566023328024743943",
@@ -1989,7 +1844,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "566023328024743949",
@@ -2004,7 +1859,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "566023328024743955",
@@ -2019,7 +1874,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "566023328024743961",
@@ -2034,7 +1889,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:17.135364"
+      "lastUpdated": "2025-08-26T14:24:56.273294"
     },
     {
       "variantId": "542503112727244818",
@@ -2049,7 +1904,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244824",
@@ -2064,7 +1919,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244830",
@@ -2079,7 +1934,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244836",
@@ -2094,7 +1949,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244842",
@@ -2109,7 +1964,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244848",
@@ -2124,7 +1979,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244854",
@@ -2139,7 +1994,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244860",
@@ -2154,7 +2009,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244866",
@@ -2169,7 +2024,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244872",
@@ -2184,7 +2039,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244878",
@@ -2199,7 +2054,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244884",
@@ -2214,7 +2069,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "542503112727244890",
@@ -2229,7 +2084,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:12:21.926554"
+      "lastUpdated": "2025-08-26T14:25:01.060296"
     },
     {
       "variantId": "40215560814652",
@@ -2244,7 +2099,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215560847420",
@@ -2258,7 +2113,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215560880188",
@@ -2273,7 +2128,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215560912956",
@@ -2288,7 +2143,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215560945724",
@@ -2303,7 +2158,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215560978492",
@@ -2318,7 +2173,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215561011260",
@@ -2333,7 +2188,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215561044028",
@@ -2348,7 +2203,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215561076796",
@@ -2363,7 +2218,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215561109564",
@@ -2378,7 +2233,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40215561175100",
@@ -2393,7 +2248,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40589886062652",
@@ -2408,7 +2263,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40589886095420",
@@ -2422,7 +2277,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40589886128188",
@@ -2437,7 +2292,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40589886193724",
@@ -2452,7 +2307,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40589886259260",
@@ -2467,7 +2322,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40657845420092",
@@ -2482,7 +2337,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "41465119998012",
@@ -2497,7 +2352,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "41465120063548",
@@ -2512,7 +2367,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "41465120129084",
@@ -2527,7 +2382,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "41465120194620",
@@ -2542,7 +2397,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "41553354326076",
@@ -2557,7 +2412,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412041",
@@ -2572,7 +2427,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412047",
@@ -2587,7 +2442,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412053",
@@ -2602,7 +2457,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412059",
@@ -2617,7 +2472,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412065",
@@ -2632,7 +2487,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412071",
@@ -2647,7 +2502,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412077",
@@ -2662,7 +2517,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "563880021386412083",
@@ -2677,7 +2532,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "614364678510723073",
@@ -2692,7 +2547,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MATTE",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:12:30.528103"
+      "lastUpdated": "2025-08-26T14:25:09.140188"
     },
     {
       "variantId": "40926167892028",
@@ -2707,7 +2562,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "40926167990332",
@@ -2722,7 +2577,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "41525579284540",
@@ -2736,7 +2591,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "41763634479164",
@@ -2750,7 +2605,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42038656630844",
@@ -2765,7 +2620,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42038658334780",
@@ -2780,7 +2635,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42038831906876",
@@ -2795,7 +2650,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42038858022972",
@@ -2810,7 +2665,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42038860185660",
@@ -2825,7 +2680,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42096577151036",
@@ -2840,7 +2695,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42099911884860",
@@ -2855,7 +2710,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "42150926254140",
@@ -2869,7 +2724,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PETG",
       "internalCode": "GFG01",
-      "lastUpdated": "2025-08-24T18:12:35.254723"
+      "lastUpdated": "2025-08-26T14:25:13.833354"
     },
     {
       "variantId": "40206187561020",
@@ -2884,7 +2739,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40206187593788",
@@ -2899,7 +2754,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40206187626556",
@@ -2914,7 +2769,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40206187692092",
@@ -2929,7 +2784,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40654454849596",
@@ -2944,7 +2799,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40671647957052",
@@ -2959,7 +2814,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40671648022588",
@@ -2974,7 +2829,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "40671648055356",
@@ -2989,7 +2844,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "41905581916220",
@@ -3004,7 +2859,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "41905585127484",
@@ -3019,7 +2874,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "42038646702140",
@@ -3033,7 +2888,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "42038651879484",
@@ -3048,7 +2903,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "42058066001980",
@@ -3063,7 +2918,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "42058068066364",
@@ -3078,7 +2933,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "42134916956220",
@@ -3093,7 +2948,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "ABS",
       "internalCode": "GFL01",
-      "lastUpdated": "2025-08-24T18:12:46.266047"
+      "lastUpdated": "2025-08-26T14:25:18.510008"
     },
     {
       "variantId": "608855083623477248",
@@ -3107,7 +2962,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:54.364096"
+      "lastUpdated": "2025-08-26T14:25:27.515329"
     },
     {
       "variantId": "622274904137216000",
@@ -3122,7 +2977,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:54.364096"
+      "lastUpdated": "2025-08-26T14:25:27.515329"
     },
     {
       "variantId": "622274904137216006",
@@ -3137,7 +2992,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:54.364096"
+      "lastUpdated": "2025-08-26T14:25:27.515329"
     },
     {
       "variantId": "627383618449113088",
@@ -3152,7 +3007,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:54.364096"
+      "lastUpdated": "2025-08-26T14:25:27.515329"
     },
     {
       "variantId": "627383618453307394",
@@ -3167,7 +3022,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:54.364096"
+      "lastUpdated": "2025-08-26T14:25:27.515329"
     },
     {
       "variantId": "627383618457501699",
@@ -3182,7 +3037,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:12:54.364096"
+      "lastUpdated": "2025-08-26T14:25:27.515329"
     },
     {
       "variantId": "624454208526409740",
@@ -3197,7 +3052,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "624454208526409746",
@@ -3212,7 +3067,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "624454208526409752",
@@ -3227,7 +3082,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "624454208526409758",
@@ -3242,7 +3097,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "624454208526409764",
@@ -3257,7 +3112,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "624454208526409770",
@@ -3272,7 +3127,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "624454208526409776",
@@ -3287,7 +3142,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:06.037553"
+      "lastUpdated": "2025-08-26T14:25:36.627767"
     },
     {
       "variantId": "40619751309372",
@@ -3301,7 +3156,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:10.816145"
+      "lastUpdated": "2025-08-26T14:25:41.439378"
     },
     {
       "variantId": "40720639590460",
@@ -3315,7 +3170,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:10.816145"
+      "lastUpdated": "2025-08-26T14:25:41.439378"
     },
     {
       "variantId": "630662806526054404",
@@ -3329,7 +3184,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:18.246784"
+      "lastUpdated": "2025-08-26T14:25:49.750942"
     },
     {
       "variantId": "594048640036528143",
@@ -3344,7 +3199,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528149",
@@ -3359,7 +3214,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528155",
@@ -3374,7 +3229,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528161",
@@ -3389,7 +3244,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528167",
@@ -3404,7 +3259,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528173",
@@ -3419,7 +3274,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528179",
@@ -3434,7 +3289,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528185",
@@ -3449,7 +3304,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528191",
@@ -3464,7 +3319,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "594048640036528197",
@@ -3479,7 +3334,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "UNKNOWN",
       "internalCode": "GFL99",
-      "lastUpdated": "2025-08-24T18:13:30.884203"
+      "lastUpdated": "2025-08-26T14:25:58.282485"
     },
     {
       "variantId": "40662760882236",
@@ -3493,7 +3348,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "40662760915004",
@@ -3508,7 +3363,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "40662760947772",
@@ -3523,7 +3378,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "545400458347720709",
@@ -3538,7 +3393,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "545400458347720715",
@@ -3553,7 +3408,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "545400458347720721",
@@ -3568,7 +3423,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "545400458347720727",
@@ -3583,7 +3438,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "548997929339535362",
@@ -3598,7 +3453,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_BASIC",
       "internalCode": "GFL00",
-      "lastUpdated": "2025-08-24T18:13:35.44712"
+      "lastUpdated": "2025-08-26T14:26:02.479917"
     },
     {
       "variantId": "40919165108284",
@@ -3612,7 +3467,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "40919165141052",
@@ -3626,7 +3481,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "40919165173820",
@@ -3640,7 +3495,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "40919165206588",
@@ -3654,7 +3509,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "535955481370947586",
@@ -3668,7 +3523,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "601303647472431104",
@@ -3682,7 +3537,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "601303647472431110",
@@ -3696,7 +3551,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "601303647472431116",
@@ -3710,7 +3565,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_SILK",
       "internalCode": "GFL02",
-      "lastUpdated": "2025-08-24T18:13:44.732711"
+      "lastUpdated": "2025-08-26T14:26:11.287726"
     },
     {
       "variantId": "40577637089340",
@@ -3725,7 +3580,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_METAL",
       "internalCode": "GFL06",
-      "lastUpdated": "2025-08-24T18:13:49.491964"
+      "lastUpdated": "2025-08-26T14:26:15.893358"
     },
     {
       "variantId": "40577637122108",
@@ -3740,7 +3595,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_METAL",
       "internalCode": "GFL06",
-      "lastUpdated": "2025-08-24T18:13:49.491964"
+      "lastUpdated": "2025-08-26T14:26:15.893358"
     },
     {
       "variantId": "40577637154876",
@@ -3755,7 +3610,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_METAL",
       "internalCode": "GFL06",
-      "lastUpdated": "2025-08-24T18:13:49.491964"
+      "lastUpdated": "2025-08-26T14:26:15.893358"
     },
     {
       "variantId": "40645122949180",
@@ -3770,7 +3625,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_METAL",
       "internalCode": "GFL06",
-      "lastUpdated": "2025-08-24T18:13:49.491964"
+      "lastUpdated": "2025-08-26T14:26:15.893358"
     },
     {
       "variantId": "40645122981948",
@@ -3784,7 +3639,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_METAL",
       "internalCode": "GFL06",
-      "lastUpdated": "2025-08-24T18:13:49.491964"
+      "lastUpdated": "2025-08-26T14:26:15.893358"
     },
     {
       "variantId": "40583974453308",
@@ -3798,7 +3653,7 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MARBLE",
       "internalCode": "GFL10",
-      "lastUpdated": "2025-08-24T18:13:53.922814"
+      "lastUpdated": "2025-08-26T14:26:21.642814"
     },
     {
       "variantId": "40634639810620",
@@ -3813,7 +3668,152 @@
       "manufacturer": "Bambu Lab",
       "materialType": "PLA_MARBLE",
       "internalCode": "GFL10",
-      "lastUpdated": "2025-08-24T18:13:53.922814"
+      "lastUpdated": "2025-08-26T14:26:21.642814"
+    },
+    {
+      "variantId": "41109904457788",
+      "productHandle": "pla-galaxy",
+      "productName": "PLA Galaxy",
+      "colorName": "Brown (13203) / Filament with spool / 1 kg",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904457788",
+      "manufacturer": "Bambu Lab",
+      "materialType": "UNKNOWN",
+      "internalCode": "GFL99",
+      "lastUpdated": "2025-08-26T14:26:26.919141"
+    },
+    {
+      "variantId": "41109904490556",
+      "productHandle": "pla-galaxy",
+      "productName": "PLA Galaxy",
+      "colorName": "Green (13503) / Filament with spool / 1 kg",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904490556",
+      "manufacturer": "Bambu Lab",
+      "materialType": "UNKNOWN",
+      "internalCode": "GFL99",
+      "lastUpdated": "2025-08-26T14:26:26.919141"
+    },
+    {
+      "variantId": "41109904523324",
+      "productHandle": "pla-galaxy",
+      "productName": "PLA Galaxy",
+      "colorName": "Nebulae (13504) / Filament with spool / 1 kg",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904523324",
+      "manufacturer": "Bambu Lab",
+      "materialType": "UNKNOWN",
+      "internalCode": "GFL99",
+      "lastUpdated": "2025-08-26T14:26:26.919141"
+    },
+    {
+      "variantId": "41109904556092",
+      "productHandle": "pla-galaxy",
+      "productName": "PLA Galaxy",
+      "colorName": "Purple (13602) / Filament with spool / 1 kg",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-galaxy?id\u003d41109904556092",
+      "manufacturer": "Bambu Lab",
+      "materialType": "UNKNOWN",
+      "internalCode": "GFL99",
+      "lastUpdated": "2025-08-26T14:26:26.919141"
+    },
+    {
+      "variantId": "40577626767420",
+      "productHandle": "pla-sparkle",
+      "productName": "PLA Sparkle",
+      "colorName": "Alpine Green Sparkle (13501) / Filament with spool / 1 kg",
+      "colorHex": "#3F5443",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40577626767420",
+      "manufacturer": "Bambu Lab",
+      "materialType": "PA_NYLON",
+      "internalCode": "GFN04",
+      "lastUpdated": "2025-08-26T14:26:32.359263"
+    },
+    {
+      "variantId": "40577626800188",
+      "productHandle": "pla-sparkle",
+      "productName": "PLA Sparkle",
+      "colorName": "Crimson Red Sparkle (13200) / Filament with spool / 1 kg",
+      "colorHex": "#792B36",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40577626800188",
+      "manufacturer": "Bambu Lab",
+      "materialType": "PA_NYLON",
+      "internalCode": "GFN04",
+      "lastUpdated": "2025-08-26T14:26:32.359263"
+    },
+    {
+      "variantId": "40577626832956",
+      "productHandle": "pla-sparkle",
+      "productName": "PLA Sparkle",
+      "colorName": "Onyx Black Sparkle (13101) / Filament with spool / 1 kg",
+      "colorHex": "#2D2B28",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40577626832956",
+      "manufacturer": "Bambu Lab",
+      "materialType": "PA_NYLON",
+      "internalCode": "GFN04",
+      "lastUpdated": "2025-08-26T14:26:32.359263"
+    },
+    {
+      "variantId": "40645123047484",
+      "productHandle": "pla-sparkle",
+      "productName": "PLA Sparkle",
+      "colorName": "Slate Gray Sparkle (13102) / Filament with spool / 1 kg",
+      "colorHex": "#8E9089",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40645123047484",
+      "manufacturer": "Bambu Lab",
+      "materialType": "PA_NYLON",
+      "internalCode": "GFN04",
+      "lastUpdated": "2025-08-26T14:26:32.359263"
+    },
+    {
+      "variantId": "40645123080252",
+      "productHandle": "pla-sparkle",
+      "productName": "PLA Sparkle",
+      "colorName": "Royal Purple Sparkle (13700) / Filament with spool / 1 kg",
+      "colorHex": "#483D8B",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d40645123080252",
+      "manufacturer": "Bambu Lab",
+      "materialType": "PA_NYLON",
+      "internalCode": "GFN04",
+      "lastUpdated": "2025-08-26T14:26:32.359263"
+    },
+    {
+      "variantId": "41905702699068",
+      "productHandle": "pla-sparkle",
+      "productName": "PLA Sparkle",
+      "colorName": "Classic Gold Sparkle (13402) / Filament with spool / 1 kg",
+      "colorCode": "Unknown",
+      "price": 22.99,
+      "available": true,
+      "url": "https://uk.store.bambulab.com/en/products/pla-sparkle?id\u003d41905702699068",
+      "manufacturer": "Bambu Lab",
+      "materialType": "PA_NYLON",
+      "internalCode": "GFN04",
+      "lastUpdated": "2025-08-26T14:26:32.359263"
     }
   ]
 }
