@@ -36,7 +36,7 @@ import com.bscan.ui.screens.home.GroupHeader
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EnhancedSkusList(
+fun CatalogBrowser(
     allScans: List<InterpretedScan>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,

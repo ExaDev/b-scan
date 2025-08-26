@@ -1,6 +1,6 @@
 package com.bscan.ui.screens.home
 
-enum class ViewMode { INVENTORY, SKUS, TAGS, SCANS }
+enum class ViewMode { INVENTORY, CATALOG, TAGS, SCANS }
 enum class SortProperty { FIRST_SCAN, LAST_SCAN, NAME, SUCCESS_RATE, COLOR, MATERIAL_TYPE }
 enum class SortDirection { ASCENDING, DESCENDING }
 enum class GroupByOption { NONE, COLOR, BASE_MATERIAL, MATERIAL_SERIES }
@@ -14,5 +14,5 @@ data class FilterState(
     val showSuccessOnly: Boolean = false,
     val showFailuresOnly: Boolean = false,
     val dateRangeDays: Int? = null, // null = all time, 7 = last week, 30 = last month, etc.
-    val minSpoolCount: Int = 1 // Minimum spool count filter for SKUs (0 = show all products, 1+ = only owned)
+    val minSpoolCount: Int = 1 // Minimum spool count filter for catalog items (0 = show all products, 1+ = only owned)
 )

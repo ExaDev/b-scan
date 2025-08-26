@@ -165,7 +165,7 @@ fun DataBrowserScreen(
                         Text(
                             when (mode) {
                                 ViewMode.INVENTORY -> "Inventory"
-                                ViewMode.SKUS -> "SKUs"
+                                ViewMode.CATALOG -> "Catalog"
                                 ViewMode.TAGS -> "Tags"
                                 ViewMode.SCANS -> "Scans"
                             }
@@ -175,7 +175,7 @@ fun DataBrowserScreen(
                         Icon(
                             imageVector = when (mode) {
                                 ViewMode.INVENTORY -> Icons.Default.Inventory
-                                ViewMode.SKUS -> Icons.Default.Category
+                                ViewMode.CATALOG -> Icons.Default.Category
                                 ViewMode.TAGS -> Icons.Default.Tag
                                 ViewMode.SCANS -> Icons.Default.History
                             },
@@ -383,7 +383,7 @@ fun DataBrowserScreen(
                         fullPromptHeightDp = fullPromptHeightDp,
                         hasData = filamentReels.isNotEmpty()
                     )
-                    ViewMode.SKUS -> EnhancedSkusList(
+                    ViewMode.CATALOG -> CatalogBrowser(
                         allScans = allScans,
                         sortProperty = sortProperty,
                         sortDirection = sortDirection,
