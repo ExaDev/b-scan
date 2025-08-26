@@ -44,22 +44,22 @@ class InventorySetupTest {
     
     @Test
     fun testMappingsLoading() {
-        // Test that mappings can be loaded (either from assets or fallback)
-        val mappings = catalogRepository.getCurrentMappings()
-        assertNotNull(mappings)
+        // Test that manufacturers can be loaded from catalog
+        val manufacturers = unifiedDataAccess.getAllManufacturers()
+        assertNotNull(manufacturers)
         
-        // Should have at least fallback data
-        assertTrue(mappings.materialMappings.isNotEmpty() || mappings.productCatalog.isNotEmpty())
+        // Should have at least some manufacturer data (even if just defaults)
+        assertTrue(manufacturers.isNotEmpty())
     }
     
     @Test
     fun testSkuLookupWithValidData() {
-        // Test SKU lookup with common materials
-        val plaMatch = catalogRepository.findBestProductMatch("PLA_BASIC", "Black")
+        // Test SKU lookup with common materials using UnifiedDataAccess
+        val plaMatch = unifiedDataAccess.findBestProductMatch("PLA_BASIC", "Black")
         // Should either find exact match or return null (but not crash)
         // The key is that the method doesn't throw exceptions
         
-        val petgMatch = catalogRepository.findBestProductMatch("PETG", "Clear")
+        val petgMatch = unifiedDataAccess.findBestProductMatch("PETG", "Clear")
         // Same as above - should handle gracefully
         
         // Test should pass as long as no exceptions are thrown

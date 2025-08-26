@@ -318,27 +318,22 @@ class CatalogRepositoryTest {
     }
 
     @Test
-    fun `legacy mappings conversion works`() {
-        // When
-        val legacyMappings = catalogRepository.getCurrentMappings()
+    fun `catalog data can be accessed via UnifiedDataAccess`() {
+        // When - create UnifiedDataAccess to test integration
+        val userRepo = UserDataRepository(context)
+        val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userRepo)
+        val manufacturers = unifiedDataAccess.getAllManufacturers()
 
         // Then
-        assertNotNull("Should have legacy mappings", legacyMappings)
-        assertEquals("Legacy mappings version should be 1", 1, legacyMappings.version)
-
-        // Check brand mappings
-        assertTrue("Should have bambu brand mapping", legacyMappings.brandMappings.containsKey("bambu"))
-        assertEquals("Bambu brand should map to display name", "Bambu Lab", legacyMappings.brandMappings["bambu"])
-
-        assertTrue("Should have opentag brand mapping", legacyMappings.brandMappings.containsKey("opentag"))
-        assertEquals("OpenTag brand should map to display name", "OpenTag Standard", legacyMappings.brandMappings["opentag"])
-
-        // Check material mappings
-        assertTrue("Should have PLA_BASIC material mapping", legacyMappings.materialMappings.containsKey("PLA_BASIC"))
-        assertEquals("PLA_BASIC should map to display name", "PLA Basic", legacyMappings.materialMappings["PLA_BASIC"])
-
-        // Check product catalog (should be empty since we have no products in the test data)
-        assertNotNull("Should have product catalog", legacyMappings.productCatalog)
+        assertNotNull("Should have manufacturers via UnifiedDataAccess", manufacturers)
+        assertTrue("Should contain bambu manufacturer", manufacturers.containsKey("bambu"))
+        
+        val bambuManufacturer = manufacturers["bambu"]
+        assertNotNull("Bambu manufacturer should exist", bambuManufacturer)
+        assertEquals("Bambu display name should be correct", "Bambu Lab", bambuManufacturer?.displayName)
+        
+        // Note: OpenTag is a tag format, not a manufacturer
+        // Actual manufacturers using OpenTag format would be listed separately
     }
 
     @Test
