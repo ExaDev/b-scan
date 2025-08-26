@@ -186,21 +186,23 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `getInventoryTrackingRepository should return repository instance`() {
+    fun `getInventoryItems should return inventory items`() {
         // When
-        val repository = viewModel.getInventoryTrackingRepository()
+        val inventoryItems = viewModel.getInventoryItems()
         
         // Then
-        assertNotNull("Should return repository instance", repository)
+        assertNotNull("Should return inventory items map", inventoryItems)
+        assertTrue("Inventory items should be a map", inventoryItems is Map<*, *>)
     }
 
     @Test
-    fun `getMappingsRepository should return repository instance`() {
+    fun `getManufacturers should return manufacturers`() {
         // When
-        val repository = viewModel.getMappingsRepository()
+        val manufacturers = viewModel.getManufacturers()
         
         // Then
-        assertNotNull("Should return repository instance", repository)
+        assertNotNull("Should return manufacturers map", manufacturers)
+        assertTrue("Manufacturers should be a map", manufacturers is Map<*, *>)
     }
 
     @Test
