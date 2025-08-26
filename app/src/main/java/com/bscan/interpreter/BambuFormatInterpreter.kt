@@ -86,7 +86,7 @@ class BambuFormatInterpreter(
         Log.d(TAG, "RFID Code extracted: $rfidCode")
         
         // Extract all block data regardless of mapping availability
-        val trayUid = extractHexString(decryptedData, 9, 0, 16)
+        val trayUid = extractTrayUid(decryptedData, 9)
         val productionDate = extractString(decryptedData, 12, 0, 16)
         val spoolWeight = extractInt(decryptedData, 5, 4, 2)
         val filamentDiameter = extractFloat64(decryptedData, 5, 8)
@@ -253,6 +253,40 @@ class BambuFormatInterpreter(
         } catch (e: Exception) {
             Log.w(TAG, "Error extracting hex from block $block: ${e.message}")
             ""
+        }
+    }
+
+    /**
+     * Extract tray UID from block 9 with robust handling for different data formats
+     */
+    private fun extractTrayUid(decryptedData: DecryptedScanData, block: Int): String {
+        val blockHex = decryptedData.decryptedBlocks[block] ?: return ""
+        
+        return try {
+            // First, try to extract as UTF-8 text (for sample data and some real tags)
+            val bytes = hexStringToByteArray(blockHex)
+            val utf8String = String(bytes, Charsets.UTF_8).replace("\u0000", "").trim()
+            
+            // Check if the UTF-8 string looks like a valid tray UID (letters, numbers, common patterns)
+            if (utf8String.isNotEmpty() && 
+                utf8String.length >= 3 && 
+                utf8String.all { it.isLetterOrDigit() || it in listOf('-', '_', ':') } &&
+                !utf8String.contains('\uFFFD')) { // No replacement characters
+                
+                Log.d(TAG, "Extracted tray UID as UTF-8: '$utf8String'")
+                return utf8String
+            }
+            
+            // If UTF-8 extraction failed or produced garbage, use hex representation
+            // But make it more compact than the raw 32-character hex string
+            val compactHex = blockHex.take(16) // Use first 8 bytes (16 hex chars)
+            Log.d(TAG, "Using compact hex tray UID: '$compactHex' (original: '$blockHex')")
+            compactHex
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Error extracting tray UID from block $block: ${e.message}")
+            // Fallback to tag UID if tray UID extraction completely fails
+            decryptedData.tagUid
         }
     }
     
