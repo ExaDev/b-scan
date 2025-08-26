@@ -97,7 +97,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     else -> TagReadResult.ReadError
                 }
             }
-            
             withContext(Dispatchers.Main) {
                 _scanProgress.value = when (result) {
                     is TagReadResult.Success -> ScanProgress(
@@ -154,6 +153,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                     )
                 }
+                } // Close the _uiState.value = when(result) block
             }
         }
     }
@@ -375,7 +375,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         materialType.contains("ABS") -> 4
         else -> 6
     }
-}
+} // End of MainViewModel class
 
 data class BScanUiState(
     val filamentInfo: FilamentInfo? = null,
