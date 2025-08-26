@@ -8,11 +8,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -262,17 +265,457 @@ fun PrimaryTagSection(tag: com.bscan.repository.InterpretedScan) {
             fontWeight = FontWeight.Bold
         )
         
-        InfoCard(
-            title = "Tag UID",
-            value = tag.uid
-        )
+        // Basic Tag Information
+        TagBasicInfoCard(tag = tag)
         
-        InfoCard(
-            title = "Last Scanned",
-            value = tag.timestamp.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
-        )
+        // Scan Status and Technical Details
+        TagTechnicalInfoCard(tag = tag)
         
+        // Authentication Details
+        TagAuthenticationCard(tag = tag)
+        
+        // Raw Data Section (expandable)
+        TagRawDataCard(tag = tag)
+        
+        // Filament Information (if available)
         tag.filamentInfo?.let { filamentInfo ->
+            InterpretedFilamentDataCard(filamentInfo = filamentInfo)
+        }
+    }
+}
+
+@Composable
+fun TagBasicInfoCard(tag: com.bscan.repository.InterpretedScan) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Basic Information",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            InfoRow(label = "Tag UID", value = tag.uid)
+            InfoRow(label = "Technology", value = tag.technology)
+            InfoRow(label = "Manufacturer", value = tag.encryptedData.manufacturerName)
+            InfoRow(label = "Last Scanned", value = tag.timestamp.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")))
+            InfoRow(label = "Scan Result", value = tag.scanResult.name.replace('_', ' '))
+        }
+    }
+}
+
+@Composable
+fun TagTechnicalInfoCard(tag: com.bscan.repository.InterpretedScan) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Technical Details",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            InfoRow(label = "Tag Format", value = tag.encryptedData.tagFormat.name)
+            InfoRow(label = "Tag Size", value = "${tag.decryptedData.tagSizeBytes} bytes")
+            InfoRow(label = "Sector Count", value = "${tag.decryptedData.sectorCount} sectors")
+            InfoRow(label = "Scan Duration", value = "${tag.encryptedData.scanDurationMs}ms")
+            InfoRow(label = "Key Derivation Time", value = "${tag.decryptedData.keyDerivationTimeMs}ms")
+            InfoRow(label = "Authentication Time", value = "${tag.decryptedData.authenticationTimeMs}ms")
+        }
+    }
+}
+
+@Composable
+fun TagAuthenticationCard(tag: com.bscan.repository.InterpretedScan) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Authentication Details",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            InfoRow(
+                label = "Authenticated Sectors", 
+                value = "${tag.decryptedData.authenticatedSectors.size}/${tag.decryptedData.sectorCount}"
+            )
+            
+            if (tag.decryptedData.authenticatedSectors.isNotEmpty()) {
+                InfoRow(
+                    label = "Success Sectors", 
+                    value = tag.decryptedData.authenticatedSectors.sorted().joinToString(", ")
+                )
+            }
+            
+            if (tag.decryptedData.failedSectors.isNotEmpty()) {
+                InfoRow(
+                    label = "Failed Sectors", 
+                    value = tag.decryptedData.failedSectors.sorted().joinToString(", ")
+                )
+            }
+            
+            InfoRow(
+                label = "Derived Keys", 
+                value = "${tag.decryptedData.derivedKeys.size} keys generated"
+            )
+            
+            if (tag.decryptedData.errors.isNotEmpty()) {
+                Text(
+                    text = "Errors:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.error
+                )
+                tag.decryptedData.errors.take(3).forEach { error ->
+                    Text(
+                        text = "• $error",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (tag.decryptedData.errors.size > 3) {
+                    Text(
+                        text = "... and ${tag.decryptedData.errors.size - 3} more",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TagRawDataCard(tag: com.bscan.repository.InterpretedScan) {
+    var expanded by remember { mutableStateOf(false) }
+    var showAllBlocks by remember { mutableStateOf(false) }
+    var showAllKeys by remember { mutableStateOf(false) }
+    
+    val clipboardManager = LocalClipboardManager.current
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Raw Data",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = if (expanded) "Hide" else "Show",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            if (expanded) {
+                InfoRow(
+                    label = "Encrypted Size", 
+                    value = "${tag.encryptedData.encryptedData.size} bytes"
+                )
+                
+                InfoRow(
+                    label = "Decrypted Blocks", 
+                    value = "${tag.decryptedData.decryptedBlocks.size} blocks"
+                )
+                
+                // Show decrypted blocks
+                if (tag.decryptedData.decryptedBlocks.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Decrypted Blocks:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        IconButton(
+                            onClick = {
+                                val allBlocksText = tag.decryptedData.decryptedBlocks.entries
+                                    .sortedBy { it.key }
+                                    .joinToString("\n") { (blockNum, data) ->
+                                        "Block $blockNum: $data"
+                                    }
+                                clipboardManager.setText(AnnotatedString(allBlocksText))
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = "Copy all blocks",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    
+                    val blocksToShow = if (showAllBlocks) {
+                        tag.decryptedData.decryptedBlocks.entries.sortedBy { it.key }
+                    } else {
+                        tag.decryptedData.decryptedBlocks.entries.sortedBy { it.key }.take(3)
+                    }
+                    
+                    blocksToShow.forEach { (blockNum, data) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Block $blockNum: ${data.take(32)}${if (data.length > 32) "..." else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            IconButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString("Block $blockNum: $data"))
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Copy block $blockNum",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (tag.decryptedData.decryptedBlocks.size > 3) {
+                        Text(
+                            text = if (showAllBlocks) {
+                                "Hide additional blocks"
+                            } else {
+                                "... and ${tag.decryptedData.decryptedBlocks.size - 3} more blocks"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                showAllBlocks = !showAllBlocks
+                            }
+                        )
+                    }
+                }
+                
+                // Show derived keys (truncated for security)
+                if (tag.decryptedData.derivedKeys.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Derived Keys:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        IconButton(
+                            onClick = {
+                                val allKeysText = tag.decryptedData.derivedKeys.joinToString("\n") { key ->
+                                    key
+                                }
+                                clipboardManager.setText(AnnotatedString(allKeysText))
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = "Copy all keys",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    
+                    val keysToShow = if (showAllKeys) {
+                        tag.decryptedData.derivedKeys
+                    } else {
+                        tag.decryptedData.derivedKeys.take(2)
+                    }
+                    
+                    keysToShow.forEach { key ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${key.take(8)}...${key.takeLast(8)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            IconButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(key))
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = "Copy key",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (tag.decryptedData.derivedKeys.size > 2) {
+                        Text(
+                            text = if (showAllKeys) {
+                                "Hide additional keys"
+                            } else {
+                                "... and ${tag.decryptedData.derivedKeys.size - 2} more keys"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable {
+                                showAllKeys = !showAllKeys
+                            }
+                        )
+                    }
+                }
+                
+                // Copy all raw data button
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedButton(
+                    onClick = {
+                        val allRawData = buildString {
+                            appendLine("=== TAG RAW DATA ===")
+                            appendLine("Tag UID: ${tag.uid}")
+                            appendLine("Technology: ${tag.technology}")
+                            appendLine("Manufacturer: ${tag.encryptedData.manufacturerName}")
+                            appendLine("Scan Result: ${tag.scanResult}")
+                            appendLine("Tag Size: ${tag.decryptedData.tagSizeBytes} bytes")
+                            appendLine("Encrypted Data Size: ${tag.encryptedData.encryptedData.size} bytes")
+                            appendLine()
+                            
+                            appendLine("=== DECRYPTED BLOCKS ===")
+                            tag.decryptedData.decryptedBlocks.entries.sortedBy { it.key }.forEach { (blockNum, data) ->
+                                appendLine("Block $blockNum: $data")
+                            }
+                            appendLine()
+                            
+                            appendLine("=== AUTHENTICATION ===")
+                            appendLine("Authenticated Sectors: ${tag.decryptedData.authenticatedSectors.sorted().joinToString(", ")}")
+                            appendLine("Failed Sectors: ${tag.decryptedData.failedSectors.sorted().joinToString(", ")}")
+                            appendLine()
+                            
+                            appendLine("=== DERIVED KEYS ===")
+                            tag.decryptedData.derivedKeys.forEach { key ->
+                                appendLine(key)
+                            }
+                            
+                            if (tag.decryptedData.errors.isNotEmpty()) {
+                                appendLine()
+                                appendLine("=== ERRORS ===")
+                                tag.decryptedData.errors.forEach { error ->
+                                    appendLine("• $error")
+                                }
+                            }
+                        }
+                        clipboardManager.setText(AnnotatedString(allRawData))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Copy All Raw Data")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InterpretedFilamentDataCard(filamentInfo: com.bscan.model.FilamentInfo) {
+    val clipboardManager = LocalClipboardManager.current
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Interpreted Filament Data",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                IconButton(
+                    onClick = {
+                        val filamentDataText = buildString {
+                            appendLine("=== INTERPRETED FILAMENT DATA ===")
+                            appendLine("Tag UID: ${filamentInfo.tagUid}")
+                            appendLine("Tray UID: ${filamentInfo.trayUid}")
+                            appendLine("Filament Type: ${filamentInfo.filamentType}")
+                            appendLine("Detailed Type: ${filamentInfo.detailedFilamentType}")
+                            appendLine("Color Name: ${filamentInfo.colorName}")
+                            appendLine("Color Hex: ${filamentInfo.colorHex}")
+                            appendLine("Spool Weight: ${filamentInfo.spoolWeight}g")
+                            appendLine("Filament Diameter: ${filamentInfo.filamentDiameter}mm")
+                            appendLine("Filament Length: ${filamentInfo.filamentLength}m")
+                            appendLine("Production Date: ${filamentInfo.productionDate}")
+                            appendLine("Min Temperature: ${filamentInfo.minTemperature}°C")
+                            appendLine("Max Temperature: ${filamentInfo.maxTemperature}°C")
+                            appendLine("Bed Temperature: ${filamentInfo.bedTemperature}°C")
+                            appendLine("Drying Temperature: ${filamentInfo.dryingTemperature}°C")
+                            appendLine("Drying Time: ${filamentInfo.dryingTime}h")
+                        }
+                        clipboardManager.setText(AnnotatedString(filamentDataText))
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = "Copy all filament data",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            
             ColorPreviewCard(
                 colorHex = filamentInfo.colorHex,
                 colorName = filamentInfo.colorName,
@@ -287,7 +730,62 @@ fun PrimaryTagSection(tag: com.bscan.repository.InterpretedScan) {
             SpecificationCard(filamentInfo = filamentInfo)
             TemperatureCard(filamentInfo = filamentInfo)
             ProductionInfoCard(filamentInfo = filamentInfo)
+            
+            // Copy structured JSON button
+            OutlinedButton(
+                onClick = {
+                    val jsonData = buildString {
+                        appendLine("{")
+                        appendLine("  \"tagUid\": \"${filamentInfo.tagUid}\",")
+                        appendLine("  \"trayUid\": \"${filamentInfo.trayUid}\",")
+                        appendLine("  \"filamentType\": \"${filamentInfo.filamentType}\",")
+                        appendLine("  \"detailedFilamentType\": \"${filamentInfo.detailedFilamentType}\",")
+                        appendLine("  \"colorName\": \"${filamentInfo.colorName}\",")
+                        appendLine("  \"colorHex\": \"${filamentInfo.colorHex}\",")
+                        appendLine("  \"spoolWeight\": ${filamentInfo.spoolWeight},")
+                        appendLine("  \"filamentDiameter\": ${filamentInfo.filamentDiameter},")
+                        appendLine("  \"filamentLength\": ${filamentInfo.filamentLength},")
+                        appendLine("  \"productionDate\": \"${filamentInfo.productionDate}\",")
+                        appendLine("  \"minTemperature\": ${filamentInfo.minTemperature},")
+                        appendLine("  \"maxTemperature\": ${filamentInfo.maxTemperature},")
+                        appendLine("  \"bedTemperature\": ${filamentInfo.bedTemperature},")
+                        appendLine("  \"dryingTemperature\": ${filamentInfo.dryingTemperature},")
+                        appendLine("  \"dryingTime\": ${filamentInfo.dryingTime}")
+                        appendLine("}")
+                    }
+                    clipboardManager.setText(AnnotatedString(jsonData))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Copy as JSON")
+            }
         }
+    }
+}
+
+@Composable
+fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1.5f)
+        )
     }
 }
 
