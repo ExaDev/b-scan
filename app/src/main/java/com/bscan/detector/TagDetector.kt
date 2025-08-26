@@ -198,29 +198,49 @@ class TagDetector {
     }
     
     private fun detectMifareFromData(data: ByteArray): TagDetectionResult {
+        Log.d(TAG, "detectMifareFromData called with ${data.size} bytes")
         return when {
-            // Standard 1K size suggests Bambu proprietary format
-            data.size == 1024 -> TagDetectionResult(
-                tagFormat = TagFormat.BAMBU_PROPRIETARY,
-                technology = TagTechnology.MIFARE_CLASSIC,
-                confidence = 0.8f,
-                detectionReason = "1024-byte data matches Bambu proprietary format",
-                manufacturerName = "Bambu Lab"
-            )
+            // Standard 1K size (complete or data-only) suggests Bambu proprietary format
+            data.size == 1024 -> {
+                Log.d(TAG, "Detected Bambu proprietary format (1024 bytes - complete)")
+                TagDetectionResult(
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                    technology = TagTechnology.MIFARE_CLASSIC,
+                    confidence = 0.8f,
+                    detectionReason = "1024-byte data matches Bambu proprietary format",
+                    manufacturerName = "Bambu Lab"
+                )
+            }
+            data.size == 768 -> {
+                Log.d(TAG, "Detected Bambu proprietary format (768 bytes - data-only)")
+                TagDetectionResult(
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
+                    technology = TagTechnology.MIFARE_CLASSIC,
+                    confidence = 0.8f,
+                    detectionReason = "768-byte data matches Bambu proprietary format (data-only)",
+                    manufacturerName = "Bambu Lab"
+                )
+            }
             // Check for Creality ASCII patterns in blocks 4-6 (64-96 bytes)
-            data.size >= 96 && containsCrealityPattern(data.sliceArray(64..95)) -> TagDetectionResult(
-                tagFormat = TagFormat.CREALITY_ASCII,
-                technology = TagTechnology.MIFARE_CLASSIC,
-                confidence = 0.9f,
-                detectionReason = "Creality ASCII pattern detected in blocks 4-6",
-                manufacturerName = "Creality"
-            )
-            else -> TagDetectionResult(
-                tagFormat = TagFormat.UNKNOWN,
-                technology = TagTechnology.MIFARE_CLASSIC,
-                confidence = 0.3f,
-                detectionReason = "Unknown Mifare pattern (${data.size} bytes)"
-            )
+            data.size >= 96 && containsCrealityPattern(data.sliceArray(64..95)) -> {
+                Log.d(TAG, "Detected Creality ASCII format")
+                TagDetectionResult(
+                    tagFormat = TagFormat.CREALITY_ASCII,
+                    technology = TagTechnology.MIFARE_CLASSIC,
+                    confidence = 0.9f,
+                    detectionReason = "Creality ASCII pattern detected in blocks 4-6",
+                    manufacturerName = "Creality"
+                )
+            }
+            else -> {
+                Log.w(TAG, "Unknown Mifare pattern detected: ${data.size} bytes")
+                TagDetectionResult(
+                    tagFormat = TagFormat.UNKNOWN,
+                    technology = TagTechnology.MIFARE_CLASSIC,
+                    confidence = 0.3f,
+                    detectionReason = "Unknown Mifare pattern (${data.size} bytes)"
+                )
+            }
         }
     }
     
