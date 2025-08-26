@@ -30,17 +30,20 @@ class BambuFormatInterpreter(
     override fun canInterpret(decryptedData: DecryptedScanData): Boolean {
         // Accept explicitly tagged Bambu data
         if (decryptedData.tagFormat == TagFormat.BAMBU_PROPRIETARY) {
+            Log.d(TAG, "canInterpret: TRUE for ${decryptedData.tagUid} - explicitly tagged as BAMBU_PROPRIETARY")
             return true
         }
         
         // For UNKNOWN format, check if it looks like Mifare Classic 1K with typical Bambu structure
         if (decryptedData.tagFormat == TagFormat.UNKNOWN) {
-            return decryptedData.technology.contains("MifareClassic", ignoreCase = true) &&
-                   decryptedData.sectorCount == 16 &&
-                   decryptedData.tagSizeBytes == 1024 &&
-                   decryptedData.decryptedBlocks.isNotEmpty()
+            val canInterpret = decryptedData.technology.contains("MifareClassic", ignoreCase = true) &&
+                               decryptedData.sectorCount == 16 &&
+                               decryptedData.tagSizeBytes == 1024 &&
+                               decryptedData.decryptedBlocks.isNotEmpty()
+            return canInterpret
         }
         
+        Log.d(TAG, "canInterpret: FALSE for ${decryptedData.tagUid} - unsupported format ${decryptedData.tagFormat}")
         return false
     }
     
@@ -72,7 +75,8 @@ class BambuFormatInterpreter(
         val variantId = extractString(decryptedData, 1, 0, 8)  // Block 1, bytes 0-7
         
         if (materialId.isEmpty() || variantId.isEmpty()) {
-            Log.w(TAG, "Missing material ID or variant ID from RFID block")
+            Log.w(TAG, "Missing material ID or variant ID from RFID block for UID ${decryptedData.tagUid}: materialId='$materialId', variantId='$variantId'")
+            Log.w(TAG, "Block 1 hex: ${decryptedData.decryptedBlocks[1]}")
             return null
         }
         
@@ -95,18 +99,37 @@ class BambuFormatInterpreter(
         val minTemp = extractInt(decryptedData, 6, 10, 2)
         
         // Extract material types from blocks
-        val baseFilamentType = extractString(decryptedData, 2, 0, 16) // Block 2: Base type (PLA, PETG, etc.)
-        val detailedFilamentType = extractString(decryptedData, 4, 0, 16) // Block 4: Detailed type (PLA Matte, etc.)
+        val baseFilamentType = cleanMaterialName(extractString(decryptedData, 2, 0, 16)) // Block 2: Base type (PLA, PETG, etc.)
+        val detailedFilamentType = cleanMaterialName(extractString(decryptedData, 4, 0, 16)) // Block 4: Detailed type (PLA Matte, etc.)
+        
+        // Debug logging for extracted block data
+        Log.d(TAG, "Extracted from blocks for UID ${decryptedData.tagUid} - Base type: '$baseFilamentType', Detailed type: '$detailedFilamentType'")
+        Log.d(TAG, "Block 2 hex: ${decryptedData.decryptedBlocks[2]}, Block 4 hex: ${decryptedData.decryptedBlocks[4]}")
         
         // Extract color from tag
-        val extractedColorHex = interpretColor(extractBytes(decryptedData, 5, 0, 4))
+        val extractedColorHex = interpretColor(extractBytes(decryptedData, 5, 0, 4), baseFilamentType)
         
         // Look up exact SKU mapping for enrichment
         val rfidMapping = mappingsRepository.getRfidMappingByCode(materialId, variantId)
         
         // Determine final values: use mapping if available, otherwise use extracted values
         val finalFilamentType = rfidMapping?.material ?: baseFilamentType.ifEmpty { "Unknown Material" }
-        val finalDetailedType = rfidMapping?.material ?: detailedFilamentType.ifEmpty { baseFilamentType }
+        val finalDetailedType = if (rfidMapping != null) {
+            // When we have mapping, use more specific description if available
+            val finishType = when {
+                detailedFilamentType.contains("Matte", ignoreCase = true) -> " Matte"
+                detailedFilamentType.contains("Silk", ignoreCase = true) -> " Silk"  
+                detailedFilamentType.contains("Transparent", ignoreCase = true) -> " Transparent"
+                detailedFilamentType.contains("Marble", ignoreCase = true) -> " Marble"
+                detailedFilamentType.contains("Sparkle", ignoreCase = true) -> " Sparkle"
+                else -> ""
+            }
+            rfidMapping.material + finishType
+        } else {
+            // No mapping - use extracted detailed type, but only if it's valid
+            val validDetailedType = detailedFilamentType.takeIf { it.isNotEmpty() && it.length >= 2 }
+            validDetailedType ?: baseFilamentType.ifEmpty { "Unknown Material" }
+        }
         val finalColorHex = rfidMapping?.hex ?: extractedColorHex
         val finalColorName = rfidMapping?.color ?: mappings.getColorName(extractedColorHex, baseFilamentType)
         
@@ -114,6 +137,7 @@ class BambuFormatInterpreter(
             Log.i(TAG, "SKU enrichment applied: ${rfidMapping.sku} for $rfidCode")
         } else {
             Log.i(TAG, "Using block-extracted data for unmapped RFID code: $rfidCode")
+            Log.d(TAG, "Final values: type='$finalFilamentType', detailedType='$finalDetailedType', colorHex='$finalColorHex', colorName='$finalColorName'")
         }
         
         return FilamentInfo(
@@ -230,19 +254,54 @@ class BambuFormatInterpreter(
         }
     }
     
-    private fun interpretColor(colorBytes: ByteArray): String {
+    private fun interpretColor(colorBytes: ByteArray, materialType: String = ""): String {
         return if (colorBytes.size >= 4) {
-            // RGBA format
-            String.format("#%02X%02X%02X", 
-                colorBytes[0].toInt() and 0xFF,
-                colorBytes[1].toInt() and 0xFF, 
-                colorBytes[2].toInt() and 0xFF
-            )
+            val r = colorBytes[0].toInt() and 0xFF
+            val g = colorBytes[1].toInt() and 0xFF
+            val b = colorBytes[2].toInt() and 0xFF
+            
+            // Check for valid color (not all zeros or invalid values)
+            if (r == 0 && g == 0 && b == 0) {
+                // Use material-specific default colors for all-zero values
+                getDefaultColorForMaterial(materialType)
+            } else {
+                String.format("#%02X%02X%02X", r, g, b)
+            }
         } else {
-            "#808080" // Default grey
+            getDefaultColorForMaterial(materialType)
         }
     }
     
+    private fun getDefaultColorForMaterial(materialType: String): String {
+        return when (materialType.uppercase()) {
+            "PLA" -> "#4CAF50" // Green for PLA
+            "PETG", "PET" -> "#2196F3" // Blue for PETG  
+            "ABS" -> "#FF9800" // Orange for ABS
+            "ASA" -> "#9C27B0" // Purple for ASA
+            "TPU" -> "#E91E63" // Pink for TPU
+            "PC" -> "#607D8B" // Blue grey for PC
+            "PA", "NYLON" -> "#795548" // Brown for Nylon
+            else -> "#808080" // Default grey for unknown
+        }
+    }
+    
+    
+    /**
+     * Clean and normalize material names extracted from RFID blocks
+     */
+    private fun cleanMaterialName(materialName: String): String {
+        return materialName
+            .replace("\u0000", "") // Remove null characters
+            .replace(Regex("[\\p{Cntrl}&&[^\r\n\t]]"), "") // Remove control characters except CR/LF/Tab
+            .replace(Regex("[\\uFFFD\\uFEFF]"), "") // Remove replacement characters and BOM
+            .filter { char -> 
+                // Only keep printable ASCII, common punctuation, and valid Unicode letters/digits
+                char.isLetterOrDigit() || char.isWhitespace() || char in " +-_()[]{}.,;:"
+            }
+            .trim() // Remove leading/trailing whitespace
+            .takeIf { it.isNotEmpty() && it.all { char -> !char.isISOControl() } } // Only return if non-empty and no control chars
+            ?: ""
+    }
     
     private fun hexStringToByteArray(hex: String): ByteArray {
         val len = hex.length

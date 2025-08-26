@@ -21,18 +21,19 @@ object TagDetectionHelper {
     fun detectFormat(decryptedScan: DecryptedScanData): TagDetectionResult {
         // For decrypted scans, we can analyze the block structure directly
         // without needing to reconstruct the full raw data
-        return detectFromBlockStructure(decryptedScan.technology, decryptedScan.decryptedBlocks, decryptedScan.tagSizeBytes, decryptedScan.sectorCount)
+        return detectFromBlockStructure(decryptedScan.technology, decryptedScan.decryptedBlocks)
     }
     
     /**
-     * Detect tag format from block structure and metadata
+     * Detect tag format from block structure
      */
-    private fun detectFromBlockStructure(technology: String, blocks: Map<Int, String>, tagSizeBytes: Int, sectorCount: Int): TagDetectionResult {
-        android.util.Log.d("TagDetectionHelper", "detectFromBlockStructure: technology=$technology, sectorCount=$sectorCount, tagSizeBytes=$tagSizeBytes, blocks=${blocks.size}")
+    private fun detectFromBlockStructure(technology: String, blocks: Map<Int, String>): TagDetectionResult {
+        val computedSectorCount = computeSectorCount(blocks)
+        android.util.Log.d("TagDetectionHelper", "detectFromBlockStructure: technology=$technology, computedSectorCount=$computedSectorCount, blocks=${blocks.size}")
         
         return when {
             // Mifare Classic with proper Bambu structure
-            technology == "MifareClassic" && sectorCount == 16 && blocks.isNotEmpty() -> {
+            technology == "MifareClassic" && computedSectorCount == 16 && blocks.isNotEmpty() -> {
                 // Check for Bambu indicators in the blocks
                 val block2 = blocks[2] // Filament type block
                 val block4 = blocks[4] // Detailed type block
@@ -48,25 +49,25 @@ object TagDetectionHelper {
                         tagFormat = TagFormat.BAMBU_PROPRIETARY,
                         technology = TagTechnology.MIFARE_CLASSIC,
                         confidence = 0.9f,
-                        detectionReason = "Mifare Classic with Bambu block structure (${sectorCount} sectors)",
+                        detectionReason = "Mifare Classic with Bambu block structure (${computedSectorCount} sectors)",
                         manufacturerName = "Bambu Lab"
                     )
                 } else {
-                    // Fall back to size-based detection
-                    detectFromSize(technology, tagSizeBytes, sectorCount)
+                    // Fall back to computed detection
+                    detectFromComputed(technology, computedSectorCount)
                 }
             }
-            else -> detectFromSize(technology, tagSizeBytes, sectorCount)
+            else -> detectFromComputed(technology, computedSectorCount)
         }
     }
     
     /**
-     * Fallback detection based on size and sector count
+     * Fallback detection based on computed sector count
      */
-    private fun detectFromSize(technology: String, tagSizeBytes: Int, sectorCount: Int): TagDetectionResult {
+    private fun detectFromComputed(technology: String, sectorCount: Int): TagDetectionResult {
         return when {
             technology == "MifareClassic" && sectorCount == 16 -> {
-                android.util.Log.d("TagDetectionHelper", "Detected Bambu tag from size/structure")
+                android.util.Log.d("TagDetectionHelper", "Detected Bambu tag from computed structure")
                 TagDetectionResult(
                     tagFormat = TagFormat.BAMBU_PROPRIETARY,
                     technology = TagTechnology.MIFARE_CLASSIC,
@@ -84,6 +85,28 @@ object TagDetectionHelper {
                     detectionReason = "Unrecognized format: $technology with $sectorCount sectors"
                 )
             }
+        }
+    }
+    
+    /**
+     * Compute sector count from block structure
+     */
+    private fun computeSectorCount(decryptedBlocks: Map<Int, String>): Int {
+        if (decryptedBlocks.isEmpty()) return 0
+        val maxBlock = decryptedBlocks.keys.maxOrNull() ?: return 0
+        return (maxBlock / 4) + 1
+    }
+    
+    /**
+     * Compute tag size from sector count
+     */
+    private fun computeTagSize(sectorCount: Int): Int {
+        return when (sectorCount) {
+            4 -> 320    // Mifare Classic Mini
+            16 -> 1024  // Mifare Classic 1K (most common)
+            32 -> 2048  // Mifare Classic 2K
+            40 -> 4096  // Mifare Classic 4K
+            else -> sectorCount * 64 // General formula
         }
     }
     
@@ -131,3 +154,37 @@ val DecryptedScanData.tagFormat: TagFormat
 
 val DecryptedScanData.manufacturerName: String
     get() = TagDetectionHelper.detectFormat(this).manufacturerName ?: "Unknown"
+
+/**
+ * Computed properties for sector metadata
+ */
+val DecryptedScanData.sectorCount: Int
+    get() {
+        if (decryptedBlocks.isEmpty()) return 0
+        val maxBlock = decryptedBlocks.keys.maxOrNull() ?: return 0
+        return (maxBlock / 4) + 1
+    }
+
+val DecryptedScanData.tagSizeBytes: Int
+    get() {
+        val sectors = sectorCount
+        return when (sectors) {
+            4 -> 320    // Mifare Classic Mini
+            16 -> 1024  // Mifare Classic 1K (most common)
+            32 -> 2048  // Mifare Classic 2K
+            40 -> 4096  // Mifare Classic 4K
+            else -> sectors * 64 // General formula
+        }
+    }
+
+val EncryptedScanData.sectorCount: Int
+    get() {
+        return when (encryptedData.size) {
+            768 -> 16   // Data-only format: 16 sectors × 3 blocks × 16 bytes
+            1024 -> 16  // Complete format: 16 sectors × 4 blocks × 16 bytes
+            else -> encryptedData.size / 64 // General formula
+        }
+    }
+
+val EncryptedScanData.tagSizeBytes: Int
+    get() = encryptedData.size
