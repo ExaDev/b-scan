@@ -3,6 +3,7 @@ package com.bscan.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.*
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
@@ -61,7 +62,9 @@ class ScanHistoryRepositoryTest {
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // When
-        repository.saveScan(encryptedScan, decryptedScan)
+        runBlocking {
+            repository.saveScan(encryptedScan, decryptedScan)
+        }
         
         // Then
         verify(mockEditor, atLeast(2)).putString(any(), any()) // Both encrypted and decrypted
@@ -91,8 +94,10 @@ class ScanHistoryRepositoryTest {
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // When
-        repository.saveScan(encrypted1, decrypted1)
-        repository.saveScan(encrypted2, decrypted2)
+        runBlocking {
+            repository.saveScan(encrypted1, decrypted1)
+            repository.saveScan(encrypted2, decrypted2)
+        }
         
         // Then - newer scans should be first (4 saves total: 2 encrypted + 2 decrypted)
         verify(mockEditor, atLeast(4)).putString(any(), any())
@@ -109,7 +114,9 @@ class ScanHistoryRepositoryTest {
         val decryptedScan = createTestDecryptedScanData(uid = "tag101")
         
         // When
-        repository.saveScan(encryptedScan, decryptedScan)
+        runBlocking {
+            repository.saveScan(encryptedScan, decryptedScan)
+        }
         
         // Then - should save and maintain size limit
         verify(mockEditor, atLeast(2)).putString(any(), any())
@@ -175,7 +182,9 @@ class ScanHistoryRepositoryTest {
     @Test
     fun `clearHistory removes all data`() {
         // When
-        repository.clearHistory()
+        runBlocking {
+            repository.clearHistory()
+        }
         
         // Then
         verify(mockEditor, atLeast(2)).remove(any()) // Both encrypted and decrypted
