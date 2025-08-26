@@ -269,17 +269,50 @@ class ScanHistoryRepository(private val context: Context) {
     fun getAllScans(): List<InterpretedScan> {
         val decryptedScans = getAllDecryptedScans()
         val encryptedScans = getAllEncryptedScans()
+        val decryptedByUid = decryptedScans.groupBy { it.tagUid }
         val encryptedByUid = encryptedScans.groupBy { it.tagUid }
         
-        return decryptedScans.mapNotNull { decrypted ->
-            val encrypted = encryptedByUid[decrypted.tagUid]?.firstOrNull()
+        val allUids = (decryptedByUid.keys + encryptedByUid.keys).toSet()
+        
+        return allUids.mapNotNull { uid ->
+            val encrypted = encryptedByUid[uid]?.firstOrNull()
+            val decrypted = decryptedByUid[uid]?.firstOrNull()
+            
+            // We need at least encrypted data to show a scan
             if (encrypted != null) {
-                val filamentInfo = interpretScanData(decrypted)
-                InterpretedScan(encrypted, decrypted, filamentInfo)
+                val filamentInfo = decrypted?.let { interpretScanData(it) }
+                // Create a synthetic decrypted scan if none exists (for complete auth failures)
+                val effectiveDecrypted = decrypted ?: createFailedDecryptedScan(encrypted)
+                InterpretedScan(encrypted, effectiveDecrypted, filamentInfo)
             } else {
                 null
             }
         }
+    }
+    
+    /**
+     * Create a synthetic DecryptedScanData for encrypted scans that failed to decrypt
+     */
+    private fun createFailedDecryptedScan(encrypted: EncryptedScanData): DecryptedScanData {
+        return DecryptedScanData(
+            id = encrypted.id + 1000000, // Ensure unique ID
+            timestamp = encrypted.timestamp,
+            tagUid = encrypted.tagUid,
+            technology = encrypted.technology,
+            tagFormat = encrypted.tagFormat,
+            manufacturerName = encrypted.manufacturerName,
+            scanResult = ScanResult.AUTHENTICATION_FAILED,
+            decryptedBlocks = emptyMap(),
+            authenticatedSectors = emptyList(),
+            failedSectors = (0..15).toList(), // Assume all sectors failed
+            usedKeys = emptyMap(),
+            derivedKeys = emptyList(),
+            tagSizeBytes = encrypted.tagSizeBytes,
+            sectorCount = encrypted.sectorCount,
+            keyDerivationTimeMs = 0,
+            authenticationTimeMs = 0,
+            errors = listOf("Complete authentication failure - no decrypted data available")
+        )
     }
     
     /**
