@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -256,7 +257,7 @@ fun ComponentItemCard(
 private fun getCategoryIcon(category: String) = when (category.lowercase()) {
     "filament" -> Icons.Default.Polymer
     "spool" -> Icons.Default.Circle
-    "core" -> Icons.Default.CircleOutlined
+    "core" -> Icons.Outlined.Circle
     "adapter" -> Icons.Default.Transform
     "packaging" -> Icons.Default.LocalShipping
     "rfid-tag" -> Icons.Default.Sensors
