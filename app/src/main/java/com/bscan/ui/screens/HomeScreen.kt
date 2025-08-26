@@ -13,6 +13,11 @@ import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.screens.home.*
+import com.bscan.ui.screens.home.ViewMode
+import com.bscan.ui.screens.home.SortProperty
+import com.bscan.ui.screens.home.SortDirection
+import com.bscan.ui.screens.home.GroupByOption
+import com.bscan.ui.screens.home.FilterState
 
 @Composable
 fun HomeScreen(
