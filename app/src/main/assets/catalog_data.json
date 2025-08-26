@@ -1,0 +1,288 @@
+{
+  "$schema": "./catalog.schema.json",
+  "version": 1,
+  "manufacturers": {
+    "bambu": {
+      "name": "bambu",
+      "displayName": "Bambu Lab",
+      "tagFormat": "BAMBU_PROPRIETARY",
+      "materials": {
+        "PLA_BASIC": {
+          "displayName": "PLA Basic",
+          "temperatureProfile": "lowTempPLA",
+          "properties": {
+            "category": "THERMOPLASTIC",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PLA_MATTE": {
+          "displayName": "PLA Matte",
+          "temperatureProfile": "lowTempPLA",
+          "properties": {
+            "category": "SPECIALTY",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PLA_SILK": {
+          "displayName": "PLA Silk",
+          "temperatureProfile": "highTempPLA",
+          "properties": {
+            "category": "SPECIALTY",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PLA_METAL": {
+          "displayName": "PLA Metal",
+          "temperatureProfile": "highTempPLA",
+          "properties": {
+            "category": "COMPOSITE",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PLA_WOOD": {
+          "displayName": "PLA Wood-filled",
+          "temperatureProfile": "lowTempPLA",
+          "properties": {
+            "category": "COMPOSITE",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PLA_MARBLE": {
+          "displayName": "PLA Marble",
+          "temperatureProfile": "lowTempPLA",
+          "properties": {
+            "category": "COMPOSITE",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PLA_GLOW": {
+          "displayName": "PLA Glow in the Dark",
+          "temperatureProfile": "highTempPLA",
+          "properties": {
+            "category": "SPECIALTY",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PETG": {
+          "displayName": "PETG",
+          "temperatureProfile": "midTempEngineering",
+          "properties": {
+            "category": "ENGINEERING",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "ABS": {
+          "displayName": "ABS",
+          "temperatureProfile": "highTempABS",
+          "properties": {
+            "category": "THERMOPLASTIC",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "ASA": {
+          "displayName": "ASA",
+          "temperatureProfile": "veryHighTempASA",
+          "properties": {
+            "category": "ENGINEERING",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "TPU": {
+          "displayName": "TPU (Flexible)",
+          "temperatureProfile": "highTempPLA",
+          "properties": {
+            "category": "FLEXIBLE",
+            "flexible": true,
+            "support": false
+          }
+        },
+        "PA_NYLON": {
+          "displayName": "PA (Nylon)",
+          "temperatureProfile": "extremeTempNylon",
+          "properties": {
+            "category": "ENGINEERING",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PC": {
+          "displayName": "Polycarbonate",
+          "temperatureProfile": "ultraHighTempPC",
+          "properties": {
+            "category": "ENGINEERING",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "PET_CF": {
+          "displayName": "PET-CF",
+          "temperatureProfile": "highTempCarbon",
+          "properties": {
+            "category": "COMPOSITE",
+            "flexible": false,
+            "support": false
+          }
+        },
+        "SUPPORT": {
+          "displayName": "Support Material",
+          "temperatureProfile": "lowTempPLA",
+          "properties": {
+            "category": "SUPPORT",
+            "flexible": false,
+            "support": true
+          }
+        },
+        "PVA": {
+          "displayName": "PVA (Water Soluble)",
+          "temperatureProfile": "lowTempSupport",
+          "properties": {
+            "category": "SUPPORT",
+            "flexible": false,
+            "support": true
+          }
+        }
+      },
+      "temperatureProfiles": {
+        "lowTempPLA": {
+          "minNozzle": 190,
+          "maxNozzle": 220,
+          "bed": 60
+        },
+        "highTempPLA": {
+          "minNozzle": 200,
+          "maxNozzle": 230,
+          "bed": 60
+        },
+        "lowTempSupport": {
+          "minNozzle": 180,
+          "maxNozzle": 200,
+          "bed": 60
+        },
+        "midTempEngineering": {
+          "minNozzle": 220,
+          "maxNozzle": 250,
+          "bed": 70
+        },
+        "highTempABS": {
+          "minNozzle": 220,
+          "maxNozzle": 260,
+          "bed": 80
+        },
+        "highTempCarbon": {
+          "minNozzle": 240,
+          "maxNozzle": 280,
+          "bed": 80
+        },
+        "veryHighTempASA": {
+          "minNozzle": 240,
+          "maxNozzle": 280,
+          "bed": 90
+        },
+        "extremeTempNylon": {
+          "minNozzle": 250,
+          "maxNozzle": 300,
+          "bed": 90
+        },
+        "ultraHighTempPC": {
+          "minNozzle": 260,
+          "maxNozzle": 310,
+          "bed": 100
+        },
+        "maxTempSpecialty": {
+          "minNozzle": 280,
+          "maxNozzle": 320,
+          "bed": 100
+        }
+      },
+      "colorPalette": {
+        "#FFFFFF": "White",
+        "#000000": "Black",
+        "#FF0000": "Red",
+        "#00FF00": "Green",
+        "#0000FF": "Blue",
+        "#FFFF00": "Yellow",
+        "#FF6600": "Orange",
+        "#800080": "Purple",
+        "#808080": "Grey",
+        "#C0C0C0": "Silver",
+        "#FFD700": "Gold",
+        "#8B4513": "Brown"
+      },
+      "rfidMappings": {
+        "GFL99:41109904457788": {
+          "sku": "41109904457788",
+          "material": "PLA_BASIC",
+          "color": "Brown",
+          "hex": "#8B4513"
+        },
+        "GFL99:41109904490556": {
+          "sku": "41109904490556", 
+          "material": "PLA_BASIC",
+          "color": "Green",
+          "hex": "#00FF00"
+        },
+        "GFN04:40577626767420": {
+          "sku": "40577626767420",
+          "material": "PA_NYLON", 
+          "color": "Alpine Green Sparkle",
+          "hex": "#3F5443"
+        }
+      },
+      "componentDefaults": {
+        "spool_standard": {
+          "name": "Bambu Standard Spool",
+          "type": "BASE_SPOOL",
+          "massGrams": 212.0,
+          "description": "Reusable plastic spool for Bambu Lab filaments"
+        },
+        "core_cardboard": {
+          "name": "Cardboard Core",
+          "type": "CORE_RING",
+          "massGrams": 33.0,
+          "description": "Cardboard core ring for filament spools"
+        },
+        "filament_1kg": {
+          "name": "1kg Filament",
+          "type": "FILAMENT",
+          "massGrams": 1000.0,
+          "description": "1kg filament material (variable mass)"
+        },
+        "filament_500g": {
+          "name": "500g Filament Refill",
+          "type": "FILAMENT",
+          "massGrams": 500.0,
+          "description": "500g filament refill (variable mass)"
+        }
+      },
+      "products": []
+    },
+    "opentag": {
+      "name": "opentag",
+      "displayName": "OpenTag Standard",
+      "tagFormat": "NDEF_JSON",
+      "materials": {},
+      "temperatureProfiles": {},
+      "colorPalette": {},
+      "rfidMappings": {},
+      "componentDefaults": {
+        "generic_filament": {
+          "name": "Generic Filament",
+          "type": "FILAMENT",
+          "massGrams": 1000.0,
+          "description": "Generic filament material for custom tags"
+        }
+      },
+      "products": []
+    }
+  }
+}
