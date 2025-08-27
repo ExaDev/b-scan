@@ -481,9 +481,67 @@ class UnifiedDataAccess(
      * Get current mappings in legacy format (for backward compatibility)
      */
     fun getCurrentMappings(): FilamentMappings {
-        // This would convert the new format back to legacy FilamentMappings
+        // Convert the new catalog format back to legacy FilamentMappings
         // for compatibility with existing interpreters until they're updated
-        return FilamentMappings()
+        
+        val manufacturers = catalogRepo.getManufacturers()
+        val materialMappings = mutableMapOf<String, String>()
+        val temperatureMappings = mutableMapOf<String, TemperatureRange>()
+        val productCatalog = mutableListOf<ProductEntry>()
+        
+        // Aggregate data from all manufacturers
+        manufacturers.values.forEach { manufacturer ->
+            // Add material mappings (material code -> display name)
+            manufacturer.materials.forEach { (materialId, material) ->
+                materialMappings[materialId] = material.displayName
+            }
+            
+            // Add temperature mappings (material code -> temperature range)
+            manufacturer.materials.forEach { (materialId, material) ->
+                manufacturer.temperatureProfiles[material.temperatureProfile]?.let { tempProfile ->
+                    temperatureMappings[materialId] = TemperatureRange(
+                        minNozzle = tempProfile.minNozzle,
+                        maxNozzle = tempProfile.maxNozzle,
+                        bed = tempProfile.bed
+                    )
+                }
+            }
+            
+            // Convert RFID mappings to ProductEntry format
+            manufacturer.rfidMappings.forEach { (rfidCode, rfidMapping) ->
+                // Find the material for this mapping
+                manufacturer.materials[rfidMapping.material]?.let { material ->
+                    productCatalog.add(
+                        ProductEntry(
+                            variantId = rfidMapping.sku,
+                            productHandle = "bambu-${rfidMapping.material.lowercase()}",
+                            productName = "${material.displayName} - ${rfidMapping.color}",
+                            colorName = rfidMapping.color,
+                            colorHex = rfidMapping.hex,
+                            colorCode = rfidCode,
+                            price = 0.0,
+                            available = true,
+                            url = "https://bambulab.com/",
+                            manufacturer = manufacturer.displayName,
+                            materialType = rfidMapping.material,
+                            internalCode = rfidCode,
+                            lastUpdated = java.time.LocalDateTime.now().toString(),
+                            filamentWeightGrams = 1000f,
+                            spoolType = SpoolPackaging.WITH_SPOOL
+                        )
+                    )
+                }
+            }
+        }
+        
+        return FilamentMappings(
+            version = 1,
+            lastUpdated = java.time.LocalDateTime.now(),
+            materialMappings = materialMappings,
+            brandMappings = manufacturers.mapValues { it.value.displayName },
+            temperatureMappings = temperatureMappings,
+            productCatalog = productCatalog
+        )
     }
     
     private fun createFilamentInfoFromCustomMapping(mapping: CustomRfidMapping): FilamentInfo {
