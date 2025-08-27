@@ -192,7 +192,7 @@ data class CombinedProductInfo(
  * Source of product information
  */
 enum class ProductSource {
-    BUILD_TIME_CATALOG,  // From assets/catalog_data.json
+    BUILD_TIME_CATALOG,  // From built-in catalog definitions
     USER_CREATED         // User-defined SKUs in SharedPreferences
 }
 

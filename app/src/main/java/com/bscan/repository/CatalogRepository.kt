@@ -51,17 +51,16 @@ class CatalogRepository(private val context: Context) {
     
     companion object {
         private const val TAG = "CatalogRepository"
-        private const val CATALOG_ASSET_PATH = "catalog_data.json"
         private const val USER_CATALOG_KEY = "user_catalog_skus_v1"
         private const val USER_CATALOG_STOCK_KEY = "user_catalog_stock_v1"
     }
     
     /**
-     * Get the complete catalog data, loading from assets on first access
+     * Get the complete catalog data, returns empty catalog by default
      */
     fun getCatalog(): CatalogData {
         if (cachedCatalog == null) {
-            cachedCatalog = loadFromAssets()
+            cachedCatalog = createEmptyCatalog()
         }
         return cachedCatalog!!
     }
@@ -175,7 +174,7 @@ class CatalogRepository(private val context: Context) {
     
 
     /**
-     * Force reload catalog from assets (useful for testing)
+     * Force reload catalog (useful for testing)
      */
     fun reloadCatalog() {
         cachedCatalog = null
@@ -551,35 +550,8 @@ class CatalogRepository(private val context: Context) {
         cachedUserSkus = null
     }
     
-    private fun loadFromAssets(): CatalogData {
-        return try {
-            Log.d(TAG, "Loading catalog from assets: $CATALOG_ASSET_PATH")
-            
-            val assetsInputStream = context.assets.open(CATALOG_ASSET_PATH)
-            val jsonString = assetsInputStream.bufferedReader().use { it.readText() }
-            
-            val catalog = gson.fromJson(jsonString, CatalogData::class.java)
-            if (catalog != null) {
-                Log.i(TAG, "Loaded catalog with ${catalog.manufacturers.size} manufacturers")
-                catalog
-            } else {
-                Log.w(TAG, "Catalog data is null, using empty catalog")
-                createEmptyCatalog()
-            }
-        } catch (e: IOException) {
-            Log.e(TAG, "Failed to load catalog from assets", e)
-            createEmptyCatalog()
-        } catch (e: JsonSyntaxException) {
-            Log.e(TAG, "Invalid catalog JSON format", e)
-            createEmptyCatalog()
-        } catch (e: Exception) {
-            Log.e(TAG, "Unexpected error loading catalog", e)
-            createEmptyCatalog()
-        }
-    }
-    
     private fun createEmptyCatalog(): CatalogData {
-        Log.i(TAG, "Creating empty catalog as fallback")
+        Log.i(TAG, "Creating empty catalog")
         return CatalogData(
             version = 1,
             manufacturers = emptyMap()
