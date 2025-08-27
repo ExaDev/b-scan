@@ -61,8 +61,6 @@ class InventoryTrackingRepositoryTest {
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_catalog", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
-        `when`(mockContext.getSharedPreferences("catalog_data", Context.MODE_PRIVATE))
-            .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("component_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("component_measurement_data", Context.MODE_PRIVATE))
@@ -88,13 +86,6 @@ class InventoryTrackingRepositoryTest {
         `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
-        // Mock the Assets for CatalogRepository
-        val mockAssetManager = mock(android.content.res.AssetManager::class.java)
-        `when`(mockContext.assets).thenReturn(mockAssetManager)
-        
-        // Mock empty catalog asset to prevent loading issues
-        val emptyCatalog = "{\"version\": 1, \"manufacturers\": {}}"
-        `when`(mockAssetManager.open("catalog_data.json")).thenReturn(ByteArrayInputStream(emptyCatalog.toByteArray()))
         
         repository = InventoryTrackingRepository(mockContext)
     }

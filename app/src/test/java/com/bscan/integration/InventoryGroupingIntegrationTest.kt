@@ -51,14 +51,12 @@ class InventoryGroupingIntegrationTest {
         // Clear mock storage for each test
         mockStorage.clear()
         
-        // Use real context for assets, but mock SharedPreferences access
+        // Mock all context and SharedPreferences access
         realContext = ApplicationProvider.getApplicationContext()
         mockContext = mock(Context::class.java)
         
         // Mock SharedPreferences chains for all repositories - return mocked SharedPreferences
         `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
-            .thenReturn(mockSharedPreferences)
-        `when`(mockContext.getSharedPreferences("catalog_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
@@ -101,10 +99,7 @@ class InventoryGroupingIntegrationTest {
             mockStorage.containsKey(key)
         }
         
-        // Use real AssetManager from real context for catalog loading
-        `when`(mockContext.assets).thenReturn(realContext.assets)
-        
-        // Setup repositories with mock context (which uses real assets but mocked SharedPreferences)
+        // Setup repositories with mock context and mocked SharedPreferences
         catalogRepository = CatalogRepository(mockContext)
         userDataRepository = UserDataRepository(mockContext)
         unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)

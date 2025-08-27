@@ -43,8 +43,6 @@ class ScanHistoryIntegrationTest {
         // Mock SharedPreferences chains for all repositories ScanHistoryRepository needs
         `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
-        `when`(mockContext.getSharedPreferences("catalog_data", Context.MODE_PRIVATE))
-            .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_catalog", Context.MODE_PRIVATE))
@@ -65,18 +63,9 @@ class ScanHistoryIntegrationTest {
         `when`(mockEditor.remove(any())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
         
-        // Mock Assets for CatalogRepository
-        val mockAssetManager = mock(android.content.res.AssetManager::class.java)
-        `when`(mockContext.assets).thenReturn(mockAssetManager)
-        
-        // Mock empty catalog asset to prevent loading issues
-        val emptyCatalog = "{\"version\": 1, \"manufacturers\": {}}"
-        `when`(mockAssetManager.open("catalog_data.json")).thenReturn(java.io.ByteArrayInputStream(emptyCatalog.toByteArray()))
-        
         // Mock data retrieval for all keys used by the repository chain
         `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
-        `when`(mockSharedPreferences.getString("catalog_data", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("user_data", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("user_data_v1", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("components", null)).thenReturn(null)
