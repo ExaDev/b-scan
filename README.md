@@ -1,24 +1,45 @@
-# B-Scan - Bambu RFID Tag Reader
+# B-Scan - Universal Component Inventory Management
 
-A simple Android application for reading and displaying Bambu Lab 3D printer filament reel RFID tags. This app provides a clean, read-only interface to view filament information directly from NFC-enabled Bambu Lab filament reels.
+An Android application for managing inventory components using **any identification method**. B-Scan is **identification-method agnostic** - supporting RFID/NFC scanning, QR codes, barcodes, manual handwritten IDs, serial numbers, batch numbers, SKU lookups, or any combination thereof. While initially focused on Bambu Lab 3D printer filament reels via RFID scanning, B-Scan has evolved into a universal inventory management platform where RFID filament is just one example among many trackable components and identification methods.
 
 ## Features
 
-- **NFC Tag Scanning**: Tap your Android device against Bambu Lab filament reels to read their RFID data
-- **Filament Information Display**: View detailed filament reel information including:
-  - Filament type (PLA, PETG, ABS, etc.)
-  - Color name and hex code with visual preview
-  - Material specifications (diameter, weight, length)  
-  - Temperature settings (hotend, bed, drying)
-  - Production date and tray UID
+- **Universal Identification Methods**: Support for multiple ways to identify and track components:
+  - **NFC/RFID Scanning**: Multiple tag formats (Bambu Lab, Creality, OpenTag, generic)
+  - **QR Code Scanning**: Quick Response codes with flexible data formats
+  - **Barcode Scanning**: Traditional 1D barcodes for standard inventory
+  - **Manual Entry**: Handwritten IDs, serial numbers, or custom identifiers
+  - **Batch Numbers**: Production batch tracking and quality control
+  - **SKU Lookup**: Direct catalog-based component creation
+- **Universal Component System**: Hierarchical inventory management where everything is a component:
+  - Components can contain other components (parent-child relationships)
+  - Components can be grouped as siblings under common parent
+  - Flexible categories: filament, RFID tags, cores, spools, nozzles, tools
+- **Catalog-Driven Inventory**: 
+  - Identification data → SKU lookup → component instantiation
+  - Build-time catalog (immutable manufacturer databases) + user-extensible catalog
+  - Stock aggregation across multiple component instances per SKU
+- **Advanced Component Display**: 
+  - Material-specific geometric shapes (PLA=circle, ABS=hexagon)
+  - Finish effects (silk shimmer, matte stippling, translucent backgrounds)
+  - Precise hex colour matching with visual previews
+- **BLE Scales Integration** (in development): Real-time weight measurements for consumption tracking
+- **Export/Import System**: JSON-based backup with comprehensive data preservation
 - **Material 3 Design**: Clean, modern interface following Google's latest design guidelines
-- **Instant Results**: No internet connection required - all data comes directly from the tag
+- **Instant Results**: No internet connection required - all data comes directly from identification source or catalog
+- **Flexible Data Entry**: Works with or without scanning hardware - manual entry fully supported
 
 ## Requirements
 
-- Android device with NFC capability
-- Android 10 (API level 29) or higher
-- Bambu Lab filament reels with RFID tags
+- Android device (Android 10 / API level 29 or higher)
+- **Optional hardware features**:
+  - NFC capability for RFID tag scanning
+  - Camera for QR code and barcode scanning
+  - Bluetooth LE for scale integration
+- **No hardware required for**:
+  - Manual inventory entry and management
+  - Catalog browsing and SKU lookup
+  - Component relationship management
 
 ## Installation
 
@@ -36,56 +57,103 @@ A simple Android application for reading and displaying Bambu Lab 3D printer fil
 
 The app will automatically decode the RFID data and present it in an easy-to-read format with colour visualisation and technical specifications.
 
-### Supported Tags
+### Supported Tag Formats
 
-- Bambu Lab PLA (Basic, Matte, Silk, Galaxy, Sparkle)
-- Bambu Lab PETG Basic
-- Bambu Lab ABS
-- Bambu Lab Support materials
-- Other Bambu Lab proprietary filament types
+**Bambu Lab RFID Tags** (Primary Support):
+- All Bambu filament types: PLA (Basic, Matte, Silk, Galaxy, Sparkle), PETG, ABS, ASA, Support materials
+- Dual identifier system: Hardware UID (authentication) + Tray UID (consumable tracking)
+- Complete filament specifications, temperature settings, production data
+
+**Creality RFID Tags** (Extended Support):
+- ASCII-encoded filament data in blocks 4-6
+- Single identifier system using hardware UID
+
+**OpenTag Format** (Planned):
+- User-configurable tag formats
+- Custom component definitions
 
 ## Technical Details
 
 - **Platform**: Android (Kotlin)
-- **UI Framework**: Jetpack Compose
+- **UI Framework**: Jetpack Compose with Material 3
 - **Target SDK**: Android 14 (API 35)
 - **Minimum SDK**: Android 10 (API 29)
+- **Architecture**: MVVM with single Activity, hierarchical component system
 - **NFC Protocol**: ISO 14443-A (Mifare Classic 1K)
-- **Tag Format**: Bambu Lab proprietary RFID data structure
+- **Tag Formats**: Multi-format support (Bambu Lab, Creality, OpenTag)
+- **Data Management**: Catalog-driven component instantiation with dual storage
 
-### Terminology & Architecture
+### Universal Component Architecture
 
-B-Scan uses precise terminology to distinguish between physical and logical inventory concepts:
+B-Scan uses a hierarchical component system where everything is represented as a `Component`:
 
-#### Core Concepts
-- **FilamentReel**: The consumable filament material identified by its unique tray UID
-  - Contains the actual filament that gets printed
-  - Has exactly 2 RFID tags attached sharing the same tray UID
-  - Represented by the `FilamentReel` model class
-- **SpoolHardware**: The reusable plastic reel/bobbin that holds filament
-  - Physical hardware component that can be reused across multiple FilamentReels
-  - Has its own unique spool ID (separate from tray UID)
-  - Represented by the `SpoolHardware` model class (future inventory features)
-- **Tray UID**: Unique identifier for a FilamentReel (shared between its 2 RFID tags)
-- **Tag UID**: Unique identifier for each individual RFID tag
+#### Core Architecture Concepts
+- **Component**: Universal model for any trackable inventory item
+- **Hierarchical Relationships**: Components can contain other components (parent-child)
+- **Sibling Groupings**: Multiple components can share the same parent
+- **Flexible Categories**: `filament`, `rfid-tag`, `core`, `spool`, `nozzle`, etc.
+- **Inventory Items**: Root components with unique identifiers
 
-#### Physical vs Logical Structure
-Each Bambu Lab purchase contains:
-- **1 FilamentReel** (consumable filament with unique tray UID)
-- **1 SpoolHardware** (reusable plastic reel with unique spool ID)
-- **2 RFID Tags** (attached to filament, sharing the same tray UID)
+#### Catalog-Driven System
+- **SKU Templates**: Catalog entries define component creation templates
+- **Identifier → SKU → Component**: Any identification method looks up SKU to instantiate components
+- **Stock Aggregation**: Multiple component instances track total inventory per SKU
+- **Build-time + User Catalogs**: Immutable official data + extensible user entries
 
-#### Key Relationships
-- Tray UID identifies the FilamentReel (stays with the filament)
-- Spool ID identifies the SpoolHardware (stays with the plastic reel)
-- FilamentReel can be mounted/unmounted from SpoolHardware
-- Multiple FilamentReels can use the same SpoolHardware over time
+#### Universal Identifier System
 
-#### Code Conventions
-- Use `FilamentReel` for consumable filament material
-- Use `SpoolHardware` for reusable plastic reels
-- Avoid ambiguous "spool" references without qualification
-- Apply proper identification: `trayUid` for filament, `spoolId` for hardware
+B-Scan supports multiple identifier types per component, allowing any combination of identification methods:
+
+**ComponentIdentifier Types**:
+- **RFID_HARDWARE**: Built-in NFC/RFID chip identifiers (authentication)
+- **CONSUMABLE_UNIT**: Batch or unit identifiers (tracking consumables)
+- **QR**: Quick Response code data
+- **BARCODE**: Traditional 1D barcode data
+- **SERIAL_NUMBER**: Handwritten or typed serial numbers
+- **SKU**: Direct catalog stock keeping unit references
+- **BATCH_NUMBER**: Production batch tracking
+- **MODEL_NUMBER**: Equipment model identification
+- **CUSTOM**: User-defined identifier types
+
+**Identifier Purposes**:
+- **AUTHENTICATION**: Verify authenticity (e.g., RFID security)
+- **TRACKING**: Monitor usage and location
+- **LOOKUP**: Reference catalog information
+- **DISPLAY**: Human-readable labels
+- **LINKING**: Connect related components
+
+#### Example Identifier Patterns
+
+**Bambu Lab Pattern**: Dual identifier system
+- **Hardware UID**: Built-in chip identifier (authentication)
+- **Tray UID**: Consumable unit identifier (shared between 2 tags on same reel)
+- **Component Hierarchy**: Tray component (root) → RFID tags + filament + hardware (siblings)
+
+**Manual Entry Pattern**: Human-driven identification
+- **Serial Number**: Handwritten or typed component serial
+- **Batch Number**: Production lot identification
+- **Custom ID**: Any user-defined identification scheme
+
+**Mixed Pattern**: Multiple identification methods per component
+- **QR Code**: Quick scanning for component details
+- **Serial Number**: Backup manual identification
+- **SKU**: Direct catalog reference
+- **Custom Tag**: Workshop-specific labeling system
+
+**Workshop Equipment Pattern**: Non-consumable tracking
+- **Model Number**: Equipment model identification  
+- **Serial Number**: Individual unit tracking
+- **Barcode**: Standard inventory system integration
+
+#### Component Example (Bambu Filament)
+```
+Tray Component (uniqueId: "01008023..." [tray UID])
+├── RFID Tag #1 (uniqueId: "A1B2C3D4" [hardware UID])
+├── RFID Tag #2 (uniqueId: "E5F6A7B8" [hardware UID])  
+├── Filament (consumable material, variable mass)
+├── Core (reusable hardware, 33g)
+└── Spool (reusable hardware, 212g)
+```
 
 ## Entity Relationships
 
@@ -211,7 +279,6 @@ flowchart TD
 
 Comprehensive documentation is available in the [docs/](docs/) directory:
 
-- **[CLAUDE.md](CLAUDE.md)** - Development guidance and project architecture 
 - **[Cache Design](docs/CACHE_DESIGN.md)** - Architecture and implementation of the high-performance caching system
 - **[Development Guide](docs/DEVELOPMENT.md)** - Development setup, building, and testing instructions
 - **[Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md)** - Detailed technical implementation overview
@@ -225,17 +292,26 @@ For developers looking to contribute or understand the codebase, start with the 
 ble scale
 ## Privacy & Security
 
-- **No data collection**: App reads tags locally and doesn't transmit any information
+- **No data collection**: App processes identification data locally and doesn't transmit any information
 - **No internet required**: All processing happens on-device
-- **No storage**: Tag data is displayed temporarily and not saved
-- **Read-only access**: App cannot modify or write to RFID tags
+- **Local storage only**: Inventory data is stored locally on your device
+- **Read-only access**: App cannot modify or write to identification sources (RFID tags, etc.)
 
-## Limitations
+## Current Limitations
 
-- Only supports Bambu Lab RFID tags (Mifare Classic 1K format)
-- Cannot read encrypted or damaged tags
-- Requires physical proximity to tag (NFC range ~4cm)
+**RFID/NFC Scanning**:
+- Currently supports Bambu Lab and Creality RFID formats
+- Cannot read heavily encrypted or physically damaged tags
+- Requires physical proximity for NFC (range ~4cm)
 - Does not support tag writing or modification
+
+**Camera Scanning**:
+- QR code and barcode scanning require adequate lighting
+- Camera-based scanning needs clear, unobstructed view
+
+**General**:
+- Offline-only operation (by design for privacy)
+- Manual backup required for data preservation across devices
 
 ## Related Projects
 
