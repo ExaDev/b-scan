@@ -1,6 +1,16 @@
 package com.bscan.model
 
 /**
+ * SKU information for Bambu Lab filament products
+ * Contains the 5-digit filament code, display name, and material type
+ */
+data class SkuInfo(
+    val sku: String,           // 5-digit filament code (e.g., "10101")
+    val colorName: String,     // Human-readable color name (e.g., "Black")
+    val materialType: String   // Material series (e.g., "PLA Basic", "ABS")
+)
+
+/**
  * Represents a Bambu Lab filament product with purchase links
  */
 data class BambuProduct(
