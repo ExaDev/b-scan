@@ -332,6 +332,25 @@ For researchers and developers working with Bambu Lab RFID tags, several communi
 - **[queengooborg/Bambu-Lab-RFID-Library](https://github.com/queengooborg/Bambu-Lab-RFID-Library)**: Most comprehensive collection (~100+ variants) of actual tag dump files organised by material/colour
 - **[ImNoahDev/Bambu-RFID-Database](https://github.com/ImNoahDev/Bambu-RFID-Database)**: Community project for collecting tag data (early stage)
 
+### RFID Mapping Structure (Bambu Filament)
+
+Bambu Lab filament RFID tags encode product information using a three-part key: `"MaterialID:SeriesCode-ColorCode"`
+
+**Example**: `"GFL00:A00-K0"` identifies a specific black PLA Basic product variant
+
+**Structure**:
+1. **MaterialID** (e.g., GFL00): Base filament material
+   - GFL00 = PLA Basic, GFL01 = ABS, GFL02 = PLA Silk
+   - GFL04 = TPU, GFG01 = PETG, GFC00 = PC, GFN04 = PA (Nylon)
+
+2. **SeriesCode** (e.g., A00): Product series or manufacturing batch
+   - A00 = Standard series, G50 = Carbon Fibre variant, G02 = Regular PETG
+
+3. **ColorCode** (e.g., K0): Colour variant within the series  
+   - K0 = Black, P7 = Purple, W0 = White, G0/G2 = Grey/Green
+
+This identifier is stored in Block 1 of the RFID tag and used by B-Scan to look up specific product SKUs for enrichment with pricing, descriptions, and purchase links.
+
 **Note**: No repository contains data for ALL Bambu Lab RFID tags due to:
 - RSA signature protection preventing tag modification
 - Physical collection requirements (expensive to acquire all variants)  
