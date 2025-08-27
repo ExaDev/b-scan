@@ -7,30 +7,114 @@ import com.bscan.repository.ComponentRepository
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.UnifiedDataAccess
+import com.bscan.interpreter.BambuFormatInterpreter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.util.UUID
 
 /**
  * Factory service for creating hierarchical component structures from Bambu RFID scans.
  * Automatically creates tray components with child components for RFID tags, filament, and core.
+ * 
+ * Extends ComponentFactory to provide Bambu-specific component creation strategy.
  */
-class BambuComponentFactory(private val context: Context) {
+class BambuComponentFactory(context: Context) : ComponentFactory(context) {
     
-    private val componentRepository = ComponentRepository(context)
-    private val catalogRepository = CatalogRepository(context)
-    private val userDataRepository = UserDataRepository(context)
     private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
+    private val bambuInterpreter = BambuFormatInterpreter(FilamentMappings.empty(), unifiedDataAccess)
+    
+    override val factoryType: String = "BambuComponentFactory"
+    
+    override fun supportsTagFormat(encryptedScanData: EncryptedScanData): Boolean {
+        return try {
+            // Check for Bambu format indicators
+            val dataSize = encryptedScanData.encryptedData.size
+            val technology = encryptedScanData.technology
+            
+            // Bambu tags use specific data sizes and require authentication
+            when {
+                dataSize == 768 || dataSize == 1024 -> true // Bambu-specific sizes
+                technology.contains("MIFARE", ignoreCase = true) && dataSize >= 512 -> true
+                else -> false
+            }
+        } catch (e: Exception) {
+            Log.e(factoryType, "Error checking Bambu tag format", e)
+            false
+        }
+    }
+    
+    override suspend fun processScan(
+        encryptedScanData: EncryptedScanData,
+        decryptedScanData: DecryptedScanData
+    ): Component? = withContext(Dispatchers.IO) {
+        try {
+            Log.d(factoryType, "Processing Bambu RFID scan for tag: ${encryptedScanData.tagUid}")
+            
+            if (decryptedScanData.scanResult != ScanResult.SUCCESS) {
+                Log.w(factoryType, "Scan failed: ${decryptedScanData.scanResult}")
+                return@withContext null
+            }
+            
+            // Interpret the decrypted data
+            val filamentInfo = bambuInterpreter.interpret(decryptedScanData)
+            if (filamentInfo == null) {
+                Log.e(factoryType, "Failed to interpret Bambu tag data")
+                return@withContext null
+            }
+            
+            return@withContext processBambuRfidScan(
+                tagUid = encryptedScanData.tagUid,
+                trayUid = filamentInfo.trayUid,
+                filamentInfo = filamentInfo
+            )
+        } catch (e: Exception) {
+            Log.e(factoryType, "Error processing Bambu RFID scan", e)
+            null
+        }
+    }
+    
+    override suspend fun createComponents(
+        tagUid: String,
+        interpretedData: Any,
+        metadata: Map<String, String>
+    ): List<Component> = withContext(Dispatchers.IO) {
+        val filamentInfo = interpretedData as? FilamentInfo
+        if (filamentInfo == null) {
+            Log.e(factoryType, "Invalid interpreted data type for Bambu")
+            return@withContext emptyList()
+        }
+        
+        // Create RFID tag component first
+        val rfidTagComponent = createRfidTagComponent(tagUid, filamentInfo.trayUid, filamentInfo)
+        componentRepository.saveComponent(rfidTagComponent)
+        
+        // Create complete tray component hierarchy
+        val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
+        return@withContext listOf(trayComponent)
+    }
+    
+    override fun extractUniqueIdentifier(decryptedScanData: DecryptedScanData): String? {
+        return try {
+            val filamentInfo = bambuInterpreter.interpret(decryptedScanData)
+            filamentInfo?.trayUid
+        } catch (e: Exception) {
+            Log.e(factoryType, "Error extracting unique identifier", e)
+            null
+        }
+    }
     
     /**
      * Process an RFID scan and create/update the component hierarchy
+     * Legacy method maintained for backwards compatibility
      */
-    fun processBambuRfidScan(
+    suspend fun processBambuRfidScan(
         tagUid: String,
         trayUid: String,
         filamentInfo: FilamentInfo
-    ): Component? {
+    ): Component? = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Processing Bambu RFID scan for tray: $trayUid, tag: $tagUid")
+            Log.d(factoryType, "Processing Bambu RFID scan for tray: $trayUid, tag: $tagUid")
             
             // Create RFID tag component
             val rfidTagComponent = createRfidTagComponent(tagUid, trayUid, filamentInfo)
@@ -42,30 +126,30 @@ class BambuComponentFactory(private val context: Context) {
             if (trayComponent == null) {
                 // Create new tray with all standard components
                 trayComponent = createCompleteTrayComponent(trayUid, filamentInfo, rfidTagComponent.id)
-                Log.i(TAG, "Created new tray component: ${trayComponent.name}")
+                Log.i(factoryType, "Created new tray component: ${trayComponent.name}")
             } else {
                 // Add this RFID tag to existing tray
                 trayComponent = trayComponent.withChildComponent(rfidTagComponent.id)
                 componentRepository.saveComponent(trayComponent)
-                Log.i(TAG, "Added RFID tag ${tagUid} to existing tray: ${trayComponent.name}")
+                Log.i(factoryType, "Added RFID tag ${tagUid} to existing tray: ${trayComponent.name}")
             }
             
-            return trayComponent
+            return@withContext trayComponent
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing Bambu RFID scan", e)
-            return null
+            Log.e(factoryType, "Error processing Bambu RFID scan", e)
+            return@withContext null
         }
     }
     
     /**
      * Create a complete tray component with all standard child components
      */
-    private fun createCompleteTrayComponent(
+    private suspend fun createCompleteTrayComponent(
         trayUid: String,
         filamentInfo: FilamentInfo,
         rfidTagComponentId: String
-    ): Component {
+    ): Component = withContext(Dispatchers.IO) {
         
         // Create filament component
         val filamentComponent = createFilamentComponent(filamentInfo)
@@ -81,7 +165,7 @@ class BambuComponentFactory(private val context: Context) {
         
         // Create tray component containing all others
         val trayComponent = Component(
-            id = "tray_${System.currentTimeMillis()}",
+            id = generateComponentId("tray"),
             uniqueIdentifier = trayUid,
             name = "Bambu ${filamentInfo.filamentType} - ${filamentInfo.colorName}",
             category = "filament-tray",
@@ -107,19 +191,26 @@ class BambuComponentFactory(private val context: Context) {
         }
         
         componentRepository.saveComponent(trayComponent)
-        return trayComponent
+        
+        // Create inventory item
+        createInventoryItem(
+            rootComponent = trayComponent,
+            notes = "Bambu filament tray - ${filamentInfo.filamentType} ${filamentInfo.colorName}"
+        )
+        
+        return@withContext trayComponent
     }
     
     /**
      * Create an RFID tag component
      */
-    private fun createRfidTagComponent(
+    private suspend fun createRfidTagComponent(
         tagUid: String,
         trayUid: String,
         filamentInfo: FilamentInfo
-    ): Component {
-        return Component(
-            id = "rfid_tag_${tagUid}_${System.currentTimeMillis()}",
+    ): Component = withContext(Dispatchers.IO) {
+        return@withContext Component(
+            id = generateComponentId("rfid_tag"),
             uniqueIdentifier = tagUid,
             name = "RFID Tag $tagUid",
             category = "rfid-tag",
@@ -141,11 +232,11 @@ class BambuComponentFactory(private val context: Context) {
     /**
      * Create a filament component with mass from SKU data
      */
-    private fun createFilamentComponent(filamentInfo: FilamentInfo): Component {
+    private suspend fun createFilamentComponent(filamentInfo: FilamentInfo): Component = withContext(Dispatchers.IO) {
         val filamentMass = getFilamentMassFromSku(filamentInfo.filamentType, filamentInfo.colorName)
         
-        return Component(
-            id = "filament_${System.currentTimeMillis()}",
+        return@withContext Component(
+            id = generateComponentId("filament"),
             name = "${filamentInfo.filamentType} ${filamentInfo.colorName} Filament",
             category = "filament",
             tags = listOf("consumable", "variable-mass", "bambu"),
@@ -161,9 +252,9 @@ class BambuComponentFactory(private val context: Context) {
     /**
      * Create a cardboard core component
      */
-    private fun createCoreComponent(): Component {
-        return Component(
-            id = "core_${System.currentTimeMillis()}",
+    private suspend fun createCoreComponent(): Component = withContext(Dispatchers.IO) {
+        return@withContext Component(
+            id = generateComponentId("core"),
             name = "Bambu Cardboard Core",
             category = "core",
             tags = listOf("reusable", "fixed-mass", "bambu"),
@@ -181,9 +272,9 @@ class BambuComponentFactory(private val context: Context) {
     /**
      * Create a refillable spool component
      */
-    private fun createSpoolComponent(): Component {
-        return Component(
-            id = "spool_${System.currentTimeMillis()}",
+    private suspend fun createSpoolComponent(): Component = withContext(Dispatchers.IO) {
+        return@withContext Component(
+            id = generateComponentId("spool"),
             name = "Bambu Refillable Spool",
             category = "spool", 
             tags = listOf("reusable", "fixed-mass", "bambu"),
@@ -202,19 +293,19 @@ class BambuComponentFactory(private val context: Context) {
     /**
      * Get filament mass from SKU data with fallback to defaults
      */
-    private fun getFilamentMassFromSku(filamentType: String, colorName: String): Float {
-        return try {
+    private suspend fun getFilamentMassFromSku(filamentType: String, colorName: String): Float = withContext(Dispatchers.IO) {
+        try {
             val bestMatch = unifiedDataAccess.findBestProductMatch(filamentType, colorName)
             if (bestMatch?.filamentWeightGrams != null) {
-                Log.d(TAG, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
+                Log.d(factoryType, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
                 bestMatch.filamentWeightGrams
             } else {
                 val defaultMass = getDefaultMassByMaterial(filamentType)
-                Log.d(TAG, "Using default mass for $filamentType: ${defaultMass}g")
+                Log.d(factoryType, "Using default mass for $filamentType: ${defaultMass}g")
                 defaultMass
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error looking up SKU mass for $filamentType/$colorName", e)
+            Log.e(factoryType, "Error looking up SKU mass for $filamentType/$colorName", e)
             getDefaultMassByMaterial(filamentType)
         }
     }
@@ -222,7 +313,7 @@ class BambuComponentFactory(private val context: Context) {
     /**
      * Build comprehensive metadata for tray component with SKU linking
      */
-    private fun buildTrayMetadata(trayUid: String, filamentInfo: FilamentInfo): Map<String, String> {
+    private suspend fun buildTrayMetadata(trayUid: String, filamentInfo: FilamentInfo): Map<String, String> = withContext(Dispatchers.IO) {
         val metadata = mutableMapOf<String, String>(
             "trayUid" to trayUid,
             "filamentType" to filamentInfo.filamentType,
@@ -243,23 +334,23 @@ class BambuComponentFactory(private val context: Context) {
                 bestMatch.filamentWeightGrams?.let {
                     metadata["expectedWeightGrams"] = it.toString()
                 }
-                Log.i(TAG, "Auto-linked tray $trayUid to SKU: ${bestMatch.variantId}")
+                Log.i(factoryType, "Auto-linked tray $trayUid to SKU: ${bestMatch.variantId}")
             } else {
                 metadata["skuLinkStatus"] = "no-match-found"
-                Log.d(TAG, "No SKU match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
+                Log.d(factoryType, "No SKU match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
             }
         } catch (e: Exception) {
             metadata["skuLinkStatus"] = "lookup-error"
-            Log.e(TAG, "Error looking up SKU for tray metadata", e)
+            Log.e(factoryType, "Error looking up SKU for tray metadata", e)
         }
         
-        return metadata
+        return@withContext metadata
     }
     
     /**
      * Build comprehensive metadata for filament component with SKU details
      */
-    private fun buildFilamentMetadata(filamentInfo: FilamentInfo, actualMass: Float): Map<String, String> {
+    private suspend fun buildFilamentMetadata(filamentInfo: FilamentInfo, actualMass: Float): Map<String, String> = withContext(Dispatchers.IO) {
         val metadata = mutableMapOf<String, String>(
             "filamentType" to filamentInfo.filamentType,
             "colorName" to filamentInfo.colorName,
@@ -286,7 +377,7 @@ class BambuComponentFactory(private val context: Context) {
             metadata["productLine"] = product.productLine
         }
         
-        return metadata
+        return@withContext metadata
     }
     
     /**
@@ -304,8 +395,8 @@ class BambuComponentFactory(private val context: Context) {
     /**
      * Add additional components to an existing tray (e.g., bag, adapter)
      */
-    fun addComponentToTray(trayUid: String, component: Component): Boolean {
-        val tray = componentRepository.findInventoryByUniqueId(trayUid) ?: return false
+    suspend fun addComponentToTray(trayUid: String, component: Component): Boolean = withContext(Dispatchers.IO) {
+        val tray = componentRepository.findInventoryByUniqueId(trayUid) ?: return@withContext false
         
         // Save the new component first
         componentRepository.saveComponent(component.copy(parentComponentId = tray.id))
@@ -314,20 +405,20 @@ class BambuComponentFactory(private val context: Context) {
         val updatedTray = tray.withChildComponent(component.id)
         componentRepository.saveComponent(updatedTray)
         
-        Log.d(TAG, "Added component ${component.name} to tray $trayUid")
-        return true
+        Log.d(factoryType, "Added component ${component.name} to tray $trayUid")
+        return@withContext true
     }
     
     /**
      * Infer and add a component based on total weight measurement
      */
-    fun inferAndAddComponent(
+    suspend fun inferAndAddComponent(
         trayUid: String,
         componentName: String,
         componentCategory: String,
         totalMeasuredMass: Float
-    ): Component? {
-        val tray = componentRepository.findInventoryByUniqueId(trayUid) ?: return null
+    ): Component? = withContext(Dispatchers.IO) {
+        val tray = componentRepository.findInventoryByUniqueId(trayUid) ?: return@withContext null
         
         // Calculate known mass from existing children
         val knownMass = tray.childComponents.sumOf { childId ->
@@ -336,13 +427,13 @@ class BambuComponentFactory(private val context: Context) {
         
         val inferredMass = totalMeasuredMass - knownMass
         if (inferredMass < 0) {
-            Log.w(TAG, "Cannot infer component mass - total ($totalMeasuredMass) less than known mass ($knownMass)")
-            return null
+            Log.w(factoryType, "Cannot infer component mass - total ($totalMeasuredMass) less than known mass ($knownMass)")
+            return@withContext null
         }
         
         // Create inferred component
         val inferredComponent = Component(
-            id = "${componentCategory}_${System.currentTimeMillis()}",
+            id = generateComponentId(componentCategory),
             name = componentName,
             category = componentCategory,
             tags = listOf("inferred", "fixed-mass"),
@@ -363,14 +454,14 @@ class BambuComponentFactory(private val context: Context) {
         val updatedTray = tray.withChildComponent(inferredComponent.id)
         componentRepository.saveComponent(updatedTray)
         
-        Log.i(TAG, "Inferred and added component: $componentName (${inferredMass}g) to tray $trayUid")
-        return inferredComponent
+        Log.i(factoryType, "Inferred and added component: $componentName (${inferredMass}g) to tray $trayUid")
+        return@withContext inferredComponent
     }
     
     /**
      * Create an InventoryItem for the tray component
      */
-    private fun createInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) {
+    private suspend fun createInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) = withContext(Dispatchers.IO) {
         try {
             val inventoryItem = InventoryItem(
                 trayUid = trayComponent.uniqueIdentifier!!,
@@ -384,17 +475,17 @@ class BambuComponentFactory(private val context: Context) {
             // Save to UserDataRepository
             userDataRepository.saveInventoryItem(inventoryItem)
             
-            Log.i(TAG, "Created inventory item for tray: ${trayComponent.uniqueIdentifier}")
+            Log.i(factoryType, "Created inventory item for tray: ${trayComponent.uniqueIdentifier}")
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
+            Log.e(factoryType, "Error creating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
         }
     }
     
     /**
      * Update existing InventoryItem when new RFID tags are scanned
      */
-    private fun updateInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) {
+    private suspend fun updateInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) = withContext(Dispatchers.IO) {
         try {
             val existingItem = userDataRepository.getInventoryItem(trayComponent.uniqueIdentifier!!)
             if (existingItem != null) {
@@ -406,14 +497,14 @@ class BambuComponentFactory(private val context: Context) {
                 )
                 
                 userDataRepository.saveInventoryItem(updatedItem)
-                Log.i(TAG, "Updated inventory item for tray: ${trayComponent.uniqueIdentifier}")
+                Log.i(factoryType, "Updated inventory item for tray: ${trayComponent.uniqueIdentifier}")
             } else {
                 // Create new inventory item if somehow missing
                 createInventoryItemForTray(trayComponent, filamentInfo)
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
+            Log.e(factoryType, "Error updating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
         }
     }
     
