@@ -12,7 +12,8 @@ import com.bscan.interpreter.InterpreterFactory
  */
 class UnifiedDataAccess(
     private val catalogRepo: CatalogRepository,
-    private val userRepo: UserDataRepository
+    private val userRepo: UserDataRepository,
+    private val scanHistoryRepo: ScanHistoryRepository? = null
 ) {
     
     companion object {
@@ -437,22 +438,22 @@ class UnifiedDataAccess(
      * Get all interpreted scans
      */
     fun getAllScans(): List<InterpretedScan> {
-        // This delegates to the user repository for scan data
-        return userRepo.getAllInterpretedScans()
+        // Use ScanHistoryRepository if available (has the actual scan data), otherwise fall back to UserRepo
+        return scanHistoryRepo?.getAllScans() ?: userRepo.getAllInterpretedScans()
     }
     
     /**
      * Get scans filtered by tag UID
      */
     fun getScansByTagUid(tagUid: String): List<InterpretedScan> {
-        return userRepo.getScansByTagUid(tagUid)
+        return scanHistoryRepo?.getScansByTagUid(tagUid) ?: userRepo.getScansByTagUid(tagUid)
     }
     
     /**
      * Get detailed information about a filament reel by tray UID or tag UID
      */
     fun getFilamentReelDetails(identifier: String): FilamentReelDetails? {
-        return userRepo.getFilamentReelDetails(identifier)
+        return scanHistoryRepo?.getFilamentReelDetails(identifier) ?: userRepo.getFilamentReelDetails(identifier)
     }
     
     // === RFID Code Resolution ===

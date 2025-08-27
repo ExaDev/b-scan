@@ -65,7 +65,8 @@ fun DetailScreen(
     val context = LocalContext.current
     val catalogRepository = remember { CatalogRepository(context) }
     val userRepository = remember { UserDataRepository(context) }
-    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userRepository) }
+    val scanHistoryRepository = remember { ScanHistoryRepository(context) }
+    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userRepository, scanHistoryRepository) }
     val viewModel = remember { DetailViewModel(unifiedDataAccess) }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
