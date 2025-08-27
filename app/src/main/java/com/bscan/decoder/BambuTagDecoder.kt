@@ -5,7 +5,6 @@ import com.bscan.debug.DebugDataCollector
 import com.bscan.debug.BedTemperatureDebugHelper
 import com.bscan.model.FilamentInfo
 import com.bscan.model.NfcTagData
-import com.bscan.data.BambuProductDatabase
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.LocalDateTime
@@ -235,14 +234,9 @@ object BambuTagDecoder {
             // Generate a basic color name from the hex value (could be enhanced)
             val colorName = getColorName(finalColorHex)
             
-            // Look up product information for purchase links
-            val bambuProduct = BambuProductDatabase.findProduct(materialId, finalColorHex)
-            bambuProduct?.let { product ->
-                Log.d(TAG, "Found product: ${product.productLine} - ${product.colorName}")
-                Log.d(TAG, "Purchase options: Spool=${product.spoolUrl != null}, Refill=${product.refillUrl != null}")
-            } ?: run {
-                Log.d(TAG, "No product found for materialId=$materialId, colorHex=$finalColorHex")
-            }
+            // Product lookup removed - BambuProductDatabase used wrong code system
+            // Real materialId values (GFA00, GFB00, etc.) never matched GFL codes in database
+            Log.d(TAG, "MaterialId from tag: $materialId (no product lookup - database used wrong codes)")
             
             return FilamentInfo(
                 tagUid = data.uid, // Individual tag UID
@@ -272,7 +266,7 @@ object BambuTagDecoder {
                 shortProductionDateHex = shortProductionDateHex,
                 unknownBlock17Hex = unknownBlock17Hex,
                 // Purchase information
-                bambuProduct = bambuProduct
+                bambuProduct = null // Product database removed due to wrong code system
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing tag data", e)
