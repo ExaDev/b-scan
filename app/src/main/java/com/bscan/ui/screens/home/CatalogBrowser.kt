@@ -115,8 +115,7 @@ fun CatalogBrowser(
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            
-            // Display grouped products
+            // Flatten the grouped products into a single list with headers and items
             filteredGroupedAndSortedProducts.forEach { (groupKey, groupProducts) ->
                 // Show group header if grouping is enabled
                 if (groupByOption != GroupByOption.NONE) {
@@ -125,17 +124,19 @@ fun CatalogBrowser(
                     }
                 }
                 
-                // Products in this group
-                items(groupProducts, key = { "${it.manufacturerId}_${it.product.variantId}" }) { productInfo ->
-                    ProductCard(
-                        productInfo = productInfo,
-                        onClick = {
-                            onNavigateToDetails?.invoke(
-                                DetailType.SKU, 
-                                "${productInfo.manufacturerId}:${productInfo.product.variantId}"
-                            )
-                        }
-                    )
+                // Add each product as individual items (not nested items() call)
+                groupProducts.forEach { productInfo ->
+                    item(key = "${productInfo.manufacturerId}_${productInfo.product.variantId}") {
+                        ProductCard(
+                            productInfo = productInfo,
+                            onClick = {
+                                onNavigateToDetails?.invoke(
+                                    DetailType.SKU, 
+                                    "${productInfo.manufacturerId}:${productInfo.product.variantId}"
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -172,7 +173,6 @@ fun ProductCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
