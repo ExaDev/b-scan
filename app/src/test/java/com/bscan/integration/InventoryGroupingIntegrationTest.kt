@@ -263,21 +263,36 @@ class InventoryGroupingIntegrationTest {
         System.arraycopy(trayUidBytes, 0, paddedBytes, 0, trayUidBytes.size)
         val block9Hex = paddedBytes.joinToString("") { "%02X".format(it) }
         
+        // Create a complete 16-sector structure for proper interpreter validation
+        val baseBlocks = mapOf(
+            1 to "4130302D4B30004746413030", // Valid RFID codes
+            2 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA
+            4 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA
+            5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000", // Color
+            6 to "00C80064001E001E00000000000000000000000000000000000000000000000000", // Temps
+            9 to block9Hex // Tray UID as UTF-8
+        )
+        
+        val completeBlocks = baseBlocks.toMutableMap()
+        
+        // Add dummy blocks to create proper 16-sector structure
+        for (sector in 0..15) {
+            for (blockInSector in 0..2) { // Only data blocks (skip sector trailers)
+                val blockNumber = sector * 4 + blockInSector
+                if (blockNumber !in completeBlocks) {
+                    completeBlocks[blockNumber] = "00".repeat(16) // 16 bytes of zeros
+                }
+            }
+        }
+        
         return DecryptedScanData(
             id = tagUid.hashCode().toLong(),
             timestamp = LocalDateTime.now(),
             tagUid = tagUid,
             technology = "MifareClassic",
             scanResult = ScanResult.SUCCESS,
-            decryptedBlocks = mapOf(
-                1 to "4130302D4B30004746413030", // Valid RFID codes
-                2 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA
-                4 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA
-                5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000", // Color
-                6 to "00C80064001E001E00000000000000000000000000000000000000000000000000", // Temps
-                9 to block9Hex // Tray UID as UTF-8
-            ),
-            authenticatedSectors = listOf(1, 2, 3),
+            decryptedBlocks = completeBlocks,
+            authenticatedSectors = listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
             failedSectors = emptyList(),
             usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
             derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),

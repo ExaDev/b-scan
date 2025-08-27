@@ -91,14 +91,15 @@ class TrayUidExtractionTest {
         `when`(mockSharedPreferences.getString(anyString(), any())).thenReturn(null)
         
         // Mock CatalogRepository with a valid RFID mapping for test data
+        // Use GFA00:A00-K0 to match the actual RFID codes in the block data
         val testRfidMapping = RfidMapping(
-            rfidCode = "GFL99:A00-K0",
+            rfidCode = "GFA00:A00-K0",
             sku = "test-sku",
             material = "PLA_BASIC",
             color = "Test Color", 
             hex = "#FF0000"
         )
-        `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(Pair("bambu", testRfidMapping))
+        `when`(mockCatalogRepository.findRfidMapping("GFA00:A00-K0")).thenReturn(Pair("bambu", testRfidMapping))
         
         // Mock manufacturer data for UnifiedDataAccess.getCurrentMappings()
         val testManufacturer = ManufacturerCatalog(
@@ -120,7 +121,7 @@ class TrayUidExtractionTest {
                 )
             ),
             colorPalette = mapOf("#FF0000" to "Red"),
-            rfidMappings = mapOf("GFL99:A00-K0" to testRfidMapping),
+            rfidMappings = mapOf("GFA00:A00-K0" to testRfidMapping),
             componentDefaults = emptyMap(),
             products = emptyList()
         )
@@ -155,12 +156,12 @@ class TrayUidExtractionTest {
         val scanData = createTestDecryptedScan(
             tagUid = "12345678",
             decryptedBlocks = mapOf(
-                1 to "4130302D4B30004746413030",  // Valid RFID codes
-                2 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA
-                4 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA
-                5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000", // Color
-                6 to "00C80064001E001E00000000000000000000000000000000000000000000000000", // Temps
-                9 to block9Hex // "TRAY001" as UTF-8 bytes
+                1 to "4130302D4B30004746413030000000000000000000000000000000000000000000",  // Valid RFID codes (32 chars)
+                2 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA (32 chars)
+                4 to "504C41000000000000000000000000000000000000000000000000000000000000", // PLA (32 chars)
+                5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000", // Color (32 chars)
+                6 to "00C80064001E001E00000000000000000000000000000000000000000000000000", // Temps (32 chars)
+                9 to block9Hex // "TRAY001" as UTF-8 bytes (already 32 chars from createUtf8Block)
             )
         )
         
@@ -187,7 +188,7 @@ class TrayUidExtractionTest {
         val scanData1 = createTestDecryptedScan(
             tagUid = "12345678",
             decryptedBlocks = mapOf(
-                1 to "4130302D4B30004746413030",
+                1 to "4130302D4B30004746413030000000000000000000000000000000000000000000",
                 2 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 4 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000",
@@ -199,7 +200,7 @@ class TrayUidExtractionTest {
         val scanData2 = createTestDecryptedScan(
             tagUid = "87654321",
             decryptedBlocks = mapOf(
-                1 to "4130302D4B30004746413030",
+                1 to "4130302D4B30004746413030000000000000000000000000000000000000000000",
                 2 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 4 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000",
@@ -234,7 +235,7 @@ class TrayUidExtractionTest {
         val scanData1 = createTestDecryptedScan(
             tagUid = "TAG00001", // Different tag UIDs
             decryptedBlocks = mapOf(
-                1 to "4130302D4B30004746413030",
+                1 to "4130302D4B30004746413030000000000000000000000000000000000000000000",
                 2 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 4 to "504C41000000000000000000000000000000000000000000000000000000000000", 
                 5 to "FF0000FF0000000000000000000000000000000000000000000000000000000000",
@@ -246,7 +247,7 @@ class TrayUidExtractionTest {
         val scanData2 = createTestDecryptedScan(
             tagUid = "TAG00002", // Different tag UIDs
             decryptedBlocks = mapOf(
-                1 to "4130302D4B30004746413030",
+                1 to "4130302D4B30004746413030000000000000000000000000000000000000000000",
                 2 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 4 to "504C41000000000000000000000000000000000000000000000000000000000000",
                 5 to "00FF00FF0000000000000000000000000000000000000000000000000000000000", // Different color
@@ -320,14 +321,29 @@ class TrayUidExtractionTest {
         tagFormat: TagFormat = TagFormat.BAMBU_PROPRIETARY,
         decryptedBlocks: Map<Int, String> = emptyMap()
     ): DecryptedScanData {
+        // Create a complete 16-sector MifareClassic 1K structure for proper sectorCount calculation
+        // We need blocks up to at least block 63 (sector 15, block 3) to have sectorCount = 16
+        val completeBlocks = decryptedBlocks.toMutableMap()
+        
+        // Add essential blocks if not already present, extending to sector 15 for proper validation
+        for (sector in 0..15) {
+            for (blockInSector in 0..2) { // Only data blocks (skip sector trailers)
+                val blockNumber = sector * 4 + blockInSector
+                if (blockNumber !in completeBlocks) {
+                    // Add dummy data for blocks not specified
+                    completeBlocks[blockNumber] = "00".repeat(16) // 16 bytes of zeros
+                }
+            }
+        }
+        
         return DecryptedScanData(
             id = 1,
             timestamp = timestamp,
             tagUid = tagUid,
             technology = "MifareClassic",
             scanResult = scanResult,
-            decryptedBlocks = decryptedBlocks,
-            authenticatedSectors = if (scanResult == ScanResult.SUCCESS) listOf(1, 2, 3) else emptyList(),
+            decryptedBlocks = completeBlocks,
+            authenticatedSectors = if (scanResult == ScanResult.SUCCESS) listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15) else emptyList(),
             failedSectors = if (scanResult != ScanResult.SUCCESS) listOf(1, 2, 3) else emptyList(),
             usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyA"),
             derivedKeys = listOf("AABBCCDDEEFF00112233445566778899"),
