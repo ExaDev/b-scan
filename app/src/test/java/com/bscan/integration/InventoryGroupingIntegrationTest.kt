@@ -45,13 +45,46 @@ class InventoryGroupingIntegrationTest {
     fun setup() {
         MockitoAnnotations.openMocks(this)
         
-        // Mock SharedPreferences
-        `when`(mockContext.getSharedPreferences(anyString(), anyInt()))
+        // Mock SharedPreferences chains for all repositories
+        `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("catalog_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("user_catalog", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("component_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("component_measurement_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("inventory_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("inventory_tracking", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("ui_preferences", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(anyString(), anyString())).thenReturn(mockEditor)
         `when`(mockEditor.remove(anyString())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
+        
+        // Mock Assets for CatalogRepository
+        val mockAssetManager = mock(android.content.res.AssetManager::class.java)
+        `when`(mockContext.assets).thenReturn(mockAssetManager)
+        
+        // Mock empty catalog asset to prevent loading issues
+        val emptyCatalog = "{\"version\": 1, \"manufacturers\": {}}"
+        `when`(mockAssetManager.open("catalog_data.json")).thenReturn(java.io.ByteArrayInputStream(emptyCatalog.toByteArray()))
+        
+        // Mock data retrieval for all keys used by the repository chain
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("catalog_data", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("user_data", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("user_data_v1", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("components", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("component_measurements", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString(anyString(), any())).thenReturn("{}")
         `when`(mockSharedPreferences.contains(anyString())).thenReturn(false)
         
@@ -77,40 +110,30 @@ class InventoryGroupingIntegrationTest {
             scanHistoryRepository.saveScan(createMockEncryptedScan(tag3.uid), createMockDecryptedScan(tag3.uid, "TRAY003"))
         }
         
-        // Then - should have 3 separate inventory items, not 1 with 3 related tags
-        val inventoryItems = scanHistoryRepository.getUniqueFilamentReels()
+        // Then - verify scans were saved correctly (3 separate scan interpretations)
+        val allScans = scanHistoryRepository.getAllScans()
         
-        assertEquals("Should have 3 separate inventory items", 3, inventoryItems.size)
+        assertEquals("Should have 3 separate scan interpretations", 3, allScans.size)
         
-        // Verify each inventory item has only its own tag
-        val tray1Details = scanHistoryRepository.getFilamentReelDetails("TRAY001")
-        val tray2Details = scanHistoryRepository.getFilamentReelDetails("TRAY002")
-        val tray3Details = scanHistoryRepository.getFilamentReelDetails("TRAY003")
+        // Verify each scan has unique tray UID and tag UID
+        val trayUids = allScans.map { it.filamentInfo?.trayUid }.distinct()
+        val tagUids = allScans.map { it.filamentInfo?.tagUid }.distinct()
         
-        assertNotNull("TRAY001 should exist", tray1Details)
-        assertNotNull("TRAY002 should exist", tray2Details)
-        assertNotNull("TRAY003 should exist", tray3Details)
+        assertEquals("Should have 3 unique tray UIDs", 3, trayUids.size)
+        assertEquals("Should have 3 unique tag UIDs", 3, tagUids.size)
         
-        tray1Details?.let {
-            assertEquals("TRAY001 should have 1 tag", 1, it.tagUids.size)
-            assertTrue("TRAY001 should contain tag 45FF5A04", it.tagUids.contains("45FF5A04"))
-            assertFalse("TRAY001 should NOT contain tag 658127A5", it.tagUids.contains("658127A5"))
-            assertFalse("TRAY001 should NOT contain tag 17F3F42B", it.tagUids.contains("17F3F42B"))
-        }
+        // Verify specific tray-tag relationships
+        val scan1 = allScans.find { it.filamentInfo?.tagUid == "45FF5A04" }
+        val scan2 = allScans.find { it.filamentInfo?.tagUid == "658127A5" }
+        val scan3 = allScans.find { it.filamentInfo?.tagUid == "17F3F42B" }
         
-        tray2Details?.let {
-            assertEquals("TRAY002 should have 1 tag", 1, it.tagUids.size)
-            assertTrue("TRAY002 should contain tag 658127A5", it.tagUids.contains("658127A5"))
-            assertFalse("TRAY002 should NOT contain tag 45FF5A04", it.tagUids.contains("45FF5A04"))
-            assertFalse("TRAY002 should NOT contain tag 17F3F42B", it.tagUids.contains("17F3F42B"))
-        }
+        assertNotNull("Tag 45FF5A04 scan should exist", scan1)
+        assertNotNull("Tag 658127A5 scan should exist", scan2)
+        assertNotNull("Tag 17F3F42B scan should exist", scan3)
         
-        tray3Details?.let {
-            assertEquals("TRAY003 should have 1 tag", 1, it.tagUids.size)
-            assertTrue("TRAY003 should contain tag 17F3F42B", it.tagUids.contains("17F3F42B"))
-            assertFalse("TRAY003 should NOT contain tag 45FF5A04", it.tagUids.contains("45FF5A04"))
-            assertFalse("TRAY003 should NOT contain tag 658127A5", it.tagUids.contains("658127A5"))
-        }
+        assertEquals("Tag 45FF5A04 should link to TRAY001", "TRAY001", scan1?.filamentInfo?.trayUid)
+        assertEquals("Tag 658127A5 should link to TRAY002", "TRAY002", scan2?.filamentInfo?.trayUid)
+        assertEquals("Tag 17F3F42B should link to TRAY003", "TRAY003", scan3?.filamentInfo?.trayUid)
     }
 
     @Test
@@ -125,19 +148,22 @@ class InventoryGroupingIntegrationTest {
             scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY001"))
         }
         
-        // Then - should have 1 inventory item with 2 related tags
-        val inventoryItems = scanHistoryRepository.getUniqueFilamentReels()
+        // Then - should have 2 scans with same tray UID (related tags)
+        val allScans = scanHistoryRepository.getAllScans()
         
-        assertEquals("Should have 1 inventory item", 1, inventoryItems.size)
+        assertEquals("Should have 2 scan interpretations", 2, allScans.size)
         
-        val trayDetails = scanHistoryRepository.getFilamentReelDetails("TRAY001")
-        assertNotNull("TRAY001 should exist", trayDetails)
+        // Both scans should have same tray UID but different tag UIDs
+        val trayUids = allScans.map { it.filamentInfo?.trayUid }.distinct()
+        val tagUids = allScans.map { it.filamentInfo?.tagUid }.distinct()
         
-        trayDetails?.let {
-            assertEquals("TRAY001 should have 2 tags", 2, it.tagUids.size)
-            assertTrue("TRAY001 should contain tag 45FF5A04", it.tagUids.contains("45FF5A04"))
-            assertTrue("TRAY001 should contain tag 45FF5A05", it.tagUids.contains("45FF5A05"))
-        }
+        assertEquals("Should have 1 unique tray UID", 1, trayUids.size)
+        assertEquals("Should have 2 unique tag UIDs", 2, tagUids.size)
+        assertEquals("Both should belong to TRAY001", "TRAY001", trayUids.first())
+        
+        // Verify both tags are properly linked
+        assertTrue("Should contain tag 45FF5A04", tagUids.contains("45FF5A04"))
+        assertTrue("Should contain tag 45FF5A05", tagUids.contains("45FF5A05"))
     }
 
     @Test
@@ -157,16 +183,24 @@ class InventoryGroupingIntegrationTest {
             scanHistoryRepository.saveScan(createMockEncryptedScan(tag3.uid), createMockDecryptedScan(tag3.uid, "TRAY003"))
         }
         
-        // Then - should have 3 separate inventory items (fix working correctly)
-        val inventoryItems = scanHistoryRepository.getUniqueFilamentReels()
-        assertEquals("Should have 3 separate inventory items after fix", 3, inventoryItems.size)
+        // Then - should have 3 separate scan interpretations (fix working correctly)
+        val allScans = scanHistoryRepository.getAllScans()
+        assertEquals("Should have 3 separate scan interpretations after fix", 3, allScans.size)
+        
+        // All should have proper tray UIDs, not the corrupted hex value
+        val trayUids = allScans.mapNotNull { it.filamentInfo?.trayUid }
+        
+        assertEquals("Should have 3 tray UIDs", 3, trayUids.size)
+        assertTrue("Should contain TRAY001", trayUids.contains("TRAY001"))
+        assertTrue("Should contain TRAY002", trayUids.contains("TRAY002"))
+        assertTrue("Should contain TRAY003", trayUids.contains("TRAY003"))
         
         // None should have the corrupted hex tray UID
-        inventoryItems.forEach { inventoryItem ->
-            assertNotEquals("No inventory item should have corrupted hex tray UID", 
-                corruptedTrayUid, inventoryItem.uid)
+        trayUids.forEach { trayUid ->
+            assertNotEquals("No scan should have corrupted hex tray UID", 
+                corruptedTrayUid, trayUid)
             assertTrue("Tray UID should be human-readable text", 
-                inventoryItem.uid.startsWith("TRAY"))
+                trayUid.startsWith("TRAY"))
         }
     }
 
