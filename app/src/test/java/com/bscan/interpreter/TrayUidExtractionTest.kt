@@ -53,11 +53,45 @@ class TrayUidExtractionTest {
             .thenReturn(mockSharedPreferences)
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(anyString(), anyString())).thenReturn(mockEditor)
+        `when`(mockEditor.remove(anyString())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
         `when`(mockSharedPreferences.getString(anyString(), any())).thenReturn(null)
         
-        // Mock CatalogRepository for basic operations
-        `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(null)
+        // Mock CatalogRepository with a valid RFID mapping for test data
+        val testRfidMapping = RfidMapping(
+            rfidCode = "GFL99:A00-K0",
+            sku = "test-sku",
+            material = "PLA_BASIC",
+            color = "Test Color", 
+            hex = "#FF0000"
+        )
+        `when`(mockCatalogRepository.findRfidMapping(anyString())).thenReturn(Pair("bambu", testRfidMapping))
+        
+        // Mock manufacturer data for UnifiedDataAccess.getCurrentMappings()
+        val testManufacturer = ManufacturerCatalog(
+            name = "bambu",
+            displayName = "Bambu Lab",
+            tagFormat = TagFormat.BAMBU_PROPRIETARY,
+            materials = mapOf(
+                "PLA_BASIC" to MaterialDefinition(
+                    displayName = "PLA Basic",
+                    temperatureProfile = "lowTempPLA",
+                    properties = MaterialCatalogProperties()
+                )
+            ),
+            temperatureProfiles = mapOf(
+                "lowTempPLA" to TemperatureProfile(
+                    minNozzle = 190,
+                    maxNozzle = 220,
+                    bed = 60
+                )
+            ),
+            colorPalette = mapOf("#FF0000" to "Red"),
+            rfidMappings = mapOf("GFL99:A00-K0" to testRfidMapping),
+            componentDefaults = emptyMap(),
+            products = emptyList()
+        )
+        `when`(mockCatalogRepository.getManufacturers()).thenReturn(mapOf("bambu" to testManufacturer))
         
         // Mock UserDataRepository
         `when`(mockUserDataRepository.getUserData()).thenReturn(
