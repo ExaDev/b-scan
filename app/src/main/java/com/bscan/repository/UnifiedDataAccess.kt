@@ -2,10 +2,10 @@ package com.bscan.repository
 
 import android.util.Log
 import com.bscan.model.*
-import com.bscan.data.BambuProductDatabase
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.service.ComponentFactory
 import com.bscan.detector.TagDetector
+import com.bscan.service.ProductLookupService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.content.Context
@@ -435,14 +435,14 @@ class UnifiedDataAccess(
     
     /**
      * Get all products for a manufacturer
-     * Combines built-in BambuProductDatabase with user-added products
+     * Combines catalog data with user-added products
      */
     fun getProducts(manufacturerId: String): List<ProductEntry> {
         val products = mutableListOf<ProductEntry>()
         
-        // Add built-in products from BambuProductDatabase for Bambu Lab
+        // For Bambu Lab, use mapper-based product lookup service
         if (manufacturerId == "bambu") {
-            products.addAll(convertBambuProductsToEntries())
+            products.addAll(ProductLookupService.getAllProducts())
         }
         
         // Add catalog products (if any)
@@ -477,68 +477,6 @@ class UnifiedDataAccess(
         }
         
         return products
-    }
-    
-    /**
-     * Convert BambuProductDatabase products to ProductEntry format
-     */
-    private fun convertBambuProductsToEntries(): List<ProductEntry> {
-        return BambuProductDatabase.getAllProducts().map { bambuProduct ->
-            ProductEntry(
-                variantId = bambuProduct.retailSku ?: "${bambuProduct.internalCode}_${bambuProduct.colorHex.replace("#", "")}",
-                productHandle = bambuProduct.productLine.lowercase().replace(" ", "-"),
-                productName = bambuProduct.productLine,
-                colorName = bambuProduct.colorName,
-                colorHex = bambuProduct.colorHex,
-                colorCode = bambuProduct.internalCode,
-                price = 0.0, // Price not available in BambuProductDatabase
-                available = true,
-                url = bambuProduct.spoolUrl ?: bambuProduct.refillUrl ?: "",
-                manufacturer = "Bambu Lab",
-                materialType = inferMaterialTypeFromProductLine(bambuProduct.productLine),
-                internalCode = bambuProduct.internalCode,
-                lastUpdated = "2025-08-26T00:00:00Z", // Static timestamp for built-in data
-                filamentWeightGrams = parseFilamentWeight(bambuProduct.mass),
-                spoolType = if (bambuProduct.spoolUrl != null) SpoolPackaging.WITH_SPOOL else SpoolPackaging.REFILL
-            )
-        }
-    }
-    
-    /**
-     * Infer material type from product line name
-     */
-    private fun inferMaterialTypeFromProductLine(productLine: String): String {
-        return when {
-            productLine.contains("PLA Basic") -> "PLA_BASIC"
-            productLine.contains("PLA Matte") -> "PLA_MATTE"
-            productLine.contains("PLA Silk") -> "PLA_SILK"
-            productLine.contains("PLA Metal") -> "PLA_METAL"
-            productLine.contains("PLA Wood") -> "PLA_WOOD"
-            productLine.contains("PLA Marble") -> "PLA_MARBLE"
-            productLine.contains("PLA Glow") -> "PLA_GLOW"
-            productLine.contains("ABS") -> "ABS"
-            productLine.contains("ASA") -> "ASA"
-            productLine.contains("PETG") -> "PETG"
-            productLine.contains("TPU") -> "TPU"
-            productLine.contains("PA") || productLine.contains("Nylon") -> "PA_NYLON"
-            productLine.contains("PC") || productLine.contains("Polycarbonate") -> "PC"
-            productLine.contains("PET-CF") -> "PET_CF"
-            productLine.contains("Support") -> "SUPPORT"
-            productLine.contains("PVA") -> "PVA"
-            else -> productLine.uppercase().replace(" ", "_")
-        }
-    }
-    
-    /**
-     * Parse filament weight from mass string
-     */
-    private fun parseFilamentWeight(massString: String): Float? {
-        return when {
-            massString.contains("0.5kg") || massString.contains("500g") -> 500f
-            massString.contains("0.75kg") || massString.contains("750g") -> 750f
-            massString.contains("1kg") || massString.contains("1000g") -> 1000f
-            else -> 1000f // Default to 1kg
-        }
     }
     
     /**
