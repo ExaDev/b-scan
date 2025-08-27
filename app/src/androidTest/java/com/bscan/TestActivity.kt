@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import com.bscan.ble.BlePermissionHandler
 import com.bscan.cache.CachedBambuKeyDerivation
 import com.bscan.navigation.AppNavigation
 import com.bscan.nfc.NfcManager
@@ -21,6 +22,7 @@ import com.bscan.viewmodel.UpdateViewModel
 class TestActivity : ComponentActivity() {
     
     private lateinit var nfcManager: NfcManager
+    private lateinit var blePermissionHandler: BlePermissionHandler
     
     private val viewModel: MainViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
@@ -37,12 +39,16 @@ class TestActivity : ComponentActivity() {
         // Use real NFC manager but we'll handle NFC unavailability gracefully
         nfcManager = NfcManager(this)
         
+        // Initialize BLE permission handler for testing
+        blePermissionHandler = BlePermissionHandler(this)
+        
         setContent {
             BScanTheme {
                 AppNavigation(
                     viewModel = viewModel,
                     updateViewModel = updateViewModel,
-                    nfcManager = nfcManager
+                    nfcManager = nfcManager,
+                    blePermissionHandler = blePermissionHandler
                 )
             }
         }
