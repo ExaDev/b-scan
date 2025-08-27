@@ -10,13 +10,14 @@ import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.ComponentRepository
 import com.bscan.interpreter.InterpreterFactory
-import com.bscan.data.BambuProductDatabase
 import com.bscan.detector.TagDetector
 import com.bscan.service.ComponentFactory
 import com.bscan.service.MassInferenceService
 import com.bscan.service.ComponentGroupingService
 import com.bscan.service.InferenceResult
 import com.bscan.service.InferredComponent
+import com.bscan.data.bambu.rfid.BambuMaterialIdMapper
+import com.bscan.data.bambu.rfid.BambuColorCodeMapper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -462,28 +463,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
             delay(200)
             
-            // Complete with mock data - cycle through all products
-            val allProducts = BambuProductDatabase.getAllProducts()
-            val product = allProducts[simulationProductIndex % allProducts.size]
-            simulationProductIndex = (simulationProductIndex + 1) % allProducts.size
+            // Complete with mock data - cycle through some basic materials
+            val materialCodes = listOf("GFA00", "GFA01", "GFB00", "GFC00") // PLA, PETG, ABS, ASA
+            val colorCodes = listOf("K0", "W0", "R0", "B0") // Black, White, Red, Blue
+            val materialCode = materialCodes[simulationProductIndex % materialCodes.size]
+            val colorCode = colorCodes[(simulationProductIndex / materialCodes.size) % colorCodes.size]
+            simulationProductIndex = (simulationProductIndex + 1) % (materialCodes.size * colorCodes.size)
             
             val mockFilamentInfo = FilamentInfo(
                 tagUid = "MOCK${System.currentTimeMillis()}",
                 trayUid = "MOCK_TRAY_${String.format("%03d", (simulationProductIndex / 2) + 1)}",
-                filamentType = product.productLine,
-                detailedFilamentType = product.productLine,
-                colorHex = product.colorHex,
-                colorName = product.colorName,
-                spoolWeight = if (product.mass == "1kg") 1000 else if (product.mass == "0.5kg") 500 else 1000,
+                filamentType = BambuMaterialIdMapper.getDisplayName(materialCode),
+                detailedFilamentType = BambuMaterialIdMapper.getDisplayName(materialCode),
+                colorHex = "#808080", // Default gray for mock data
+                colorName = BambuColorCodeMapper.getColorInfo(colorCode)?.displayName ?: "Unknown",
+                spoolWeight = 1000,
                 filamentDiameter = 1.75f,
                 filamentLength = kotlin.random.Random.nextInt(100000, 500000),
                 productionDate = "2024-${kotlin.random.Random.nextInt(1, 13).toString().padStart(2, '0')}",
-                minTemperature = this@MainViewModel.getDefaultMinTemp(product.productLine),
-                maxTemperature = this@MainViewModel.getDefaultMaxTemp(product.productLine),
-                bedTemperature = this@MainViewModel.getDefaultBedTemp(product.productLine),
-                dryingTemperature = this@MainViewModel.getDefaultDryingTemp(product.productLine),
-                dryingTime = this@MainViewModel.getDefaultDryingTime(product.productLine),
-                bambuProduct = product
+                minTemperature = this@MainViewModel.getDefaultMinTemp(materialCode),
+                maxTemperature = this@MainViewModel.getDefaultMaxTemp(materialCode),
+                bedTemperature = this@MainViewModel.getDefaultBedTemp(materialCode),
+                dryingTemperature = this@MainViewModel.getDefaultDryingTemp(materialCode),
+                dryingTime = this@MainViewModel.getDefaultDryingTime(materialCode),
+                bambuProduct = null // No longer using BambuProduct objects
             )
             
             _scanProgress.value = ScanProgress(
