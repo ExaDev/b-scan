@@ -14,7 +14,7 @@ import org.robolectric.RuntimeEnvironment
  * Test verification for catalog repository functionality.
  * 
  * This test validates that the catalog repository works correctly with:
- * - Empty catalog by default
+ * - Runtime-generated Bambu catalog
  * - User-created SKU management
  * - Stock tracking integration
  */
@@ -33,35 +33,39 @@ class CatalogRepositoryTest {
     }
 
     @Test
-    fun `catalog returns empty catalog by default`() {
+    fun `catalog returns runtime-generated Bambu catalog`() {
         // When
         val catalog = catalogRepository.getCatalog()
 
         // Then
         assertNotNull("Catalog should not be null", catalog)
-        assertEquals("Catalog version should be 1", 1, catalog.version)
-        assertTrue("Catalog should have empty manufacturers map", catalog.manufacturers.isEmpty())
+        assertTrue("Catalog should have Bambu manufacturer", catalog.manufacturers.containsKey("bambu"))
     }
 
     @Test
-    fun `empty catalog has no manufacturers`() {
+    fun `runtime catalog has Bambu manufacturer`() {
         // When
         val manufacturers = catalogRepository.getManufacturers()
 
         // Then
-        assertTrue("Should have empty manufacturers map", manufacturers.isEmpty())
-        assertFalse("Should not contain bambu manufacturer", manufacturers.containsKey("bambu"))
-        assertFalse("Should not contain opentag manufacturer", manufacturers.containsKey("opentag"))
+        assertFalse("Should not have empty manufacturers map", manufacturers.isEmpty())
+        assertTrue("Should contain bambu manufacturer", manufacturers.containsKey("bambu"))
+        assertFalse("Should not contain unknown manufacturers", manufacturers.containsKey("opentag"))
+        
+        val bambuManufacturer = manufacturers["bambu"]
+        assertNotNull("Bambu manufacturer should not be null", bambuManufacturer)
+        assertEquals("Bambu Lab", bambuManufacturer!!.displayName)
     }
 
     @Test
-    fun `non-existent manufacturer returns null`() {
+    fun `Bambu manufacturer exists and unknown returns null`() {
         // When
         val bambuCatalog = catalogRepository.getManufacturer("bambu")
         val opentagCatalog = catalogRepository.getManufacturer("opentag")
 
         // Then
-        assertNull("Non-existent bambu manufacturer should return null", bambuCatalog)
+        assertNotNull("Bambu manufacturer should not be null", bambuCatalog)
+        assertEquals("Bambu Lab", bambuCatalog!!.displayName)
         assertNull("Non-existent opentag manufacturer should return null", opentagCatalog)
     }
 
@@ -77,44 +81,51 @@ class CatalogRepositoryTest {
     }
 
     @Test
-    fun `component defaults return empty for non-existent manufacturer`() {
+    fun `Bambu component defaults are available`() {
         // When
         val componentDefaults = catalogRepository.getComponentDefaults("bambu")
         val specificComponent = catalogRepository.getComponentDefault("bambu", "spool_standard")
 
         // Then
-        assertTrue("Component defaults should be empty", componentDefaults.isEmpty())
-        assertNull("Specific component default should be null", specificComponent)
+        assertFalse("Component defaults should not be empty", componentDefaults.isEmpty())
+        assertNotNull("Specific component default should not be null", specificComponent)
+        assertEquals("Standard Spool", specificComponent!!.name)
+        assertEquals(212f, specificComponent.massGrams)
     }
 
     @Test
-    fun `material and temperature profile lookups return null`() {
+    fun `Bambu material and temperature profile lookups work`() {
         // When
-        val material = catalogRepository.getMaterial("bambu", "PLA_BASIC")
-        val temperatureProfile = catalogRepository.getTemperatureProfile("bambu", "lowTempPLA")
+        val material = catalogRepository.getMaterial("bambu", "PLA Basic")
+        val temperatureProfile = catalogRepository.getTemperatureProfile("bambu", "pla_standard")
         val colorName = catalogRepository.getColorName("bambu", "#FF0000")
 
         // Then
-        assertNull("Material should be null", material)
-        assertNull("Temperature profile should be null", temperatureProfile)
-        assertNull("Color name should be null", colorName)
+        assertNotNull("Material should not be null", material)
+        assertEquals("PLA Basic", material!!.displayName)
+        assertNotNull("Temperature profile should not be null", temperatureProfile)
+        assertEquals(190, temperatureProfile!!.minNozzle)
+        assertNotNull("Color name should not be null", colorName)
+        assertEquals("Red", colorName)
     }
 
     @Test
-    fun `tag format filtering returns empty list`() {
+    fun `tag format filtering returns Bambu for proprietary format`() {
         // When
         val bambuManufacturers = catalogRepository.getManufacturersByTagFormat(TagFormat.BAMBU_PROPRIETARY)
         val ndefManufacturers = catalogRepository.getManufacturersByTagFormat(TagFormat.NDEF_JSON)
 
         // Then
-        assertTrue("Bambu manufacturers should be empty", bambuManufacturers.isEmpty())
+        assertFalse("Bambu manufacturers should not be empty", bambuManufacturers.isEmpty())
+        assertEquals("Should have one Bambu manufacturer", 1, bambuManufacturers.size)
+        assertEquals("Should be bambu manufacturer", "bambu", bambuManufacturers[0].first)
         assertTrue("NDEF manufacturers should be empty", ndefManufacturers.isEmpty())
     }
 
     @Test
-    fun `manufacturer existence checks return false`() {
+    fun `manufacturer existence checks return correct values`() {
         // When & Then
-        assertFalse("Should not have bambu manufacturer", catalogRepository.hasManufacturer("bambu"))
+        assertTrue("Should have bambu manufacturer", catalogRepository.hasManufacturer("bambu"))
         assertFalse("Should not have opentag manufacturer", catalogRepository.hasManufacturer("opentag"))
         assertFalse("Should not have unknown manufacturer", catalogRepository.hasManufacturer("unknown"))
     }
@@ -131,22 +142,21 @@ class CatalogRepositoryTest {
     }
 
     @Test
-    fun `catalog reload functionality works with empty catalog`() {
-        // When - First access loads empty catalog
+    fun `catalog reload functionality works with runtime catalog`() {
+        // When - First access loads runtime catalog
         val catalog1 = catalogRepository.getCatalog()
 
         // Force reload
         catalogRepository.reloadCatalog()
 
-        // Second access should reload empty catalog
+        // Second access should reload runtime catalog
         val catalog2 = catalogRepository.getCatalog()
 
-        // Then - Both should be valid and equivalent empty catalogs
+        // Then - Both should be valid and equivalent runtime catalogs
         assertNotNull("First catalog should not be null", catalog1)
         assertNotNull("Second catalog should not be null", catalog2)
-        assertEquals("Both catalogs should have same version", catalog1.version, catalog2.version)
-        assertEquals("Both catalogs should have same empty manufacturers", catalog1.manufacturers.size, catalog2.manufacturers.size)
-        assertTrue("Both catalogs should have empty manufacturers", catalog1.manufacturers.isEmpty())
-        assertTrue("Second catalog should also have empty manufacturers", catalog2.manufacturers.isEmpty())
+        assertEquals("Both catalogs should have same manufacturers count", catalog1.manufacturers.size, catalog2.manufacturers.size)
+        assertTrue("Both catalogs should have bambu manufacturer", catalog1.manufacturers.containsKey("bambu"))
+        assertTrue("Second catalog should also have bambu manufacturer", catalog2.manufacturers.containsKey("bambu"))
     }
 }
