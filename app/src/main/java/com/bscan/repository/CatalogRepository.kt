@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.data.bambu.BambuCatalogGenerator
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
@@ -56,11 +57,11 @@ class CatalogRepository(private val context: Context) {
     }
     
     /**
-     * Get the complete catalog data, returns empty catalog by default
+     * Get the complete catalog data, generates runtime catalog from Bambu data
      */
     fun getCatalog(): CatalogData {
         if (cachedCatalog == null) {
-            cachedCatalog = createEmptyCatalog()
+            cachedCatalog = generateRuntimeCatalog()
         }
         return cachedCatalog!!
     }
@@ -550,12 +551,12 @@ class CatalogRepository(private val context: Context) {
         cachedUserSkus = null
     }
     
-    private fun createEmptyCatalog(): CatalogData {
-        Log.i(TAG, "Creating empty catalog")
-        return CatalogData(
-            version = 1,
-            manufacturers = emptyMap()
-        )
+    /**
+     * Generate runtime catalog from bambu data structures
+     */
+    private fun generateRuntimeCatalog(): CatalogData {
+        Log.i(TAG, "Generating runtime catalog from Bambu data")
+        return BambuCatalogGenerator.generateCatalogData()
     }
     
     // === Private Helper Methods ===
