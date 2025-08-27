@@ -3,19 +3,68 @@ package com.bscan.model
 import java.time.LocalDateTime
 
 /**
+ * Types of identifiers that components can have
+ */
+enum class IdentifierType {
+    RFID_HARDWARE,    // Hardware UID burned into RFID chip
+    CONSUMABLE_UNIT,  // Application data like tray UID for filament tracking
+    QR,               // QR code identifier
+    BARCODE,          // Barcode identifier
+    SERIAL_NUMBER,    // Manufacturer serial number
+    SKU,              // Stock keeping unit
+    BATCH_NUMBER,     // Production batch identifier
+    MODEL_NUMBER,     // Product model identifier
+    CUSTOM            // User-defined identifier type
+}
+
+/**
+ * Purpose of an identifier in the system
+ */
+enum class IdentifierPurpose {
+    AUTHENTICATION,   // Used for RFID authentication and security
+    TRACKING,         // Used for inventory tracking and consumable management
+    LOOKUP,           // Used for catalog or database lookup
+    DISPLAY,          // Human-readable identifier for display
+    LINKING           // Links related components together
+}
+
+/**
+ * Identifier for components supporting multiple types and purposes
+ */
+data class ComponentIdentifier(
+    val type: IdentifierType,
+    val value: String,
+    val format: String? = null,        // Format specification (e.g., "hex", "uuid", "ean13")
+    val purpose: IdentifierPurpose,
+    val metadata: Map<String, String> = emptyMap()  // Additional identifier-specific data
+) {
+    /**
+     * Check if this identifier is unique (suitable for inventory tracking)
+     */
+    val isUnique: Boolean
+        get() = when (type) {
+            IdentifierType.RFID_HARDWARE, IdentifierType.SERIAL_NUMBER, 
+            IdentifierType.CONSUMABLE_UNIT -> true
+            else -> false
+        }
+}
+
+/**
  * Unified component model that represents any trackable item.
  * Components can contain other components hierarchically.
  * "Inventory Items" are root components with unique identifiers.
  */
 data class Component(
     val id: String,                              // Internal component ID
-    val uniqueIdentifier: String? = null,        // External unique ID (trayUid, serial number, etc.)
+    val uniqueIdentifier: String? = null,        // Legacy: External unique ID (for backwards compatibility)
+    val identifiers: List<ComponentIdentifier> = emptyList(),  // New: Multiple identifier support
     val name: String,
     val category: String = "general",
     val tags: List<String> = emptyList(),
     
     // Hierarchical structure
     val childComponents: List<String> = emptyList(),  // IDs of child components
+    val siblingReferences: List<String> = emptyList(), // IDs of sibling components for cross-referencing
     val parentComponentId: String? = null,            // ID of parent (if this is a sub-component)
     
     // Mass properties
@@ -35,7 +84,36 @@ data class Component(
      * Check if this component represents an inventory item (uniquely identifiable)
      */
     val isInventoryItem: Boolean
-        get() = uniqueIdentifier != null && parentComponentId == null
+        get() = (uniqueIdentifier != null || hasUniqueIdentifier()) && parentComponentId == null
+    
+    /**
+     * Check if this component has any unique identifiers
+     */
+    fun hasUniqueIdentifier(): Boolean {
+        return identifiers.any { it.isUnique }
+    }
+    
+    /**
+     * Get identifier by type
+     */
+    fun getIdentifierByType(type: IdentifierType): ComponentIdentifier? {
+        return identifiers.find { it.type == type }
+    }
+    
+    /**
+     * Get all identifiers with a specific purpose
+     */
+    fun getIdentifiersByPurpose(purpose: IdentifierPurpose): List<ComponentIdentifier> {
+        return identifiers.filter { it.purpose == purpose }
+    }
+    
+    /**
+     * Get primary tracking identifier (for inventory management)
+     */
+    fun getPrimaryTrackingIdentifier(): ComponentIdentifier? {
+        return identifiers.find { it.purpose == IdentifierPurpose.TRACKING && it.isUnique }
+            ?: identifiers.find { it.isUnique }
+    }
     
     /**
      * Check if this component is a root component (has no parent)
@@ -58,10 +136,10 @@ data class Component(
     /**
      * Create a copy with an added child component
      */
-    fun withChildComponent(childId: String): Component {
-        return if (childId !in childComponents) {
+    fun withChildComponent(componentId: String): Component {
+        return if (componentId !in childComponents) {
             copy(
-                childComponents = childComponents + childId,
+                childComponents = childComponents + componentId,
                 lastUpdated = LocalDateTime.now()
             )
         } else {
@@ -72,11 +150,45 @@ data class Component(
     /**
      * Create a copy with a removed child component
      */
-    fun withoutChildComponent(childId: String): Component {
+    fun withoutChildComponent(componentId: String): Component {
         return copy(
-            childComponents = childComponents.filter { it != childId },
+            childComponents = childComponents.filter { it != componentId },
             lastUpdated = LocalDateTime.now()
         )
+    }
+    
+    /**
+     * Create a copy with an added sibling reference
+     */
+    fun addSiblingReference(siblingId: String): Component {
+        return if (siblingId !in siblingReferences && siblingId != id) {
+            copy(
+                siblingReferences = siblingReferences + siblingId,
+                lastUpdated = LocalDateTime.now()
+            )
+        } else {
+            this
+        }
+    }
+    
+    /**
+     * Create a copy with a removed sibling reference
+     */
+    fun removeSiblingReference(siblingId: String): Component {
+        return copy(
+            siblingReferences = siblingReferences.filter { it != siblingId },
+            lastUpdated = LocalDateTime.now()
+        )
+    }
+    
+    /**
+     * Calculate hierarchy depth (0 for root components)
+     */
+    fun getHierarchyDepth(): Int {
+        // Note: This requires repository access to traverse the hierarchy
+        // Implementation would need access to ComponentRepository
+        // For now, return simple depth based on parent presence
+        return if (parentComponentId == null) 0 else 1
     }
     
     /**
@@ -136,6 +248,58 @@ data class Component(
      */
     val isNearlyEmpty: Boolean
         get() = getRemainingPercentage()?.let { it < 0.05f } ?: false
+    
+    /**
+     * Find child components by category
+     */
+    fun findChildrenByCategory(category: String): List<String> {
+        // Note: This requires repository access to check child component categories
+        // For now, return the child component IDs (caller must filter)
+        return childComponents
+    }
+    
+    /**
+     * Check if this component is an ancestor of another component
+     * Note: This requires repository access for full implementation
+     */
+    fun isAncestorOf(componentId: String): Boolean {
+        // Simple implementation - check direct children only
+        return componentId in childComponents
+    }
+    
+    /**
+     * Create a copy with an added identifier
+     */
+    fun withIdentifier(identifier: ComponentIdentifier): Component {
+        return if (identifiers.none { it.type == identifier.type && it.value == identifier.value }) {
+            copy(
+                identifiers = identifiers + identifier,
+                lastUpdated = LocalDateTime.now()
+            )
+        } else {
+            this
+        }
+    }
+    
+    /**
+     * Create a copy with a removed identifier
+     */
+    fun withoutIdentifier(type: IdentifierType, value: String): Component {
+        return copy(
+            identifiers = identifiers.filter { !(it.type == type && it.value == value) },
+            lastUpdated = LocalDateTime.now()
+        )
+    }
+    
+    /**
+     * Create a copy with updated identifiers
+     */
+    fun withUpdatedIdentifiers(newIdentifiers: List<ComponentIdentifier>): Component {
+        return copy(
+            identifiers = newIdentifiers,
+            lastUpdated = LocalDateTime.now()
+        )
+    }
 }
 
 /**
@@ -180,3 +344,47 @@ data class MassInferenceRequest(
     val unknownComponentId: String,        // Component to infer mass for
     val knownComponentIds: List<String>    // Known child components with masses
 )
+
+/**
+ * Mass calculation helper functions for Component
+ * These functions require access to ComponentRepository for full hierarchy traversal
+ */
+class ComponentMassCalculator {
+    /**
+     * Calculate total mass including all children
+     * Note: Requires ComponentRepository to resolve child components
+     */
+    fun getTotalMass(component: Component, getChildComponents: (List<String>) -> List<Component>): Float? {
+        val ownMass = component.massGrams ?: 0f
+        val childComponents = getChildComponents(component.childComponents)
+        val childMass = childComponents.mapNotNull { it.massGrams }.sum()
+        
+        return if (component.massGrams != null || childComponents.any { it.massGrams != null }) {
+            ownMass + childMass
+        } else {
+            null
+        }
+    }
+    
+    /**
+     * Calculate total known mass of child components
+     */
+    fun getKnownChildrenMass(component: Component, getChildComponents: (List<String>) -> List<Component>): Float {
+        val childComponents = getChildComponents(component.childComponents)
+        return childComponents.mapNotNull { it.massGrams }.sum()
+    }
+    
+    /**
+     * Check if component mass can be inferred from total measurement
+     */
+    fun canInferMass(component: Component, totalMeasuredMass: Float, getChildComponents: (List<String>) -> List<Component>): Boolean {
+        if (component.massGrams != null) return false // Already has mass
+        
+        val childComponents = getChildComponents(component.childComponents)
+        val knownChildMass = childComponents.mapNotNull { it.massGrams }.sum()
+        val unknownChildCount = childComponents.count { it.massGrams == null }
+        
+        // Can infer if this is the only unknown component
+        return unknownChildCount <= 1 && totalMeasuredMass > knownChildMass
+    }
+}
