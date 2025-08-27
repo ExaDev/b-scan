@@ -4,7 +4,6 @@ import android.util.Log
 import com.bscan.model.*
 import com.bscan.model.TagFormat
 import com.bscan.model.TagFormat.*
-import com.bscan.data.BambuProductDatabase
 import com.bscan.repository.UnifiedDataAccess
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
