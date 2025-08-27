@@ -62,7 +62,7 @@ fun CatalogBrowser(
     // Get all products across manufacturers using UnifiedDataAccess
     val allProducts = remember(catalog) {
         catalog.manufacturers.flatMap { (manufacturerId, manufacturerCatalog) ->
-            // Get products from UnifiedDataAccess (includes built-in BambuProductDatabase + catalog + future user products)
+            // Get products from UnifiedDataAccess (includes catalog + user products)
             val products = unifiedDataAccess.getProducts(manufacturerId)
             
             products.map { product ->

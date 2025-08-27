@@ -25,10 +25,10 @@ import com.bscan.ui.screens.settings.SampleDataGenerator
 import com.bscan.ui.screens.settings.ExportImportCard
 import com.bscan.ui.screens.settings.ExportPreviewData
 import com.bscan.ui.screens.settings.DataGenerationMode
-import com.bscan.data.BambuProductDatabase
 import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.ui.components.FilamentColorBox
+import com.bscan.data.bambu.BambuVariantSkuMapper
 import com.bscan.repository.PhysicalComponentRepository
 import com.bscan.ble.BlePermissionHandler
 import com.bscan.ble.BleScalesManager
@@ -1122,7 +1122,7 @@ private fun SampleDataCard(
             // Generation info
             when (selectedMode) {
                 DataGenerationMode.COMPLETE_COVERAGE -> {
-                    val totalSkus = BambuProductDatabase.getAllProducts().size
+                    val totalSkus = BambuVariantSkuMapper.getAllKnownVariants().size
                     Text(
                         text = "Will generate samples for all $totalSkus known Bambu Lab products",
                         style = MaterialTheme.typography.bodySmall,

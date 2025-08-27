@@ -7,7 +7,7 @@ import com.bscan.model.DecryptedScanData
 import com.bscan.model.TagFormat
 import com.bscan.model.BambuProduct
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.data.BambuProductDatabase
+// Imports for new mapper system removed - using simplified sample products
 import java.time.LocalDateTime
 import kotlin.random.Random
 
@@ -44,7 +44,8 @@ class SampleDataGenerator {
         minScans: Int = 1,
         maxScans: Int = 5
     ): GenerationStats {
-        val allProducts = BambuProductDatabase.getAllProducts()
+        // Use a simplified set of sample products
+        val allProducts = createSampleProducts()
         var trayCounter = 1
         var totalScansGenerated = 0
         var successfulScans = 0
@@ -104,7 +105,8 @@ class SampleDataGenerator {
     suspend fun generateMinimalCoverage(
         repository: ScanHistoryRepository
     ): GenerationStats {
-        val allProducts = BambuProductDatabase.getAllProducts()
+        // Use a simplified set of sample products for minimal coverage
+        val allProducts = createSampleProducts()
         var totalScansGenerated = 0
         var successfulScans = 0
         
@@ -137,7 +139,8 @@ class SampleDataGenerator {
     ): GenerationStats {
         var totalScansGenerated = 0
         var successfulScans = 0
-        val bambuProducts = BambuProductDatabase.getAllProducts()
+        // Use a simplified set of sample products for random sampling
+        val bambuProducts = createSampleProducts()
         
         repeat(spoolCount) { spoolIndex ->
             val product = bambuProducts[spoolIndex % bambuProducts.size]
@@ -358,5 +361,21 @@ class SampleDataGenerator {
         materialType.contains("PETG") -> 8
         materialType.contains("ABS") -> 4
         else -> 6
+    }
+    
+    /**
+     * Create a simplified set of sample products for testing
+     */
+    private fun createSampleProducts(): List<BambuProduct> {
+        return listOf(
+            BambuProduct("PLA Basic", "Black", "GFA00", "10101", "#000000", null, null),
+            BambuProduct("PLA Basic", "White", "GFA00", "10102", "#FFFFFF", null, null),
+            BambuProduct("PLA Basic", "Red", "GFA00", "10103", "#FF0000", null, null),
+            BambuProduct("PLA Basic", "Blue", "GFA00", "10104", "#0000FF", null, null),
+            BambuProduct("PETG", "Black", "GFB00", "20101", "#000000", null, null),
+            BambuProduct("PETG", "White", "GFB00", "20102", "#FFFFFF", null, null),
+            BambuProduct("ABS", "Black", "GFC00", "30101", "#000000", null, null),
+            BambuProduct("ABS", "White", "GFC00", "30102", "#FFFFFF", null, null)
+        )
     }
 }
