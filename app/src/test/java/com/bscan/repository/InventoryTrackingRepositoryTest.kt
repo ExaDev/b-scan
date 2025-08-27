@@ -59,7 +59,19 @@ class InventoryTrackingRepositoryTest {
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
-        `when`(mockContext.getSharedPreferences("component_repository", Context.MODE_PRIVATE))
+        `when`(mockContext.getSharedPreferences("user_catalog", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("catalog_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("component_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("component_measurement_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("inventory_data", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("ui_preferences", Context.MODE_PRIVATE))
+            .thenReturn(mockSharedPreferences)
+        `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
@@ -68,6 +80,13 @@ class InventoryTrackingRepositoryTest {
         `when`(mockEditor.remove(anyString())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
         `when`(mockSharedPreferences.getString(anyString(), anyString())).thenReturn(null)
+        
+        // Mock specific keys used by repositories  
+        `when`(mockSharedPreferences.getString("user_data_v1", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("components", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("component_measurements", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // Mock the Assets for CatalogRepository
         val mockAssetManager = mock(android.content.res.AssetManager::class.java)
