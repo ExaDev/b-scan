@@ -1,10 +1,15 @@
 package com.bscan.ui.screens
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -16,13 +21,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bscan.MainViewModel
 import com.bscan.model.*
 import com.bscan.ui.screens.DetailType
-import com.bscan.repository.MergedManufacturer
+import com.bscan.repository.ComponentRepository
 import com.bscan.ui.components.ColorPreviewDot
 import com.bscan.ui.components.common.ConfirmationDialog
 import com.bscan.ui.components.common.EmptyStateView
@@ -38,31 +48,46 @@ fun InventoryScreen(
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    // Load inventory items and manufacturers using UnifiedDataAccess
-    var inventoryItems by remember { mutableStateOf<Map<String, InventoryItem>>(emptyMap()) }
-    var manufacturers by remember { mutableStateOf<Map<String, MergedManufacturer>>(emptyMap()) }
-    var components by remember { mutableStateOf<Map<String, PhysicalComponent>>(emptyMap()) }
+    // Load hierarchical components using ComponentRepository
+    var allComponents by remember { mutableStateOf<List<Component>>(emptyList()) }
+    var inventoryItems by remember { mutableStateOf<List<Component>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     
-    // Show delete confirmation dialog
-    var itemToDelete by remember { mutableStateOf<InventoryItem?>(null) }
+    // UI state for hierarchy display
+    var expandedComponents by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var selectedTag by remember { mutableStateOf<String?>(null) }
     
-    // Load data
+    // Show delete confirmation dialog
+    var componentToDelete by remember { mutableStateOf<Component?>(null) }
+    
+    // Load hierarchical component data
     LaunchedEffect(Unit) {
         scope.launch(Dispatchers.IO) {
             try {
+                val componentRepository = ComponentRepository(context)
+                val loadedComponents = componentRepository.getComponents()
+                val loadedInventoryItems = componentRepository.getInventoryItems()
+                
+                // Also check legacy data and provide migration option
                 val unifiedDataAccess = viewModel.getUnifiedDataAccess()
-                val loadedInventoryItems = unifiedDataAccess.getInventoryItems()
-                val loadedManufacturers = unifiedDataAccess.getAllManufacturers()
-                val loadedComponents = unifiedDataAccess.getComponents()
+                val legacyInventoryItems = unifiedDataAccess.getInventoryItems()
+                val legacyComponents = unifiedDataAccess.getComponents()
                 
                 withContext(Dispatchers.Main) {
+                    allComponents = loadedComponents
                     inventoryItems = loadedInventoryItems
-                    manufacturers = loadedManufacturers
-                    components = loadedComponents
                     isLoading = false
+                    
+                    // If we have legacy data but no new components, suggest migration
+                    if (loadedComponents.isEmpty() && (legacyInventoryItems.isNotEmpty() || legacyComponents.isNotEmpty())) {
+                        // Migration would be handled elsewhere - for now just show empty state
+                        android.util.Log.i("InventoryScreen", "Legacy data detected: ${legacyInventoryItems.size} items, ${legacyComponents.size} components")
+                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -73,38 +98,32 @@ fun InventoryScreen(
     }
     
     // Delete confirmation dialog
-    itemToDelete?.let { item ->
+    componentToDelete?.let { component ->
         ConfirmationDialog(
-            title = "Remove Inventory Item",
-            message = "Remove inventory item ${formatTrayId(item.trayUid)} and all its data? This cannot be undone.",
+            title = "Remove Component",
+            message = "Remove component '${component.name}' and all its children? This cannot be undone.",
             confirmText = "Remove",
             onConfirm = {
                 scope.launch(Dispatchers.IO) {
                     try {
-                        val unifiedDataAccess = viewModel.getUnifiedDataAccess()
-                        // Remove inventory item and its components
-                        item.components.forEach { componentId ->
-                            components[componentId]?.let { component ->
-                                viewModel.getUserDataRepository().removeComponent(componentId)
-                            }
-                        }
-                        viewModel.getUserDataRepository().removeInventoryItem(item.trayUid)
+                        val componentRepository = ComponentRepository(context)
+                        componentRepository.deleteComponent(component.id)
                         
                         // Refresh data
-                        val updatedInventoryItems = unifiedDataAccess.getInventoryItems()
-                        val updatedComponents = unifiedDataAccess.getComponents()
+                        val updatedComponents = componentRepository.getComponents()
+                        val updatedInventoryItems = componentRepository.getInventoryItems()
                         
                         withContext(Dispatchers.Main) {
+                            allComponents = updatedComponents
                             inventoryItems = updatedInventoryItems
-                            components = updatedComponents
                         }
                     } catch (e: Exception) {
                         // Handle error silently for now
                     }
                 }
-                itemToDelete = null
+                componentToDelete = null
             },
-            onDismiss = { itemToDelete = null },
+            onDismiss = { componentToDelete = null },
             isDestructive = true
         )
     }
@@ -144,6 +163,20 @@ fun InventoryScreen(
                 InventoryEmptyState()
             }
         } else {
+            // Filter components based on search and filters
+            val filteredComponents = remember(allComponents, searchQuery, selectedCategory, selectedTag) {
+                allComponents.filter { component ->
+                    val matchesSearch = searchQuery.isEmpty() || 
+                        component.name.contains(searchQuery, ignoreCase = true) ||
+                        component.identifiers.any { it.value.contains(searchQuery, ignoreCase = true) } ||
+                        component.manufacturer.contains(searchQuery, ignoreCase = true)
+                    
+                    val matchesCategory = selectedCategory == null || component.category == selectedCategory
+                    val matchesTag = selectedTag == null || selectedTag in component.tags
+                    
+                    matchesSearch && matchesCategory && matchesTag
+                }
+            }
             LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
@@ -153,20 +186,39 @@ fun InventoryScreen(
             ) {
                 // Statistics summary
                 item {
-                    InventoryStatisticsCard(
-                        inventoryItems = inventoryItems,
-                        manufacturers = manufacturers,
-                        components = components
+                    HierarchicalInventoryStatisticsCard(
+                        allComponents = allComponents,
+                        inventoryItems = inventoryItems
                     )
                 }
                 
-                // Individual inventory item cards
-                items(inventoryItems.values.toList()) { item ->
-                    InventoryItemCard(
-                        inventoryItem = item,
-                        components = components,
-                        manufacturers = manufacturers,
-                        onDeleteItem = { itemToDelete = item },
+                // Search and filter controls
+                item {
+                    InventoryControlsCard(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { searchQuery = it },
+                        selectedCategory = selectedCategory,
+                        onCategoryChange = { selectedCategory = it },
+                        selectedTag = selectedTag,
+                        onTagChange = { selectedTag = it },
+                        allComponents = allComponents
+                    )
+                }
+                
+                // Hierarchical inventory items display
+                items(inventoryItems) { inventoryItem ->
+                    HierarchicalInventoryItemCard(
+                        inventoryItem = inventoryItem,
+                        allComponents = filteredComponents,
+                        isExpanded = inventoryItem.id in expandedComponents,
+                        onToggleExpanded = { componentId ->
+                            expandedComponents = if (componentId in expandedComponents) {
+                                expandedComponents - componentId
+                            } else {
+                                expandedComponents + componentId
+                            }
+                        },
+                        onDeleteComponent = { componentToDelete = it },
                         onNavigateToDetails = onNavigateToDetails
                     )
                 }
@@ -175,28 +227,62 @@ fun InventoryScreen(
     }
 }
 
-// Utility functions for formatting
-fun formatTrayId(trayUid: String): String {
-    return if (trayUid.length > 8) {
-        trayUid.takeLast(8)
+// Utility functions for formatting and hierarchy
+fun formatComponentId(componentId: String): String {
+    return if (componentId.length > 8) {
+        componentId.takeLast(8)
     } else {
-        trayUid
+        componentId
     }
+}
+
+fun getComponentIcon(category: String): ImageVector = when (category.lowercase()) {
+    "filament" -> Icons.Default.Polymer
+    "spool" -> Icons.Default.Circle
+    "core" -> Icons.Default.DonutLarge
+    "adapter" -> Icons.Default.Transform
+    "packaging" -> Icons.Default.LocalShipping
+    "rfid-tag" -> Icons.Default.Sensors
+    "filament-tray" -> Icons.Default.Inventory
+    "nozzle" -> Icons.Default.Settings
+    "hotend" -> Icons.Default.Thermostat
+    "tool" -> Icons.Default.Build
+    else -> Icons.Default.Category
+}
+
+fun getCategoryColor(category: String, colorScheme: ColorScheme) = when (category.lowercase()) {
+    "filament" -> colorScheme.primaryContainer
+    "rfid-tag" -> colorScheme.secondaryContainer
+    "core", "spool" -> colorScheme.tertiaryContainer
+    "adapter", "packaging" -> colorScheme.surfaceVariant
+    else -> colorScheme.surface
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InventoryStatisticsCard(
-    inventoryItems: Map<String, InventoryItem>,
-    manufacturers: Map<String, MergedManufacturer>,
-    components: Map<String, PhysicalComponent>,
+fun HierarchicalInventoryStatisticsCard(
+    allComponents: List<Component>,
+    inventoryItems: List<Component>,
     modifier: Modifier = Modifier
 ) {
-    val totalItems = inventoryItems.size
-    val totalComponents = components.size
-    val uniqueManufacturers = manufacturers.size
-    val filamentComponents = components.values.count { it.type == PhysicalComponentType.FILAMENT }
-    val spoolComponents = components.values.count { it.type == PhysicalComponentType.BASE_SPOOL }
+    val totalInventoryItems = inventoryItems.size
+    val totalComponents = allComponents.size
+    val uniqueManufacturers = allComponents.map { it.manufacturer }.distinct().size
+    
+    // Count by categories
+    val categoryStats = allComponents.groupBy { it.category }
+        .mapValues { it.value.size }
+        .toList()
+        .sortedByDescending { it.second }
+        .take(5) // Show top 5 categories
+    
+    // Count by tags
+    val tagStats = allComponents.flatMap { it.tags }
+        .groupBy { it }
+        .mapValues { it.value.size }
+        .toList()
+        .sortedByDescending { it.second }
+        .take(3) // Show top 3 tags
     
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -208,20 +294,20 @@ fun InventoryStatisticsCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Inventory,
+                    imageVector = Icons.Default.AccountTree,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Inventory Statistics",
+                    text = "Hierarchical Inventory",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
             }
             
             val mainStats = listOf(
-                "Total Items" to totalItems.toString(),
-                "Components" to totalComponents.toString(),
+                "Inventory Items" to totalInventoryItems.toString(),
+                "Total Components" to totalComponents.toString(),
                 "Manufacturers" to uniqueManufacturers.toString()
             )
             
@@ -230,31 +316,48 @@ fun InventoryStatisticsCard(
                 modifier = Modifier.fillMaxWidth()
             )
             
-            val componentStats = listOf(
-                "Filament" to filamentComponents.toString(),
-                "Spools" to spoolComponents.toString()
-            )
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                componentStats.forEach { (label, value) ->
-                    StatisticDisplay(
-                        label = label,
-                        value = value
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-            }
-            
-            // Show manufacturer breakdown
-            if (manufacturers.isNotEmpty()) {
+            // Category breakdown
+            if (categoryStats.isNotEmpty()) {
                 HorizontalDivider()
                 Text(
-                    text = "Manufacturers: ${manufacturers.keys.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "Top Categories",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(categoryStats) { (category, count) ->
+                        AssistChip(
+                            onClick = { },
+                            label = { 
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        getComponentIcon(category),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        "$category ($count)",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            
+            // Tag breakdown
+            if (tagStats.isNotEmpty()) {
+                Text(
+                    text = "Popular Tags: ${tagStats.joinToString(", ") { "${it.first} (${it.second})" }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -263,105 +366,65 @@ fun InventoryStatisticsCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InventoryItemCard(
-    inventoryItem: InventoryItem,
-    components: Map<String, PhysicalComponent>,
-    manufacturers: Map<String, MergedManufacturer>,
-    onDeleteItem: (InventoryItem) -> Unit,
-    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+fun InventoryControlsCard(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    selectedCategory: String?,
+    onCategoryChange: (String?) -> Unit,
+    selectedTag: String?,
+    onTagChange: (String?) -> Unit,
+    allComponents: List<Component>,
     modifier: Modifier = Modifier
 ) {
-    val dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")
-    val itemComponents = inventoryItem.components.mapNotNull { components[it] }
-    val filamentComponent = itemComponents.firstOrNull { it.type == PhysicalComponentType.FILAMENT }
-    val manufacturerName = filamentComponent?.let { 
-        manufacturers[it.manufacturer]?.displayName ?: it.manufacturer 
-    } ?: "Unknown"
+    val keyboardController = LocalSoftwareKeyboardController.current
     
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable {
-                onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, inventoryItem.trayUid)
-            }
-    ) {
+    // Get available categories and tags
+    val availableCategories = remember(allComponents) {
+        allComponents.map { it.category }.distinct().sorted()
+    }
+    val availableTags = remember(allComponents) {
+        allComponents.flatMap { it.tags }.distinct().sorted()
+    }
+    
+    Card(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header with tray UID and delete button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Inventory Item",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatTrayId(inventoryItem.trayUid),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Full: ${inventoryItem.trayUid}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                IconButton(
-                    onClick = { onDeleteItem(inventoryItem) },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Remove inventory item"
-                    )
-                }
-            }
+            Text(
+                text = "Search & Filter",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium
+            )
             
-            // Manufacturer and basic stats
-            Row(
+            // Search field
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                label = { Text("Search components...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                },
+                trailingIcon = if (searchQuery.isNotEmpty()) {
+                    {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                        }
+                    }
+                } else null,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Manufacturer",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = manufacturerName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = "${itemComponents.size} components",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Search
+                ),
+                keyboardActions = KeyboardActions(
+                    onSearch = { keyboardController?.hide() }
+                )
+            )
             
-            // Component breakdown
-            if (itemComponents.isNotEmpty()) {
+            // Category filter
+            if (availableCategories.isNotEmpty()) {
                 Text(
-                    text = "Components:",
+                    text = "Category",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -369,14 +432,216 @@ fun InventoryItemCard(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(itemComponents) { component ->
-                        ComponentChip(component = component)
+                    item {
+                        FilterChip(
+                            onClick = { onCategoryChange(null) },
+                            label = { Text("All") },
+                            selected = selectedCategory == null
+                        )
+                    }
+                    
+                    items(availableCategories) { category ->
+                        FilterChip(
+                            onClick = { 
+                                onCategoryChange(if (selectedCategory == category) null else category)
+                            },
+                            label = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        getComponentIcon(category),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(category)
+                                }
+                            },
+                            selected = selectedCategory == category
+                        )
                     }
                 }
             }
             
+            // Tag filter
+            if (availableTags.isNotEmpty()) {
+                Text(
+                    text = "Tags",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        FilterChip(
+                            onClick = { onTagChange(null) },
+                            label = { Text("All") },
+                            selected = selectedTag == null
+                        )
+                    }
+                    
+                    items(availableTags.take(10)) { tag -> // Limit to prevent UI overflow
+                        FilterChip(
+                            onClick = { 
+                                onTagChange(if (selectedTag == tag) null else tag)
+                            },
+                            label = { Text(tag) },
+                            selected = selectedTag == tag
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HierarchicalInventoryItemCard(
+    inventoryItem: Component,
+    allComponents: List<Component>,
+    isExpanded: Boolean,
+    onToggleExpanded: (String) -> Unit,
+    onDeleteComponent: (Component) -> Unit,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    val dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")
+    val childComponents = allComponents.filter { it.parentComponentId == inventoryItem.id }
+    val totalMass = calculateTotalMass(inventoryItem, allComponents)
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable {
+                inventoryItem.getPrimaryTrackingIdentifier()?.let { identifier ->
+                    onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, identifier.value)
+                }
+            }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .animateContentSize(animationSpec = tween(300)),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header with component info and expand/collapse
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        getComponentIcon(inventoryItem.category),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    
+                    Column {
+                        Text(
+                            text = inventoryItem.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        // Show primary identifier
+                        inventoryItem.getPrimaryTrackingIdentifier()?.let { identifier ->
+                            Text(
+                                text = "${identifier.type.name}: ${formatComponentId(identifier.value)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Expand/collapse button
+                    if (childComponents.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onToggleExpanded(inventoryItem.id) }
+                        ) {
+                            Icon(
+                                if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (isExpanded) "Collapse" else "Expand"
+                            )
+                        }
+                    }
+                    
+                    // Delete button
+                    IconButton(
+                        onClick = { onDeleteComponent(inventoryItem) },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove inventory item"
+                        )
+                    }
+                }
+            }
+            
+            // Component metadata
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Manufacturer: ${inventoryItem.manufacturer}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    // Show tags
+                    if (inventoryItem.tags.isNotEmpty()) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            items(inventoryItem.tags) { tag ->
+                                AssistChip(
+                                    onClick = { },
+                                    label = { 
+                                        Text(
+                                            tag, 
+                                            style = MaterialTheme.typography.labelSmall
+                                        ) 
+                                    },
+                                    modifier = Modifier.height(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = "${childComponents.size} components",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            
             // Mass information
-            inventoryItem.totalMeasuredMass?.let { totalMass ->
+            if (totalMass != null) {
                 HorizontalDivider()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -387,28 +652,34 @@ fun InventoryItemCard(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        text = "${totalMass}g",
+                        text = "${String.format("%.1f", totalMass)}g",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
                 }
             }
             
-            // Latest measurement
-            inventoryItem.latestMeasurement?.let { measurement ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+            // Expanded child components
+            if (isExpanded && childComponents.isNotEmpty()) {
+                HorizontalDivider()
+                
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Latest Measurement:",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Child Components",
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = "${measurement.measuredMassGrams}g",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    
+                    childComponents.forEach { childComponent ->
+                        HierarchicalComponentCard(
+                            component = childComponent,
+                            allComponents = allComponents,
+                            depth = 1,
+                            onDeleteComponent = onDeleteComponent
+                        )
+                    }
                 }
             }
             
@@ -430,8 +701,8 @@ fun InventoryItemCard(
                     )
                 }
                 
-                // Show notes if available
-                if (inventoryItem.notes.isNotBlank()) {
+                // Show description if available
+                if (inventoryItem.description.isNotBlank()) {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         shape = MaterialTheme.shapes.extraSmall
@@ -442,7 +713,7 @@ fun InventoryItemCard(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Note,
+                                imageVector = Icons.Default.Description,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(12.dp)
@@ -462,65 +733,210 @@ fun InventoryItemCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ComponentChip(
-    component: PhysicalComponent,
+fun HierarchicalComponentCard(
+    component: Component,
+    allComponents: List<Component>,
+    depth: Int = 0,
+    onDeleteComponent: (Component) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val icon = when (component.type) {
-        PhysicalComponentType.FILAMENT -> Icons.Default.LinearScale
-        PhysicalComponentType.BASE_SPOOL -> Icons.Default.Album
-        PhysicalComponentType.CORE_RING -> Icons.Default.DonutLarge
-        PhysicalComponentType.ADAPTER -> Icons.Default.Extension
-        PhysicalComponentType.PACKAGING -> Icons.Default.Inventory2
-    }
+    val childComponents = allComponents.filter { it.parentComponentId == component.id }
+    val indentSize = (depth * 16).dp
     
-    val containerColor = when (component.type) {
-        PhysicalComponentType.FILAMENT -> MaterialTheme.colorScheme.primaryContainer
-        PhysicalComponentType.BASE_SPOOL -> MaterialTheme.colorScheme.secondaryContainer
-        PhysicalComponentType.CORE_RING -> MaterialTheme.colorScheme.tertiaryContainer
-        PhysicalComponentType.ADAPTER -> MaterialTheme.colorScheme.errorContainer
-        PhysicalComponentType.PACKAGING -> MaterialTheme.colorScheme.surfaceVariant
-    }
-    
-    val contentColor = when (component.type) {
-        PhysicalComponentType.FILAMENT -> MaterialTheme.colorScheme.onPrimaryContainer
-        PhysicalComponentType.BASE_SPOOL -> MaterialTheme.colorScheme.onSecondaryContainer
-        PhysicalComponentType.CORE_RING -> MaterialTheme.colorScheme.onTertiaryContainer
-        PhysicalComponentType.ADAPTER -> MaterialTheme.colorScheme.onErrorContainer
-        PhysicalComponentType.PACKAGING -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    
-    Surface(
-        color = containerColor,
-        shape = MaterialTheme.shapes.small,
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = getCategoryColor(component.category, MaterialTheme.colorScheme)
+        ),
+        border = CardDefaults.outlinedCardBorder(),
         modifier = modifier
+            .fillMaxWidth()
+            .padding(start = indentSize)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(14.dp)
-            )
-            Text(
-                text = component.name,
-                style = MaterialTheme.typography.labelSmall,
-                color = contentColor,
-                maxLines = 1
-            )
-            if (component.variableMass) {
-                Text(
-                    text = "${component.massGrams.toInt()}g",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor,
-                    fontWeight = FontWeight.Medium
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Hierarchy indicator
+                    if (depth > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(2.dp, 20.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.outline,
+                                    MaterialTheme.shapes.extraSmall
+                                )
+                        )
+                    }
+                    
+                    // Component icon
+                    Icon(
+                        getComponentIcon(component.category),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = component.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                        
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // Category chip
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = MaterialTheme.shapes.extraSmall
+                            ) {
+                                Text(
+                                    component.category,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            
+                            // Variable mass indicator
+                            if (component.variableMass) {
+                                Icon(
+                                    Icons.Default.TrendingDown,
+                                    contentDescription = "Variable mass",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                            
+                            // Inferred mass indicator
+                            if (component.inferredMass) {
+                                Icon(
+                                    Icons.Default.Calculate,
+                                    contentDescription = "Inferred mass",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Mass and actions
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Mass display
+                    Column(horizontalAlignment = Alignment.End) {
+                        component.massGrams?.let { mass ->
+                            Text(
+                                text = "${String.format("%.1f", mass)}g",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            // Show remaining percentage for variable mass
+                            component.getRemainingPercentage()?.let { percentage ->
+                                Text(
+                                    text = "${(percentage * 100).toInt()}% remaining",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when {
+                                        percentage < 0.05f -> MaterialTheme.colorScheme.error
+                                        percentage < 0.20f -> MaterialTheme.colorScheme.secondary
+                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                            }
+                        } ?: Text(
+                            text = "Unknown",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Delete button
+                    IconButton(
+                        onClick = { onDeleteComponent(component) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Remove,
+                            contentDescription = "Remove component",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+            
+            // Show identifiers
+            if (component.identifiers.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(component.identifiers.take(3)) { identifier ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.extraSmall
+                        ) {
+                            Text(
+                                text = "${identifier.type.name}: ${formatComponentId(identifier.value)}",
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Recursively display child components
+            if (childComponents.isNotEmpty()) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    childComponents.forEach { childComponent ->
+                        HierarchicalComponentCard(
+                            component = childComponent,
+                            allComponents = allComponents,
+                            depth = depth + 1,
+                            onDeleteComponent = onDeleteComponent,
+                            modifier = Modifier.clip(MaterialTheme.shapes.small)
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+// Helper function to calculate total mass including children
+fun calculateTotalMass(component: Component, allComponents: List<Component>): Float? {
+    val ownMass = component.massGrams ?: 0f
+    val childComponents = allComponents.filter { it.parentComponentId == component.id }
+    
+    if (childComponents.isEmpty()) {
+        return component.massGrams
+    }
+    
+    val childMass = childComponents.mapNotNull { calculateTotalMass(it, allComponents) }.sum()
+    
+    return if (component.massGrams != null || childComponents.any { it.massGrams != null }) {
+        ownMass + childMass
+    } else {
+        null
     }
 }
 

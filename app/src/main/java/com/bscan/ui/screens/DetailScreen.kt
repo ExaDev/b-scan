@@ -97,6 +97,7 @@ fun DetailScreen(
                             DetailType.TAG -> "Tag Details" 
                             DetailType.INVENTORY_STOCK -> "Inventory Stock Details"
                             DetailType.SKU -> "SKU Details"
+                            DetailType.COMPONENT -> "Component Details"
                         }
                     )
                 },
@@ -183,6 +184,18 @@ fun DetailScreen(
                             item {
                                 PrimarySkuSection(sku = sku)
                             }
+                        }
+                    }
+                    DetailType.COMPONENT -> {
+                        uiState.primaryComponent?.let { component ->
+                            item {
+                                Text(
+                                    text = "Component Information",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            // Add component display logic here when needed
                         }
                     }
                 }
