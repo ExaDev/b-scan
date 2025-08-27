@@ -4,6 +4,11 @@ import android.util.Log
 import com.bscan.model.*
 import com.bscan.data.BambuProductDatabase
 import com.bscan.interpreter.InterpreterFactory
+import com.bscan.service.ComponentFactory
+import com.bscan.detector.TagDetector
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import android.content.Context
 
 /**
  * Unified data access layer that merges catalog data (build-time) with user data (runtime).
@@ -13,11 +18,378 @@ import com.bscan.interpreter.InterpreterFactory
 class UnifiedDataAccess(
     private val catalogRepo: CatalogRepository,
     private val userRepo: UserDataRepository,
-    private val scanHistoryRepo: ScanHistoryRepository? = null
+    private val scanHistoryRepo: ScanHistoryRepository? = null,
+    private val componentRepo: ComponentRepository? = null,
+    private val context: Context? = null
 ) {
     
     companion object {
         private const val TAG = "UnifiedDataAccess"
+    }
+    
+    // === Component Creation Workflow ===
+    
+    /**
+     * Complete component creation workflow from RFID scan.
+     * Integrates with ComponentFactory pattern for different tag formats.
+     */
+    suspend fun createComponentsFromScan(
+        encryptedScanData: EncryptedScanData, 
+        decryptedScanData: DecryptedScanData
+    ): ComponentCreationResult = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Starting component creation workflow for tag: ${encryptedScanData.tagUid}")
+            
+            // Detect tag format and create appropriate factory
+            val factory = createFactorySafely(encryptedScanData)
+            if (factory == null) {
+                return@withContext ComponentCreationResult(
+                    success = false,
+                    errorMessage = "Unable to create appropriate component factory"
+                )
+            }
+            Log.d(TAG, "Using factory: ${factory.factoryType}")
+            
+            // Process the scan to create components
+            val rootComponent = factory.processScan(encryptedScanData, decryptedScanData)
+            if (rootComponent == null) {
+                Log.e(TAG, "Factory failed to create components")
+                return@withContext ComponentCreationResult(
+                    success = false,
+                    errorMessage = "Failed to create components from scan data"
+                )
+            }
+            
+            Log.i(TAG, "Successfully created component hierarchy: ${rootComponent.name}")
+            return@withContext ComponentCreationResult(
+                success = true,
+                rootComponent = rootComponent,
+                totalComponentsCreated = countHierarchyComponents(rootComponent.id)
+            )
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in component creation workflow", e)
+            ComponentCreationResult(
+                success = false,
+                errorMessage = "Unexpected error: ${e.message}"
+            )
+        }
+    }
+    
+    /**
+     * Find best product match from FilamentInfo for SKU lookup
+     */
+    suspend fun findBestProductMatch(filamentInfo: FilamentInfo): CatalogSku? = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Looking up SKU for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
+            
+            // First try exact match by material type and color name
+            val manufacturerId = determineManufacturer(filamentInfo)
+            val products = findProducts(manufacturerId, null, filamentInfo.filamentType)
+            
+            val exactMatch = products.firstOrNull { product ->
+                product.colorName.equals(filamentInfo.colorName, ignoreCase = true)
+            }
+            
+            if (exactMatch != null) {
+                Log.d(TAG, "Found exact product match: ${exactMatch.variantId}")
+                return@withContext CatalogSku(
+                    sku = exactMatch.variantId,
+                    productName = exactMatch.productName,
+                    manufacturer = exactMatch.manufacturer,
+                    materialType = exactMatch.materialType,
+                    colorName = exactMatch.colorName,
+                    colorHex = exactMatch.colorHex,
+                    filamentWeightGrams = exactMatch.filamentWeightGrams,
+                    url = exactMatch.url,
+                    componentDefaults = getComponentDefaultsForSku(manufacturerId, exactMatch.variantId)
+                )
+            }
+            
+            // Try fuzzy color matching
+            val fuzzyMatch = findFuzzyColorMatch(products, filamentInfo.colorName)
+            if (fuzzyMatch != null) {
+                Log.d(TAG, "Found fuzzy product match: ${fuzzyMatch.variantId}")
+                return@withContext CatalogSku(
+                    sku = fuzzyMatch.variantId,
+                    productName = fuzzyMatch.productName,
+                    manufacturer = fuzzyMatch.manufacturer,
+                    materialType = fuzzyMatch.materialType,
+                    colorName = fuzzyMatch.colorName,
+                    colorHex = fuzzyMatch.colorHex,
+                    filamentWeightGrams = fuzzyMatch.filamentWeightGrams,
+                    url = fuzzyMatch.url,
+                    componentDefaults = getComponentDefaultsForSku(manufacturerId, fuzzyMatch.variantId)
+                )
+            }
+            
+            Log.d(TAG, "No SKU match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error finding product match", e)
+            null
+        }
+    }
+    
+    /**
+     * Update component stock levels by SKU
+     */
+    suspend fun updateComponentStock(skuId: String, quantityChange: Int) = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Updating stock for SKU: $skuId by $quantityChange")
+            
+            // Get current stock tracking data from user preferences metadata
+            // For now, we'll store stock tracking in a simple format
+            // This could be enhanced with a dedicated stock tracking system later
+            val userData = userRepo.getUserData()
+            
+            // Count existing instances of this SKU in components
+            val components = componentRepo?.getComponents() ?: emptyList()
+            val existingCount = components.count { it.metadata["sku"] == skuId }
+            val newCount = maxOf(0, existingCount + quantityChange)
+            
+            // For now, just log the stock change - could be enhanced with dedicated storage
+            Log.i(TAG, "Stock tracking - SKU: $skuId, existing: $existingCount, change: $quantityChange, new: $newCount")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating component stock", e)
+        }
+    }
+    
+    /**
+     * Get total stock across all component instances for a SKU
+     */
+    suspend fun getSkuStockLevel(skuId: String): StockLevel = withContext(Dispatchers.IO) {
+        try {
+            val components = componentRepo?.getComponents() ?: emptyList()
+            
+            // Find all components associated with this SKU
+            val skuComponents = components.filter { component ->
+                component.metadata["sku"] == skuId
+            }
+            
+            val totalInstances = skuComponents.size
+            val availableInstances = skuComponents.count { component ->
+                // Consider component available if it's not consumed/empty
+                val remainingPercentage = component.getRemainingPercentage()
+                remainingPercentage == null || remainingPercentage > 0.05f // More than 5% remaining
+            }
+            
+            // Count total quantity from component metadata
+            val totalQuantity = components.count { it.metadata["sku"] == skuId }
+            
+            StockLevel(
+                skuId = skuId,
+                totalQuantity = totalQuantity,
+                availableQuantity = availableInstances,
+                totalInstances = totalInstances,
+                runningLowThreshold = 2, // Alert when 2 or fewer available
+                isRunningLow = availableInstances <= 2
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting SKU stock level", e)
+            StockLevel(
+                skuId = skuId,
+                totalQuantity = 0,
+                availableQuantity = 0,
+                totalInstances = 0,
+                runningLowThreshold = 0,
+                isRunningLow = true
+            )
+        }
+    }
+    
+    // === Enhanced Resolution Methods ===
+    
+    /**
+     * Resolve components by identifier type and value
+     */
+    suspend fun resolveComponentsByIdentifier(
+        identifierType: IdentifierType, 
+        value: String
+    ): List<Component> = withContext(Dispatchers.IO) {
+        componentRepo?.getComponents()?.filter { component ->
+            component.identifiers.any { identifier ->
+                identifier.type == identifierType && identifier.value == value
+            }
+        } ?: emptyList()
+    }
+    
+    /**
+     * Resolve inventory items with priority system
+     * Priority: User catalog > Build-time catalog > Interpreted data
+     */
+    suspend fun resolveInventoryItem(
+        uniqueIdentifier: String,
+        fallbackStrategy: ResolutionStrategy = ResolutionStrategy.COMPREHENSIVE
+    ): InventoryResolutionResult = withContext(Dispatchers.IO) {
+        try {
+            // 1. Check component repository first (highest priority)
+            componentRepo?.findInventoryByUniqueId(uniqueIdentifier)?.let { component ->
+                Log.d(TAG, "Found inventory item in component repository")
+                return@withContext InventoryResolutionResult(
+                    success = true,
+                    component = component,
+                    source = "ComponentRepository"
+                )
+            }
+            
+            // 2. Check legacy inventory items
+            getInventoryItem(uniqueIdentifier)?.let { inventoryItem ->
+                Log.d(TAG, "Found legacy inventory item")
+                return@withContext InventoryResolutionResult(
+                    success = true,
+                    legacyInventoryItem = inventoryItem,
+                    source = "LegacyRepository"
+                )
+            }
+            
+            // 3. Try RFID resolution if comprehensive fallback enabled
+            if (fallbackStrategy == ResolutionStrategy.COMPREHENSIVE) {
+                // Attempt to resolve as RFID tag UID
+                resolveRfidTag(uniqueIdentifier, byteArrayOf())?.let { filamentInfo ->
+                    Log.d(TAG, "Resolved via RFID mapping")
+                    return@withContext InventoryResolutionResult(
+                        success = true,
+                        filamentInfo = filamentInfo,
+                        source = "RfidMapping"
+                    )
+                }
+            }
+            
+            Log.d(TAG, "No resolution found for identifier: $uniqueIdentifier")
+            InventoryResolutionResult(
+                success = false,
+                errorMessage = "No inventory item found with identifier: $uniqueIdentifier"
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resolving inventory item", e)
+            InventoryResolutionResult(
+                success = false,
+                errorMessage = "Resolution error: ${e.message}"
+            )
+        }
+    }
+    
+    /**
+     * Resolve component relationships and groupings
+     */
+    suspend fun resolveComponentHierarchy(componentId: String): ComponentHierarchy? = withContext(Dispatchers.IO) {
+        try {
+            val component = componentRepo?.getComponent(componentId) ?: return@withContext null
+            val children = componentRepo.getChildComponents(componentId)
+            val parent = component.parentComponentId?.let { componentRepo.getComponent(it) }
+            val siblings = parent?.childComponents?.mapNotNull { siblingId ->
+                if (siblingId != componentId) componentRepo.getComponent(siblingId) else null
+            } ?: emptyList()
+            
+            ComponentHierarchy(
+                component = component,
+                parent = parent,
+                children = children,
+                siblings = siblings,
+                totalHierarchyMass = calculateHierarchyMass(componentId)
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resolving component hierarchy", e)
+            null
+        }
+    }
+    
+    // === Batch Operations ===
+    
+    /**
+     * Create multiple components from batch scan data
+     */
+    suspend fun createComponentsBatch(
+        scanDataList: List<Pair<EncryptedScanData, DecryptedScanData>>
+    ): BatchComponentCreationResult = withContext(Dispatchers.IO) {
+        val results = mutableListOf<ComponentCreationResult>()
+        var successCount = 0
+        
+        scanDataList.forEach { (encrypted, decrypted) ->
+            val result = createComponentsFromScan(encrypted, decrypted)
+            results.add(result)
+            if (result.success) successCount++
+        }
+        
+        BatchComponentCreationResult(
+            totalProcessed = scanDataList.size,
+            successCount = successCount,
+            failureCount = scanDataList.size - successCount,
+            results = results
+        )
+    }
+    
+    /**
+     * Update stock levels for multiple SKUs
+     */
+    suspend fun updateMultipleStockLevels(stockUpdates: Map<String, Int>) = withContext(Dispatchers.IO) {
+        stockUpdates.forEach { (skuId, quantityChange) ->
+            updateComponentStock(skuId, quantityChange)
+        }
+    }
+    
+    // === Private Helper Methods ===
+    
+    /**
+     * Determine manufacturer from FilamentInfo
+     */
+    private fun determineManufacturer(filamentInfo: FilamentInfo): String {
+        return when {
+            !filamentInfo.manufacturerName.isNullOrBlank() -> {
+                filamentInfo.manufacturerName.lowercase().replace(" ", "")
+            }
+            else -> "bambu" // Default to Bambu Lab
+        }
+    }
+    
+    /**
+     * Find fuzzy color match for similar color names
+     */
+    private fun findFuzzyColorMatch(products: List<ProductEntry>, targetColor: String): ProductEntry? {
+        val normalizedTarget = targetColor.lowercase().trim()
+        
+        return products.find { product ->
+            val normalizedProductColor = product.colorName.lowercase().trim()
+            
+            // Check for partial matches or common variations
+            when {
+                normalizedProductColor.contains(normalizedTarget) -> true
+                normalizedTarget.contains(normalizedProductColor) -> true
+                normalizedTarget.replace(" ", "") == normalizedProductColor.replace(" ", "") -> true
+                else -> false
+            }
+        }
+    }
+    
+    /**
+     * Get component defaults for a specific SKU
+     */
+    private suspend fun getComponentDefaultsForSku(manufacturerId: String, skuId: String): Map<String, ComponentDefault> {
+        return catalogRepo.getComponentDefaults(manufacturerId)
+    }
+    
+    /**
+     * Count total components in hierarchy
+     */
+    private suspend fun countHierarchyComponents(rootComponentId: String): Int {
+        return try {
+            val component = componentRepo?.getComponent(rootComponentId) ?: return 1
+            val childrenCount = component.childComponents.sumOf { childId ->
+                countHierarchyComponents(childId)
+            }
+            1 + childrenCount
+        } catch (e: Exception) {
+            Log.e(TAG, "Error counting hierarchy components", e)
+            1
+        }
+    }
+    
+    /**
+     * Calculate total mass of component hierarchy
+     */
+    private suspend fun calculateHierarchyMass(componentId: String): Float? = withContext(Dispatchers.IO) {
+        componentRepo?.getTotalMass(componentId)
     }
     
     // === RFID Resolution ===
@@ -675,7 +1047,101 @@ class UnifiedDataAccess(
         // Adjust based on weight
         return (spoolWeightGrams * 330) / 1000
     }
+    
+    // === Private Helper Methods (continued) ===
+    
+    /**
+     * Safe factory creation with context check
+     */
+    private fun createFactorySafely(encryptedScanData: EncryptedScanData): ComponentFactory? {
+        return try {
+            val contextToUse = context ?: throw IllegalStateException("Context required for component factory operations")
+            ComponentFactory.createFactory(contextToUse, encryptedScanData)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating component factory", e)
+            null
+        }
+    }
 }
+
+/**
+ * Result of component creation workflow
+ */
+data class ComponentCreationResult(
+    val success: Boolean,
+    val rootComponent: Component? = null,
+    val totalComponentsCreated: Int = 0,
+    val skuData: CatalogSku? = null,
+    val errorMessage: String? = null
+)
+
+/**
+ * SKU data from catalog lookup
+ */
+data class CatalogSku(
+    val sku: String,
+    val productName: String,
+    val manufacturer: String,
+    val materialType: String?,
+    val colorName: String?,
+    val colorHex: String?,
+    val filamentWeightGrams: Float?,
+    val url: String?,
+    val componentDefaults: Map<String, ComponentDefault> = emptyMap()
+)
+
+/**
+ * Stock level information for a SKU
+ */
+data class StockLevel(
+    val skuId: String,
+    val totalQuantity: Int,
+    val availableQuantity: Int,
+    val totalInstances: Int,
+    val runningLowThreshold: Int,
+    val isRunningLow: Boolean
+)
+
+/**
+ * Result of inventory item resolution
+ */
+data class InventoryResolutionResult(
+    val success: Boolean,
+    val component: Component? = null,
+    val legacyInventoryItem: InventoryItem? = null,
+    val filamentInfo: FilamentInfo? = null,
+    val source: String? = null,
+    val errorMessage: String? = null
+)
+
+/**
+ * Component hierarchy information
+ */
+data class ComponentHierarchy(
+    val component: Component,
+    val parent: Component?,
+    val children: List<Component>,
+    val siblings: List<Component>,
+    val totalHierarchyMass: Float?
+)
+
+/**
+ * Resolution strategy for fallback operations
+ */
+enum class ResolutionStrategy {
+    EXACT_MATCH_ONLY,    // Only check primary repositories
+    COMPREHENSIVE        // Use all available fallback methods
+}
+
+/**
+ * Result of batch component creation
+ */
+data class BatchComponentCreationResult(
+    val totalProcessed: Int,
+    val successCount: Int,
+    val failureCount: Int,
+    val results: List<ComponentCreationResult>
+)
 
 /**
  * Merged manufacturer data combining catalog and custom information
