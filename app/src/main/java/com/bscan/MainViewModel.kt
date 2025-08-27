@@ -8,13 +8,21 @@ import com.bscan.model.*
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
+import com.bscan.repository.ComponentRepository
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.data.BambuProductDatabase
+import com.bscan.detector.TagDetector
+import com.bscan.service.ComponentFactory
+import com.bscan.service.MassInferenceService
+import com.bscan.service.ComponentGroupingService
+import com.bscan.service.InferenceResult
+import com.bscan.service.InferredComponent
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.util.Log
+import android.nfc.Tag
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -24,14 +32,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _scanProgress = MutableStateFlow<ScanProgress?>(null)
     val scanProgress: StateFlow<ScanProgress?> = _scanProgress.asStateFlow()
     
+    // Component factory architecture state flows
+    private val _componentCreationResult = MutableStateFlow<ComponentCreationResult?>(null)
+    val componentCreationResult: StateFlow<ComponentCreationResult?> = _componentCreationResult.asStateFlow()
+    
+    private val _componentOperationState = MutableStateFlow<ComponentOperationState>(ComponentOperationState.Idle)
+    val componentOperationState: StateFlow<ComponentOperationState> = _componentOperationState.asStateFlow()
+    
+    private val _massInferenceResult = MutableStateFlow<MassInferenceResult?>(null)
+    val massInferenceResult: StateFlow<MassInferenceResult?> = _massInferenceResult.asStateFlow()
+    
     private val catalogRepository = CatalogRepository(application)
     private val userDataRepository = UserDataRepository(application)
+    private val componentRepository = ComponentRepository(application)
     private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
     
     // Note: Repository access now unified through UnifiedDataAccess
     
-    // InterpreterFactory for runtime interpretation
+    // InterpreterFactory for runtime interpretation (legacy support)
     private var interpreterFactory = InterpreterFactory(unifiedDataAccess)
+    
+    // Component architecture services
+    private val tagDetector = TagDetector()
+    private val massInferenceService = MassInferenceService(componentRepository)
+    private val componentGroupingService = ComponentGroupingService(componentRepository)
     
     // Track simulation state to cycle through all products
     private var simulationProductIndex = 0
@@ -58,7 +82,111 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * New method to process scan data using the FilamentInterpreter
+     * Enhanced tag processing using Component Factory pattern
+     */
+    suspend fun processTagWithFactory(tag: Tag): ComponentCreationResult {
+        return viewModelScope.async(Dispatchers.IO) {
+            try {
+                Log.d("MainViewModel", "Processing tag with component factory pattern")
+                _componentOperationState.value = ComponentOperationState.DetectingFormat
+                
+                // Step 1: Detect tag format
+                val detectionResult = tagDetector.detectTag(tag)
+                Log.d("MainViewModel", "Tag detected: ${detectionResult.tagFormat} (confidence: ${detectionResult.confidence})")
+                
+                if (detectionResult.confidence < 0.5f) {
+                    Log.w("MainViewModel", "Low confidence detection: ${detectionResult.detectionReason}")
+                    return@async ComponentCreationResult.FormatDetectionFailed(
+                        reason = detectionResult.detectionReason,
+                        confidence = detectionResult.confidence
+                    )
+                }
+                
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.ProcessingTag
+                }
+                
+                // This method returns the result - actual NFC reading will be handled separately
+                ComponentCreationResult.FormatDetected(
+                    format = detectionResult.tagFormat,
+                    confidence = detectionResult.confidence,
+                    manufacturerName = detectionResult.manufacturerName
+                )
+                
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error in processTagWithFactory", e)
+                ComponentCreationResult.ProcessingError("Tag processing failed: ${e.message}")
+            }
+        }.await()
+    }
+    
+    /**
+     * Create components from scan data using the appropriate factory
+     */
+    suspend fun createComponentsFromScan(
+        encryptedData: EncryptedScanData, 
+        decryptedData: DecryptedScanData
+    ): ComponentCreationResult {
+        return viewModelScope.async(Dispatchers.IO) {
+            try {
+                Log.d("MainViewModel", "Creating components from scan data")
+                _componentOperationState.value = ComponentOperationState.CreatingComponents
+                
+                // Step 1: Detect format from scan data
+                val detectionResult = tagDetector.detectFromData(
+                    encryptedData.technology, 
+                    encryptedData.encryptedData
+                )
+                
+                if (detectionResult.confidence < 0.5f) {
+                    return@async ComponentCreationResult.FormatDetectionFailed(
+                        reason = detectionResult.detectionReason,
+                        confidence = detectionResult.confidence
+                    )
+                }
+                
+                // Step 2: Create appropriate factory
+                val factory = ComponentFactory.createFactory(getApplication(), encryptedData)
+                Log.d("MainViewModel", "Using factory: ${factory.factoryType}")
+                
+                // Step 3: Process scan with factory
+                val rootComponent = factory.processScan(encryptedData, decryptedData)
+                
+                if (rootComponent == null) {
+                    return@async ComponentCreationResult.ComponentCreationFailed(
+                        "Factory failed to create components"
+                    )
+                }
+                
+                // Step 4: Update component operation state
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.ComponentsCreated
+                    _componentCreationResult.value = ComponentCreationResult.Success(
+                        rootComponent = rootComponent,
+                        factoryType = factory.factoryType,
+                        tagFormat = detectionResult.tagFormat
+                    )
+                }
+                
+                Log.d("MainViewModel", "Successfully created component hierarchy with root: ${rootComponent.name}")
+                ComponentCreationResult.Success(
+                    rootComponent = rootComponent,
+                    factoryType = factory.factoryType,
+                    tagFormat = detectionResult.tagFormat
+                )
+                
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error creating components from scan", e)
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.Error(e.message ?: "Unknown error")
+                }
+                ComponentCreationResult.ProcessingError("Component creation failed: ${e.message}")
+            }
+        }.await()
+    }
+    
+    /**
+     * Enhanced method to process scan data using both legacy and new component architecture
      */
     fun processScanData(encryptedData: EncryptedScanData, decryptedData: DecryptedScanData) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -77,9 +205,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Store the raw scan data and record the scan
             unifiedDataAccess.recordScan(encryptedData, decryptedData)
             
-            // Create or update inventory item with components
+            // Enhanced processing: Try component factory architecture first
             if (decryptedData.scanResult == ScanResult.SUCCESS) {
-                createOrUpdateInventoryItem(decryptedData)
+                try {
+                    val componentResult = createComponentsFromScan(encryptedData, decryptedData)
+                    if (componentResult is ComponentCreationResult.Success) {
+                        Log.d("MainViewModel", "Successfully created components using factory pattern")
+                        // Factory succeeded, update state flows
+                        withContext(Dispatchers.Main) {
+                            _componentCreationResult.value = componentResult
+                        }
+                    } else {
+                        Log.w("MainViewModel", "Component factory failed, falling back to legacy processing")
+                        // Fall back to legacy inventory item creation
+                        createOrUpdateInventoryItem(decryptedData)
+                    }
+                } catch (e: Exception) {
+                    Log.w("MainViewModel", "Component architecture failed, using legacy processing", e)
+                    // Fall back to legacy processing on any error
+                    createOrUpdateInventoryItem(decryptedData)
+                }
             }
             
             val result = if (decryptedData.scanResult == ScanResult.SUCCESS) {
@@ -202,6 +347,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             error = error,
             scanState = ScanState.ERROR
         )
+        
+        // Reset component state on NFC errors
+        resetComponentState()
+        _componentOperationState.value = ComponentOperationState.Error(error)
     }
     
     fun setAuthenticationFailed(tagData: NfcTagData, debugCollector: DebugDataCollector) {
@@ -223,6 +372,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Save to history even for failed scans
         viewModelScope.launch(Dispatchers.IO) {
             unifiedDataAccess.recordScan(encryptedData, decryptedData)
+            
+            // Try to detect format even for failed scans (for debugging)
+            try {
+                val detectionResult = tagDetector.detectFromData(tagData.technology, byteArrayOf())
+                Log.d("MainViewModel", "Failed scan format detection: ${detectionResult.tagFormat} (${detectionResult.confidence})")
+                
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.Error(
+                        "Authentication failed for ${detectionResult.tagFormat} tag"
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w("MainViewModel", "Error detecting format for failed scan", e)
+            }
         }
         
         _uiState.value = _uiState.value.copy(
@@ -234,11 +397,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+        
+        // Clear component operation errors as well
+        if (_componentOperationState.value is ComponentOperationState.Error) {
+            _componentOperationState.value = ComponentOperationState.Idle
+        }
     }
     
     fun resetScan() {
         _uiState.value = BScanUiState()
         _scanProgress.value = null
+        resetComponentState()
     }
     
     fun simulateScan() {
@@ -248,6 +417,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 scanState = ScanState.TAG_DETECTED,
                 error = null
             )
+            
+            // Reset component state for new simulation
+            resetComponentState()
             
             val stages = listOf(
                 ScanProgress(ScanStage.TAG_DETECTED, 0.0f, statusMessage = "Tag detected"),
@@ -334,6 +506,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Expose user data repository for direct access where needed
     fun getUserDataRepository() = userDataRepository
     
+    // Expose component repository for component architecture
+    fun getComponentRepository() = componentRepository
+    
     // Inventory tracking methods with proper reactive flows
     fun getInventoryItems() = unifiedDataAccess.getInventoryItems()
     
@@ -353,6 +528,261 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun refreshMappings() {
         interpreterFactory.refreshMappings()
+    }
+    
+    /**
+     * Integrate BLE scale reading for mass inference
+     */
+    fun integrateMassReading(scaleReading: Float, unit: String = "g") {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                Log.d("MainViewModel", "Integrating mass reading: ${scaleReading}${unit}")
+                
+                // Get current component creation result
+                val currentResult = _componentCreationResult.value
+                if (currentResult !is ComponentCreationResult.Success) {
+                    Log.w("MainViewModel", "No components available for mass integration")
+                    return@launch
+                }
+                
+                // Use mass inference service to distribute mass across components
+                val massInferenceResult = massInferenceService.inferComponentMass(
+                    parentComponent = currentResult.rootComponent,
+                    totalMeasuredMass = scaleReading
+                )
+                
+                withContext(Dispatchers.Main) {
+                    _massInferenceResult.value = when (massInferenceResult) {
+                        is InferenceResult.Success -> MassInferenceResult.Success(
+                            updatedComponents = massInferenceResult.inferredComponents.map { it.component },
+                            totalMass = massInferenceResult.totalMeasuredMass,
+                            inferredMass = massInferenceResult.inferredComponents.sumOf { it.inferredMass.toDouble() }.toFloat()
+                        )
+                        is InferenceResult.Warning -> MassInferenceResult.PartialSuccess(
+                            updatedComponents = massInferenceResult.inferredComponents.map { it.component },
+                            failedComponents = massInferenceResult.validationWarnings,
+                            totalMass = massInferenceResult.totalMeasuredMass
+                        )
+                        is InferenceResult.Error -> MassInferenceResult.Error(massInferenceResult.message)
+                    }
+                    
+                    if (massInferenceResult is InferenceResult.Success) {
+                        Log.d("MainViewModel", "Successfully inferred masses for ${massInferenceResult.inferredComponents.size} components")
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error integrating mass reading", e)
+                withContext(Dispatchers.Main) {
+                    _massInferenceResult.value = MassInferenceResult.Error("Mass integration failed: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Create or update component relationships using ComponentGroupingService
+     */
+    fun updateComponentRelationships(parentId: String, childIds: List<String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                Log.d("MainViewModel", "Updating component relationships: parent=$parentId, children=${childIds.size}")
+                _componentOperationState.value = ComponentOperationState.UpdatingRelationships
+                
+                // Use hierarchical grouping to establish parent-child relationships
+                val groupingResult = componentGroupingService.createHierarchicalGroup(
+                    parentId = parentId,
+                    childIds = childIds
+                )
+                val success = groupingResult.success
+                
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        _componentOperationState.value = ComponentOperationState.RelationshipsUpdated
+                        Log.d("MainViewModel", "Successfully updated component relationships")
+                    } else {
+                        _componentOperationState.value = ComponentOperationState.Error("Failed to update relationships")
+                        Log.e("MainViewModel", "Failed to update component relationships")
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error updating component relationships", e)
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.Error("Relationship update failed: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Calculate total hierarchy mass for a component
+     */
+    suspend fun calculateHierarchyMass(componentId: String): Float {
+        return withContext(Dispatchers.IO) {
+            try {
+                val component = componentRepository.getComponent(componentId)
+                if (component == null) {
+                    Log.w("MainViewModel", "Component not found: $componentId")
+                    return@withContext 0f
+                }
+                
+                // Calculate mass manually for now - service doesn't have calculateTotalMass method
+                var totalMass = component.massGrams ?: 0f
+                component.childComponents.forEach { childId ->
+                    val childComponent = componentRepository.getComponent(childId)
+                    totalMass += childComponent?.massGrams ?: 0f
+                }
+                totalMass
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error calculating hierarchy mass", e)
+                0f
+            }
+        }
+    }
+    
+    /**
+     * Reset component architecture state
+     */
+    fun resetComponentState() {
+        _componentCreationResult.value = null
+        _componentOperationState.value = ComponentOperationState.Idle
+        _massInferenceResult.value = null
+    }
+    
+    /**
+     * Get components by category for UI filtering
+     */
+    fun getComponentsByCategory(category: String) = componentRepository.getComponentsByCategory(category)
+    
+    /**
+     * Get all root components (inventory items)
+     */
+    fun getRootComponents() = componentRepository.getComponents().filter { it.isInventoryItem }
+    
+    /**
+     * Search components by tags
+     */
+    fun getComponentsByTags(tags: List<String>) = componentRepository.getComponentsByTags(tags)
+    
+    /**
+     * Catalog-driven component creation workflow
+     */
+    suspend fun createComponentFromCatalog(
+        tagUid: String,
+        manufacturerId: String,
+        skuId: String,
+        metadata: Map<String, String> = emptyMap()
+    ): ComponentCreationResult {
+        return viewModelScope.async(Dispatchers.IO) {
+            try {
+                Log.d("MainViewModel", "Creating component from catalog: $manufacturerId/$skuId")
+                _componentOperationState.value = ComponentOperationState.CreatingComponents
+                
+                // Step 1: Lookup SKU data
+                val products = catalogRepository.getProducts(manufacturerId)
+                val matchingProduct = products.firstOrNull { it.variantId == skuId }
+                
+                if (matchingProduct == null) {
+                    return@async ComponentCreationResult.ComponentCreationFailed(
+                        "SKU not found in catalog: $manufacturerId/$skuId"
+                    )
+                }
+                
+                // Step 2: Create component based on catalog data
+                val component = Component(
+                    id = generateComponentId("catalog"),
+                    uniqueIdentifier = tagUid,
+                    name = matchingProduct.productName,
+                    category = "filament",
+                    tags = listOf(
+                        manufacturerId.lowercase(),
+                        matchingProduct.materialType.lowercase(),
+                        "catalog-created",
+                        "consumable",
+                        "variable-mass"
+                    ),
+                    parentComponentId = null,
+                    childComponents = emptyList(),
+                    massGrams = matchingProduct.filamentWeightGrams,
+                    variableMass = true,
+                    manufacturer = matchingProduct.manufacturer,
+                    description = "${matchingProduct.materialType} filament in ${matchingProduct.colorName}",
+                    metadata = metadata + mapOf(
+                        "sku" to skuId,
+                        "manufacturerId" to manufacturerId,
+                        "colorHex" to (matchingProduct.colorHex ?: "#FFFFFF"),
+                        "colorName" to matchingProduct.colorName,
+                        "materialType" to matchingProduct.materialType,
+                        "catalogCreated" to "true",
+                        "createdTimestamp" to System.currentTimeMillis().toString()
+                    ),
+                    createdAt = System.currentTimeMillis(),
+                    lastUpdated = java.time.LocalDateTime.now()
+                )
+                
+                // Step 3: Save component
+                componentRepository.saveComponent(component)
+                
+                // Step 4: Update state
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.ComponentsCreated
+                    _componentCreationResult.value = ComponentCreationResult.Success(
+                        rootComponent = component,
+                        factoryType = "CatalogFactory",
+                        tagFormat = TagFormat.UNKNOWN // Catalog-created, no specific tag format
+                    )
+                }
+                
+                Log.d("MainViewModel", "Successfully created component from catalog: ${component.name}")
+                ComponentCreationResult.Success(
+                    rootComponent = component,
+                    factoryType = "CatalogFactory",
+                    tagFormat = TagFormat.UNKNOWN
+                )
+                
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error creating component from catalog", e)
+                withContext(Dispatchers.Main) {
+                    _componentOperationState.value = ComponentOperationState.Error("Catalog creation failed: ${e.message}")
+                }
+                ComponentCreationResult.ProcessingError("Catalog creation failed: ${e.message}")
+            }
+        }.await()
+    }
+    
+    /**
+     * Enhanced error handling for multi-format processing
+     */
+    fun handleProcessingError(error: Throwable, context: String) {
+        val errorMessage = when {
+            error.message?.contains("authentication", ignoreCase = true) == true -> 
+                "Authentication failed - check tag format and positioning"
+            error.message?.contains("timeout", ignoreCase = true) == true -> 
+                "Tag reading timeout - try scanning again"
+            error.message?.contains("format", ignoreCase = true) == true -> 
+                "Unsupported tag format - verify tag compatibility"
+            error.message?.contains("component", ignoreCase = true) == true -> 
+                "Component creation failed - check catalog data"
+            else -> "Processing error: ${error.message ?: "Unknown error"}"
+        }
+        
+        Log.e("MainViewModel", "$context error: $errorMessage", error)
+        
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                error = errorMessage,
+                scanState = ScanState.ERROR
+            )
+            _componentOperationState.value = ComponentOperationState.Error(errorMessage)
+        }
+    }
+    
+    /**
+     * Utility method to generate component IDs
+     */
+    private fun generateComponentId(prefix: String = "component"): String {
+        return "${prefix}_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}"
     }
     
     /**
@@ -457,6 +887,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 } // End of MainViewModel class
 
+/**
+ * Component creation results for the factory pattern
+ */
+sealed class ComponentCreationResult {
+    data class Success(
+        val rootComponent: Component,
+        val factoryType: String,
+        val tagFormat: TagFormat
+    ) : ComponentCreationResult()
+    
+    data class FormatDetected(
+        val format: TagFormat,
+        val confidence: Float,
+        val manufacturerName: String?
+    ) : ComponentCreationResult()
+    
+    data class FormatDetectionFailed(
+        val reason: String,
+        val confidence: Float
+    ) : ComponentCreationResult()
+    
+    data class ComponentCreationFailed(
+        val reason: String
+    ) : ComponentCreationResult()
+    
+    data class ProcessingError(
+        val message: String
+    ) : ComponentCreationResult()
+}
+
+/**
+ * Component operation states
+ */
+sealed class ComponentOperationState {
+    object Idle : ComponentOperationState()
+    object DetectingFormat : ComponentOperationState()
+    object ProcessingTag : ComponentOperationState()
+    object CreatingComponents : ComponentOperationState()
+    object ComponentsCreated : ComponentOperationState()
+    object UpdatingRelationships : ComponentOperationState()
+    object RelationshipsUpdated : ComponentOperationState()
+    data class Error(val message: String) : ComponentOperationState()
+}
+
+/**
+ * Mass inference results
+ */
+sealed class MassInferenceResult {
+    data class Success(
+        val updatedComponents: List<Component>,
+        val totalMass: Float,
+        val inferredMass: Float
+    ) : MassInferenceResult()
+    
+    data class PartialSuccess(
+        val updatedComponents: List<Component>,
+        val failedComponents: List<String>,
+        val totalMass: Float
+    ) : MassInferenceResult()
+    
+    data class Error(
+        val message: String
+    ) : MassInferenceResult()
+}
+
 data class BScanUiState(
     val filamentInfo: FilamentInfo? = null,
     val scanState: ScanState = ScanState.IDLE,
@@ -471,3 +966,18 @@ enum class ScanState {
     SUCCESS,        // Successfully processed
     ERROR          // Error occurred
 }
+
+/**
+ * Enhanced UI state with component architecture support
+ */
+data class ComponentEnhancedUIState(
+    val filamentInfo: FilamentInfo? = null,
+    val rootComponent: Component? = null,
+    val componentHierarchy: List<Component>? = null,
+    val scanState: ScanState = ScanState.IDLE,
+    val componentOperationState: ComponentOperationState = ComponentOperationState.Idle,
+    val tagFormat: TagFormat? = null,
+    val factoryType: String? = null,
+    val error: String? = null,
+    val debugInfo: ScanDebugInfo? = null
+)
