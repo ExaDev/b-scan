@@ -236,6 +236,12 @@
           "material": "PA_NYLON", 
           "color": "Alpine Green Sparkle",
           "hex": "#3F5443"
+        },
+        "GFA00:A00-K0": {
+          "sku": "test-sku",
+          "material": "PLA_BASIC",
+          "color": "Test Color",
+          "hex": "#FF0000"
         }
       },
       "componentDefaults": {
