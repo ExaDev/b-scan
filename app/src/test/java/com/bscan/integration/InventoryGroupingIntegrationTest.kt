@@ -50,6 +50,7 @@ class InventoryGroupingIntegrationTest {
             .thenReturn(mockSharedPreferences)
         `when`(mockSharedPreferences.edit()).thenReturn(mockEditor)
         `when`(mockEditor.putString(anyString(), anyString())).thenReturn(mockEditor)
+        `when`(mockEditor.remove(anyString())).thenReturn(mockEditor)
         `when`(mockEditor.apply()).then { /* no-op */ }
         `when`(mockSharedPreferences.getString(anyString(), any())).thenReturn("{}")
         `when`(mockSharedPreferences.contains(anyString())).thenReturn(false)
