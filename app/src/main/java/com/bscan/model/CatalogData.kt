@@ -6,7 +6,6 @@ package com.bscan.model
  * This data is read-only and loaded from assets.
  */
 data class CatalogData(
-    val version: Int,
     val manufacturers: Map<String, ManufacturerCatalog>
 )
 
