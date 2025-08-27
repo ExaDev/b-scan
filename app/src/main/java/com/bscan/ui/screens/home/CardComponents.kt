@@ -48,7 +48,10 @@ fun FilamentReelCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        onClick = { onClick?.invoke(filamentReel.filamentInfo.trayUid) }
+        onClick = { 
+            android.util.Log.d("FilamentReelCard", "Clicked item with trayUid: '${filamentReel.filamentInfo.trayUid}', colorName: '${filamentReel.filamentInfo.colorName}'")
+            onClick?.invoke(filamentReel.filamentInfo.trayUid) 
+        }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

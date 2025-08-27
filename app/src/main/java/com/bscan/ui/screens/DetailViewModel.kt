@@ -192,13 +192,36 @@ class DetailViewModel(private val unifiedDataAccess: UnifiedDataAccess) : ViewMo
     }
     
     private suspend fun loadSpoolDetails(trayUid: String) {
-        Log.d("DetailViewModel", "Loading spool details for trayUid: $trayUid")
+        Log.d("DetailViewModel", "Loading spool details for trayUid: '$trayUid'")
+        
+        // Debug: List all available data
+        val allScans = unifiedDataAccess.getAllScans()
+        Log.d("DetailViewModel", "Available scan count: ${allScans.size}")
+        allScans.take(5).forEach { scan ->
+            Log.d("DetailViewModel", "Available scan - uid: '${scan.uid}', trayUid: '${scan.filamentInfo?.trayUid}', colorName: '${scan.filamentInfo?.colorName}'")
+        }
+        
+        // Debug: Show scan data patterns to understand the identifier mismatch
+        Log.d("DetailViewModel", "Looking for data matching identifier: '$trayUid'")
         
         try {
             val filamentReelDetails = unifiedDataAccess.getFilamentReelDetails(trayUid)
             
             if (filamentReelDetails == null) {
-                Log.w("DetailViewModel", "No filament reel found for trayUid: $trayUid")
+                Log.w("DetailViewModel", "No filament reel found for trayUid: '$trayUid'")
+                
+                // Try component system approach - maybe the ID is for an inventory item
+                val inventoryItem = unifiedDataAccess.getInventoryItem(trayUid)
+                if (inventoryItem != null) {
+                    Log.d("DetailViewModel", "Found inventory item for ID: $trayUid, redirecting to component view")
+                    // Handle inventory item display
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Component-based inventory items not yet supported in detail view. Found inventory item with ${inventoryItem.components.size} components."
+                    )
+                    return
+                }
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Inventory item not found for ID: $trayUid"
