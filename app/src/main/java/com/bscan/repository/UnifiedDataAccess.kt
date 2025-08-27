@@ -547,57 +547,103 @@ class UnifiedDataAccess(
         filamentType: String,
         trayUid: String
     ): List<PhysicalComponent> {
-        val manufacturer = catalogRepo.getManufacturer(manufacturerId) 
-            ?: throw IllegalArgumentException("Unknown manufacturer: $manufacturerId")
-        
+        val manufacturer = catalogRepo.getManufacturer(manufacturerId)
         val components = mutableListOf<PhysicalComponent>()
         
-        // Create filament component
-        val filamentDefault = manufacturer.componentDefaults["filament_1kg"]
-        if (filamentDefault != null) {
+        if (manufacturer != null) {
+            // Create components from catalog data
+            // Create filament component
+            val filamentDefault = manufacturer.componentDefaults["filament_1kg"]
+            if (filamentDefault != null) {
+                val filamentComponent = PhysicalComponent(
+                    id = "${trayUid}_filament",
+                    name = "${manufacturer.materials[filamentType]?.displayName ?: filamentType} Filament",
+                    type = PhysicalComponentType.FILAMENT,
+                    massGrams = filamentDefault.massGrams,
+                    fullMassGrams = filamentDefault.massGrams,
+                    variableMass = true,
+                    manufacturer = manufacturerId,
+                    description = filamentDefault.description
+                )
+                components.add(filamentComponent)
+                saveComponent(filamentComponent)
+            }
+            
+            // Create spool component
+            val spoolDefault = manufacturer.componentDefaults["spool_standard"]
+            if (spoolDefault != null) {
+                val spoolComponent = PhysicalComponent(
+                    id = "${trayUid}_spool",
+                    name = spoolDefault.name,
+                    type = PhysicalComponentType.BASE_SPOOL,
+                    massGrams = spoolDefault.massGrams,
+                    fullMassGrams = spoolDefault.massGrams,
+                    variableMass = false,
+                    manufacturer = manufacturerId,
+                    description = spoolDefault.description
+                )
+                components.add(spoolComponent)
+                saveComponent(spoolComponent)
+            }
+            
+            // Create core component
+            val coreDefault = manufacturer.componentDefaults["core_cardboard"]
+            if (coreDefault != null) {
+                val coreComponent = PhysicalComponent(
+                    id = "${trayUid}_core",
+                    name = coreDefault.name,
+                    type = PhysicalComponentType.CORE_RING,
+                    massGrams = coreDefault.massGrams,
+                    fullMassGrams = coreDefault.massGrams,
+                    variableMass = false,
+                    manufacturer = manufacturerId,
+                    description = coreDefault.description
+                )
+                components.add(coreComponent)
+                saveComponent(coreComponent)
+            }
+        } else {
+            // Create basic default components when no catalog data is available
+            Log.w(TAG, "No manufacturer data found for '$manufacturerId', creating basic default components")
+            
+            // Create basic filament component
             val filamentComponent = PhysicalComponent(
                 id = "${trayUid}_filament",
-                name = "${manufacturer.materials[filamentType]?.displayName ?: filamentType} Filament",
+                name = "$filamentType Filament",
                 type = PhysicalComponentType.FILAMENT,
-                massGrams = filamentDefault.massGrams,
-                fullMassGrams = filamentDefault.massGrams,
+                massGrams = 1000f, // Default 1kg filament
+                fullMassGrams = 1000f,
                 variableMass = true,
                 manufacturer = manufacturerId,
-                description = filamentDefault.description
+                description = "Default filament component"
             )
             components.add(filamentComponent)
             saveComponent(filamentComponent)
-        }
-        
-        // Create spool component
-        val spoolDefault = manufacturer.componentDefaults["spool_standard"]
-        if (spoolDefault != null) {
+            
+            // Create basic spool component
             val spoolComponent = PhysicalComponent(
                 id = "${trayUid}_spool",
-                name = spoolDefault.name,
+                name = "Standard Spool",
                 type = PhysicalComponentType.BASE_SPOOL,
-                massGrams = spoolDefault.massGrams,
-                fullMassGrams = spoolDefault.massGrams,
+                massGrams = 212f, // Standard Bambu spool weight
+                fullMassGrams = 212f,
                 variableMass = false,
                 manufacturer = manufacturerId,
-                description = spoolDefault.description
+                description = "Default spool component"
             )
             components.add(spoolComponent)
             saveComponent(spoolComponent)
-        }
-        
-        // Create core component
-        val coreDefault = manufacturer.componentDefaults["core_cardboard"]
-        if (coreDefault != null) {
+            
+            // Create basic core component
             val coreComponent = PhysicalComponent(
                 id = "${trayUid}_core",
-                name = coreDefault.name,
+                name = "Cardboard Core",
                 type = PhysicalComponentType.CORE_RING,
-                massGrams = coreDefault.massGrams,
-                fullMassGrams = coreDefault.massGrams,
+                massGrams = 33f, // Standard cardboard core weight
+                fullMassGrams = 33f,
                 variableMass = false,
                 manufacturer = manufacturerId,
-                description = coreDefault.description
+                description = "Default core component"
             )
             components.add(coreComponent)
             saveComponent(coreComponent)
