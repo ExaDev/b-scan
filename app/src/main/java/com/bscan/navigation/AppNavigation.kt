@@ -116,7 +116,10 @@ fun AppNavigation(
         composable("inventory") {
             InventoryScreen(
                 viewModel = viewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetails = { detailType, identifier ->
+                    navController.navigate("details/${detailType.name.lowercase()}/$identifier")
+                }
             )
         }
         

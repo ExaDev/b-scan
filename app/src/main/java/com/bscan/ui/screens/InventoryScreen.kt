@@ -1,5 +1,6 @@
 package com.bscan.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bscan.MainViewModel
 import com.bscan.model.*
+import com.bscan.ui.screens.DetailType
 import com.bscan.repository.MergedManufacturer
 import com.bscan.ui.components.ColorPreviewDot
 import com.bscan.ui.components.common.ConfirmationDialog
@@ -33,6 +35,7 @@ import java.time.format.DateTimeFormatter
 fun InventoryScreen(
     viewModel: MainViewModel = viewModel(),
     onNavigateBack: () -> Unit,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -163,7 +166,8 @@ fun InventoryScreen(
                         inventoryItem = item,
                         components = components,
                         manufacturers = manufacturers,
-                        onDeleteItem = { itemToDelete = item }
+                        onDeleteItem = { itemToDelete = item },
+                        onNavigateToDetails = onNavigateToDetails
                     )
                 }
             }
@@ -264,6 +268,7 @@ fun InventoryItemCard(
     components: Map<String, PhysicalComponent>,
     manufacturers: Map<String, MergedManufacturer>,
     onDeleteItem: (InventoryItem) -> Unit,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")
@@ -273,7 +278,13 @@ fun InventoryItemCard(
         manufacturers[it.manufacturer]?.displayName ?: it.manufacturer 
     } ?: "Unknown"
     
-    Card(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable {
+                onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, inventoryItem.trayUid)
+            }
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
