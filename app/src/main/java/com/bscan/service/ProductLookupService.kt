@@ -17,21 +17,24 @@ object ProductLookupService {
      * Get all available products as ProductEntry objects
      */
     fun getAllProducts(): List<ProductEntry> {
-        val variants = BambuVariantSkuMapper.getAllKnownVariants()
+        val rfidKeys = BambuVariantSkuMapper.getAllKnownRfidKeys()
         
-        return variants.mapNotNull { variantId ->
-            val skuInfo = BambuVariantSkuMapper.getSkuByVariantId(variantId)
+        return rfidKeys.mapNotNull { rfidKey ->
+            val skuInfo = BambuVariantSkuMapper.getSkuByRfidKey(rfidKey)
             if (skuInfo != null) {
-                // Extract material and color codes from variant ID (e.g., "A00-K0")
-                val parts = variantId.split("-")
-                if (parts.size == 2) {
-                    val materialCode = "GF${parts[0]}" // Convert A00 to GFA00
-                    val colorCode = parts[1]
-                    
-                    val materialDisplayName = BambuMaterialIdMapper.getDisplayName(materialCode)
-                    val colorInfo = BambuColorCodeMapper.getColorInfo(colorCode)
-                    
-                    ProductEntry(
+                // Extract material and color codes from RFID key (e.g., "GFA00:A00-K0")
+                val keyParts = rfidKey.split(":")
+                if (keyParts.size == 2) {
+                    val materialCode = keyParts[0] // e.g., "GFA00"
+                    val variantId = keyParts[1]    // e.g., "A00-K0"
+                    val variantParts = variantId.split("-")
+                    if (variantParts.size == 2) {
+                        val colorCode = variantParts[1] // e.g., "K0"
+                        
+                        val materialDisplayName = BambuMaterialIdMapper.getDisplayName(materialCode)
+                        val colorInfo = BambuColorCodeMapper.getColorInfo(colorCode)
+                        
+                        ProductEntry(
                         variantId = skuInfo.sku,
                         productHandle = skuInfo.materialType.lowercase().replace(" ", "-"),
                         productName = materialDisplayName,
@@ -47,7 +50,8 @@ object ProductLookupService {
                         lastUpdated = "2025-08-27T00:00:00Z",
                         filamentWeightGrams = 1000f, // Default 1kg
                         spoolType = SpoolPackaging.WITH_SPOOL
-                    )
+                        )
+                    } else null
                 } else null
             } else null
         }

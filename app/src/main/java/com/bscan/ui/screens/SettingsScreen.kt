@@ -1122,7 +1122,7 @@ private fun SampleDataCard(
             // Generation info
             when (selectedMode) {
                 DataGenerationMode.COMPLETE_COVERAGE -> {
-                    val totalSkus = BambuVariantSkuMapper.getAllKnownVariants().size
+                    val totalSkus = BambuVariantSkuMapper.getAllKnownRfidKeys().size
                     Text(
                         text = "Will generate samples for all $totalSkus known Bambu Lab products",
                         style = MaterialTheme.typography.bodySmall,

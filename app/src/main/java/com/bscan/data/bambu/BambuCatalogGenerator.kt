@@ -2,6 +2,8 @@ package com.bscan.data.bambu
 
 import com.bscan.data.bambu.data.BambuColorMappings
 import com.bscan.data.bambu.data.BambuMaterialMappings
+import com.bscan.data.bambu.data.BambuSeriesMappings
+import com.bscan.data.bambu.BambuVariantSkuMapper
 import com.bscan.model.*
 import android.util.Log
 
@@ -237,13 +239,45 @@ object BambuCatalogGenerator {
     }
     
     /**
-     * Generate RFID mappings (placeholder - would need actual RFID data processing)
+     * Generate RFID mappings from product entries and material mappings
      */
     private fun generateRfidMappings(): Map<String, RfidMapping> {
-        // For now, return empty mappings - real implementation would parse
-        // test-data/rfid-library/ files to build comprehensive mappings
-        Log.i(TAG, "Generated empty RFID mappings (placeholder)")
-        return emptyMap()
+        val mappings = mutableMapOf<String, RfidMapping>()
+        
+        // Get all product entries to build RFID mappings
+        val allProducts = generateProductEntries()
+        
+        allProducts.forEach { product ->
+            // Create RFID key format: "MaterialID:SeriesCode-ColorCode" 
+            // e.g., "GFA00:A00-K0" for PLA Basic Black
+            val rfidKey = "${product.internalCode}:${product.variantId}"
+            
+            // Extract material type from the product
+            val materialType = when {
+                product.materialType.contains("PLA") -> product.materialType
+                product.materialType.contains("PETG") -> "PETG"
+                product.materialType.contains("ABS") -> "ABS"
+                product.materialType.contains("ASA") -> "ASA"
+                product.materialType.contains("PC") -> "PC"
+                product.materialType.contains("TPU") -> "TPU"
+                product.materialType.contains("PA") -> "PA-CF"
+                else -> product.materialType
+            }
+            
+            val rfidMapping = RfidMapping(
+                rfidCode = rfidKey,
+                sku = product.variantId, // Use variantId as SKU (e.g., "A00-K0")
+                material = materialType,
+                color = product.colorName,
+                hex = product.colorHex,
+                sampleCount = 1 // Default sample count
+            )
+            
+            mappings[rfidKey] = rfidMapping
+        }
+        
+        Log.i(TAG, "Generated ${mappings.size} RFID mappings from product database")
+        return mappings
     }
     
     /**
@@ -290,14 +324,68 @@ object BambuCatalogGenerator {
     }
     
     /**
-     * Generate product entries (placeholder - would need comprehensive product database)
+     * Generate product entries from verified BambuVariantSkuMapper data
      */
-    private fun generateProductEntries(): List<ProductEntry> {
-        // For now, return empty list - real implementation would generate
-        // comprehensive product entries from material/color combinations
-        Log.i(TAG, "Generated empty product entries (placeholder)")
-        return emptyList()
+     private fun generateProductEntries(): List<ProductEntry> {
+        val products = mutableListOf<ProductEntry>()
+        
+        // Iterate through all verified RFID key mappings from BambuVariantSkuMapper
+        BambuVariantSkuMapper.getAllKnownRfidKeys().forEach { rfidKey ->
+            val skuInfo = BambuVariantSkuMapper.getSkuByRfidKey(rfidKey)
+            if (skuInfo != null) {
+                val parts = rfidKey.split(":")
+                if (parts.size == 2) {
+                    val materialId = parts[0] // e.g., "GFA00"
+                    val variantId = parts[1] // e.g., "A00-K0"
+                    
+                    val productEntry = createProductEntryFromSkuInfo(
+                        rfidKey = rfidKey,
+                        materialId = materialId,
+                        variantId = variantId,
+                        skuInfo = skuInfo
+                    )
+                    
+                    products.add(productEntry)
+                }
+            }
+        }
+        
+        Log.i(TAG, "Generated ${products.size} product entries from BambuVariantSkuMapper")
+        return products
     }
+    
+    /**
+     * Create ProductEntry from SkuInfo using verified mapping data
+     */
+    private fun createProductEntryFromSkuInfo(
+        rfidKey: String,
+        materialId: String,
+        variantId: String,
+        skuInfo: SkuInfo
+    ): ProductEntry {
+        val colorHex = getHexColorForName(skuInfo.colorName)
+        val colorCode = variantId.split("-").getOrNull(1) ?: ""
+        
+        return ProductEntry(
+            variantId = variantId,
+            productHandle = "bambu-${skuInfo.materialType.lowercase().replace(" ", "-")}-${skuInfo.colorName.lowercase().replace(" ", "-")}",
+            productName = "Bambu ${skuInfo.materialType} ${skuInfo.colorName}",
+            colorName = skuInfo.colorName,
+            colorHex = colorHex,
+            colorCode = colorCode,
+            price = 29.99, // Standard Bambu filament price
+            available = true,
+            url = "https://bambulab.com/en/filament/${skuInfo.materialType.lowercase().replace(" ", "-")}",
+            manufacturer = "Bambu Lab",
+            materialType = skuInfo.materialType.replace(" ", "_").uppercase(),
+            internalCode = materialId,
+            lastUpdated = "2025-01-16T00:00:00Z",
+            filamentWeightGrams = 1000f,
+            spoolType = SpoolPackaging.WITH_SPOOL
+        )
+    }
+    
+    
     
     /**
      * Generate complete CatalogData with Bambu Lab manufacturer

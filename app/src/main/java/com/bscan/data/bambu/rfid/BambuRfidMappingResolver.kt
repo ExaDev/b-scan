@@ -70,7 +70,8 @@ object BambuRfidMappingResolver {
         val seriesInfo = BambuSeriesCodeMapper.getSeriesInfo(seriesCode)
         val colourInfo = BambuColorCodeMapper.getColorInfoForMaterial(colourCode, materialId)
         val variantId = "$seriesCode-$colourCode"
-        val skuInfo = BambuVariantSkuMapper.getSkuByVariantId(variantId)
+        val rfidKey = "$materialId:$variantId"
+        val skuInfo = BambuVariantSkuMapper.getSkuByRfidKey(rfidKey)
         
         // Generate warnings for unknown components
         if (materialInfo == null) {
