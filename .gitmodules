@@ -1,3 +1,3 @@
 [submodule "test-data/rfid-library"]
 	path = test-data/rfid-library
-	url = https://github.com/queengooborg/Bambu-Lab-RFID-Library.git
+	url = https://github.com/Mearman/Bambu-Lab-RFID-Library.git
