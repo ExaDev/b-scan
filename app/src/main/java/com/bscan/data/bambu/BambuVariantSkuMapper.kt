@@ -23,6 +23,43 @@ object BambuVariantSkuMapper {
     )
     
     /**
+     * Material ID to base material and variant mapping
+     * This maps RFID material IDs to normalized material+variant combinations
+     */
+    private val materialIdMappings = mapOf(
+        // PLA variants
+        "GFA00" to ("PLA" to "Basic"),
+        "GFA01" to ("PLA" to "Matte"), 
+        "GFA02" to ("PLA" to "Metal"),
+        "GFA05" to ("PLA" to "Silk"),
+        "GFA07" to ("PLA" to "Marble"),
+        "GFA12" to ("PLA" to "Glow"),
+        
+        // PETG variants  
+        "GFG00" to ("PETG" to "Basic"),
+        "GFG01" to ("PETG" to "Basic"),
+        
+        // ABS variants
+        "GFL01" to ("ABS" to "Basic"),
+        
+        // ASA variants
+        "GFL02" to ("ASA" to "Basic"),
+        
+        // PC variants
+        "GFC00" to ("PC" to "Basic"),
+        
+        // PA variants  
+        "GFN04" to ("PA" to "Basic"),
+        
+        // TPU variants
+        "GFL04" to ("TPU" to "90A"),
+        
+        // Support variants
+        "GFS00" to ("PVA" to "Basic"),
+        "GFS01" to ("SUPPORT" to "Basic")
+    )
+    
+    /**
      * Get SKU information for a given RFID key using normalized data
      */
     fun getSkuByRfidKey(rfidKey: String): SkuInfo? {
@@ -37,9 +74,16 @@ object BambuVariantSkuMapper {
         val seriesCode = variantParts[0]
         val colorCode = variantParts[1]
         
-        // Find matching normalized product
+        // Get expected material+variant combination from material ID
+        val expectedMaterialCombo = materialIdMappings[materialId] ?: return null
+        val (expectedMaterial, expectedVariant) = expectedMaterialCombo
+        
+        // Find matching normalized product that matches both series/color AND material/variant
         val normalizedProduct = NormalizedBambuData.getAllNormalizedProducts().find { product ->
-            product.seriesCode == seriesCode && product.colorCode == colorCode
+            product.seriesCode == seriesCode && 
+            product.colorCode == colorCode &&
+            product.materialName == expectedMaterial &&
+            product.variantName == expectedVariant
         } ?: return null
         
         // Get complete product view for additional information
