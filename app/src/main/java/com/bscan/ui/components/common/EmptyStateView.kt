@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -113,4 +114,108 @@ fun SpoolEmptyStateView(
         subtitle = subtitle,
         modifier = modifier
     )
+}
+
+// Preview Functions
+@Preview(showBackground = true)
+@Composable
+fun EmptyStateViewPreview() {
+    MaterialTheme {
+        EmptyStateView(
+            icon = Icons.Default.Storage,
+            title = "No data available",
+            subtitle = "Start by adding some data to your collection"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun EmptyStateViewWithActionPreview() {
+    MaterialTheme {
+        EmptyStateView(
+            icon = Icons.Default.Add,
+            title = "No items found",
+            subtitle = "Create your first item to get started",
+            action = {
+                Button(onClick = { }) {
+                    Text("Add Item")
+                }
+            }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun FilteredEmptyStateViewNoDataPreview() {
+    MaterialTheme {
+        FilteredEmptyStateView(
+            hasData = false,
+            emptyIcon = Icons.Default.Inventory,
+            emptyTitle = "No inventory items",
+            emptySubtitle = "Scan your first component to get started"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun FilteredEmptyStateViewWithDataPreview() {
+    MaterialTheme {
+        FilteredEmptyStateView(
+            hasData = true,
+            filteredIcon = Icons.Default.SearchOff,
+            filteredTitle = "No results found",
+            filteredSubtitle = "Try adjusting your search criteria"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun FilteredEmptyStateViewWithActionPreview() {
+    MaterialTheme {
+        FilteredEmptyStateView(
+            hasData = true,
+            action = {
+                OutlinedButton(onClick = { }) {
+                    Text("Clear Filters")
+                }
+            }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SpoolEmptyStateViewNoSpoolsPreview() {
+    MaterialTheme {
+        SpoolEmptyStateView(
+            hasSpools = false,
+            currentFilter = "All"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SpoolEmptyStateViewFilteredPreview() {
+    MaterialTheme {
+        SpoolEmptyStateView(
+            hasSpools = true,
+            currentFilter = "Successful Only"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SpoolEmptyStateViewHighSuccessFilterPreview() {
+    MaterialTheme {
+        SpoolEmptyStateView(
+            hasSpools = true,
+            currentFilter = "High Success Rate"
+        )
+    }
 }

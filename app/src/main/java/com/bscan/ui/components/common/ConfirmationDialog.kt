@@ -2,9 +2,12 @@ package com.bscan.ui.components.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,4 +110,105 @@ fun CachePurgeConfirmationDialog(
         onConfirm = onConfirm,
         onDismiss = onDismiss
     )
+}
+
+// Preview Functions
+@Preview(showBackground = true)
+@Composable
+fun ConfirmationDialogPreview() {
+    MaterialTheme {
+        ConfirmationDialog(
+            title = "Confirm Action",
+            message = "Are you sure you want to proceed with this action?",
+            confirmText = "Confirm",
+            dismissText = "Cancel",
+            isDestructive = false,
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ConfirmationDialogWithIconPreview() {
+    MaterialTheme {
+        ConfirmationDialog(
+            title = "Important Information",
+            message = "This action will make changes to your data.",
+            confirmText = "Continue",
+            dismissText = "Cancel",
+            isDestructive = false,
+            icon = Icons.Default.Info,
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DestructiveConfirmationDialogPreview() {
+    MaterialTheme {
+        ConfirmationDialog(
+            title = "Delete Item",
+            message = "This will permanently delete the selected item. This action cannot be undone.",
+            confirmText = "Delete",
+            dismissText = "Cancel",
+            isDestructive = true,
+            icon = Icons.Default.Warning,
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DeleteConfirmationDialogPreview() {
+    MaterialTheme {
+        DeleteConfirmationDialog(
+            itemName = "Blue PLA Spool",
+            itemType = "spool",
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DeleteConfirmationDialogWithWarningPreview() {
+    MaterialTheme {
+        DeleteConfirmationDialog(
+            itemName = "Red ABS Spool",
+            itemType = "spool",
+            additionalWarning = "all associated scan history",
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ClearDataConfirmationDialogPreview() {
+    MaterialTheme {
+        ClearDataConfirmationDialog(
+            dataType = "scan history",
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CachePurgeConfirmationDialogPreview() {
+    MaterialTheme {
+        CachePurgeConfirmationDialog(
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
 }

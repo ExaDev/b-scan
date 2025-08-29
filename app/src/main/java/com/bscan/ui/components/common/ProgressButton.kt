@@ -1,10 +1,13 @@
 package com.bscan.ui.components.common
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -144,6 +147,193 @@ fun ProgressButtonWithIcon(
                 icon()
             }
             Text(if (isLoading) loadingText else text)
+        }
+    }
+}
+
+// Preview Functions
+@Preview(showBackground = true)
+@Composable
+fun ProgressButtonPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ProgressButton(
+                text = "Save Changes",
+                loadingText = "Saving...",
+                isLoading = false,
+                onClick = { }
+            )
+            
+            ProgressButton(
+                text = "Save Changes", 
+                loadingText = "Saving...",
+                isLoading = true,
+                onClick = { }
+            )
+            
+            ProgressButton(
+                text = "Save Changes",
+                loadingText = "Saving...",
+                isLoading = false,
+                enabled = false,
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OutlinedProgressButtonPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedProgressButton(
+                text = "Import Data",
+                loadingText = "Importing...",
+                isLoading = false,
+                onClick = { }
+            )
+            
+            OutlinedProgressButton(
+                text = "Import Data",
+                loadingText = "Importing...",
+                isLoading = true,
+                onClick = { }
+            )
+            
+            OutlinedProgressButton(
+                text = "Import Data",
+                loadingText = "Importing...",
+                isLoading = false,
+                enabled = false,
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TextProgressButtonPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            TextProgressButton(
+                text = "Skip",
+                loadingText = "Processing...",
+                isLoading = false,
+                onClick = { }
+            )
+            
+            TextProgressButton(
+                text = "Skip",
+                loadingText = "Processing...",
+                isLoading = true,
+                onClick = { }
+            )
+            
+            TextProgressButton(
+                text = "Skip",
+                loadingText = "Processing...",
+                isLoading = false,
+                enabled = false,
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DestructiveProgressButtonPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            DestructiveProgressButton(
+                text = "Delete All",
+                loadingText = "Deleting...",
+                isLoading = false,
+                onClick = { }
+            )
+            
+            DestructiveProgressButton(
+                text = "Delete All",
+                loadingText = "Deleting...",
+                isLoading = true,
+                onClick = { }
+            )
+            
+            DestructiveProgressButton(
+                text = "Delete All",
+                loadingText = "Deleting...",
+                isLoading = false,
+                enabled = false,
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ProgressButtonWithIconPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ProgressButtonWithIcon(
+                text = "Download",
+                loadingText = "Downloading...",
+                isLoading = false,
+                onClick = { },
+                icon = {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+            
+            ProgressButtonWithIcon(
+                text = "Download",
+                loadingText = "Downloading...",
+                isLoading = true,
+                onClick = { },
+                icon = {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+            
+            ProgressButtonWithIcon(
+                text = "Download",
+                loadingText = "Downloading...",
+                isLoading = false,
+                enabled = false,
+                onClick = { },
+                icon = {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
         }
     }
 }
