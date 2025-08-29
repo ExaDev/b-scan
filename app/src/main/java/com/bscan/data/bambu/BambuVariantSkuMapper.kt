@@ -56,12 +56,32 @@ object BambuVariantSkuMapper {
      * Get all known RFID keys by reconstructing from normalized data
      */
     fun getAllKnownRfidKeys(): Set<String> {
-        // This would need to be implemented based on the MaterialID mappings
-        // For now, return the keys that exist in the normalized products
-        return NormalizedBambuData.getAllNormalizedProducts().map { product ->
-            // Reconstruct RFID key format: "MaterialID:SeriesCode-ColorCode"
-            // This is a simplified reconstruction - in practice we'd need MaterialID mappings
-            "GFA00:${product.seriesCode}-${product.colorCode}"
+        // Map material+variant combinations to RFID material IDs (from BambuMaterialIdMapper)
+        val materialIdMap = mapOf(
+            ("PLA" to "Basic") to "GFA00",
+            ("PLA" to "Matte") to "GFA01", 
+            ("PLA" to "Metal") to "GFA02",
+            ("PLA" to "Silk") to "GFA05",
+            ("PLA" to "Marble") to "GFA07",
+            ("PLA" to "Glow") to "GFA12",
+            ("PETG" to "Basic") to "GFG00",
+            ("ABS" to "Basic") to "GFL01",
+            ("ASA" to "Basic") to "GFL02",
+            ("TPU" to "90A") to "GFL04",
+            ("PC" to "Basic") to "GFC00",
+            ("PA" to "Basic") to "GFN04",
+            ("PVA" to "Basic") to "GFS00",
+            ("SUPPORT" to "Basic") to "GFS01"
+        )
+        
+        return NormalizedBambuData.getAllNormalizedProducts().mapNotNull { product ->
+            val materialId = materialIdMap[product.materialName to product.variantName]
+            if (materialId != null) {
+                // Reconstruct RFID key format: "MaterialID:SeriesCode-ColorCode"
+                "$materialId:${product.seriesCode}-${product.colorCode}"
+            } else {
+                null // Skip unknown combinations
+            }
         }.toSet()
     }
     
