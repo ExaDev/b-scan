@@ -1,3 +1,10 @@
+# [3.18.0](https://github.com/Mearman/b-scan/compare/v3.17.1...v3.18.0) (2025-08-29)
+
+
+### Features
+
+* add revocable non-commercial license with attribution ([a0d6164](https://github.com/Mearman/b-scan/commit/a0d6164aa062edaf98920b2a38f4fb573c739b3d))
+
 ## [3.17.1](https://github.com/Mearman/b-scan/compare/v3.17.0...v3.17.1) (2025-08-26)
 
 
