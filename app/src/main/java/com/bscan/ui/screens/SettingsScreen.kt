@@ -1,5 +1,6 @@
 package com.bscan.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -106,8 +108,39 @@ fun SettingsScreen(
                 )
             }
             
+            // Material Shape Style Settings
             item {
-                MaterialDisplaySettingsCard(
+                MaterialShapeStyleCard(
+                    currentSettings = currentMaterialDisplaySettings,
+                    onSettingsChanged = { newSettings ->
+                        currentMaterialDisplaySettings = newSettings
+                        scope.launch {
+                            userDataRepository.updatePreferences { currentPrefs ->
+                                currentPrefs.copy(materialDisplaySettings = newSettings)
+                            }
+                        }
+                    }
+                )
+            }
+            
+            // Material Text Overlay Settings
+            item {
+                MaterialTextOverlayCard(
+                    currentSettings = currentMaterialDisplaySettings,
+                    onSettingsChanged = { newSettings ->
+                        currentMaterialDisplaySettings = newSettings
+                        scope.launch {
+                            userDataRepository.updatePreferences { currentPrefs ->
+                                currentPrefs.copy(materialDisplaySettings = newSettings)
+                            }
+                        }
+                    }
+                )
+            }
+            
+            // Material Variant Name Settings
+            item {
+                MaterialVariantNameCard(
                     currentSettings = currentMaterialDisplaySettings,
                     onSettingsChanged = { newSettings ->
                         currentMaterialDisplaySettings = newSettings
@@ -123,6 +156,7 @@ fun SettingsScreen(
             item {
                 CatalogDisplayModeCard(
                     currentMode = catalogDisplayMode,
+                    currentMaterialSettings = currentMaterialDisplaySettings,
                     onModeChanged = { mode ->
                         catalogDisplayMode = mode
                         scope.launch {
@@ -1409,17 +1443,17 @@ fun AccelerometerEffectsCard(
 @Composable
 private fun CatalogDisplayModeCard(
     currentMode: CatalogDisplayMode,
+    currentMaterialSettings: MaterialDisplaySettings,
     onModeChanged: (CatalogDisplayMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
                 text = "Catalog Display Mode",
@@ -1433,64 +1467,16 @@ private fun CatalogDisplayModeCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            // Display mode options with previews
+            // Display mode options using consistent full-width style
             CatalogDisplayMode.entries.forEach { mode ->
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = currentMode == mode,
-                            onClick = { onModeChanged(mode) }
-                        )
-                        
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 12.dp)
-                        ) {
-                            Text(
-                                text = mode.displayName,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (currentMode == mode) FontWeight.Medium else FontWeight.Normal
-                            )
-                            
-                            Text(
-                                text = mode.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    // Preview sample
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 48.dp), // Align with text after radio button
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(8.dp)
-                        ) {
-                            Text(
-                                text = "Preview:",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                            
-                            // Create a mockup preview card instead of using real ProductCard
-                            CatalogPreviewCard(displayMode = mode)
-                        }
-                    }
-                }
+                CatalogDisplayOption(
+                    title = mode.displayName,
+                    description = mode.description,
+                    isSelected = currentMode == mode,
+                    onClick = { onModeChanged(mode) },
+                    displayMode = mode,
+                    materialSettings = currentMaterialSettings
+                )
             }
         }
     }
@@ -1502,6 +1488,7 @@ private fun CatalogDisplayModeCard(
 @Composable
 private fun CatalogPreviewCard(
     displayMode: CatalogDisplayMode,
+    materialSettings: MaterialDisplaySettings,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -1517,10 +1504,11 @@ private fun CatalogPreviewCard(
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Color preview (same for both modes)
+            // Color preview using current material display settings
             FilamentColorBox(
                 colorHex = "#00BCD4", // Cyan color
-                filamentType = "PLA",
+                filamentType = "PLA Basic",
+                materialDisplaySettings = materialSettings,
                 modifier = Modifier.size(40.dp)
             )
             
@@ -1593,10 +1581,68 @@ private fun CatalogPreviewCard(
 }
 
 /**
- * Card for granular material display settings
+ * Catalog display option with radio button and complete catalog item preview
  */
 @Composable
-private fun MaterialDisplaySettingsCard(
+private fun CatalogDisplayOption(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    displayMode: CatalogDisplayMode,
+    materialSettings: MaterialDisplaySettings,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onClick() }
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick
+            )
+            
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        // Complete catalog item preview showing display mode effect
+        CatalogPreviewCard(
+            displayMode = displayMode,
+            materialSettings = materialSettings,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * Card for material shape style settings
+ */
+@Composable
+private fun MaterialShapeStyleCard(
     currentSettings: MaterialDisplaySettings,
     onSettingsChanged: (MaterialDisplaySettings) -> Unit,
     modifier: Modifier = Modifier
@@ -1607,126 +1653,297 @@ private fun MaterialDisplaySettingsCard(
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
-                text = "Material Visual Settings",
+                text = "Material Shape Style",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium
             )
             
             Text(
-                text = "Customize how filament materials are visually displayed in color boxes",
+                text = "Choose the shape style for material color boxes",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            // Toggle switches for each setting
-            SettingToggleRow(
-                title = "Material-based shapes",
-                description = "Use distinct shapes for each material type (circle, hexagon, etc.)",
-                isChecked = currentSettings.showMaterialShapes,
-                onCheckedChange = { checked ->
-                    onSettingsChanged(currentSettings.copy(showMaterialShapes = checked))
-                }
-            )
-            
-            SettingToggleRow(
-                title = "Material name in shape",
-                description = "Show material abbreviations (PLA, PETG, etc.) as text overlays",
-                isChecked = currentSettings.showMaterialNameInShape,
-                onCheckedChange = { checked ->
-                    onSettingsChanged(currentSettings.copy(showMaterialNameInShape = checked))
-                }
-            )
-            
-            SettingToggleRow(
-                title = "Material variant in shape", 
-                description = "Show variant information (Basic, Silk, Matte, etc.) in text overlay",
-                isChecked = currentSettings.showMaterialVariantInShape,
-                onCheckedChange = { checked ->
-                    onSettingsChanged(currentSettings.copy(showMaterialVariantInShape = checked))
-                }
-            )
-            
-            SettingToggleRow(
-                title = "Full variant names",
-                description = "Show full variant names instead of abbreviations (e.g., 'Carbon Fiber' vs 'CF')",
-                isChecked = currentSettings.showFullVariantNames,
-                onCheckedChange = { checked ->
-                    onSettingsChanged(currentSettings.copy(showFullVariantNames = checked))
-                },
-                enabled = currentSettings.showMaterialVariantInShape // Only enabled when variants are shown
-            )
-            
-            // Preview section
-            HorizontalDivider()
-            
-            Text(
-                text = "Preview",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            
-            // Sample filament boxes showing current settings
-            Row(
+            // Option 1: Material-based shapes
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSettingsChanged(currentSettings.copy(showMaterialShapes = true)) }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    FilamentColorBox(
-                        colorHex = "#FF6B35",
-                        filamentType = "PLA Basic",
-                        size = 40.dp,
-                        materialDisplaySettings = currentSettings
+                    RadioButton(
+                        selected = currentSettings.showMaterialShapes,
+                        onClick = { onSettingsChanged(currentSettings.copy(showMaterialShapes = true)) }
                     )
-                    Text(
-                        text = "PLA Basic",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Material-based shapes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (currentSettings.showMaterialShapes) FontWeight.Medium else FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Different shapes for each material type (PLA=circle, PETG=octagon, etc.)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilamentColorBox(
-                        colorHex = "#4A90E2",
-                        filamentType = "PETG Silk",
-                        size = 40.dp,
-                        materialDisplaySettings = currentSettings
-                    )
-                    Text(
-                        text = "PETG Silk",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    FilamentColorBox(
-                        colorHex = "#7B68EE",
-                        filamentType = "ABS Matte",
-                        size = 40.dp,
-                        materialDisplaySettings = currentSettings
-                    )
-                    Text(
-                        text = "ABS Matte",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                MaterialShapesPreview()
             }
+
+            // Option 2: Simple rounded rectangles
+            MaterialDisplayOption(
+                title = "Simple rounded rectangles",
+                description = "Consistent rectangular shape for all materials",
+                isSelected = !currentSettings.showMaterialShapes,
+                onClick = { onSettingsChanged(currentSettings.copy(showMaterialShapes = false)) },
+                previewSettings = currentSettings.copy(showMaterialShapes = false)
+            )
         }
     }
 }
+
+/**
+ * Card for material text overlay settings
+ */
+@Composable
+private fun MaterialTextOverlayCard(
+    currentSettings: MaterialDisplaySettings,
+    onSettingsChanged: (MaterialDisplaySettings) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text(
+                text = "Material Text Overlays",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "Choose what text information appears over material colors",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            MaterialDisplayOption(
+                title = "No text overlays",
+                description = "Pure color display without text",
+                isSelected = !currentSettings.showMaterialNameInShape && !currentSettings.showMaterialVariantInShape,
+                onClick = { 
+                    onSettingsChanged(currentSettings.copy(
+                        showMaterialNameInShape = false,
+                        showMaterialVariantInShape = false
+                    ))
+                },
+                previewSettings = currentSettings.copy(
+                    showMaterialNameInShape = false,
+                    showMaterialVariantInShape = false
+                )
+            )
+            
+            MaterialDisplayOption(
+                title = "Material name only",
+                description = "Show material abbreviations (PLA, PETG, etc.)",
+                isSelected = currentSettings.showMaterialNameInShape && !currentSettings.showMaterialVariantInShape,
+                onClick = { 
+                    onSettingsChanged(currentSettings.copy(
+                        showMaterialNameInShape = true,
+                        showMaterialVariantInShape = false
+                    ))
+                },
+                previewSettings = currentSettings.copy(
+                    showMaterialNameInShape = true,
+                    showMaterialVariantInShape = false
+                )
+            )
+            
+            MaterialDisplayOption(
+                title = "Material + variant",
+                description = "Show both material and variant (PLA B, PETG S, etc.)",
+                isSelected = currentSettings.showMaterialNameInShape && currentSettings.showMaterialVariantInShape,
+                onClick = { 
+                    onSettingsChanged(currentSettings.copy(
+                        showMaterialNameInShape = true,
+                        showMaterialVariantInShape = true
+                    ))
+                },
+                previewSettings = currentSettings.copy(
+                    showMaterialNameInShape = true,
+                    showMaterialVariantInShape = true
+                )
+            )
+            
+            MaterialDisplayOption(
+                title = "Variant only",
+                description = "Show only variant information (Basic, Silk, Matte)",
+                isSelected = !currentSettings.showMaterialNameInShape && currentSettings.showMaterialVariantInShape,
+                onClick = { 
+                    onSettingsChanged(currentSettings.copy(
+                        showMaterialNameInShape = false,
+                        showMaterialVariantInShape = true
+                    ))
+                },
+                previewSettings = currentSettings.copy(
+                    showMaterialNameInShape = false,
+                    showMaterialVariantInShape = true
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Card for material variant name format settings
+ */
+@Composable
+private fun MaterialVariantNameCard(
+    currentSettings: MaterialDisplaySettings,
+    onSettingsChanged: (MaterialDisplaySettings) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val variantOptionsEnabled = currentSettings.showMaterialVariantInShape
+    
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Text(
+                text = "Icon Variant Name Format",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium,
+                color = if (variantOptionsEnabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                }
+            )
+            
+            Text(
+                text = if (variantOptionsEnabled) {
+                    "Choose how variant names are displayed in material icons"
+                } else {
+                    "Enable variant text overlays above to use these options"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (variantOptionsEnabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                }
+            )
+            
+            MaterialDisplayOption(
+                title = "Abbreviated in icons",
+                description = "Short forms in shapes (B, S, M, CF, HF, etc.)",
+                isSelected = !currentSettings.showFullVariantNamesInShape,
+                onClick = { onSettingsChanged(currentSettings.copy(showFullVariantNamesInShape = false)) },
+                previewSettings = currentSettings.copy(showFullVariantNamesInShape = false),
+                enabled = variantOptionsEnabled
+            )
+            
+            MaterialDisplayOption(
+                title = "Full names in icons",
+                description = "Complete names in shapes (Basic, Silk, Matte, etc.)",
+                isSelected = currentSettings.showFullVariantNamesInShape,
+                onClick = { onSettingsChanged(currentSettings.copy(showFullVariantNamesInShape = true)) },
+                previewSettings = currentSettings.copy(showFullVariantNamesInShape = true),
+                enabled = variantOptionsEnabled
+            )
+        }
+    }
+}
+
+
+
+
+
+/**
+ * Material display option with radio button and complete catalog item preview
+ */
+@Composable
+private fun MaterialDisplayOption(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    previewSettings: MaterialDisplaySettings,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(enabled = enabled) { onClick() }
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                enabled = enabled
+            )
+            
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                )
+            }
+        }
+        
+        // Complete catalog item preview
+        CatalogPreviewCard(
+            displayMode = CatalogDisplayMode.COMPLETE_TITLE,
+            materialSettings = previewSettings,
+            modifier = Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.38f)
+        )
+    }
+}
+
+
+
 
 /**
  * Reusable toggle row for settings
@@ -1772,6 +1989,46 @@ private fun SettingToggleRow(
             checked = isChecked,
             onCheckedChange = onCheckedChange,
             enabled = enabled
+        )
+    }
+}
+
+@Composable
+private fun MaterialShapesPreview(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilamentColorBox(
+            colorHex = "#FF6B35",
+            filamentType = "PLA",
+            size = 32.dp,
+            materialDisplaySettings = MaterialDisplaySettings(showMaterialShapes = true)
+        )
+        FilamentColorBox(
+            colorHex = "#4A90E2",
+            filamentType = "PETG",
+            size = 32.dp,
+            materialDisplaySettings = MaterialDisplaySettings(showMaterialShapes = true)
+        )
+        FilamentColorBox(
+            colorHex = "#7B68EE",
+            filamentType = "ABS",
+            size = 32.dp,
+            materialDisplaySettings = MaterialDisplaySettings(showMaterialShapes = true)
+        )
+        FilamentColorBox(
+            colorHex = "#F44336",
+            filamentType = "ASA",
+            size = 32.dp,
+            materialDisplaySettings = MaterialDisplaySettings(showMaterialShapes = true)
+        )
+        FilamentColorBox(
+            colorHex = "#4CAF50",
+            filamentType = "TPU",
+            size = 32.dp,
+            materialDisplaySettings = MaterialDisplaySettings(showMaterialShapes = true)
         )
     }
 }
