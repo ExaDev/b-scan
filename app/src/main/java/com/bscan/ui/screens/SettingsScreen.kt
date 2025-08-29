@@ -28,6 +28,8 @@ import com.bscan.ui.screens.settings.DataGenerationMode
 import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplayMode
 import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.screens.home.CatalogDisplayMode
+import com.bscan.repository.UserDataRepository
 import com.bscan.data.bambu.BambuVariantSkuMapper
 import com.bscan.repository.PhysicalComponentRepository
 import com.bscan.ble.BlePermissionHandler
@@ -51,6 +53,7 @@ fun SettingsScreen(
     val repository = remember { ScanHistoryRepository(context) }
     val exportManager = remember { DataExportManager(context) }
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
+    val userDataRepository = remember { UserDataRepository(context) }
     val physicalComponentRepository = remember { PhysicalComponentRepository(context) }
     val scope = rememberCoroutineScope()
     
@@ -62,6 +65,12 @@ fun SettingsScreen(
     
     // Material display mode state
     var materialDisplayMode by remember { mutableStateOf(userPrefsRepository.getMaterialDisplayMode()) }
+    
+    // Catalog display mode state
+    val userData = remember { userDataRepository.getUserData() }
+    var catalogDisplayMode by remember { 
+        mutableStateOf(userData?.preferences?.catalogDisplayMode ?: CatalogDisplayMode.COMPLETE_TITLE) 
+    }
     
     Scaffold(
         topBar = {
@@ -98,6 +107,20 @@ fun SettingsScreen(
                         materialDisplayMode = mode
                         scope.launch {
                             userPrefsRepository.setMaterialDisplayMode(mode)
+                        }
+                    }
+                )
+            }
+            
+            item {
+                CatalogDisplayModeCard(
+                    currentMode = catalogDisplayMode,
+                    onModeChanged = { mode ->
+                        catalogDisplayMode = mode
+                        scope.launch {
+                            userDataRepository.updatePreferences { currentPrefs ->
+                                currentPrefs.copy(catalogDisplayMode = mode)
+                            }
                         }
                     }
                 )
@@ -1364,6 +1387,80 @@ fun AccelerometerEffectsCard(
                             size = 32.dp,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Card for catalog display preferences
+ */
+@Composable
+private fun CatalogDisplayModeCard(
+    currentMode: CatalogDisplayMode,
+    onModeChanged: (CatalogDisplayMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Catalog Display Mode",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "How product information is displayed in the catalog browser",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Display mode options
+            CatalogDisplayMode.entries.forEach { mode ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = currentMode == mode,
+                        onClick = { onModeChanged(mode) }
+                    )
+                    
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp)
+                    ) {
+                        Text(
+                            text = mode.displayName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (currentMode == mode) FontWeight.Medium else FontWeight.Normal
+                        )
+                        
+                        Text(
+                            text = mode.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        // Show example
+                        Text(
+                            text = when (mode) {
+                                CatalogDisplayMode.COMPLETE_TITLE -> "Example: \"Basic Cyan PLA\""
+                                CatalogDisplayMode.COLOR_FOCUSED -> "Example: \"Cyan\" + properties \"PLA Basic\""
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp)
                         )
                     }
                 }
