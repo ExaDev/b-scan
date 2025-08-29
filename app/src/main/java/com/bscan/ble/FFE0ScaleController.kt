@@ -170,10 +170,15 @@ class FFE0ScaleController(
                         // Enable notifications on the characteristic
                         val descriptor = char.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
                         if (descriptor != null) {
+                            @Suppress("DEPRECATION")
                             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            bluetoothGatt?.writeDescriptor(descriptor)
-                            subscriptionCount++
-                            Log.d(TAG, "Subscribed to $name notifications")
+                            val writeResult = bluetoothGatt?.writeDescriptor(descriptor) ?: false
+                            if (writeResult) {
+                                subscriptionCount++
+                                Log.d(TAG, "Subscribed to $name notifications")
+                            } else {
+                                Log.w(TAG, "Failed to write descriptor for $name")
+                            }
                         } else {
                             Log.w(TAG, "$name has no notification descriptor")
                         }
@@ -224,6 +229,7 @@ class FFE0ScaleController(
         tareCharacteristic?.let { ffe3Char ->
             try {
                 Log.d(TAG, "Trying Salter tare command [9,3,5] to FFE3 characteristic")
+                @Suppress("DEPRECATION")
                 ffe3Char.value = SALTER_TARE_COMMAND
                 val success = bluetoothGatt?.writeCharacteristic(ffe3Char) ?: false
                 
@@ -246,6 +252,7 @@ class FFE0ScaleController(
         for ((index, command) in TARE_COMMANDS.withIndex()) {
             try {
                 Log.d(TAG, "Trying tare command ${index + 1}: ${command.joinToString(" ") { "%02X".format(it) }}")
+                @Suppress("DEPRECATION")
                 weightChar.value = command
                 val success = bluetoothGatt?.writeCharacteristic(weightChar) ?: false
                 
@@ -304,14 +311,20 @@ class FFE0ScaleController(
                         if (success) {
                             val descriptor = char.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
                             if (descriptor != null) {
-                                descriptor.value = if (supportsNotify) {
+                                val descriptorValue = if (supportsNotify) {
                                     BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                                 } else {
                                     BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
                                 }
-                                bluetoothGatt?.writeDescriptor(descriptor)
-                                subscriptionCount++
-                                Log.d(TAG, "🔍 Subscribed to $name (${if (supportsNotify) "notify" else "indicate"})")
+                                @Suppress("DEPRECATION")
+                                descriptor.value = descriptorValue
+                                val writeResult = bluetoothGatt?.writeDescriptor(descriptor) ?: false
+                                if (writeResult) {
+                                    subscriptionCount++
+                                    Log.d(TAG, "🔍 Subscribed to $name (${if (supportsNotify) "notify" else "indicate"})")
+                                } else {
+                                    Log.w(TAG, "Failed to write descriptor for $name")
+                                }
                             } else {
                                 Log.w(TAG, "$name has no notification descriptor")
                             }
@@ -421,11 +434,12 @@ class FFE0ScaleController(
             }
         }
         
+        @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             val characteristicUuid = characteristic.uuid.toString().lowercase()
             val data = characteristic.value
             
-            if (data != null) {
+            if (data != null && data.isNotEmpty()) {
                 val hexData = data.joinToString(" ") { "%02X".format(it) }
                 val timestamp = System.currentTimeMillis()
                 
@@ -485,6 +499,7 @@ class FFE0ScaleController(
             }
         }
         
+        @Suppress("DEPRECATION") 
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 onCharacteristicChanged(gatt, characteristic)

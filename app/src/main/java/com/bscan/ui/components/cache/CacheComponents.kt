@@ -85,7 +85,7 @@ fun CacheHitRateDisplay(
         if (totalRequests > 0) {
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
-                progress = stats.getHitRate(),
+                progress = { stats.getHitRate() },
                 modifier = Modifier.fillMaxWidth(),
                 color = getCachePerformanceColor(hitRate)
             )
@@ -131,7 +131,7 @@ fun CacheDetailedStats(
 ) {
     Column(modifier = modifier) {
         Spacer(modifier = Modifier.height(16.dp))
-        Divider()
+        HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
         
         Text(

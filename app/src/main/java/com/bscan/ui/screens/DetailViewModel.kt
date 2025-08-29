@@ -1292,9 +1292,16 @@ class DetailViewModel(
             }
             OperationType.BATCH -> {
                 // Undo batch operations in reverse order
-                val operations = operation.previousData as? List<UndoableOperation>
-                operations?.reversed()?.forEach { batchOp ->
-                    performUndoOperation(batchOp)
+                val operations = operation.previousData as? List<*>
+                if (operations?.all { it is UndoableOperation } == true) {
+                    @Suppress("UNCHECKED_CAST")
+                    val typedOperations = operations as List<UndoableOperation>
+                    typedOperations.reversed().forEach { batchOp ->
+                        performUndoOperation(batchOp)
+                    }
+                } else {
+                    // Log error or handle invalid data
+                    android.util.Log.w("DetailViewModel", "Invalid previousData for BATCH undo operation: expected List<UndoableOperation>, got ${operation.previousData?.javaClass?.name}")
                 }
             }
         }
@@ -1336,9 +1343,16 @@ class DetailViewModel(
             }
             OperationType.BATCH -> {
                 // Redo batch operations in original order
-                val operations = operation.previousData as? List<UndoableOperation>
-                operations?.forEach { batchOp ->
-                    performRedoOperation(batchOp)
+                val operations = operation.previousData as? List<*>
+                if (operations?.all { it is UndoableOperation } == true) {
+                    @Suppress("UNCHECKED_CAST")
+                    val typedOperations = operations as List<UndoableOperation>
+                    typedOperations.forEach { batchOp ->
+                        performRedoOperation(batchOp)
+                    }
+                } else {
+                    // Log error or handle invalid data
+                    android.util.Log.w("DetailViewModel", "Invalid previousData for BATCH redo operation: expected List<UndoableOperation>, got ${operation.previousData?.javaClass?.name}")
                 }
             }
         }

@@ -101,7 +101,8 @@ fun MassEditDialog(
                 }
                 
                 // Component info (if editing specific component)
-                if (!isEditingTotal && component != null) {
+                if (!isEditingTotal) {
+                    // component is guaranteed to be non-null when !isEditingTotal
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
