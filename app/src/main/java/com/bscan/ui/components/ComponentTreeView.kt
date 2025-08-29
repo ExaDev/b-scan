@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -1013,7 +1014,7 @@ private fun ComponentIcon(
 
     // Special handling for tagged components
     val finalIcon = when {
-        "consumable" in tags -> Icons.Default.TrendingDown
+        "consumable" in tags -> Icons.AutoMirrored.Filled.TrendingDown
         "hardware" in tags -> Icons.Default.Build  
         "electronics" in tags -> Icons.Default.Memory
         "bambu" in tags -> Icons.Default.Build // PrecisionManufacturing not available
@@ -1111,7 +1112,7 @@ private fun MassDisplayChip(
 
         if (variableMass) {
             Icon(
-                Icons.Default.TrendingDown,
+                Icons.AutoMirrored.Filled.TrendingDown,
                 contentDescription = "Variable mass",
                 modifier = Modifier.size(14.dp),
                 tint = MaterialTheme.colorScheme.secondary

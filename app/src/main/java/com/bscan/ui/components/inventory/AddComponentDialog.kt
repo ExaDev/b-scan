@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -270,7 +271,7 @@ fun ComponentSelectionCard(
             // Variable mass indicator
             if (component.variableMass) {
                 Icon(
-                    Icons.Default.TrendingDown,
+                    Icons.AutoMirrored.Filled.TrendingDown,
                     contentDescription = "Variable mass",
                     tint = MaterialTheme.colorScheme.tertiary,
                     modifier = Modifier.size(20.dp)

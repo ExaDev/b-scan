@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -194,7 +195,7 @@ fun ComponentItemCard(
                     // Variable mass indicator
                     if (component.variableMass) {
                         Icon(
-                            Icons.Default.TrendingDown,
+                            Icons.AutoMirrored.Filled.TrendingDown,
                             contentDescription = "Variable mass",
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.tertiary
