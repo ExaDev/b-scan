@@ -27,7 +27,7 @@ import com.bscan.ble.BlePermissionHandler
 fun AppNavigation(
     viewModel: MainViewModel,
     updateViewModel: UpdateViewModel,
-    nfcManager: NfcManager,
+    nfcManager: NfcManager?,
     blePermissionHandler: BlePermissionHandler,
     navController: NavHostController = rememberNavController()
 ) {
@@ -203,8 +203,12 @@ fun AppNavigation(
                 },
                 onPurgeCache = { tagUid ->
                     Log.d("AppNavigation", "Cache purge requested for tagUid: $tagUid")
-                    // Handle cache purging if needed
-                    // This could call the existing cache management functionality
+                    nfcManager?.let { manager ->
+                        manager.invalidateTagCache(tagUid)
+                        Log.d("AppNavigation", "Cache purged for tagUid: $tagUid")
+                    } ?: run {
+                        Log.w("AppNavigation", "NFC not available - cannot purge cache for tagUid: $tagUid")
+                    }
                 }
             )
         }
