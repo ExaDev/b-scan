@@ -20,9 +20,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import com.bscan.repository.UserPreferencesRepository
 
 enum class FilamentFinish {
@@ -379,29 +381,51 @@ fun FilamentColorBox(
             ) {
                 val textColor = if (isColorLight(color)) Color.Black else Color.White
                 val materialName = getMaterialAbbreviation(materialType)
-                val variantName = getVariantFromFilamentType(filamentType, actualDisplaySettings.showFullVariantNames)
-                
-                val displayText = buildString {
-                    if (actualDisplaySettings.showMaterialNameInShape) {
-                        append(materialName)
+                val variantName = getVariantFromFilamentType(filamentType, actualDisplaySettings.showFullVariantNamesInShape)
+
+                val showMaterialName = actualDisplaySettings.showMaterialNameInShape
+                val showVariantName = actualDisplaySettings.showMaterialVariantInShape && variantName.isNotEmpty()
+
+                val calculatedFontSize = if (showMaterialName && showVariantName) { (size.value / 2 * 0.8f).sp } else { (size.value * 0.20f).sp }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (showMaterialName) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = materialName,
+                                color = textColor,
+                                fontSize = calculatedFontSize,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                lineHeight = calculatedFontSize,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                    if (actualDisplaySettings.showMaterialVariantInShape && variantName.isNotEmpty()) {
-                        if (isNotEmpty()) append(" ")
-                        append(variantName)
+                    if (showVariantName) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = variantName,
+                                color = textColor,
+                                fontSize = calculatedFontSize,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                lineHeight = calculatedFontSize,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                }
-                
-                if (displayText.isNotEmpty()) {
-                    Text(
-                        text = displayText,
-                        color = textColor,
-                        fontSize = (size.value * 0.20f).sp, // Slightly smaller to fit more text
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .padding(2.dp),
-                        maxLines = 2 // Allow wrapping for longer text
-                    )
                 }
             }
         }
