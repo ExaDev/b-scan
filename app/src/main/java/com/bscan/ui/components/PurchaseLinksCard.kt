@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.model.BambuProduct
 import com.bscan.model.PurchaseLinks
@@ -207,6 +208,82 @@ fun CompactPurchaseLinksCard(
                     Text("Refill")
                 }
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PurchaseLinksCardPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Product with both spool and refill options
+            PurchaseLinksCard(
+                product = BambuProduct(
+                    productLine = "PLA Basic",
+                    colorName = "Black",
+                    internalCode = "GFL00",
+                    retailSku = "10100",
+                    colorHex = "#000000",
+                    spoolUrl = "https://us.store.bambulab.com/products/pla-basic-filament?sku=10100",
+                    refillUrl = "https://us.store.bambulab.com/products/pla-basic-refill?sku=10100-refill",
+                    mass = "1kg"
+                )
+            )
+            
+            // Product with spool only
+            PurchaseLinksCard(
+                product = BambuProduct(
+                    productLine = "ABS",
+                    colorName = "Orange Red", 
+                    internalCode = "GFA01",
+                    retailSku = "40101",
+                    colorHex = "#FF6B35",
+                    spoolUrl = "https://us.store.bambulab.com/products/abs-filament?sku=40101",
+                    refillUrl = null,
+                    mass = "1kg"
+                )
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CompactPurchaseLinksCardPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CompactPurchaseLinksCard(
+                product = BambuProduct(
+                    productLine = "PETG Basic",
+                    colorName = "Turquoise",
+                    internalCode = "GFG01", 
+                    retailSku = "30102",
+                    colorHex = "#4ECDC4",
+                    spoolUrl = "https://us.store.bambulab.com/products/petg-basic-filament?sku=30102",
+                    refillUrl = "https://us.store.bambulab.com/products/petg-basic-refill?sku=30102-refill",
+                    mass = "1kg"
+                )
+            )
+            
+            CompactPurchaseLinksCard(
+                product = BambuProduct(
+                    productLine = "PLA Silk",
+                    colorName = "Gold",
+                    internalCode = "GFS00",
+                    retailSku = "11200",
+                    colorHex = "#FFD700",
+                    spoolUrl = null,
+                    refillUrl = "https://us.store.bambulab.com/products/pla-silk-refill?sku=11200-refill",
+                    mass = "1kg"
+                )
+            )
         }
     }
 }
