@@ -9,6 +9,9 @@ import com.bscan.interpreter.InterpreterFactory
 import com.google.gson.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.IOException
 import java.lang.reflect.Type
 import java.time.LocalDateTime
@@ -26,6 +29,10 @@ class UserDataRepository(private val context: Context) {
     
     // In-memory cache of user data
     private var cachedUserData: UserData? = null
+    
+    // Reactive state flow for user data changes
+    private val _userDataFlow = MutableStateFlow<UserData?>(null)
+    val userDataFlow: StateFlow<UserData?> = _userDataFlow.asStateFlow()
     
     // Custom LocalDateTime adapter for Gson
     private val localDateTimeAdapter = object : JsonSerializer<LocalDateTime>, JsonDeserializer<LocalDateTime> {
@@ -76,6 +83,7 @@ class UserDataRepository(private val context: Context) {
     fun getUserData(): UserData {
         if (cachedUserData == null) {
             cachedUserData = loadFromPreferences()
+            _userDataFlow.value = cachedUserData
         }
         return cachedUserData!!
     }
@@ -95,6 +103,7 @@ class UserDataRepository(private val context: Context) {
         )
         cachedUserData = newData
         saveToPreferences(newData)
+        _userDataFlow.value = newData
     }
     
     /**
