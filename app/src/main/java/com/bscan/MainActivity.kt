@@ -14,7 +14,7 @@ import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import com.bscan.cache.CachedBambuKeyDerivation
 import com.bscan.model.*
 import com.bscan.navigation.AppNavigation
@@ -80,11 +80,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             // Observe user theme preference reactively
             val userDataRepository = viewModel.getUserDataRepository()
-            // Ensure initial load triggers flow emission
-            LaunchedEffect(Unit) {
-                userDataRepository.getUserData()
-            }
-            val userData = userDataRepository.userDataFlow.collectAsStateWithLifecycle().value
+            // Initialize the flow synchronously to avoid race conditions
+            val userData = remember {
+                userDataRepository.getUserData() // This initializes the flow
+                userDataRepository.userDataFlow
+            }.collectAsStateWithLifecycle().value
             val theme = userData?.preferences?.theme ?: AppTheme.AUTO
             
             BScanTheme(theme = theme) {
