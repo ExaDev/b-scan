@@ -55,7 +55,8 @@ enum class MaterialCategory {
     FLEXIBLE,           // TPU, TPE
     COMPOSITE,          // Carbon fiber, wood fill
     SUPPORT,            // PVA, HIPS breakaway
-    SPECIALTY           // Conductive, ceramic
+    SPECIALTY,          // Conductive, ceramic
+    UNKNOWN             // Unrecognized materials
 }
 
 /**
