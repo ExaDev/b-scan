@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.model.FilamentInfo
 import com.bscan.ui.components.common.ConfirmationDialog
@@ -138,6 +139,45 @@ fun CacheManagementCard(
                 showConfirmDialog = false
             },
             onDismiss = { showConfirmDialog = false }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ProductionInfoCardPreview() {
+    MaterialTheme {
+        val mockFilamentInfo = FilamentInfo(
+            filamentType = "PLA",
+            colorName = "Vibrant Blue",
+            colorHex = "#1E88E5",
+            productionDate = "2024-03-15",
+            trayUid = "01008023456789ABCDEF",
+            tagUid = "A1B2C3D4"
+        )
+        
+        ProductionInfoCard(filamentInfo = mockFilamentInfo)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ProductionInfoRowPreview() {
+    MaterialTheme {
+        ProductionInfoRow(
+            label = "Production Date",
+            value = "2024-03-15"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CacheManagementCardPreview() {
+    MaterialTheme {
+        CacheManagementCard(
+            uid = "A1B2C3D4E5F6G7H8",
+            onPurgeCache = { }
         )
     }
 }

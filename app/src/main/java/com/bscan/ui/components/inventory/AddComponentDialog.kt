@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.bscan.logic.WeightUnit
@@ -289,5 +290,67 @@ private fun formatMass(massGrams: Float?, preferredUnit: WeightUnit): String {
         WeightUnit.KILOGRAMS -> "${String.format("%.3f", massGrams / 1000f)}kg"
         WeightUnit.OUNCES -> "${String.format("%.2f", massGrams * 0.035274f)}oz"
         WeightUnit.POUNDS -> "${String.format("%.3f", massGrams * 0.00220462f)}lbs"
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AddComponentDialogPreview() {
+    MaterialTheme {
+        val mockComponents = listOf(
+            Component(
+                id = "comp_1",
+                name = "PLA Filament - Red",
+                category = "filament",
+                massGrams = 1000.0f,
+                manufacturer = "eSUN",
+                description = "High quality PLA filament"
+            ),
+            Component(
+                id = "comp_2", 
+                name = "Plastic Spool",
+                category = "spool",
+                massGrams = 250.0f,
+                manufacturer = "Generic"
+            ),
+            Component(
+                id = "comp_3",
+                name = "Cardboard Core", 
+                category = "core",
+                massGrams = 33.0f,
+                manufacturer = "Bambu Lab"
+            )
+        )
+        
+        AddComponentDialog(
+            availableComponents = mockComponents,
+            currentComponentIds = listOf("comp_1"),
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onAddComponent = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentSelectionCardPreview() {
+    MaterialTheme {
+        val mockComponent = Component(
+            id = "comp_1",
+            name = "PETG Filament - Transparent Blue",
+            category = "filament", 
+            massGrams = 750.0f,
+            manufacturer = "Polymaker",
+            description = "Crystal clear PETG with excellent layer adhesion",
+            variableMass = true
+        )
+        
+        ComponentSelectionCard(
+            component = mockComponent,
+            isSelected = true,
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onSelect = { }
+        )
     }
 }

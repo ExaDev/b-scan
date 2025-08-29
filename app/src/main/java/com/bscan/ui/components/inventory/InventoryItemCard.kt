@@ -256,5 +256,117 @@ fun InventoryItemCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun InventoryItemCardCollapsedPreview() {
+    MaterialTheme {
+        InventoryItemCard(
+            inventoryItem = createMockInventoryItem(),
+            allComponents = createMockAllComponents(),
+            isExpanded = false,
+            onToggleExpanded = { },
+            onDeleteComponent = { },
+            onNavigateToDetails = null
+        )
+    }
+}
 
+@Preview(showBackground = true)
+@Composable
+private fun InventoryItemCardExpandedPreview() {
+    MaterialTheme {
+        InventoryItemCard(
+            inventoryItem = createMockInventoryItem(),
+            allComponents = createMockAllComponents(),
+            isExpanded = true,
+            onToggleExpanded = { },
+            onDeleteComponent = { },
+            onNavigateToDetails = null
+        )
+    }
+}
+
+// Mock data for preview
+private fun createMockInventoryItem(): Component {
+    return Component(
+        id = "inventory_001",
+        identifiers = listOf(
+            ComponentIdentifier(
+                type = IdentifierType.CONSUMABLE_UNIT,
+                value = "01008023456789AB",
+                purpose = IdentifierPurpose.TRACKING
+            ),
+            ComponentIdentifier(
+                type = IdentifierType.RFID_HARDWARE,
+                value = "A1B2C3D4",
+                purpose = IdentifierPurpose.AUTHENTICATION
+            )
+        ),
+        name = "PLA Basic Filament Tray",
+        category = "filament-tray",
+        tags = listOf("PLA", "Orange", "1.75mm"),
+        childComponents = listOf("component_001", "component_002", "component_003"),
+        parentComponentId = null,
+        massGrams = 578.5f,
+        fullMassGrams = 1245.0f,
+        variableMass = true,
+        manufacturer = "Bambu Lab",
+        description = "Premium PLA filament with consistent quality",
+        metadata = mapOf(
+            "color" to "#FF8B42",
+            "diameter" to "1.75mm",
+            "length" to "330m"
+        ),
+        lastUpdated = LocalDateTime.now().minusHours(2)
+    )
+}
+
+private fun createMockAllComponents(): List<Component> {
+    val parentComponent = createMockInventoryItem()
+    
+    return listOf(
+        parentComponent,
+        Component(
+            id = "component_001",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = "A1B2C3D4",
+                    purpose = IdentifierPurpose.AUTHENTICATION
+                )
+            ),
+            name = "RFID Tag #1",
+            category = "rfid-tag",
+            parentComponentId = "inventory_001",
+            massGrams = null,
+            manufacturer = "Bambu Lab",
+            description = "Primary authentication tag"
+        ),
+        Component(
+            id = "component_002",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = "E5F6G7H8",
+                    purpose = IdentifierPurpose.AUTHENTICATION
+                )
+            ),
+            name = "RFID Tag #2", 
+            category = "rfid-tag",
+            parentComponentId = "inventory_001",
+            massGrams = null,
+            manufacturer = "Bambu Lab",
+            description = "Secondary authentication tag"
+        ),
+        Component(
+            id = "component_003",
+            name = "Filament Spool",
+            category = "spool",
+            parentComponentId = "inventory_001",
+            massGrams = 245.0f,
+            manufacturer = "Bambu Lab",
+            description = "Empty spool weight"
+        )
+    )
+}
 

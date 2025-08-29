@@ -232,3 +232,33 @@ private fun MotionSensitivitySection(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun AccelerometerEffectsCardPreview() {
+    MaterialTheme {
+        // Create a mock repository implementation for preview
+        val mockRepository = object : UserPreferencesRepository {
+            override fun isAccelerometerEffectsEnabled(): Boolean = true
+            override fun getMotionSensitivity(): Float = 0.5f
+            override suspend fun setAccelerometerEffectsEnabled(enabled: Boolean) {}
+            override suspend fun setMotionSensitivity(sensitivity: Float) {}
+            override fun wasAccelerometerEffectsAutoDisabled(): Boolean = false
+            override fun getAccelerometerEffectsDeviceInfo(): String = "Samsung Galaxy S21"
+            override fun getMassDisplayMode(): String = "percentage"
+            override suspend fun setMassDisplayMode(mode: String) {}
+            override fun isBleScaleEnabled(): Boolean = false
+            override suspend fun setBleScaleEnabled(enabled: Boolean) {}
+            override fun getBleDeviceAddress(): String? = null
+            override suspend fun setBleDeviceAddress(address: String?) {}
+            override fun getThemeMode(): String = "system"
+            override suspend fun setThemeMode(mode: String) {}
+            override fun getCatalogDisplayMode(): String = "grid"
+            override suspend fun setCatalogDisplayMode(mode: String) {}
+        }
+        
+        AccelerometerEffectsCard(
+            userPrefsRepository = mockRepository
+        )
+    }
+}
+

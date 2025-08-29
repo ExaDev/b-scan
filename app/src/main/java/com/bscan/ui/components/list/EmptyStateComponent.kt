@@ -121,3 +121,32 @@ enum class EmptyStateType {
     NO_COMPONENTS
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun EmptyStateComponentPreview() {
+    MaterialTheme {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            EmptyStateComponent(
+                emptyType = EmptyStateType.NO_FILTERED_RESULTS,
+                onAction = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun GenericEmptyStatePreview() {
+    MaterialTheme {
+        GenericEmptyState(
+            icon = Icons.Default.QrCodeScanner,
+            title = "Preview Title",
+            message = "This is a preview message showing the empty state",
+            actionText = "Action Button",
+            onAction = { }
+        )
+    }
+}
+

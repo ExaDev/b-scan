@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.bscan.logic.WeightUnit
@@ -258,5 +259,60 @@ private fun formatMass(massGrams: Float, unit: WeightUnit): String {
         WeightUnit.KILOGRAMS -> "${formatter.format(massGrams / 1000f)}kg"
         WeightUnit.OUNCES -> "${formatter.format(massGrams * 0.035274f)}oz"
         WeightUnit.POUNDS -> "${formatter.format(massGrams * 0.00220462f)}lbs"
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MassEditDialogPreview() {
+    MaterialTheme {
+        val mockComponent = Component(
+            id = "comp_1",
+            name = "PLA Filament - Blue",
+            category = "filament",
+            massGrams = 850.0f,
+            manufacturer = "Bambu Lab",
+            variableMass = true,
+            fullMassGrams = 1000.0f
+        )
+        
+        MassEditDialog(
+            component = mockComponent,
+            currentTotalMass = 1200.0f,
+            allComponents = listOf(mockComponent),
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onConfirm = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MassEditDialogTotalMassPreview() {
+    MaterialTheme {
+        val mockComponents = listOf(
+            Component(
+                id = "comp_1",
+                name = "PLA Filament",
+                category = "filament",
+                massGrams = 800.0f
+            ),
+            Component(
+                id = "comp_2",
+                name = "Plastic Spool",
+                category = "spool", 
+                massGrams = 250.0f
+            )
+        )
+        
+        MassEditDialog(
+            component = null, // Editing total mass
+            currentTotalMass = 1050.0f,
+            allComponents = mockComponents,
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onConfirm = { },
+            onDismiss = { }
+        )
     }
 }

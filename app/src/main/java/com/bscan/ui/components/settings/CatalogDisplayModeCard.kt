@@ -219,4 +219,20 @@ private fun CatalogPreviewCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun CatalogDisplayModeCardPreview() {
+    MaterialTheme {
+        CatalogDisplayModeCard(
+            currentMode = CatalogDisplayMode.COMPLETE_TITLE,
+            currentMaterialSettings = MaterialDisplaySettings(
+                showMaterialShapes = true,
+                showFinishEffects = true,
+                accelerometerEffects = false
+            ),
+            onModeChanged = { }
+        )
+    }
+}
+
 

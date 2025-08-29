@@ -113,4 +113,17 @@ private fun ComponentStatistic(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun PhysicalComponentsManagementCardPreview() {
+    MaterialTheme {
+        PhysicalComponentsManagementCard(
+            totalComponents = 25,
+            userDefinedComponents = 8,
+            builtInComponents = 17,
+            onManageComponents = { }
+        )
+    }
+}
+
 

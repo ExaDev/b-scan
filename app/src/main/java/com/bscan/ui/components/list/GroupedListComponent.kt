@@ -5,9 +5,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bscan.ScanState
+import com.bscan.model.ScanProgress
 import com.bscan.ui.screens.home.GroupByOption
 
 /**
@@ -127,5 +132,67 @@ fun <T> OverscrollGroupedListComponent(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GroupedListComponentPreview() {
+    MaterialTheme {
+        val mockItems = listOf(
+            "Category A" to listOf("Item 1", "Item 2", "Item 3"),
+            "Category B" to listOf("Item 4", "Item 5"),
+            "Category C" to listOf("Item 6")
+        )
+        
+        GroupedListComponent(
+            items = mockItems,
+            lazyListState = rememberLazyListState(),
+            groupByOption = GroupByOption.CATEGORY,
+            emptyStateType = EmptyStateType.NO_COMPONENTS,
+            keySelector = { it },
+            itemContent = { item ->
+                androidx.compose.material3.Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    androidx.compose.material3.Text(
+                        text = item,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun OverscrollGroupedListComponentPreview() {
+    MaterialTheme {
+        val mockItems = listOf(
+            "Recent" to listOf("Component 1", "Component 2"),
+            "Older" to listOf("Component 3", "Component 4", "Component 5")
+        )
+        
+        OverscrollGroupedListComponent(
+            items = mockItems,
+            lazyListState = rememberLazyListState(),
+            groupByOption = GroupByOption.DATE,
+            emptyStateType = EmptyStateType.NO_INVENTORY_DATA,
+            keySelector = { it },
+            scanState = ScanState.IDLE,
+            scanProgress = null,
+            onSimulateScan = {},
+            itemContent = { item ->
+                androidx.compose.material3.Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    androidx.compose.material3.Text(
+                        text = item,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        )
     }
 }

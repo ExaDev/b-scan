@@ -177,3 +177,22 @@ fun OverscrollListWrapper(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun OverscrollListWrapperPreview() {
+    MaterialTheme {
+        OverscrollListWrapper(
+            isEmpty = false,
+            itemCount = 3,
+            scanState = ScanState.Idle,
+            scanProgress = 0f,
+            onSimulateScan = { },
+            modifier = Modifier.height(200.dp)
+        ) {
+            item { Text("Sample Item 1", modifier = Modifier.padding(16.dp)) }
+            item { Text("Sample Item 2", modifier = Modifier.padding(16.dp)) }
+            item { Text("Sample Item 3", modifier = Modifier.padding(16.dp)) }
+        }
+    }
+}
+

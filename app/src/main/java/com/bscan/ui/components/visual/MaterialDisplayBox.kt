@@ -250,7 +250,124 @@ fun MaterialDisplayBox(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun MaterialDisplayBoxPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Basic Materials", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MaterialDisplayBox(
+                    colorHex = "#FF0000",
+                    materialType = "PLA Basic",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#00FF00",
+                    materialType = "ABS Basic",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#0000FF",
+                    materialType = "PETG Basic",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#FFD700",
+                    materialType = "ASA Basic",
+                    size = 48.dp
+                )
+            }
 
+            Text("Special Finishes", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MaterialDisplayBox(
+                    colorHex = "#FFD700",
+                    materialType = "PLA Silk",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#800080",
+                    materialType = "PLA Matte",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#FFA50080",
+                    materialType = "PLA Translucent",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#000000",
+                    materialType = "PLA CF",
+                    size = 48.dp
+                )
+            }
+
+            Text("Non-Filament Materials", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MaterialDisplayBox(
+                    colorHex = "#C0C0C0",
+                    materialType = "Aluminum",
+                    size = 48.dp,
+                    category = "metal"
+                )
+                MaterialDisplayBox(
+                    colorHex = "#8B4513",
+                    materialType = "Wood",
+                    size = 48.dp,
+                    category = "organic"
+                )
+                MaterialDisplayBox(
+                    colorHex = "#4169E1",
+                    materialType = "Resin",
+                    size = 48.dp,
+                    category = "liquid"
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun MaterialDisplayBoxSizesPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Different Sizes", style = MaterialTheme.typography.titleMedium)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MaterialDisplayBox(
+                    colorHex = "#FF6B35",
+                    materialType = "PLA Basic",
+                    size = 32.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#FF6B35",
+                    materialType = "PLA Basic",
+                    size = 48.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#FF6B35",
+                    materialType = "PLA Basic",
+                    size = 64.dp
+                )
+                MaterialDisplayBox(
+                    colorHex = "#FF6B35",
+                    materialType = "PLA Basic",
+                    size = 80.dp
+                )
+            }
+        }
+    }
+}
 
 
 

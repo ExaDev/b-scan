@@ -285,3 +285,32 @@ fun DrawScope.drawReflection(
         )
     }
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun VisualEffectsPreview() {
+    MaterialTheme {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Various visual effect previews can be shown here
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primary,
+                        RoundedCornerShape(8.dp)
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(
+                        MaterialTheme.colorScheme.secondary,
+                        CircleShape
+                    )
+            )
+        }
+    }
+}

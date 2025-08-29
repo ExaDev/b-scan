@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -44,5 +45,112 @@ fun ScanStateIndicator(
             modifier = Modifier.size(48.dp),
             isActive = isDetected || isProcessing
         )
+    }
+}
+
+// Preview Functions
+@Preview(showBackground = true)
+@Composable
+fun ScanStateIndicatorIdlePreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            ScanStateIndicator(
+                isIdle = true,
+                isDetected = false,
+                isProcessing = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanStateIndicatorDetectedPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = true,
+                isProcessing = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanStateIndicatorProcessingPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = false,
+                isProcessing = true
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanStateIndicatorInactivePreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = false,
+                isProcessing = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanStateIndicatorAllStatesPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            ScanStateIndicator(
+                isIdle = true,
+                isDetected = false,
+                isProcessing = false
+            )
+            
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = false,
+                isProcessing = true
+            )
+            
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = true,
+                isProcessing = false
+            )
+        }
     }
 }

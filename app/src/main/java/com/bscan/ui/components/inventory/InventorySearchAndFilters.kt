@@ -156,4 +156,22 @@ fun InventorySearchAndFilters(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun InventorySearchAndFiltersPreview() {
+    MaterialTheme {
+        InventorySearchAndFilters(
+            searchQuery = "PLA",
+            onSearchChange = { },
+            selectedCategory = "filament",
+            onCategoryChange = { },
+            selectedTag = "thermoplastic",
+            onTagChange = { },
+            availableCategories = listOf("filament", "tool", "spool"),
+            availableTags = listOf("thermoplastic", "bambu", "hardware"),
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
 

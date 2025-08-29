@@ -125,5 +125,42 @@ fun InventoryStatisticsCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun InventoryStatisticsCardPreview() {
+    MaterialTheme {
+        // Create mock components
+        val mockComponents = listOf(
+            Component(
+                id = "comp1",
+                name = "PLA Red Filament",
+                category = "filament",
+                tags = listOf("thermoplastic", "bambu"),
+                manufacturer = "Bambu Lab"
+            ),
+            Component(
+                id = "comp2", 
+                name = "PETG Blue Filament",
+                category = "filament",
+                tags = listOf("thermoplastic", "transparent"),
+                manufacturer = "Bambu Lab"
+            ),
+            Component(
+                id = "comp3",
+                name = "Tool A",
+                category = "tool",
+                tags = listOf("hardware"),
+                manufacturer = "Generic"
+            )
+        )
+        
+        InventoryStatisticsCard(
+            allComponents = mockComponents,
+            inventoryItems = mockComponents.take(2),
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
 
 

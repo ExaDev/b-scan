@@ -50,3 +50,27 @@ fun GroupHeader(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun GroupHeaderPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            GroupHeader(
+                title = "PLA Filaments",
+                itemCount = 5
+            )
+            GroupHeader(
+                title = "Tools",
+                itemCount = 1
+            )
+            GroupHeader(
+                title = "PETG Materials",
+                itemCount = 12
+            )
+        }
+    }
+}
+

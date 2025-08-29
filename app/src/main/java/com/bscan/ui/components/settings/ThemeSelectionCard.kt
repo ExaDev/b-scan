@@ -159,4 +159,15 @@ private fun ThemeVisualIndicator(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun ThemeSelectionCardPreview() {
+    MaterialTheme {
+        ThemeSelectionCard(
+            currentTheme = AppTheme.AUTO,
+            onThemeChanged = { }
+        )
+    }
+}
+
 

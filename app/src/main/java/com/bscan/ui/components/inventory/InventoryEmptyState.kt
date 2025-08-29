@@ -23,3 +23,11 @@ fun InventoryEmptyState(
     )
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun InventoryEmptyStatePreview() {
+    MaterialTheme {
+        InventoryEmptyState()
+    }
+}
+

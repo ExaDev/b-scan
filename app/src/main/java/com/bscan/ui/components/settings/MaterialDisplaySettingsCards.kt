@@ -433,5 +433,55 @@ private fun MaterialShapesPreview(modifier: Modifier = Modifier) {
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun MaterialShapeStyleCardPreview() {
+    MaterialTheme {
+        MaterialShapeStyleCard(
+            currentSettings = MaterialDisplaySettings(
+                showMaterialShapes = true,
+                showFinishEffects = true,
+                accelerometerEffects = false
+            ),
+            onSettingsChanged = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun MaterialTextOverlayCardPreview() {
+    MaterialTheme {
+        MaterialTextOverlayCard(
+            currentSettings = MaterialDisplaySettings(
+                showMaterialShapes = true,
+                showMaterialNameInShape = true,
+                showMaterialVariantInShape = false,
+                showFinishEffects = true,
+                accelerometerEffects = false
+            ),
+            onSettingsChanged = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun MaterialVariantNameCardPreview() {
+    MaterialTheme {
+        MaterialVariantNameCard(
+            currentSettings = MaterialDisplaySettings(
+                showMaterialShapes = true,
+                showMaterialNameInShape = true,
+                showMaterialVariantInShape = true,
+                showFullVariantNamesInShape = false,
+                showFinishEffects = true,
+                accelerometerEffects = false
+            ),
+            onSettingsChanged = { }
+        )
+    }
+}
+
 
 

@@ -7,10 +7,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.repository.FilamentReelDetails
 import com.bscan.ui.components.common.StatisticDisplay
 import com.bscan.ui.components.common.StatisticGrid
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,5 +132,59 @@ fun TagInfoRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SpoolOverviewCardPreview() {
+    MaterialTheme {
+        val mockSpoolDetails = FilamentReelDetails(
+            trayUid = "01008023456789ABCDEF",
+            tagUids = listOf("A1B2C3D4", "E5F6A7B8", "C9D0E1F2"),
+            totalScans = 45,
+            successfulScans = 42,
+            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30),
+            scansByTag = mapOf(
+                "A1B2C3D4" to emptyList(),
+                "E5F6A7B8" to emptyList(),
+                "C9D0E1F2" to emptyList()
+            )
+        )
+        
+        SpoolOverviewCard(spoolDetails = mockSpoolDetails)
+    }
+}
+
+@Preview(showBackground = true)  
+@Composable
+fun AssociatedTagsCardPreview() {
+    MaterialTheme {
+        val mockSpoolDetails = FilamentReelDetails(
+            trayUid = "01008023456789ABCDEF",
+            tagUids = listOf("A1B2C3D4", "E5F6A7B8"),
+            totalScans = 30,
+            successfulScans = 28,
+            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30),
+            scansByTag = mapOf(
+                "A1B2C3D4" to emptyList(),
+                "E5F6A7B8" to emptyList()
+            )
+        )
+        
+        AssociatedTagsCard(spoolDetails = mockSpoolDetails)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TagInfoRowPreview() {
+    MaterialTheme {
+        TagInfoRow(
+            tagUid = "A1B2C3D4E5F6",
+            scanCount = 15,
+            successCount = 14,
+            successRate = 93
+        )
     }
 }
