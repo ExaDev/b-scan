@@ -59,6 +59,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    viewModel: com.bscan.MainViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToComponents: () -> Unit = {},
     blePermissionHandler: BlePermissionHandler? = null,
@@ -68,7 +69,7 @@ fun SettingsScreen(
     val repository = remember { ScanHistoryRepository(context) }
     val exportManager = remember { DataExportManager(context) }
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
-    val userDataRepository = remember { UserDataRepository(context) }
+    val userDataRepository = viewModel.getUserDataRepository()
     val physicalComponentRepository = remember { PhysicalComponentRepository(context) }
     val scope = rememberCoroutineScope()
     

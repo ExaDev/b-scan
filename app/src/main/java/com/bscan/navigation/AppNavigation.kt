@@ -125,6 +125,7 @@ fun AppNavigation(
         
         composable("settings") {
             SettingsScreen(
+                viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToComponents = { navController.navigate("components") },
                 blePermissionHandler = blePermissionHandler
