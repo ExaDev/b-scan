@@ -197,6 +197,11 @@ fun FilamentReelsList(
     fullPromptHeightDp: Dp = 400.dp,
     hasData: Boolean = false
 ) {
+    // Show full height scan prompt when no inventory data exists
+    if (!hasData) {
+        ScanPromptScreen()
+        return
+    }
     val filteredGroupedAndSortedSpools = remember(filamentReels, sortProperty, sortDirection, groupByOption, filterState) {
         val filtered = filamentReels.filter { filamentReel ->
             // Filter by filament types
