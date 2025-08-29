@@ -104,6 +104,8 @@ enum class TemperatureUnit {
 enum class AppTheme {
     LIGHT,
     DARK,
+    WHITE,
+    BLACK,
     AUTO
 }
 

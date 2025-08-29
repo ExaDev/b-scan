@@ -8,6 +8,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.bscan.ble.BlePermissionHandler
 import com.bscan.cache.CachedBambuKeyDerivation
+import com.bscan.model.AppTheme
 import com.bscan.navigation.AppNavigation
 import com.bscan.nfc.NfcManager
 import com.bscan.nfc.handlers.HapticFeedbackProvider
@@ -43,7 +44,7 @@ class TestActivity : ComponentActivity() {
         blePermissionHandler = BlePermissionHandler(this)
         
         setContent {
-            BScanTheme {
+            BScanTheme(theme = AppTheme.AUTO) {
                 AppNavigation(
                     viewModel = viewModel,
                     updateViewModel = updateViewModel,
