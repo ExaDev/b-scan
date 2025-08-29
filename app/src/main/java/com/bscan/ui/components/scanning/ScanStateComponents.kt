@@ -2,6 +2,7 @@ package com.bscan.ui.components.scanning
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +46,75 @@ fun ScanStateIndicator(
             modifier = Modifier.size(48.dp),
             isActive = isDetected || isProcessing
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ScanStateIndicatorPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Idle State", style = MaterialTheme.typography.titleMedium)
+            ScanStateIndicator(
+                isIdle = true,
+                isDetected = false,
+                isProcessing = false
+            )
+            
+            Text("Detected State", style = MaterialTheme.typography.titleMedium)
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = true,
+                isProcessing = false
+            )
+            
+            Text("Processing State", style = MaterialTheme.typography.titleMedium)
+            ScanStateIndicator(
+                isIdle = false,
+                isDetected = false,
+                isProcessing = true
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ScanStateIndicatorAllStatesPreview() {
+    MaterialTheme {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ScanStateIndicator(
+                    isIdle = true,
+                    modifier = Modifier.size(80.dp)
+                )
+                Text("Idle", style = MaterialTheme.typography.bodySmall)
+            }
+            
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ScanStateIndicator(
+                    isDetected = true,
+                    modifier = Modifier.size(80.dp)
+                )
+                Text("Detected", style = MaterialTheme.typography.bodySmall)
+            }
+            
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ScanStateIndicator(
+                    isProcessing = true,
+                    modifier = Modifier.size(80.dp)
+                )
+                Text("Processing", style = MaterialTheme.typography.bodySmall)
+            }
+        }
     }
 }
 

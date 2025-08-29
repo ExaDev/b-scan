@@ -11,11 +11,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.bscan.model.FilamentStatus
-import com.bscan.model.InventoryItem
+import com.bscan.model.*
 import com.bscan.logic.MassCalculationService
 // WeightUnit is now defined in MassCalculationService
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
@@ -343,5 +344,172 @@ private fun WarningIndicator(
             color = color,
             fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FilamentStatusCardPreview() {
+    val mockInventoryItem = InventoryItem(
+        trayUid = "01008023ABC123",
+        components = listOf("filament-001", "core-001", "spool-001"),
+        totalMeasuredMass = 1245.0f,
+        measurements = listOf(
+            MassMeasurement(
+                id = "measurement-001",
+                trayUid = "01008023ABC123",
+                measuredMassGrams = 1245.0f,
+                componentIds = listOf("filament-001", "core-001", "spool-001"),
+                measurementType = MeasurementType.FULL,
+                measuredAt = LocalDateTime.now().minusDays(7),
+                notes = "Initial full spool measurement",
+                isVerified = true
+            ),
+            MassMeasurement(
+                id = "measurement-002",
+                trayUid = "01008023ABC123", 
+                measuredMassGrams = 1050.0f,
+                componentIds = listOf("filament-001", "core-001", "spool-001"),
+                measurementType = MeasurementType.FULL,
+                measuredAt = LocalDateTime.now(),
+                notes = "Current measurement",
+                isVerified = true
+            )
+        ),
+        lastUpdated = LocalDateTime.now(),
+        notes = "Red PLA filament spool"
+    )
+
+    val mockFilamentStatus = FilamentStatus(
+        remainingMassGrams = 800.0f,
+        remainingPercentage = 0.8f,
+        consumedMassGrams = 200.0f,
+        lastMeasurement = mockInventoryItem.latestMeasurement,
+        components = emptyList(),
+        calculationSuccess = true
+    )
+
+    MaterialTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            FilamentStatusCard(
+                inventoryItem = mockInventoryItem,
+                filamentStatus = mockFilamentStatus,
+                preferredWeightUnit = com.bscan.logic.WeightUnit.GRAMS,
+                onRecordWeight = {},
+                onSetupComponents = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FilamentStatusCardLowPreview() {
+    val mockInventoryItem = InventoryItem(
+        trayUid = "01008023ABC123",
+        components = listOf("filament-001", "core-001", "spool-001"),
+        totalMeasuredMass = 1245.0f,
+        measurements = listOf(
+            MassMeasurement(
+                id = "measurement-001",
+                trayUid = "01008023ABC123",
+                measuredMassGrams = 300.0f,
+                componentIds = listOf("filament-001", "core-001", "spool-001"),
+                measurementType = MeasurementType.FULL,
+                measuredAt = LocalDateTime.now(),
+                notes = "Running low!",
+                isVerified = true
+            )
+        ),
+        lastUpdated = LocalDateTime.now()
+    )
+
+    val mockFilamentStatus = FilamentStatus(
+        remainingMassGrams = 50.0f,
+        remainingPercentage = 0.05f,
+        consumedMassGrams = 950.0f,
+        lastMeasurement = mockInventoryItem.latestMeasurement,
+        components = emptyList(),
+        calculationSuccess = true
+    )
+
+    MaterialTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            FilamentStatusCard(
+                inventoryItem = mockInventoryItem,
+                filamentStatus = mockFilamentStatus,
+                preferredWeightUnit = com.bscan.logic.WeightUnit.GRAMS,
+                onRecordWeight = {},
+                onSetupComponents = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FilamentStatusCardNoComponentsPreview() {
+    val mockInventoryItem = InventoryItem(
+        trayUid = "01008023ABC123",
+        components = emptyList(),
+        totalMeasuredMass = null,
+        measurements = emptyList(),
+        lastUpdated = LocalDateTime.now()
+    )
+
+    val mockFilamentStatus = FilamentStatus(
+        remainingMassGrams = 0.0f,
+        remainingPercentage = 0.0f,
+        consumedMassGrams = 0.0f,
+        lastMeasurement = null,
+        components = emptyList(),
+        calculationSuccess = false,
+        errorMessage = "No components configured"
+    )
+
+    MaterialTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            FilamentStatusCard(
+                inventoryItem = mockInventoryItem,
+                filamentStatus = mockFilamentStatus,
+                preferredWeightUnit = com.bscan.logic.WeightUnit.GRAMS,
+                onRecordWeight = {},
+                onSetupComponents = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FilamentStatusCardErrorPreview() {
+    val mockInventoryItem = InventoryItem(
+        trayUid = "01008023ABC123",
+        components = listOf("filament-001", "core-001", "spool-001"),
+        totalMeasuredMass = null,
+        measurements = emptyList(),
+        lastUpdated = LocalDateTime.now()
+    )
+
+    val mockFilamentStatus = FilamentStatus(
+        remainingMassGrams = 0.0f,
+        remainingPercentage = 0.0f,
+        consumedMassGrams = 0.0f,
+        lastMeasurement = null,
+        components = emptyList(),
+        calculationSuccess = false,
+        errorMessage = "Unable to calculate mass: component mass data missing"
+    )
+
+    MaterialTheme {
+        Column(modifier = Modifier.padding(16.dp)) {
+            FilamentStatusCard(
+                inventoryItem = mockInventoryItem,
+                filamentStatus = mockFilamentStatus,
+                preferredWeightUnit = com.bscan.logic.WeightUnit.GRAMS,
+                onRecordWeight = {},
+                onSetupComponents = {}
+            )
+        }
     }
 }

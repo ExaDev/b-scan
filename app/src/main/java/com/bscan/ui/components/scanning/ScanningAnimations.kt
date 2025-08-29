@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -205,5 +207,381 @@ fun DetectedSuccessRing(
             style = Stroke(width = 3.dp.toPx()),
             alpha = 0.8f
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AnimatedNfcIconPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("NFC Icon States", style = MaterialTheme.typography.titleMedium)
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AnimatedNfcIcon(
+                        modifier = Modifier.size(48.dp),
+                        isActive = false
+                    )
+                    Text("Inactive", style = MaterialTheme.typography.bodySmall)
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AnimatedNfcIcon(
+                        modifier = Modifier.size(48.dp),
+                        isActive = true
+                    )
+                    Text("Active", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PulsingRingsPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Pulsing Rings Animation", style = MaterialTheme.typography.titleMedium)
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier.size(120.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PulsingRings(
+                            modifier = Modifier.fillMaxSize(),
+                            isActive = false
+                        )
+                    }
+                    Text("Inactive", style = MaterialTheme.typography.bodySmall)
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier.size(120.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PulsingRings(
+                            modifier = Modifier.fillMaxSize(),
+                            isActive = true
+                        )
+                    }
+                    Text("Active", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SpinningLoaderPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Spinning Loaders", style = MaterialTheme.typography.titleMedium)
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    SpinningLoader(
+                        modifier = Modifier.size(48.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text("Primary", style = MaterialTheme.typography.bodySmall)
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    SpinningLoader(
+                        modifier = Modifier.size(48.dp),
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text("Secondary", style = MaterialTheme.typography.bodySmall)
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    SpinningLoader(
+                        modifier = Modifier.size(64.dp),
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    Text("Large", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun DetectedSuccessRingPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Success Ring", style = MaterialTheme.typography.titleMedium)
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DetectedSuccessRing(
+                    modifier = Modifier.size(48.dp)
+                )
+                DetectedSuccessRing(
+                    modifier = Modifier.size(64.dp)
+                )
+                DetectedSuccessRing(
+                    modifier = Modifier.size(80.dp)
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AllAnimationComponentsPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("All Animation Components", style = MaterialTheme.typography.titleLarge)
+            
+            // NFC Icons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AnimatedNfcIcon(
+                    modifier = Modifier.size(40.dp),
+                    isActive = false
+                )
+                AnimatedNfcIcon(
+                    modifier = Modifier.size(40.dp),
+                    isActive = true
+                )
+            }
+            
+            // Pulsing Rings
+            Box(
+                modifier = Modifier.size(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                PulsingRings(
+                    modifier = Modifier.fillMaxSize(),
+                    isActive = true
+                )
+            }
+            
+            // Spinners
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SpinningLoader(
+                    modifier = Modifier.size(32.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                SpinningLoader(
+                    modifier = Modifier.size(40.dp),
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+            
+            // Success Ring
+            DetectedSuccessRing(
+                modifier = Modifier.size(60.dp)
+            )
+        }
+    }
+}
+
+// Preview Functions
+@Preview(showBackground = true)
+@Composable
+fun AnimatedNfcIconInactivePreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .size(100.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedNfcIcon(
+                modifier = Modifier.size(48.dp),
+                isActive = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AnimatedNfcIconActivePreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .size(100.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedNfcIcon(
+                modifier = Modifier.size(48.dp),
+                isActive = true
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PulsingRingsActivePreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .size(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            PulsingRings(
+                modifier = Modifier.fillMaxSize(),
+                isActive = true
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PulsingRingsInactivePreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .size(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            PulsingRings(
+                modifier = Modifier.fillMaxSize(),
+                isActive = false
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SpinningLoaderPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .size(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            SpinningLoader(
+                modifier = Modifier.size(80.dp),
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DetectedSuccessRingPreview() {
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .padding(32.dp)
+                .size(120.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            DetectedSuccessRing(
+                modifier = Modifier.size(100.dp)
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanningAnimationsShowcasePreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Idle state with pulsing rings
+            Box(
+                modifier = Modifier.size(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                PulsingRings(
+                    modifier = Modifier.fillMaxSize(),
+                    isActive = true
+                )
+                AnimatedNfcIcon(
+                    modifier = Modifier.size(48.dp),
+                    isActive = false
+                )
+            }
+            
+            // Processing state with spinning loader
+            Box(
+                modifier = Modifier.size(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                SpinningLoader(
+                    modifier = Modifier.size(100.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                AnimatedNfcIcon(
+                    modifier = Modifier.size(48.dp),
+                    isActive = true
+                )
+            }
+            
+            // Success state with success ring
+            Box(
+                modifier = Modifier.size(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                DetectedSuccessRing(
+                    modifier = Modifier.size(100.dp)
+                )
+                AnimatedNfcIcon(
+                    modifier = Modifier.size(48.dp),
+                    isActive = true
+                )
+            }
+        }
     }
 }
