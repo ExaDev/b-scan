@@ -7,7 +7,7 @@ data class MaterialDisplaySettings(
     val showMaterialShapes: Boolean = true,
     val showMaterialNameInShape: Boolean = false,
     val showMaterialVariantInShape: Boolean = false,
-    val showFullVariantNames: Boolean = false
+    val showFullVariantNamesInShape: Boolean = false
 ) {
     companion object {
         /**
@@ -17,7 +17,7 @@ data class MaterialDisplaySettings(
             showMaterialShapes = true,
             showMaterialNameInShape = false,
             showMaterialVariantInShape = false,
-            showFullVariantNames = false
+            showFullVariantNamesInShape = false
         )
         
         /**
@@ -27,7 +27,7 @@ data class MaterialDisplaySettings(
             showMaterialShapes = true,
             showMaterialNameInShape = false,
             showMaterialVariantInShape = false,
-            showFullVariantNames = false
+            showFullVariantNamesInShape = false
         )
         
         /**
@@ -37,7 +37,7 @@ data class MaterialDisplaySettings(
             showMaterialShapes = false,
             showMaterialNameInShape = true,
             showMaterialVariantInShape = false,
-            showFullVariantNames = false
+            showFullVariantNamesInShape = false
         )
         
         /**
@@ -47,7 +47,7 @@ data class MaterialDisplaySettings(
             showMaterialShapes = true,
             showMaterialNameInShape = true,
             showMaterialVariantInShape = true,
-            showFullVariantNames = true
+            showFullVariantNamesInShape = true
         )
     }
 }
