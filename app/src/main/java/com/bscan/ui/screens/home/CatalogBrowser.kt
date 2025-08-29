@@ -60,12 +60,15 @@ fun CatalogBrowser(
     val catalog by remember { derivedStateOf { catalogRepository.getCatalog() } }
     
     // Get all products across manufacturers using UnifiedDataAccess
+    // Group by unique filament SKU to avoid duplicates (multiple Shopify products per filament)
     val allProducts = remember(catalog) {
         catalog.manufacturers.flatMap { (manufacturerId, manufacturerCatalog) ->
             // Get products from UnifiedDataAccess (includes catalog + user products)
             val products = unifiedDataAccess.getProducts(manufacturerId)
             
-            products.map { product ->
+            // Group by variantId (filament SKU) and take the first product from each group
+            products.groupBy { it.variantId }.values.map { productGroup ->
+                val product = productGroup.first() // Take first product for each unique filament
                 ProductWithManufacturer(
                     product = product,
                     manufacturerId = manufacturerId,
@@ -76,7 +79,8 @@ fun CatalogBrowser(
                     materialDefinition = manufacturerCatalog.materials[product.materialType],
                     temperatureProfile = manufacturerCatalog.materials[product.materialType]?.let {
                         manufacturerCatalog.temperatureProfiles[it.temperatureProfile]
-                    }
+                    },
+                    alternateProducts = productGroup.drop(1) // Store alternate Shopify products for details page
                 )
             }
         }.sortedWith(
@@ -152,7 +156,8 @@ data class ProductWithManufacturer(
     val manufacturerName: String,
     val hasRfidMapping: Boolean,
     val materialDefinition: MaterialDefinition?,
-    val temperatureProfile: TemperatureProfile?
+    val temperatureProfile: TemperatureProfile?,
+    val alternateProducts: List<ProductEntry> = emptyList() // Other Shopify products for same filament
 )
 
 
