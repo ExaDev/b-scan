@@ -118,8 +118,8 @@ class ColorPreviewCardTest {
     }
     
     private fun getParseColorMethod(): Method {
-        // Use reflection to access the parseColorWithAlpha method
-        val clazz = Class.forName("com.bscan.ui.components.FilamentColorDisplayKt")
+        // Use reflection to access the parseColorWithAlpha method from new location
+        val clazz = Class.forName("com.bscan.ui.components.visual.ColorUtilsKt")
         val method = clazz.getDeclaredMethod("parseColorWithAlpha", String::class.java)
         method.isAccessible = true
         return method
