@@ -68,9 +68,10 @@ fun CatalogBrowser(
             val products = unifiedDataAccess.getProducts(manufacturerId)
             
             // Group by variantId (filament SKU) and take the first product from each group
-            products.groupBy { it.variantId }.values.map { productGroup ->
+            products.groupBy { it.variantId }.values.mapNotNull { productGroup ->
                 val product = productGroup.first() // Take first product for each unique filament
-                ProductWithManufacturer(
+                
+                ProductWithManufacturer.create(
                     product = product,
                     manufacturerId = manufacturerId,
                     manufacturerName = manufacturerCatalog.displayName,
@@ -151,15 +152,56 @@ fun CatalogBrowser(
 /**
  * Product information combined with manufacturer details
  */
-data class ProductWithManufacturer(
+@ConsistentCopyVisibility
+data class ProductWithManufacturer private constructor(
     val product: ProductEntry,
     val manufacturerId: String,
     val manufacturerName: String,
     val hasRfidMapping: Boolean,
     val materialDefinition: MaterialDefinition?,
     val temperatureProfile: TemperatureProfile?,
-    val alternateProducts: List<ProductEntry> = emptyList() // Other Shopify products for same filament
-)
+    val normalizedProduct: com.bscan.data.bambu.NormalizedBambuData.NormalizedProduct,
+    val materialColor: com.bscan.data.bambu.NormalizedBambuData.MaterialColor,
+    val alternateProducts: List<ProductEntry> = emptyList()
+) {
+    companion object {
+        /**
+         * Create ProductWithManufacturer only if complete normalized data exists
+         * Returns null if any required data is missing
+         */
+        fun create(
+            product: ProductEntry,
+            manufacturerId: String,
+            manufacturerName: String,
+            hasRfidMapping: Boolean,
+            materialDefinition: MaterialDefinition?,
+            temperatureProfile: TemperatureProfile?,
+            alternateProducts: List<ProductEntry> = emptyList()
+        ): ProductWithManufacturer? {
+            val normalizedProduct = com.bscan.data.bambu.NormalizedBambuData.getNormalizedProductBySku(product.variantId)
+                ?: return null
+            
+            val materialColor = com.bscan.data.bambu.NormalizedBambuData.getAllMaterialColors()
+                .find { 
+                    it.colorCode == normalizedProduct.colorCode && 
+                    it.materialName == normalizedProduct.materialName && 
+                    it.variantName == normalizedProduct.variantName 
+                } ?: return null
+            
+            return ProductWithManufacturer(
+                product = product,
+                manufacturerId = manufacturerId,
+                manufacturerName = manufacturerName,
+                hasRfidMapping = hasRfidMapping,
+                materialDefinition = materialDefinition,
+                temperatureProfile = temperatureProfile,
+                normalizedProduct = normalizedProduct,
+                materialColor = materialColor,
+                alternateProducts = alternateProducts
+            )
+        }
+    }
+}
 
 
 
@@ -201,7 +243,7 @@ fun ProductCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = product.colorName,
+                    text = "${productInfo.normalizedProduct.variantName} ${productInfo.materialColor.colorName} ${productInfo.normalizedProduct.materialName}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 2,
@@ -209,7 +251,7 @@ fun ProductCard(
                 )
                 
                 Text(
-                    text = "${product.materialType} • SKU: ${product.variantId}",
+                    text = "${productInfo.normalizedProduct.materialName} ${productInfo.normalizedProduct.variantName} • SKU: ${product.variantId}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
