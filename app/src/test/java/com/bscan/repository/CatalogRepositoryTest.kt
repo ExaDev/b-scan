@@ -96,13 +96,13 @@ class CatalogRepositoryTest {
     @Test
     fun `Bambu material and temperature profile lookups work`() {
         // When
-        val material = catalogRepository.getMaterial("bambu", "PLA Basic")
+        val material = catalogRepository.getMaterial("bambu", "PLA")
         val temperatureProfile = catalogRepository.getTemperatureProfile("bambu", "pla_standard")
-        val colorName = catalogRepository.getColorName("bambu", "#FF0000")
+        val colorName = catalogRepository.getColorName("bambu", "#DC143C")
 
         // Then
         assertNotNull("Material should not be null", material)
-        assertEquals("PLA Basic", material!!.displayName)
+        assertEquals("PLA", material!!.displayName)
         assertNotNull("Temperature profile should not be null", temperatureProfile)
         assertEquals(190, temperatureProfile!!.minNozzle)
         assertNotNull("Color name should not be null", colorName)
