@@ -183,17 +183,10 @@ fun ProductCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Color preview
-            product.colorHex?.let { hex ->
-                FilamentColorBox(
-                    colorHex = hex,
-                    filamentType = product.materialType,
-                    modifier = Modifier.size(40.dp)
-                )
-            } ?: Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.outline)
+            FilamentColorBox(
+                colorHex = product.colorHex ?: "#808080", // ProductLookupService should now provide proper colors
+                filamentType = product.materialType,
+                modifier = Modifier.size(40.dp)
             )
             
             // Product information
