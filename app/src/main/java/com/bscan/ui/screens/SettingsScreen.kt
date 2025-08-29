@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.util.Log
 import com.bscan.repository.ScanHistoryRepository
@@ -1404,6 +1406,7 @@ private fun CatalogDisplayModeCard(
     onModeChanged: (CatalogDisplayMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1424,45 +1427,159 @@ private fun CatalogDisplayModeCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            // Display mode options
+            // Display mode options with previews
             CatalogDisplayMode.entries.forEach { mode ->
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    RadioButton(
-                        selected = currentMode == mode,
-                        onClick = { onModeChanged(mode) }
-                    )
-                    
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = mode.displayName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (currentMode == mode) FontWeight.Medium else FontWeight.Normal
+                        RadioButton(
+                            selected = currentMode == mode,
+                            onClick = { onModeChanged(mode) }
                         )
                         
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 12.dp)
+                        ) {
+                            Text(
+                                text = mode.displayName,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (currentMode == mode) FontWeight.Medium else FontWeight.Normal
+                            )
+                            
+                            Text(
+                                text = mode.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    
+                    // Preview sample
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 48.dp), // Align with text after radio button
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(
+                                text = "Preview:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                            
+                            // Create a mockup preview card instead of using real ProductCard
+                            CatalogPreviewCard(displayMode = mode)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Preview card showing how catalog items will look in each display mode
+ */
+@Composable
+private fun CatalogPreviewCard(
+    displayMode: CatalogDisplayMode,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Color preview (same for both modes)
+            FilamentColorBox(
+                colorHex = "#00BCD4", // Cyan color
+                filamentType = "PLA",
+                modifier = Modifier.size(40.dp)
+            )
+            
+            // Product information based on display mode
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Title changes based on display mode
+                Text(
+                    text = when (displayMode) {
+                        CatalogDisplayMode.COMPLETE_TITLE -> "Basic Cyan PLA"
+                        CatalogDisplayMode.COLOR_FOCUSED -> "Cyan"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                // Properties change based on display mode
+                when (displayMode) {
+                    CatalogDisplayMode.COMPLETE_TITLE -> {
                         Text(
-                            text = mode.description,
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "SKU: GFL00A00K0",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        
-                        // Show example
+                    }
+                    CatalogDisplayMode.COLOR_FOCUSED -> {
                         Text(
-                            text = when (mode) {
-                                CatalogDisplayMode.COMPLETE_TITLE -> "Example: \"Basic Cyan PLA\""
-                                CatalogDisplayMode.COLOR_FOCUSED -> "Example: \"Cyan\" + properties \"PLA Basic\""
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 4.dp)
+                            text = "PLA Basic • SKU: GFL00A00K0",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+                
+                // Temperature info (same for both modes)
+                Text(
+                    text = "210-230°C • Bed: 60°C",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Status indicators (same for both modes)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Has RFID mapping",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                
+                Badge(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = "Thermoplastic",
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
         }
