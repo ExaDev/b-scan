@@ -28,7 +28,7 @@ fun AppNavigation(
     viewModel: MainViewModel,
     updateViewModel: UpdateViewModel,
     nfcManager: NfcManager?,
-    blePermissionHandler: BlePermissionHandler,
+    blePermissionHandler: BlePermissionHandler?,
     navController: NavHostController = rememberNavController()
 ) {
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()

@@ -1,6 +1,10 @@
 package com.bscan
 
 import android.content.Intent
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.widget.Toast
@@ -9,7 +13,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.cache.CachedBambuKeyDerivation
+import com.bscan.model.*
 import com.bscan.navigation.AppNavigation
 import com.bscan.nfc.NfcManager
 import com.bscan.nfc.handlers.HapticFeedbackProvider
@@ -23,7 +29,7 @@ class MainActivity : ComponentActivity() {
     private var nfcManager: NfcManager? = null
     private var nfcIntentProcessor: NfcIntentProcessor? = null
     private lateinit var hapticFeedbackProvider: HapticFeedbackProvider
-    private lateinit var blePermissionHandler: BlePermissionHandler
+    private var blePermissionHandler: BlePermissionHandler? = null
     
     private val viewModel: MainViewModel by viewModels()
     private val updateViewModel: UpdateViewModel by viewModels()
@@ -41,8 +47,11 @@ class MainActivity : ComponentActivity() {
         // Check NFC availability before initialising NFC-dependent components
         val isNfcSupported = NfcAdapter.getDefaultAdapter(this) != null
         
+        // Check BLE availability before initialising BLE-dependent components
+        val isBleSupported = packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE) &&
+                (getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter != null
+        
         hapticFeedbackProvider = HapticFeedbackProvider(this)
-        blePermissionHandler = BlePermissionHandler(this)
         
         if (isNfcSupported) {
             val nfcManagerInstance = NfcManager(this)
@@ -59,8 +68,20 @@ class MainActivity : ComponentActivity() {
             viewModel.setNfcError("NFC hardware not available on this device")
         }
         
+        if (isBleSupported) {
+            blePermissionHandler = BlePermissionHandler(this)
+        } else {
+            // Show informational message but continue app functionality
+            Toast.makeText(this, "Bluetooth Low Energy not available - scales functionality disabled", Toast.LENGTH_LONG).show()
+            // Note: BLE error state could be added to viewModel if needed
+        }
+        
         setContent {
-            BScanTheme {
+            // Get user theme preference, fallback to AUTO while loading
+            val userData = viewModel.getUserDataRepository().getUserData()
+            val theme = userData?.preferences?.theme ?: AppTheme.AUTO
+            
+            BScanTheme(theme = theme) {
                 AppNavigation(
                     viewModel = viewModel,
                     updateViewModel = updateViewModel,
