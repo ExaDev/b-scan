@@ -45,6 +45,15 @@ fun TagTechnicalInfoCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun TagTechnicalInfoCardPreview() {
+    MaterialTheme {
+        TagTechnicalInfoCard(
+            tag = createMockInterpretedScan()
+        )
+    }
+}
 
 // Mock data for preview
 private fun createMockInterpretedScan(): com.bscan.repository.InterpretedScan {

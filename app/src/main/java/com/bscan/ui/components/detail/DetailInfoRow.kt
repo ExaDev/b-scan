@@ -35,3 +35,31 @@ fun DetailInfoRow(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun DetailInfoRowPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            DetailInfoRow(
+                label = "Material Type",
+                value = "PLA Basic"
+            )
+            DetailInfoRow(
+                label = "Temperature Range",
+                value = "210-230°C"
+            )
+            DetailInfoRow(
+                label = "SKU",
+                value = "GFL00A00K0"
+            )
+            DetailInfoRow(
+                label = "Weight",
+                value = "250.5g"
+            )
+        }
+    }
+}
+

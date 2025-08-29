@@ -51,7 +51,25 @@ fun PrimaryTagCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun PrimaryTagCardWithFilamentPreview() {
+    MaterialTheme {
+        PrimaryTagCard(
+            tag = createMockTagWithFilament()
+        )
+    }
+}
 
+@Preview(showBackground = true)
+@Composable
+private fun PrimaryTagCardWithoutFilamentPreview() {
+    MaterialTheme {
+        PrimaryTagCard(
+            tag = createMockTagWithoutFilament()
+        )
+    }
+}
 
 // Mock data with filament info for preview
 private fun createMockTagWithFilament(): com.bscan.repository.InterpretedScan {

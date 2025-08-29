@@ -73,3 +73,14 @@ private fun createMockInterpretedScan(): com.bscan.repository.InterpretedScan {
         filamentInfo = null
     )
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun TagBasicInfoCardPreview() {
+    MaterialTheme {
+        TagBasicInfoCard(
+            tag = createMockInterpretedScan(),
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}

@@ -129,3 +129,14 @@ private fun createMockSkuInfoLowSuccess(): com.bscan.ui.screens.home.SkuInfo {
         lastScanned = LocalDateTime.now().minusHours(5)
     )
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun PrimarySkuCardPreview() {
+    MaterialTheme {
+        PrimarySkuCard(
+            skuInfo = createMockSkuInfo(),
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}

@@ -141,6 +141,15 @@ private fun buildFilamentJsonString(filamentInfo: com.bscan.model.FilamentInfo):
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun InterpretedFilamentDataCardPreview() {
+    MaterialTheme {
+        InterpretedFilamentDataCard(
+            filamentInfo = createMockFilamentInfo()
+        )
+    }
+}
 
 // Mock filament info for preview
 private fun createMockFilamentInfo(): com.bscan.model.FilamentInfo {

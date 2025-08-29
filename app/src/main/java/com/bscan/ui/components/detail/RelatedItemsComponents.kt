@@ -151,6 +151,51 @@ fun RelatedScansSection(
 
 
 
+@Preview(showBackground = true)
+@Composable
+private fun RelatedFilamentReelsSectionPreview() {
+    MaterialTheme {
+        RelatedFilamentReelsSection(
+            filamentReels = createMockFilamentReels(),
+            onNavigateToDetails = null
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun RelatedTagsSectionPreview() {
+    MaterialTheme {
+        RelatedTagsSection(
+            tagUids = listOf("A1B2C3D4", "E5F6G7H8"),
+            allScans = createMockScans(),
+            onNavigateToDetails = null
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AssociatedSkuSectionPreview() {
+    MaterialTheme {
+        AssociatedSkuSection(
+            skus = createMockSkus(),
+            onNavigateToDetails = null
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun RelatedScansSectionPreview() {
+    MaterialTheme {
+        RelatedScansSection(
+            scans = createMockScans(),
+            onNavigateToDetails = null
+        )
+    }
+}
+
 // Mock data for previews
 private fun createMockFilamentReels(): List<com.bscan.repository.UniqueFilamentReel> {
     return listOf(

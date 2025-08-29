@@ -145,3 +145,14 @@ private fun createMockInterpretedScanSuccess(): com.bscan.repository.Interpreted
         filamentInfo = null
     )
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun TagAuthenticationCardPreview() {
+    MaterialTheme {
+        TagAuthenticationCard(
+            tag = createMockInterpretedScan(),
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}

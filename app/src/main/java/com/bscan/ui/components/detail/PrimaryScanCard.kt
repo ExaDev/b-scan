@@ -137,3 +137,26 @@ private fun createMockInterpretedScanWithoutFilament(): com.bscan.repository.Int
         filamentInfo = null
     )
 }
+
+@Preview(showBackground = true)
+@Composable
+private fun PrimaryScanCardPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // With filament info
+            PrimaryScanCard(
+                scan = createMockInterpretedScanWithFilament()
+            )
+            
+            Divider()
+            
+            // Without filament info
+            PrimaryScanCard(
+                scan = createMockInterpretedScanWithoutFilament()
+            )
+        }
+    }
+}
