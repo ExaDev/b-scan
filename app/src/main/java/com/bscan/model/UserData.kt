@@ -2,6 +2,7 @@ package com.bscan.model
 
 import java.time.LocalDateTime
 import com.bscan.ui.screens.home.CatalogDisplayMode
+import com.bscan.ui.components.MaterialDisplaySettings
 
 /**
  * Runtime user data that extends the catalog data.
@@ -76,6 +77,7 @@ data class UserPreferences(
     val autoSetupComponents: Boolean = true,
     val defaultExportFormat: String = "JSON",
     val catalogDisplayMode: CatalogDisplayMode = CatalogDisplayMode.COMPLETE_TITLE,
+    val materialDisplaySettings: MaterialDisplaySettings = MaterialDisplaySettings.DEFAULT,
     val lastBackupDate: LocalDateTime? = null
 )
 

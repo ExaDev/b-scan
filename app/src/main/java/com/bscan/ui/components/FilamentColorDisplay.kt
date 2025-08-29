@@ -101,6 +101,44 @@ fun getMaterialAbbreviation(materialType: MaterialType): String {
 }
 
 /**
+ * Extracts variant information from filament type string
+ */
+fun getVariantFromFilamentType(filamentType: String, showFullVariantNames: Boolean): String {
+    // Common variant patterns
+    val variants = listOf(
+        "Basic", "Silk", "Matte", "Translucent", "Carbon Fiber", "CF", 
+        "Support", "Water Soluble", "High Flow", "HF", "Tough", "Impact"
+    )
+    
+    for (variant in variants) {
+        if (filamentType.contains(variant, ignoreCase = true)) {
+            return if (showFullVariantNames) {
+                when (variant.uppercase()) {
+                    "CF" -> "Carbon Fiber"
+                    "HF" -> "High Flow"
+                    else -> variant
+                }
+            } else {
+                when (variant.uppercase()) {
+                    "BASIC" -> "B"
+                    "SILK" -> "S"
+                    "MATTE" -> "M"
+                    "TRANSLUCENT" -> "T"
+                    "CARBON FIBER", "CF" -> "CF"
+                    "SUPPORT" -> "SUP"
+                    "HIGH FLOW", "HF" -> "HF"
+                    "TOUGH" -> "TGH"
+                    "IMPACT" -> "IMP"
+                    else -> variant.take(3).uppercase()
+                }
+            }
+        }
+    }
+    
+    return ""
+}
+
+/**
  * Detects the finish type of filament based on color alpha channel and filament type
  */
 fun detectFilamentFinish(colorHex: String, filamentType: String): FilamentFinish {
@@ -180,13 +218,28 @@ fun FilamentColorBox(
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
     shape: Shape? = null, // Allow override, but default to material-based shape
-    displayMode: MaterialDisplayMode? = null // Allow override of display mode
+    displayMode: MaterialDisplayMode? = null, // Allow override of display mode (deprecated)
+    materialDisplaySettings: MaterialDisplaySettings? = null // New granular settings
 ) {
     val context = LocalContext.current
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
     
-    // Get display mode from parameter or user preferences
-    val actualDisplayMode = displayMode ?: userPrefsRepository.getMaterialDisplayMode()
+    // Get display settings from parameter or user preferences
+    val actualDisplaySettings = materialDisplaySettings ?: run {
+        // For backward compatibility, check if legacy displayMode is provided
+        if (displayMode != null) {
+            when (displayMode) {
+                MaterialDisplayMode.SHAPES -> MaterialDisplaySettings.SHAPES_ONLY
+                MaterialDisplayMode.TEXT_LABELS -> MaterialDisplaySettings.TEXT_LABELS
+            }
+        } else {
+            // Convert from user preferences
+            when (userPrefsRepository.getMaterialDisplayMode()) {
+                MaterialDisplayMode.SHAPES -> MaterialDisplaySettings.SHAPES_ONLY
+                MaterialDisplayMode.TEXT_LABELS -> MaterialDisplaySettings.TEXT_LABELS
+            }
+        }
+    }
     
     // Get accelerometer effects preference and state
     val accelerometerEffectsEnabled = userPrefsRepository.isAccelerometerEffectsEnabled()
@@ -198,10 +251,10 @@ fun FilamentColorBox(
     val finish = detectFilamentFinish(colorHex, filamentType)
     val materialType = detectMaterialType(filamentType)
     
-    // For text mode, always use rounded rectangle; for shape mode, use material-specific shapes
-    val actualShape = when (actualDisplayMode) {
-        MaterialDisplayMode.TEXT_LABELS -> shape ?: RoundedCornerShape(8.dp)
-        MaterialDisplayMode.SHAPES -> shape ?: getMaterialShape(materialType)
+    // Determine shape based on settings
+    val actualShape = when {
+        !actualDisplaySettings.showMaterialShapes -> shape ?: RoundedCornerShape(8.dp)
+        else -> shape ?: getMaterialShape(materialType)
     }
     
     // Apply automatic alpha to translucent materials that don't have alpha in their hex
@@ -314,25 +367,42 @@ fun FilamentColorBox(
             }
         }
         
-        // Text overlay for TEXT_LABELS mode
-        if (actualDisplayMode == MaterialDisplayMode.TEXT_LABELS) {
+        // Text overlay based on granular settings
+        val showAnyText = actualDisplaySettings.showMaterialNameInShape || 
+                         actualDisplaySettings.showMaterialVariantInShape
+        
+        if (showAnyText) {
             Box(
                 modifier = Modifier
                     .matchParentSize(),
                 contentAlignment = Alignment.Center
             ) {
-                val materialAbbreviation = getMaterialAbbreviation(materialType)
                 val textColor = if (isColorLight(color)) Color.Black else Color.White
+                val materialName = getMaterialAbbreviation(materialType)
+                val variantName = getVariantFromFilamentType(filamentType, actualDisplaySettings.showFullVariantNames)
                 
-                Text(
-                    text = materialAbbreviation,
-                    color = textColor,
-                    fontSize = (size.value * 0.25f).sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .padding(2.dp)
-                )
+                val displayText = buildString {
+                    if (actualDisplaySettings.showMaterialNameInShape) {
+                        append(materialName)
+                    }
+                    if (actualDisplaySettings.showMaterialVariantInShape && variantName.isNotEmpty()) {
+                        if (isNotEmpty()) append(" ")
+                        append(variantName)
+                    }
+                }
+                
+                if (displayText.isNotEmpty()) {
+                    Text(
+                        text = displayText,
+                        color = textColor,
+                        fontSize = (size.value * 0.20f).sp, // Slightly smaller to fit more text
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .padding(2.dp),
+                        maxLines = 2 // Allow wrapping for longer text
+                    )
+                }
             }
         }
     }

@@ -29,6 +29,7 @@ import com.bscan.ui.screens.settings.ExportPreviewData
 import com.bscan.ui.screens.settings.DataGenerationMode
 import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplayMode
+import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.screens.home.CatalogDisplayMode
 import com.bscan.repository.UserDataRepository
@@ -65,11 +66,14 @@ fun SettingsScreen(
     val builtInComponents = remember { allComponents.filter { !it.isUserDefined } }
     val totalComponents = allComponents.size
     
-    // Material display mode state
-    var materialDisplayMode by remember { mutableStateOf(userPrefsRepository.getMaterialDisplayMode()) }
-    
     // Catalog display mode state
     val userData = remember { userDataRepository.getUserData() }
+    
+    // Material display settings state
+    val materialDisplaySettings = remember { 
+        userData?.preferences?.materialDisplaySettings ?: MaterialDisplaySettings.DEFAULT 
+    }
+    var currentMaterialDisplaySettings by remember { mutableStateOf(materialDisplaySettings) }
     var catalogDisplayMode by remember { 
         mutableStateOf(userData?.preferences?.catalogDisplayMode ?: CatalogDisplayMode.COMPLETE_TITLE) 
     }
@@ -103,12 +107,14 @@ fun SettingsScreen(
             }
             
             item {
-                MaterialDisplayCard(
-                    currentMode = materialDisplayMode,
-                    onModeChanged = { mode ->
-                        materialDisplayMode = mode
+                MaterialDisplaySettingsCard(
+                    currentSettings = currentMaterialDisplaySettings,
+                    onSettingsChanged = { newSettings ->
+                        currentMaterialDisplaySettings = newSettings
                         scope.launch {
-                            userPrefsRepository.setMaterialDisplayMode(mode)
+                            userDataRepository.updatePreferences { currentPrefs ->
+                                currentPrefs.copy(materialDisplaySettings = newSettings)
+                            }
                         }
                     }
                 )
@@ -1583,5 +1589,189 @@ private fun CatalogPreviewCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * Card for granular material display settings
+ */
+@Composable
+private fun MaterialDisplaySettingsCard(
+    currentSettings: MaterialDisplaySettings,
+    onSettingsChanged: (MaterialDisplaySettings) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Material Visual Settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "Customize how filament materials are visually displayed in color boxes",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Toggle switches for each setting
+            SettingToggleRow(
+                title = "Material-based shapes",
+                description = "Use distinct shapes for each material type (circle, hexagon, etc.)",
+                isChecked = currentSettings.showMaterialShapes,
+                onCheckedChange = { checked ->
+                    onSettingsChanged(currentSettings.copy(showMaterialShapes = checked))
+                }
+            )
+            
+            SettingToggleRow(
+                title = "Material name in shape",
+                description = "Show material abbreviations (PLA, PETG, etc.) as text overlays",
+                isChecked = currentSettings.showMaterialNameInShape,
+                onCheckedChange = { checked ->
+                    onSettingsChanged(currentSettings.copy(showMaterialNameInShape = checked))
+                }
+            )
+            
+            SettingToggleRow(
+                title = "Material variant in shape", 
+                description = "Show variant information (Basic, Silk, Matte, etc.) in text overlay",
+                isChecked = currentSettings.showMaterialVariantInShape,
+                onCheckedChange = { checked ->
+                    onSettingsChanged(currentSettings.copy(showMaterialVariantInShape = checked))
+                }
+            )
+            
+            SettingToggleRow(
+                title = "Full variant names",
+                description = "Show full variant names instead of abbreviations (e.g., 'Carbon Fiber' vs 'CF')",
+                isChecked = currentSettings.showFullVariantNames,
+                onCheckedChange = { checked ->
+                    onSettingsChanged(currentSettings.copy(showFullVariantNames = checked))
+                },
+                enabled = currentSettings.showMaterialVariantInShape // Only enabled when variants are shown
+            )
+            
+            // Preview section
+            HorizontalDivider()
+            
+            Text(
+                text = "Preview",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            // Sample filament boxes showing current settings
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FilamentColorBox(
+                        colorHex = "#FF6B35",
+                        filamentType = "PLA Basic",
+                        size = 40.dp,
+                        materialDisplaySettings = currentSettings
+                    )
+                    Text(
+                        text = "PLA Basic",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FilamentColorBox(
+                        colorHex = "#4A90E2",
+                        filamentType = "PETG Silk",
+                        size = 40.dp,
+                        materialDisplaySettings = currentSettings
+                    )
+                    Text(
+                        text = "PETG Silk",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FilamentColorBox(
+                        colorHex = "#7B68EE",
+                        filamentType = "ABS Matte",
+                        size = 40.dp,
+                        materialDisplaySettings = currentSettings
+                    )
+                    Text(
+                        text = "ABS Matte",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Reusable toggle row for settings
+ */
+@Composable
+private fun SettingToggleRow(
+    title: String,
+    description: String,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                }
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                }
+            )
+        }
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
+        )
     }
 }
