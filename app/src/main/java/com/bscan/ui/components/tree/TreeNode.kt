@@ -353,3 +353,46 @@ fun TreeNode(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun TreeNodePreview() {
+    MaterialTheme {
+        // Create mock data
+        val mockComponent = Component(
+            id = "mock-component-1",
+            name = "PLA Basic Red Filament",
+            category = "filament",
+            massGrams = 250.5f,
+            fullMassGrams = 250.0f,
+            variableMass = true,
+            inferredMass = false,
+            isComposite = false,
+            tags = listOf("thermoplastic", "bambu"),
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.SKU,
+                    value = "GFL00A00K0",
+                    purpose = IdentifierPurpose.LOOKUP
+                )
+            )
+        )
+        
+        val mockTreeItem = ComponentTreeItem(
+            component = mockComponent,
+            depth = 1,
+            isLast = false,
+            parentIds = listOf("parent-1"),
+            childCount = 2
+        )
+        
+        val (state, actions) = rememberComponentTreeState()
+        
+        TreeNode(
+            treeItem = mockTreeItem,
+            treeState = state,
+            treeActions = actions,
+            modifier = Modifier.padding(8.dp)
+        )
+    }
+}
+

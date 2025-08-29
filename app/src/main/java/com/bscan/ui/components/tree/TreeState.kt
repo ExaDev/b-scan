@@ -1,7 +1,12 @@
 package com.bscan.ui.components.tree
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.bscan.model.Component
 
 /**
@@ -213,4 +218,40 @@ fun flattenTree(
     }
     
     return result
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ComponentTreeStatePreview() {
+    MaterialTheme {
+        // Preview showing the state management system works
+        val (state, actions) = rememberComponentTreeState(
+            initialExpanded = setOf("component1"),
+            initialSelected = "component2"
+        )
+        
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Tree State Demo",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "Expanded nodes: ${state.expandedNodes.size}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "Selected: ${state.selectedNode ?: "None"}",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            
+            Button(
+                onClick = { actions.toggleNode("test-node") }
+            ) {
+                Text("Toggle Test Node")
+            }
+        }
+    }
 }

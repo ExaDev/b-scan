@@ -46,3 +46,36 @@ fun IdentifierChip(
     )
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun IdentifierChipPreview() {
+    MaterialTheme {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IdentifierChip(
+                identifier = ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = "A1B2C3D4E5F6G7H8",
+                    purpose = IdentifierPurpose.AUTHENTICATION
+                )
+            )
+            IdentifierChip(
+                identifier = ComponentIdentifier(
+                    type = IdentifierType.SKU,
+                    value = "GFL00A00K0",
+                    purpose = IdentifierPurpose.LOOKUP
+                )
+            )
+            IdentifierChip(
+                identifier = ComponentIdentifier(
+                    type = IdentifierType.SERIAL_NUMBER,
+                    value = "SN123456789",
+                    purpose = IdentifierPurpose.TRACKING
+                )
+            )
+        }
+    }
+}
+

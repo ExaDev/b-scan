@@ -45,3 +45,13 @@ fun EmptyTreeView(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun EmptyTreeViewPreview() {
+    MaterialTheme {
+        EmptyTreeView(
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+

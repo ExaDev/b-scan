@@ -76,3 +76,27 @@ fun HierarchyIndicator(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun HierarchyIndicatorPreview() {
+    MaterialTheme {
+        Column {
+            HierarchyIndicator(
+                depth = 1,
+                isLast = false,
+                parentIds = listOf("parent1")
+            )
+            HierarchyIndicator(
+                depth = 2,
+                isLast = true,
+                parentIds = listOf("parent1", "parent2")
+            )
+            HierarchyIndicator(
+                depth = 3,
+                isLast = false,
+                parentIds = listOf("parent1", "parent2", "parent3")
+            )
+        }
+    }
+}
+

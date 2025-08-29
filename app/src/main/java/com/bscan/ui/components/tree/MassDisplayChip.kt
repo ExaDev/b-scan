@@ -91,3 +91,37 @@ private fun formatMass(massGrams: Float?, preferredUnit: WeightUnit): String {
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun MassDisplayChipPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            MassDisplayChip(
+                massGrams = 250.5f,
+                preferredUnit = WeightUnit.GRAMS
+            )
+            MassDisplayChip(
+                massGrams = 180.0f,
+                fullMassGrams = 250.0f,
+                variableMass = true,
+                preferredUnit = WeightUnit.GRAMS
+            )
+            MassDisplayChip(
+                massGrams = 45.2f,
+                inferredMass = true,
+                preferredUnit = WeightUnit.GRAMS
+            )
+            MassDisplayChip(
+                massGrams = 25.0f,
+                fullMassGrams = 250.0f,
+                variableMass = true,
+                inferredMass = true,
+                preferredUnit = WeightUnit.GRAMS
+            )
+        }
+    }
+}
+

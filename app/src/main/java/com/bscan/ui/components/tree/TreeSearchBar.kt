@@ -95,3 +95,30 @@ fun TreeSearchBar(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun TreeSearchBarPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Empty search state
+            TreeSearchBar(
+                query = "",
+                onQueryChange = { },
+                showOnlyMatching = false,
+                onToggleFilter = { }
+            )
+            
+            // Active search with filter
+            TreeSearchBar(
+                query = "PLA",
+                onQueryChange = { },
+                showOnlyMatching = true,
+                onToggleFilter = { }
+            )
+        }
+    }
+}
+

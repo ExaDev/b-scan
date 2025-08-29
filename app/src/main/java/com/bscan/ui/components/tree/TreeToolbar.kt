@@ -79,3 +79,37 @@ fun TreeToolbar(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun TreeToolbarPreview() {
+    MaterialTheme {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Full toolbar
+            TreeToolbar(
+                searchQuery = "PLA",
+                onSearchChange = { },
+                showOnlyMatching = true,
+                onToggleFilter = { },
+                onExpandAll = { },
+                onCollapseAll = { },
+                showSearchBar = true,
+                showToolbar = true
+            )
+            
+            // Just toolbar buttons
+            TreeToolbar(
+                searchQuery = "",
+                onSearchChange = { },
+                showOnlyMatching = false,
+                onToggleFilter = { },
+                onExpandAll = { },
+                onCollapseAll = { },
+                showSearchBar = false,
+                showToolbar = true
+            )
+        }
+    }
+}
+

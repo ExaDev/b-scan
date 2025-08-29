@@ -62,3 +62,32 @@ fun ComponentIcon(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun ComponentIconPreview() {
+    MaterialTheme {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ComponentIcon(
+                category = "filament",
+                modifier = Modifier.size(40.dp)
+            )
+            ComponentIcon(
+                category = "spool",
+                modifier = Modifier.size(40.dp)
+            )
+            ComponentIcon(
+                category = "rfid-tag",
+                tags = listOf("hardware", "bambu"),
+                modifier = Modifier.size(40.dp)
+            )
+            ComponentIcon(
+                category = "tool",
+                modifier = Modifier.size(40.dp)
+            )
+        }
+    }
+}
+
