@@ -87,7 +87,7 @@ private fun SpecificationCardPreview() {
                 filamentInfo = FilamentInfo(
                     tagUid = "A1B2C3D4",
                     trayUid = "01008023",
-                    tagFormat = TagFormat.BAMBU_LAB,
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
                     manufacturerName = "Bambu Lab",
                     filamentType = "PLA",
                     detailedFilamentType = "PLA Basic",
@@ -108,7 +108,7 @@ private fun SpecificationCardPreview() {
                 filamentInfo = FilamentInfo(
                     tagUid = "E5F6A7B8",
                     trayUid = "01008024",
-                    tagFormat = TagFormat.BAMBU_LAB,
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
                     manufacturerName = "Bambu Lab",
                     filamentType = "PETG",
                     detailedFilamentType = "PETG Basic",

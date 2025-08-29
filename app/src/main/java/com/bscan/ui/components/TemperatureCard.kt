@@ -99,7 +99,7 @@ private fun TemperatureCardPreview() {
                 filamentInfo = FilamentInfo(
                     tagUid = "A1B2C3D4",
                     trayUid = "01008023",
-                    tagFormat = TagFormat.BAMBU_LAB,
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
                     manufacturerName = "Bambu Lab",
                     filamentType = "PLA",
                     detailedFilamentType = "PLA Basic",
@@ -120,7 +120,7 @@ private fun TemperatureCardPreview() {
                 filamentInfo = FilamentInfo(
                     tagUid = "B2C3D4E5",
                     trayUid = "01008024",
-                    tagFormat = TagFormat.BAMBU_LAB,
+                    tagFormat = TagFormat.BAMBU_PROPRIETARY,
                     manufacturerName = "Bambu Lab",
                     filamentType = "ABS",
                     detailedFilamentType = "ABS",

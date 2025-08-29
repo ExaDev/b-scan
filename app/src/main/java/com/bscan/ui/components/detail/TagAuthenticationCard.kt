@@ -151,7 +151,7 @@ private fun createMockInterpretedScanSuccess(): com.bscan.repository.Interpreted
 private fun TagAuthenticationCardPreview() {
     MaterialTheme {
         TagAuthenticationCard(
-            tag = createMockInterpretedScan(),
+            tag = createMockInterpretedScanSuccess(),
             modifier = Modifier.padding(16.dp)
         )
     }

@@ -149,11 +149,20 @@ fun ProductionInfoCardPreview() {
     MaterialTheme {
         val mockFilamentInfo = FilamentInfo(
             filamentType = "PLA",
+            detailedFilamentType = "PLA Basic",
             colorName = "Vibrant Blue",
             colorHex = "#1E88E5",
             productionDate = "2024-03-15",
             trayUid = "01008023456789ABCDEF",
-            tagUid = "A1B2C3D4"
+            tagUid = "A1B2C3D4",
+            spoolWeight = 1000,
+            filamentDiameter = 1.75f,
+            filamentLength = 330000,
+            minTemperature = 210,
+            maxTemperature = 230,
+            bedTemperature = 60,
+            dryingTemperature = 40,
+            dryingTime = 8
         )
         
         ProductionInfoCard(filamentInfo = mockFilamentInfo)

@@ -623,7 +623,6 @@ fun ComponentListCardPreview() {
             manufacturer = "Bambu Lab",
             description = "Premium PLA filament with excellent print quality and vibrant colors",
             variableMass = true,
-            isInventoryItem = true,
             tags = listOf("3d-printing", "pla", "blue")
         )
         

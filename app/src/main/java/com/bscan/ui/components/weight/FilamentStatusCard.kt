@@ -360,7 +360,7 @@ private fun FilamentStatusCardPreview() {
                 trayUid = "01008023ABC123",
                 measuredMassGrams = 1245.0f,
                 componentIds = listOf("filament-001", "core-001", "spool-001"),
-                measurementType = MeasurementType.FULL,
+                measurementType = MeasurementType.FULL_WEIGHT,
                 measuredAt = LocalDateTime.now().minusDays(7),
                 notes = "Initial full spool measurement",
                 isVerified = true
@@ -370,7 +370,7 @@ private fun FilamentStatusCardPreview() {
                 trayUid = "01008023ABC123", 
                 measuredMassGrams = 1050.0f,
                 componentIds = listOf("filament-001", "core-001", "spool-001"),
-                measurementType = MeasurementType.FULL,
+                measurementType = MeasurementType.FULL_WEIGHT,
                 measuredAt = LocalDateTime.now(),
                 notes = "Current measurement",
                 isVerified = true
@@ -415,7 +415,7 @@ private fun FilamentStatusCardLowPreview() {
                 trayUid = "01008023ABC123",
                 measuredMassGrams = 300.0f,
                 componentIds = listOf("filament-001", "core-001", "spool-001"),
-                measurementType = MeasurementType.FULL,
+                measurementType = MeasurementType.FULL_WEIGHT,
                 measuredAt = LocalDateTime.now(),
                 notes = "Running low!",
                 isVerified = true

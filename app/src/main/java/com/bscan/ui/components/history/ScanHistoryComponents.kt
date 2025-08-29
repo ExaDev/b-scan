@@ -351,62 +351,87 @@ fun ScanHistoryEmptyState(
     )
 }
 
+// Helper function to create mock successful scan
+private fun createMockSuccessfulScan(): InterpretedScan {
+    val mockEncrypted = com.bscan.model.EncryptedScanData(
+        timestamp = java.time.LocalDateTime.now().minusHours(2),
+        tagUid = "A1B2C3D4",
+        technology = "NFC-A", 
+        encryptedData = ByteArray(1024)
+    )
+    
+    val mockDecrypted = com.bscan.model.DecryptedScanData(
+        timestamp = java.time.LocalDateTime.now().minusHours(2),
+        tagUid = "A1B2C3D4",
+        technology = "NFC-A",
+        scanResult = ScanResult.SUCCESS,
+        decryptedBlocks = mapOf(4 to "474641303A413030D2DA4B30000000"),
+        authenticatedSectors = listOf(1, 2, 3, 4),
+        failedSectors = emptyList(),
+        usedKeys = mapOf(1 to "KeyA", 2 to "KeyA"),
+        derivedKeys = listOf("A1B2C3D4E5F6"),
+        errors = emptyList()
+    )
+    
+    return InterpretedScan(
+        encryptedData = mockEncrypted,
+        decryptedData = mockDecrypted,
+        filamentInfo = com.bscan.model.FilamentInfo(
+            filamentType = "PLA",
+            detailedFilamentType = "PLA Basic",
+            colorName = "Ocean Blue",
+            colorHex = "#1976D2",
+            productionDate = "2024-03-15",
+            trayUid = "01008023456789",
+            tagUid = "A1B2C3D4",
+            spoolWeight = 1000,
+            filamentDiameter = 1.75f,
+            filamentLength = 330000,
+            minTemperature = 210,
+            maxTemperature = 230,
+            bedTemperature = 60,
+            dryingTemperature = 40,
+            dryingTime = 8
+        )
+    )
+}
+
+// Helper function to create mock failed scan  
+private fun createMockFailedScan(): InterpretedScan {
+    val mockEncrypted = com.bscan.model.EncryptedScanData(
+        timestamp = java.time.LocalDateTime.now().minusHours(1),
+        tagUid = "E5F6A7B8",
+        technology = "NFC-A",
+        encryptedData = ByteArray(1024)
+    )
+    
+    val mockDecrypted = com.bscan.model.DecryptedScanData(
+        timestamp = java.time.LocalDateTime.now().minusHours(1),
+        tagUid = "E5F6A7B8", 
+        technology = "NFC-A",
+        scanResult = ScanResult.AUTHENTICATION_FAILED,
+        decryptedBlocks = emptyMap(),
+        authenticatedSectors = emptyList(),
+        failedSectors = listOf(1, 2, 3, 4),
+        usedKeys = emptyMap(),
+        derivedKeys = emptyList(),
+        errors = listOf("Authentication failed for sector 1")
+    )
+    
+    return InterpretedScan(
+        encryptedData = mockEncrypted,
+        decryptedData = mockDecrypted,
+        filamentInfo = null
+    )
+}
+
 @Preview(showBackground = true)
 @Composable
 fun ScanStatisticsCardPreview() {
     MaterialTheme {
         val mockScans = listOf(
-            InterpretedScan(
-                uid = "A1B2C3D4",
-                timestamp = java.time.LocalDateTime.now().minusHours(2),
-                technology = "NFC-A",
-                scanResult = ScanResult.SUCCESS,
-                filamentInfo = com.bscan.model.FilamentInfo(
-                    filamentType = "PLA",
-                    colorName = "Ocean Blue",
-                    colorHex = "#1976D2",
-                    productionDate = "2024-03-15",
-                    trayUid = "01008023456789",
-                    tagUid = "A1B2C3D4"
-                ),
-                debugInfo = com.bscan.model.ScanDebugInfo(
-                    uid = "A1B2C3D4",
-                    tagSizeBytes = 1024,
-                    sectorCount = 16,
-                    authenticatedSectors = listOf(1, 2, 3),
-                    failedSectors = emptyList(),
-                    derivedKeys = emptyList(),
-                    blockData = emptyMap(),
-                    rawColorBytes = "",
-                    fullRawHex = "",
-                    decryptedHex = "",
-                    errorMessages = emptyList(),
-                    usedKeyTypes = emptyMap(),
-                    parsingDetails = emptyMap()
-                )
-            ),
-            InterpretedScan(
-                uid = "E5F6A7B8",
-                timestamp = java.time.LocalDateTime.now().minusHours(1),
-                technology = "NFC-A",
-                scanResult = ScanResult.AUTHENTICATION_FAILED,
-                filamentInfo = null,
-                debugInfo = com.bscan.model.ScanDebugInfo(
-                    uid = "E5F6A7B8",
-                    tagSizeBytes = 1024,
-                    sectorCount = 16,
-                    authenticatedSectors = emptyList(),
-                    failedSectors = listOf(1, 2, 3),
-                    derivedKeys = emptyList(),
-                    blockData = emptyMap(),
-                    rawColorBytes = "",
-                    fullRawHex = "",
-                    decryptedHex = "",
-                    errorMessages = listOf("Authentication failed for sector 1"),
-                    usedKeyTypes = emptyMap(),
-                    parsingDetails = emptyMap()
-                )
-            )
+            createMockSuccessfulScan(),
+            createMockFailedScan()
         )
         
         ScanStatisticsCard(
@@ -431,38 +456,8 @@ fun ScanHistoryFiltersPreview() {
 @Composable
 fun ScanHistoryCardPreview() {
     MaterialTheme {
-        val mockScan = InterpretedScan(
-            uid = "A1B2C3D4E5F6",
-            timestamp = java.time.LocalDateTime.now().minusHours(1),
-            technology = "NFC-A",
-            scanResult = ScanResult.SUCCESS,
-            filamentInfo = com.bscan.model.FilamentInfo(
-                filamentType = "PLA",
-                colorName = "Vibrant Red",
-                colorHex = "#F44336",
-                productionDate = "2024-03-15",
-                trayUid = "01008023456789",
-                tagUid = "A1B2C3D4E5F6"
-            ),
-            debugInfo = com.bscan.model.ScanDebugInfo(
-                uid = "A1B2C3D4E5F6",
-                tagSizeBytes = 1024,
-                sectorCount = 16,
-                authenticatedSectors = listOf(1, 2, 3, 4),
-                failedSectors = emptyList(),
-                derivedKeys = listOf("key1", "key2"),
-                blockData = mapOf(1 to "00112233445566778899AABBCCDDEEFF"),
-                rawColorBytes = "FF0000",
-                fullRawHex = "AABBCCDDEEFF",
-                decryptedHex = "1122334455",
-                errorMessages = emptyList(),
-                usedKeyTypes = mapOf(1 to "A", 2 to "B"),
-                parsingDetails = mapOf("color_parsed" to true)
-            )
-        )
-        
         ScanHistoryCard(
-            scan = mockScan,
+            scan = createMockSuccessfulScan(),
             isExpanded = false,
             onToggleExpanded = { }
         )
