@@ -1,9 +1,12 @@
 package com.bscan.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -15,11 +18,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import android.util.Log
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.DataExportManager
@@ -37,10 +44,13 @@ import com.bscan.ui.screens.home.CatalogDisplayMode
 import com.bscan.repository.UserDataRepository
 import com.bscan.data.bambu.BambuVariantSkuMapper
 import com.bscan.repository.PhysicalComponentRepository
+import com.bscan.model.AppTheme
 import com.bscan.ble.BlePermissionHandler
+import com.bscan.ble.BlePermissionState
 import com.bscan.ble.BleScalesManager
 import com.bscan.ble.ScaleConnectionState
 import com.bscan.ble.ScaleCommandResult
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -51,7 +61,7 @@ import java.time.format.DateTimeFormatter
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToComponents: () -> Unit = {},
-    blePermissionHandler: BlePermissionHandler,
+    blePermissionHandler: BlePermissionHandler? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -162,6 +172,19 @@ fun SettingsScreen(
                         scope.launch {
                             userDataRepository.updatePreferences { currentPrefs ->
                                 currentPrefs.copy(catalogDisplayMode = mode)
+                            }
+                        }
+                    }
+                )
+            }
+            
+            item {
+                ThemeSelectionCard(
+                    currentTheme = userData?.preferences?.theme ?: AppTheme.AUTO,
+                    onThemeChanged = { theme ->
+                        scope.launch {
+                            userDataRepository.updatePreferences { currentPrefs ->
+                                currentPrefs.copy(theme = theme)
                             }
                         }
                     }
@@ -447,7 +470,7 @@ private fun PhysicalComponentsManagementCard(
 @Composable
 private fun BleScalesPreferenceCard(
     userPrefsRepository: UserPreferencesRepository,
-    blePermissionHandler: BlePermissionHandler
+    blePermissionHandler: BlePermissionHandler?
 ) {
     val context = LocalContext.current
     
@@ -455,16 +478,20 @@ private fun BleScalesPreferenceCard(
     var preferredScaleName by remember { mutableStateOf(userPrefsRepository.getPreferredScaleName()) }
     var autoConnectEnabled by remember { mutableStateOf(userPrefsRepository.isBleScalesAutoConnectEnabled()) }
     
-    // BLE components
-    val bleScalesManager = remember { BleScalesManager(context) }
+    // BLE components - only create if BLE is supported
+    val bleScalesManager = remember { 
+        if (blePermissionHandler != null) {
+            BleScalesManager(context)
+        } else null 
+    }
     
     // BLE state
-    val isScanning by bleScalesManager.isScanning.collectAsStateWithLifecycle()
-    val discoveredDevices by bleScalesManager.discoveredDevices.collectAsStateWithLifecycle()
-    val permissionState by blePermissionHandler.permissionState.collectAsStateWithLifecycle()
-    val currentReading by bleScalesManager.currentReading.collectAsStateWithLifecycle()
-    val connectionState by bleScalesManager.connectionState.collectAsStateWithLifecycle()
-    val isReading by bleScalesManager.isReading.collectAsStateWithLifecycle()
+    val isScanning by (bleScalesManager?.isScanning ?: MutableStateFlow(false)).collectAsStateWithLifecycle()
+    val discoveredDevices by (bleScalesManager?.discoveredDevices ?: MutableStateFlow(emptyList())).collectAsStateWithLifecycle()
+    val permissionState by (blePermissionHandler?.permissionState ?: MutableStateFlow(BlePermissionState.UNKNOWN)).collectAsStateWithLifecycle()
+    val currentReading by (bleScalesManager?.currentReading ?: MutableStateFlow(null)).collectAsStateWithLifecycle()
+    val connectionState by (bleScalesManager?.connectionState ?: MutableStateFlow(ScaleConnectionState.DISCONNECTED)).collectAsStateWithLifecycle()
+    val isReading by (bleScalesManager?.isReading ?: MutableStateFlow(false)).collectAsStateWithLifecycle()
     
     var showDeviceSelection by remember { mutableStateOf(false) }
     var isTaring by remember { mutableStateOf(false) }
@@ -473,28 +500,31 @@ private fun BleScalesPreferenceCard(
     
     // Auto-connect to stored scale on first load
     LaunchedEffect(bleScalesManager, preferredScaleName) {
-        // Always attempt to reconnect if we have stored scale info and aren't connected
-        val storedAddress = userPrefsRepository.getPreferredScaleAddress()
-        val storedName = userPrefsRepository.getPreferredScaleName()
-        
-        if (storedAddress != null && storedName != null && !bleScalesManager.isConnectedToScale()) {
-            Log.i("BleScalesSettings", "Attempting auto-reconnect to stored scale: $storedName ($storedAddress)")
+        // Only attempt reconnect if BLE is available
+        if (bleScalesManager != null && blePermissionHandler != null) {
+            // Always attempt to reconnect if we have stored scale info and aren't connected
+            val storedAddress = userPrefsRepository.getPreferredScaleAddress()
+            val storedName = userPrefsRepository.getPreferredScaleName()
             
-            val result = bleScalesManager.reconnectToStoredScale(
-                storedAddress, 
-                storedName, 
-                blePermissionHandler
-            )
-            
-            when (result) {
-                is ScaleCommandResult.Success -> {
-                    Log.i("BleScalesSettings", "Auto-reconnect successful")
-                }
-                is ScaleCommandResult.Error -> {
-                    Log.w("BleScalesSettings", "Auto-reconnect failed: ${result.message}")
-                }
-                else -> {
-                    Log.w("BleScalesSettings", "Auto-reconnect failed: $result")
+            if (storedAddress != null && storedName != null && !bleScalesManager.isConnectedToScale()) {
+                Log.i("BleScalesSettings", "Attempting auto-reconnect to stored scale: $storedName ($storedAddress)")
+                
+                val result = bleScalesManager.reconnectToStoredScale(
+                    storedAddress, 
+                    storedName, 
+                    blePermissionHandler
+                )
+                
+                when (result) {
+                    is ScaleCommandResult.Success -> {
+                        Log.i("BleScalesSettings", "Auto-reconnect successful")
+                    }
+                    is ScaleCommandResult.Error -> {
+                        Log.w("BleScalesSettings", "Auto-reconnect failed: ${result.message}")
+                    }
+                    else -> {
+                        Log.w("BleScalesSettings", "Auto-reconnect failed: $result")
+                    }
                 }
             }
         }
@@ -527,7 +557,7 @@ private fun BleScalesPreferenceCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    val isActuallyConnected = bleScalesManager.isConnectedToScale()
+                    val isActuallyConnected = bleScalesManager?.isConnectedToScale() == true
                     val hasStoredScale = preferredScaleName != null
                     
                     Text(
@@ -567,7 +597,7 @@ private fun BleScalesPreferenceCard(
                     }
                 }
                 
-                val isActuallyConnected = bleScalesManager.isConnectedToScale()
+                val isActuallyConnected = bleScalesManager?.isConnectedToScale() == true
                 val hasStoredScale = preferredScaleName != null
                 
                 if (hasStoredScale) {
@@ -580,7 +610,7 @@ private fun BleScalesPreferenceCard(
                                 onClick = {
                                     scope.launch {
                                         val storedAddress = userPrefsRepository.getPreferredScaleAddress()
-                                        if (storedAddress != null) {
+                                        if (storedAddress != null && bleScalesManager != null && blePermissionHandler != null) {
                                             bleScalesManager.reconnectToStoredScale(
                                                 storedAddress, 
                                                 preferredScaleName!!, 
@@ -600,7 +630,7 @@ private fun BleScalesPreferenceCard(
                             onClick = {
                                 scope.launch {
                                     // Actual BLE disconnection if connected
-                                    if (isActuallyConnected) {
+                                    if (isActuallyConnected && bleScalesManager != null) {
                                         bleScalesManager.disconnectFromScale()
                                     }
                                     
@@ -618,11 +648,13 @@ private fun BleScalesPreferenceCard(
                     // Connect button
                     Button(
                         onClick = {
-                            if (blePermissionHandler.hasAllPermissions()) {
-                                showDeviceSelection = true
-                                bleScalesManager.startScanning(blePermissionHandler)
-                            } else {
-                                blePermissionHandler.requestPermissions()
+                            blePermissionHandler?.let { handler ->
+                                if (handler.hasAllPermissions() && bleScalesManager != null) {
+                                    showDeviceSelection = true
+                                    bleScalesManager.startScanning(handler)
+                                } else if (!handler.hasAllPermissions()) {
+                                    handler.requestPermissions()
+                                }
                             }
                         },
                         enabled = !isScanning
@@ -669,7 +701,7 @@ private fun BleScalesPreferenceCard(
                 }
                 
                 // Debug information panel (when connected)
-                if (bleScalesManager.isConnectedToScale()) {
+                if (bleScalesManager?.isConnectedToScale() == true) {
                     HorizontalDivider()
                     
                     Column(
@@ -826,9 +858,9 @@ private fun BleScalesPreferenceCard(
                             Button(
                                 onClick = {
                                     scope.launch {
-                                        if (isReading) {
+                                        if (isReading && bleScalesManager != null) {
                                             bleScalesManager.stopWeightReading()
-                                        } else {
+                                        } else if (!isReading && bleScalesManager != null) {
                                             bleScalesManager.startWeightReading()
                                         }
                                     }
@@ -843,11 +875,13 @@ private fun BleScalesPreferenceCard(
                             OutlinedButton(
                                 onClick = {
                                     scope.launch {
-                                        isTaring = true
-                                        val result = bleScalesManager.tareScale()
-                                        isTaring = false
-                                        
-                                        // Could add toast/snackbar feedback here
+                                        if (bleScalesManager != null) {
+                                            isTaring = true
+                                            val result = bleScalesManager.tareScale()
+                                            isTaring = false
+                                            
+                                            // Could add toast/snackbar feedback here
+                                        }
                                     }
                                 },
                                 enabled = !isTaring && connectionState in listOf(ScaleConnectionState.CONNECTED, ScaleConnectionState.READING)
@@ -872,8 +906,10 @@ private fun BleScalesPreferenceCard(
                             OutlinedButton(
                                 onClick = {
                                     scope.launch {
-                                        val result = bleScalesManager.enableUnitDetectionMonitoring()
-                                        Log.i("BleScalesSettings", "Unit detection monitoring result: $result")
+                                        if (bleScalesManager != null) {
+                                            val result = bleScalesManager.enableUnitDetectionMonitoring()
+                                            Log.i("BleScalesSettings", "Unit detection monitoring result: $result")
+                                        }
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
@@ -969,25 +1005,27 @@ private fun BleScalesPreferenceCard(
                                     Button(
                                         onClick = {
                                             scope.launch {
-                                                // Stop scanning first
-                                                bleScalesManager.stopScanning()
-                                                
-                                                // Attempt actual BLE connection
-                                                val result = bleScalesManager.connectToScale(device)
-                                                
-                                                if (result is ScaleCommandResult.Success) {
-                                                    // Save preferences only on successful connection
-                                                    userPrefsRepository.setPreferredScaleAddress(device.address)
-                                                    userPrefsRepository.setPreferredScaleName(device.displayName)
-                                                    userPrefsRepository.setBleScalesEnabled(true)
+                                                if (bleScalesManager != null) {
+                                                    // Stop scanning first
+                                                    bleScalesManager.stopScanning()
                                                     
-                                                    // Update local state
-                                                    isScalesEnabled = true
-                                                    preferredScaleName = device.displayName
-                                                    showDeviceSelection = false
-                                                } else {
-                                                    // Handle connection failure - could show toast/snackbar here
-                                                    // For now, just continue showing device selection
+                                                    // Attempt actual BLE connection
+                                                    val result = bleScalesManager.connectToScale(device)
+                                                    
+                                                    if (result is ScaleCommandResult.Success) {
+                                                        // Save preferences only on successful connection
+                                                        userPrefsRepository.setPreferredScaleAddress(device.address)
+                                                        userPrefsRepository.setPreferredScaleName(device.displayName)
+                                                        userPrefsRepository.setBleScalesEnabled(true)
+                                                        
+                                                        // Update local state
+                                                        isScalesEnabled = true
+                                                        preferredScaleName = device.displayName
+                                                        showDeviceSelection = false
+                                                    } else {
+                                                        // Handle connection failure - could show toast/snackbar here
+                                                        // For now, just continue showing device selection
+                                                    }
                                                 }
                                             }
                                         }
@@ -1001,7 +1039,7 @@ private fun BleScalesPreferenceCard(
                         // Cancel scanning button
                         OutlinedButton(
                             onClick = {
-                                bleScalesManager.stopScanning()
+                                bleScalesManager?.stopScanning()
                                 showDeviceSelection = false
                             }
                         ) {
@@ -2032,3 +2070,132 @@ private fun MaterialShapesPreview(modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * Card for theme selection
+ */
+@Composable
+private fun ThemeSelectionCard(
+    currentTheme: AppTheme,
+    onThemeChanged: (AppTheme) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Theme",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Text(
+                text = "Choose the app appearance theme",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            // Theme options
+            AppTheme.entries.forEach { theme ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onThemeChanged(theme) }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = currentTheme == theme,
+                        onClick = { onThemeChanged(theme) }
+                    )
+                    
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = when (theme) {
+                                AppTheme.AUTO -> "Auto (System)"
+                                AppTheme.LIGHT -> "Light"
+                                AppTheme.DARK -> "Dark"
+                                AppTheme.WHITE -> "White"
+                                AppTheme.BLACK -> "Black"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (currentTheme == theme) FontWeight.Medium else FontWeight.Normal
+                        )
+                        
+                        Text(
+                            text = when (theme) {
+                                AppTheme.AUTO -> "Follow system dark/light mode setting"
+                                AppTheme.LIGHT -> "Light theme with standard colours"
+                                AppTheme.DARK -> "Dark theme for low-light environments"
+                                AppTheme.WHITE -> "High contrast white theme"
+                                AppTheme.BLACK -> "Pure black theme for OLED displays"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    // Visual indicator for theme
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when (theme) {
+                                    AppTheme.AUTO -> Brush.horizontalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.surface,
+                                            MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                    AppTheme.LIGHT -> SolidColor(Color(0xFFFFFFFF))
+                                    AppTheme.DARK -> SolidColor(Color(0xFF121212))
+                                    AppTheme.WHITE -> SolidColor(Color(0xFFFFFFFF))
+                                    AppTheme.BLACK -> SolidColor(Color(0xFF000000))
+                                }
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        if (theme == AppTheme.AUTO) {
+                            // Show a small icon for Auto theme
+                            Icon(
+                                imageVector = Icons.Default.Brightness4,
+                                contentDescription = "Auto theme",
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .align(Alignment.Center),
+                                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Note: Preview temporarily disabled due to BlePermissionHandler dependency
+// @Preview(showBackground = true)
+// @Composable
+// fun SettingsScreenPreview() {
+//     MaterialTheme {
+//         SettingsScreen(
+//             onNavigateBack = {},
+//             onNavigateToComponents = {},
+//             blePermissionHandler = MockBlePermissionHandler()
+//         )
+//     }
+// }

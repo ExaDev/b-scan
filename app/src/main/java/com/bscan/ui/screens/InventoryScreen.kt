@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bscan.MainViewModel
 import com.bscan.model.*
@@ -813,7 +815,7 @@ fun HierarchicalComponentCard(
                             // Variable mass indicator
                             if (component.variableMass) {
                                 Icon(
-                                    Icons.Default.TrendingDown,
+                                    Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = "Variable mass",
                                     modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.tertiary
@@ -950,5 +952,25 @@ fun InventoryEmptyState(
         subtitle = "Scan some filament tags to start building your inventory",
         modifier = modifier
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun InventoryScreenPreview() {
+    MaterialTheme {
+        InventoryScreen(
+            viewModel = viewModel(),
+            onNavigateBack = {},
+            onNavigateToDetails = { _, _ -> }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun InventoryEmptyStatePreview() {
+    MaterialTheme {
+        InventoryEmptyState()
+    }
 }
 

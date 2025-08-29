@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import com.bscan.model.Component
 import com.bscan.repository.ComponentRepository
 import com.bscan.ui.components.component.ComponentListCard
@@ -380,4 +381,14 @@ enum class ViewMode(val displayName: String) {
     CHILD_COMPONENTS("Parts & Components"),
     VARIABLE_MASS("Variable Mass"),
     FIXED_MASS("Fixed Mass")
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentsScreenPreview() {
+    MaterialTheme {
+        ComponentsScreen(
+            onNavigateBack = {}
+        )
+    }
 }

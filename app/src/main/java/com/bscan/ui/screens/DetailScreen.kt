@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -989,5 +990,19 @@ fun RelatedScansSection(
                 }
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DetailScreenPreview() {
+    MaterialTheme {
+        DetailScreen(
+            detailType = DetailType.TAG,
+            identifier = "sample-tag-id",
+            onNavigateBack = {},
+            onNavigateToDetails = { _, _ -> },
+            onPurgeCache = {}
+        )
     }
 }

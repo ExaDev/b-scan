@@ -7,8 +7,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
+import com.bscan.model.ScanStage
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.UniqueFilamentReel
 import com.bscan.repository.InterpretedScan
@@ -132,4 +134,34 @@ fun HomeScreen(
             onNavigateToDetails = onNavigateToDetails,
             modifier = modifier
         )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HomeScreenPreview() {
+    HomeScreen(
+        scanState = ScanState.IDLE,
+        scanProgress = null,
+        onSimulateScan = {},
+        onNavigateToSettings = {},
+        onNavigateToHistory = {},
+        onNavigateToDetails = { _, _ -> }
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HomeScreenScanningPreview() {
+    HomeScreen(
+        scanState = ScanState.PROCESSING,
+        scanProgress = ScanProgress(
+            stage = ScanStage.READING_BLOCKS,
+            percentage = 0.6f,
+            statusMessage = "Reading NFC tag..."
+        ),
+        onSimulateScan = {},
+        onNavigateToSettings = {},
+        onNavigateToHistory = {},
+        onNavigateToDetails = { _, _ -> }
+    )
 }
