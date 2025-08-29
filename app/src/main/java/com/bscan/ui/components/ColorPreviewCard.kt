@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,5 +70,59 @@ fun ColorPreviewDot(
         shape = RoundedCornerShape(size / 2),
         modifier = modifier
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ColorPreviewCardPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ColorPreviewCard(
+                colorHex = "#000000",
+                colorName = "Black",
+                filamentType = "PLA"
+            )
+            ColorPreviewCard(
+                colorHex = "#FF6B35",
+                colorName = "Orange Red",
+                filamentType = "ABS"
+            )
+            ColorPreviewCard(
+                colorHex = "#4ECDC4",
+                colorName = "Turquoise",
+                filamentType = "PETG"
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ColorPreviewDotPreview() {
+    MaterialTheme {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ColorPreviewDot(
+                colorHex = "#E74C3C",
+                filamentType = "PLA",
+                size = 24.dp
+            )
+            ColorPreviewDot(
+                colorHex = "#3498DB",
+                filamentType = "ABS",
+                size = 32.dp
+            )
+            ColorPreviewDot(
+                colorHex = "#2ECC71",
+                filamentType = "PETG",
+                size = 40.dp
+            )
+        }
+    }
 }
 
