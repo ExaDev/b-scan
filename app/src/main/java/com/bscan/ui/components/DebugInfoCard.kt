@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
 import com.bscan.model.ScanDebugInfo
@@ -82,6 +83,63 @@ fun DebugInfoCard(
                 // Parsing Details
                 ParsingDetailsSection(parsingDetails = debugInfo.parsingDetails)
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun DebugInfoCardPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            DebugInfoCard(
+                debugInfo = ScanDebugInfo(
+                    uid = "A1B2C3D4E5F6A7B8",
+                    tagSizeBytes = 1024,
+                    sectorCount = 16,
+                    authenticatedSectors = listOf(0, 1, 2, 4, 5, 8, 9, 10),
+                    failedSectors = listOf(3, 6, 7, 11, 12, 13, 14, 15),
+                    usedKeyTypes = mapOf(
+                        0 to "KeyA",
+                        1 to "KeyA", 
+                        2 to "KeyB",
+                        4 to "KeyA",
+                        5 to "KeyB"
+                    ),
+                    blockData = mapOf(
+                        4 to "474641303A413030D2DA00000000000000000000000000",
+                        5 to "4B30000000000000000000000000000000000000000000",
+                        8 to "FF0000FFFFFFFFFF0000000000000000000000000000",
+                        9 to "20240315000000000000000000000000000000000000"
+                    ),
+                    derivedKeys = listOf(
+                        "A1B2C3D4E5F6",
+                        "F6E5D4C3B2A1",
+                        "123456789ABC",
+                        "CBA987654321"
+                    ),
+                    rawColorBytes = "4B30",
+                    errorMessages = listOf(
+                        "Authentication failed for sector 3",
+                        "Block 6 read timeout"
+                    ),
+                    parsingDetails = mapOf(
+                        "material_id" to "GFA00",
+                        "series_code" to "A00",
+                        "color_code" to "K0",
+                        "production_date" to "2024-03-15",
+                        "temperatures" to mapOf(
+                            "min" to 210,
+                            "max" to 230,
+                            "bed" to 60
+                        )
+                    ),
+                    fullRawHex = "474641303A413030D2DA4B30000000000000FF0000FFFFFF2024031500000000".repeat(12),
+                    decryptedHex = "474641303A413030D2DA4B30000000000000FF0000FFFFFF2024031500000000".repeat(10)
+                )
+            )
         }
     }
 }

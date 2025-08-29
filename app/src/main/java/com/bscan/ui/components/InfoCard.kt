@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +43,37 @@ fun InfoCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InfoCardPreview() {
+    MaterialTheme {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            InfoCard(
+                title = "Tag UID",
+                value = "A1B2C3D4E5F6A7B8",
+                subtitle = "Individual RFID tag identifier"
+            )
+            InfoCard(
+                title = "Material Type",
+                value = "PLA Basic"
+            )
+            InfoCard(
+                title = "Production Date",
+                value = "March 2024",
+                subtitle = "Manufacturing batch information"
+            )
+            InfoCard(
+                title = "Spool Weight",
+                value = "1000g",
+                subtitle = "Net weight of filament"
+            )
         }
     }
 }
