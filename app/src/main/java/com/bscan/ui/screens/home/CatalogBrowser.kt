@@ -28,6 +28,7 @@ import com.bscan.model.*
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.home.GroupHeader
 
@@ -56,9 +57,10 @@ fun CatalogBrowser(
     val userDataRepository = remember { UserDataRepository(context) }
     val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userDataRepository) }
     
-    // Get user preferences for catalog display mode
+    // Get user preferences for catalog display mode and material display settings
     val userData by remember { derivedStateOf { userDataRepository.getUserData() } }
     val catalogDisplayMode = userData?.preferences?.catalogDisplayMode ?: CatalogDisplayMode.COMPLETE_TITLE
+    val materialDisplaySettings = userData?.preferences?.materialDisplaySettings ?: MaterialDisplaySettings.DEFAULT
     
     
     // Get catalog data
@@ -140,6 +142,7 @@ fun CatalogBrowser(
                         ProductCard(
                             productInfo = productInfo,
                             catalogDisplayMode = catalogDisplayMode,
+                            materialDisplaySettings = materialDisplaySettings,
                             onClick = {
                                 onNavigateToDetails?.invoke(
                                     DetailType.SKU, 
@@ -220,6 +223,7 @@ data class ProductWithManufacturer private constructor(
 fun ProductCard(
     productInfo: ProductWithManufacturer,
     catalogDisplayMode: CatalogDisplayMode,
+    materialDisplaySettings: MaterialDisplaySettings,
     onClick: () -> Unit
 ) {
     val product = productInfo.product
@@ -240,6 +244,7 @@ fun ProductCard(
             FilamentColorBox(
                 colorHex = product.colorHex ?: "#808080", // ProductLookupService should now provide proper colors
                 filamentType = product.materialType,
+                materialDisplaySettings = materialDisplaySettings,
                 modifier = Modifier.size(40.dp)
             )
             
@@ -248,7 +253,7 @@ fun ProductCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Title based on display mode
+                // Title based on catalog display mode
                 Text(
                     text = when (catalogDisplayMode) {
                         CatalogDisplayMode.COMPLETE_TITLE -> 
@@ -330,3 +335,4 @@ fun ProductCard(
         }
     }
 }
+
