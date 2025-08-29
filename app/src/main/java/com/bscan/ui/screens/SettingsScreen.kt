@@ -78,8 +78,13 @@ fun SettingsScreen(
     val builtInComponents = remember { allComponents.filter { !it.isUserDefined } }
     val totalComponents = allComponents.size
     
-    // Catalog display mode state
-    val userData = remember { userDataRepository.getUserData() }
+    // Initialize user data flow and observe reactively
+    LaunchedEffect(userDataRepository) {
+        userDataRepository.getUserData() // Initialize the flow
+    }
+    
+    // Observe user data flow for reactive updates
+    val userData by userDataRepository.userDataFlow.collectAsStateWithLifecycle()
     
     // Material display settings state
     val materialDisplaySettings = remember { 
