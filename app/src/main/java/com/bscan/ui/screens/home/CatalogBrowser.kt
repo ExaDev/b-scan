@@ -20,6 +20,7 @@ import com.bscan.repository.UnifiedDataAccess
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import com.bscan.ScanState
@@ -202,7 +203,9 @@ fun ProductCard(
                 Text(
                     text = product.colorName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
                 Text(

@@ -37,6 +37,7 @@ object ProductLookupService {
                         val materialDisplayName = product?.baseMaterial ?: BambuMaterialIdMapper.getDisplayName(materialCode)
                         val colorName = product?.colorName ?: skuInfo.colorName
                         
+                        
                         ProductEntry(
                         variantId = skuInfo.sku,
                         productHandle = (product?.materialType ?: skuInfo.materialType).lowercase().replace(" ", "-").replace("_", "-"),
