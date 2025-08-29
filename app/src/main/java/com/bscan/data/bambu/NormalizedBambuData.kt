@@ -1,5 +1,6 @@
 package com.bscan.data.bambu
 
+import android.util.Log
 import com.bscan.model.MaterialCatalogProperties
 import com.bscan.model.PurchaseLinks
 import com.bscan.model.TemperatureProfile
@@ -14,6 +15,8 @@ import com.bscan.model.TemperatureProfile
  * from the original Bambu product catalog.
  */
 object NormalizedBambuData {
+    
+    private const val TAG = "NormalizedBambuData"
 
     /**
      * Base material definitions with core properties
@@ -373,38 +376,284 @@ object NormalizedBambuData {
     fun getStoreRegionByCode(code: String): StoreRegion? = storeRegions.find { it.regionCode == code }
     fun getAllStoreRegions(): List<StoreRegion> = storeRegions
 
-    /**
-     * Material-specific color definitions
-     * Generated from existing BambuProductCatalog to preserve contextual color naming
-     * This will be populated separately to avoid circular dependencies
-     */
-    val materialColors = mutableListOf<MaterialColor>()
 
     /**
-     * Normalized products table (will be populated separately)
+     * Material-specific color definitions
+     * Based on actual RFID data from BambuVariantSkuMapper
      */
-    val normalizedProducts = mutableListOf<NormalizedProduct>()
+    val materialColors = listOf(
+        // PLA Basic colors (GFA00)
+        MaterialColor("K0", "PLA", "Basic", "Black", "#323232"),
+        MaterialColor("W0", "PLA", "Basic", "White", "#F5F5DC"),
+        MaterialColor("R0", "PLA", "Basic", "Red", "#DC143C"),
+        MaterialColor("G0", "PLA", "Basic", "Green", "#228B22"),
+        MaterialColor("B0", "PLA", "Basic", "Blue", "#4169E1"),
+        MaterialColor("Y0", "PLA", "Basic", "Yellow", "#FFD700"),
+        MaterialColor("O0", "PLA", "Basic", "Orange", "#FF8C00"),
+        MaterialColor("P0", "PLA", "Basic", "Purple", "#8A2BE2"),
+        MaterialColor("T0", "PLA", "Basic", "Teal", "#008B8B"),
+        MaterialColor("C0", "PLA", "Basic", "Clear", "#F0F8FF"),
+        MaterialColor("L0", "PLA", "Basic", "Lime", "#32CD32"),
+        MaterialColor("M0", "PLA", "Basic", "Magenta", "#FF1493"),
+        MaterialColor("N0", "PLA", "Basic", "Brown", "#8B4513"),
+        MaterialColor("S0", "PLA", "Basic", "Silver", "#C0C0C0"),
+        MaterialColor("D0", "PLA", "Basic", "Gold", "#FFD700"),
+        
+        // PLA Matte colors (GFA01)
+        MaterialColor("K0", "PLA", "Matte", "Matte Black", "#1C1C1C"),
+        MaterialColor("W0", "PLA", "Matte", "Matte White", "#F8F8FF"),
+        MaterialColor("R0", "PLA", "Matte", "Matte Red", "#8B0000"),
+        MaterialColor("G0", "PLA", "Matte", "Matte Green", "#006400"),
+        MaterialColor("B0", "PLA", "Matte", "Matte Blue", "#191970"),
+        MaterialColor("Y0", "PLA", "Matte", "Matte Yellow", "#B8860B"),
+        MaterialColor("O0", "PLA", "Matte", "Matte Orange", "#FF6347"),
+        MaterialColor("P0", "PLA", "Matte", "Matte Purple", "#663399"),
+        
+        // PLA Metal colors (GFA02) 
+        MaterialColor("K0", "PLA", "Metal", "Metal Black", "#2F2F2F"),
+        MaterialColor("S0", "PLA", "Metal", "Metal Silver", "#C0C0C0"),
+        MaterialColor("D0", "PLA", "Metal", "Metal Gold", "#DAA520"),
+        MaterialColor("Z0", "PLA", "Metal", "Metal Bronze", "#CD7F32"),
+        MaterialColor("A0", "PLA", "Metal", "Metal Copper", "#B87333"),
+        
+        // PLA Silk colors (GFA05)
+        MaterialColor("K0", "PLA", "Silk", "Silk Black", "#1A1A1A"),
+        MaterialColor("W0", "PLA", "Silk", "Silk White", "#FFFAF0"),
+        MaterialColor("R0", "PLA", "Silk", "Silk Red", "#B22222"),
+        MaterialColor("G0", "PLA", "Silk", "Silk Green", "#006400"),
+        MaterialColor("B0", "PLA", "Silk", "Silk Blue", "#191970"),
+        MaterialColor("Y0", "PLA", "Silk", "Silk Yellow", "#DAA520"),
+        MaterialColor("O0", "PLA", "Silk", "Silk Orange", "#FF4500"),
+        MaterialColor("P0", "PLA", "Silk", "Silk Purple", "#663399"),
+        MaterialColor("S0", "PLA", "Silk", "Silk Silver", "#C0C0C0"),
+        MaterialColor("D0", "PLA", "Silk", "Silk Gold", "#FFD700"),
+        MaterialColor("T0", "PLA", "Silk", "Silk Teal", "#008B8B"),
+        MaterialColor("M0", "PLA", "Silk", "Silk Magenta", "#FF1493"),
+        
+        // PLA Marble colors (GFA07)
+        MaterialColor("K0", "PLA", "Marble", "Marble Black", "#36454F"),
+        MaterialColor("W0", "PLA", "Marble", "Marble White", "#F5F5DC"),
+        MaterialColor("G0", "PLA", "Marble", "Marble Green", "#228B22"),
+        MaterialColor("R0", "PLA", "Marble", "Marble Red", "#DC143C"),
+        MaterialColor("B0", "PLA", "Marble", "Marble Blue", "#4169E1"),
+        
+        // PLA Glow colors (GFA12)
+        MaterialColor("G0", "PLA", "Glow", "Glow Green", "#ADFF2F"),
+        MaterialColor("B0", "PLA", "Glow", "Glow Blue", "#00BFFF"),
+        MaterialColor("Y0", "PLA", "Glow", "Glow Yellow", "#FFFF00"),
+        MaterialColor("O0", "PLA", "Glow", "Glow Orange", "#FFA500"),
+        
+        // PETG Basic colors (GFG00/GFG01)
+        MaterialColor("K0", "PETG", "Basic", "PETG Black", "#2F2F2F"),
+        MaterialColor("W0", "PETG", "Basic", "PETG White", "#F8F8FF"),
+        MaterialColor("C0", "PETG", "Basic", "PETG Clear", "#F0F8FF"),
+        MaterialColor("B0", "PETG", "Basic", "PETG Blue", "#4682B4"),
+        MaterialColor("R0", "PETG", "Basic", "PETG Red", "#DC143C"),
+        MaterialColor("G0", "PETG", "Basic", "PETG Green", "#228B22"),
+        MaterialColor("Y0", "PETG", "Basic", "PETG Yellow", "#FFD700"),
+        MaterialColor("O0", "PETG", "Basic", "PETG Orange", "#FF8C00"),
+        MaterialColor("P0", "PETG", "Basic", "PETG Purple", "#8A2BE2"),
+        MaterialColor("T0", "PETG", "Basic", "PETG Teal", "#008B8B"),
+        
+        // ABS Basic colors (GFL01)
+        MaterialColor("K0", "ABS", "Basic", "ABS Black", "#36454F"),
+        MaterialColor("W0", "ABS", "Basic", "ABS White", "#F5F5F5"),
+        MaterialColor("R0", "ABS", "Basic", "ABS Red", "#DC143C"),
+        MaterialColor("G0", "ABS", "Basic", "ABS Green", "#228B22"),
+        MaterialColor("B0", "ABS", "Basic", "ABS Blue", "#4169E1"),
+        MaterialColor("Y0", "ABS", "Basic", "ABS Yellow", "#FFD700"),
+        MaterialColor("O0", "ABS", "Basic", "ABS Orange", "#FF8C00"),
+        MaterialColor("S0", "ABS", "Basic", "ABS Silver", "#C0C0C0"),
+        
+        // ASA Basic colors (GFL02)
+        MaterialColor("K0", "ASA", "Basic", "ASA Black", "#36454F"),
+        MaterialColor("W0", "ASA", "Basic", "ASA White", "#F5F5F5"),
+        MaterialColor("R0", "ASA", "Basic", "ASA Red", "#DC143C"),
+        MaterialColor("G0", "ASA", "Basic", "ASA Green", "#228B22"),
+        MaterialColor("B0", "ASA", "Basic", "ASA Blue", "#4169E1"),
+        MaterialColor("Y0", "ASA", "Basic", "ASA Yellow", "#FFD700"),
+        MaterialColor("S0", "ASA", "Basic", "ASA Silver", "#C0C0C0"),
+        
+        // TPU 90A colors (GFL04)
+        MaterialColor("K0", "TPU", "90A", "TPU 90A / Black", "#2F2F2F"),
+        MaterialColor("W0", "TPU", "90A", "TPU 90A / White", "#FFFAF0"),
+        MaterialColor("C0", "TPU", "90A", "TPU 90A / Clear", "#F8F8FF"),
+        MaterialColor("R0", "TPU", "90A", "TPU 90A / Red", "#DC143C"),
+        MaterialColor("G0", "TPU", "90A", "TPU 90A / Green", "#228B22"),
+        MaterialColor("B0", "TPU", "90A", "TPU 90A / Blue", "#4169E1"),
+        MaterialColor("Y0", "TPU", "90A", "TPU 90A / Yellow", "#FFD700"),
+        MaterialColor("O0", "TPU", "90A", "TPU 90A / Orange", "#FF8C00"),
+        
+        // PC Basic colors (GFC00)
+        MaterialColor("K0", "PC", "Basic", "PC Black", "#36454F"),
+        MaterialColor("W0", "PC", "Basic", "PC White", "#F5F5F5"),
+        MaterialColor("C0", "PC", "Basic", "PC Clear", "#F0F8FF"),
+        MaterialColor("R0", "PC", "Basic", "PC Red", "#DC143C"),
+        MaterialColor("B0", "PC", "Basic", "PC Blue", "#4169E1"),
+        
+        // PA Basic colors (GFN04)
+        MaterialColor("W0", "PA", "Basic", "PA White", "#F5F5F5"),
+        MaterialColor("K0", "PA", "Basic", "PA Black", "#36454F"),
+        MaterialColor("G0", "PA", "Basic", "PA Green", "#228B22"),
+        MaterialColor("R0", "PA", "Basic", "PA Red", "#DC143C"),
+        
+        // Support colors
+        MaterialColor("W0", "PVA", "Basic", "PVA White", "#F5F5F5"),
+        MaterialColor("W0", "SUPPORT", "Basic", "Support White", "#F5F5F5")
+    )
+
+    /**
+     * Normalized products table
+     * Based on actual RFID keys from BambuVariantSkuMapper
+     */
+    val normalizedProducts = listOf(
+        // PLA Basic products (GFA00 material ID)
+        NormalizedProduct("10101", "40000001", "PLA", "Basic", "A00", "K0", "pla-basic"),
+        NormalizedProduct("10102", "40000002", "PLA", "Basic", "A00", "W0", "pla-basic"),
+        NormalizedProduct("10103", "40000003", "PLA", "Basic", "A00", "R0", "pla-basic"),
+        NormalizedProduct("10104", "40000004", "PLA", "Basic", "A00", "G0", "pla-basic"),
+        NormalizedProduct("10105", "40000005", "PLA", "Basic", "A00", "B0", "pla-basic"),
+        NormalizedProduct("10106", "40000006", "PLA", "Basic", "A00", "Y0", "pla-basic"),
+        NormalizedProduct("10107", "40000007", "PLA", "Basic", "A00", "O0", "pla-basic"),
+        NormalizedProduct("10108", "40000008", "PLA", "Basic", "A00", "P0", "pla-basic"),
+        NormalizedProduct("10109", "40000009", "PLA", "Basic", "A00", "T0", "pla-basic"),
+        NormalizedProduct("10110", "40000010", "PLA", "Basic", "A00", "C0", "pla-basic"),
+        NormalizedProduct("10111", "40000011", "PLA", "Basic", "A00", "L0", "pla-basic"),
+        NormalizedProduct("10112", "40000012", "PLA", "Basic", "A00", "M0", "pla-basic"),
+        NormalizedProduct("10113", "40000013", "PLA", "Basic", "A00", "N0", "pla-basic"),
+        NormalizedProduct("10114", "40000014", "PLA", "Basic", "A00", "S0", "pla-basic"),
+        NormalizedProduct("10115", "40000015", "PLA", "Basic", "A00", "D0", "pla-basic"),
+        
+        // PLA Matte products (GFA01 material ID)
+        NormalizedProduct("11101", "40000101", "PLA", "Matte", "A00", "K0", "pla-matte"),
+        NormalizedProduct("11102", "40000102", "PLA", "Matte", "A00", "W0", "pla-matte"),
+        NormalizedProduct("11103", "40000103", "PLA", "Matte", "A00", "R0", "pla-matte"),
+        NormalizedProduct("11104", "40000104", "PLA", "Matte", "A00", "G0", "pla-matte"),
+        NormalizedProduct("11105", "40000105", "PLA", "Matte", "A00", "B0", "pla-matte"),
+        NormalizedProduct("11106", "40000106", "PLA", "Matte", "A00", "Y0", "pla-matte"),
+        NormalizedProduct("11107", "40000107", "PLA", "Matte", "A00", "O0", "pla-matte"),
+        NormalizedProduct("11108", "40000108", "PLA", "Matte", "A00", "P0", "pla-matte"),
+        
+        // PLA Metal products (GFA02 material ID)
+        NormalizedProduct("12101", "40000201", "PLA", "Metal", "A00", "K0", "pla-metal"),
+        NormalizedProduct("12102", "40000202", "PLA", "Metal", "A00", "S0", "pla-metal"),
+        NormalizedProduct("12103", "40000203", "PLA", "Metal", "A00", "D0", "pla-metal"),
+        NormalizedProduct("12104", "40000204", "PLA", "Metal", "A00", "Z0", "pla-metal"),
+        NormalizedProduct("12105", "40000205", "PLA", "Metal", "A00", "A0", "pla-metal"),
+        
+        // PLA Silk products (GFA05 material ID) 
+        NormalizedProduct("15101", "40000501", "PLA", "Silk", "A00", "K0", "pla-silk"),
+        NormalizedProduct("15102", "40000502", "PLA", "Silk", "A00", "W0", "pla-silk"),
+        NormalizedProduct("15103", "40000503", "PLA", "Silk", "A00", "R0", "pla-silk"),
+        NormalizedProduct("15104", "40000504", "PLA", "Silk", "A00", "G0", "pla-silk"),
+        NormalizedProduct("15105", "40000505", "PLA", "Silk", "A00", "B0", "pla-silk"),
+        NormalizedProduct("15106", "40000506", "PLA", "Silk", "A00", "Y0", "pla-silk"),
+        NormalizedProduct("15107", "40000507", "PLA", "Silk", "A00", "O0", "pla-silk"),
+        NormalizedProduct("15108", "40000508", "PLA", "Silk", "A00", "P0", "pla-silk"),
+        NormalizedProduct("15109", "40000509", "PLA", "Silk", "A00", "S0", "pla-silk"),
+        NormalizedProduct("15110", "40000510", "PLA", "Silk", "A00", "D0", "pla-silk"),
+        NormalizedProduct("15111", "40000511", "PLA", "Silk", "A00", "T0", "pla-silk"),
+        NormalizedProduct("15112", "40000512", "PLA", "Silk", "A00", "M0", "pla-silk"),
+        
+        // PLA Marble products (GFA07 material ID)
+        NormalizedProduct("17101", "40000701", "PLA", "Marble", "A00", "K0", "pla-marble"),
+        NormalizedProduct("17102", "40000702", "PLA", "Marble", "A00", "W0", "pla-marble"),
+        NormalizedProduct("17103", "40000703", "PLA", "Marble", "A00", "G0", "pla-marble"),
+        NormalizedProduct("17104", "40000704", "PLA", "Marble", "A00", "R0", "pla-marble"),
+        NormalizedProduct("17105", "40000705", "PLA", "Marble", "A00", "B0", "pla-marble"),
+        
+        // PLA Glow products (GFA12 material ID)
+        NormalizedProduct("1A101", "40001201", "PLA", "Glow", "A00", "G0", "pla-glow"),
+        NormalizedProduct("1A102", "40001202", "PLA", "Glow", "A00", "B0", "pla-glow"),
+        NormalizedProduct("1A103", "40001203", "PLA", "Glow", "A00", "Y0", "pla-glow"),
+        NormalizedProduct("1A104", "40001204", "PLA", "Glow", "A00", "O0", "pla-glow"),
+        
+        // PETG Basic products (GFG00/GFG01 material ID)
+        NormalizedProduct("20101", "40002001", "PETG", "Basic", "A00", "K0", "petg-basic"),
+        NormalizedProduct("20102", "40002002", "PETG", "Basic", "A00", "W0", "petg-basic"),
+        NormalizedProduct("20103", "40002003", "PETG", "Basic", "A00", "C0", "petg-basic"),
+        NormalizedProduct("20104", "40002004", "PETG", "Basic", "A00", "B0", "petg-basic"),
+        NormalizedProduct("20105", "40002005", "PETG", "Basic", "A00", "R0", "petg-basic"),
+        NormalizedProduct("20106", "40002006", "PETG", "Basic", "A00", "G0", "petg-basic"),
+        NormalizedProduct("20107", "40002007", "PETG", "Basic", "A00", "Y0", "petg-basic"),
+        NormalizedProduct("20108", "40002008", "PETG", "Basic", "A00", "O0", "petg-basic"),
+        NormalizedProduct("20109", "40002009", "PETG", "Basic", "A00", "P0", "petg-basic"),
+        NormalizedProduct("20110", "40002010", "PETG", "Basic", "A00", "T0", "petg-basic"),
+        
+        // ABS Basic products (GFL01 material ID)
+        NormalizedProduct("30101", "40003001", "ABS", "Basic", "A00", "K0", "abs-basic"),
+        NormalizedProduct("30102", "40003002", "ABS", "Basic", "A00", "W0", "abs-basic"),
+        NormalizedProduct("30103", "40003003", "ABS", "Basic", "A00", "R0", "abs-basic"),
+        NormalizedProduct("30104", "40003004", "ABS", "Basic", "A00", "G0", "abs-basic"),
+        NormalizedProduct("30105", "40003005", "ABS", "Basic", "A00", "B0", "abs-basic"),
+        NormalizedProduct("30106", "40003006", "ABS", "Basic", "A00", "Y0", "abs-basic"),
+        NormalizedProduct("30107", "40003007", "ABS", "Basic", "A00", "O0", "abs-basic"),
+        NormalizedProduct("30108", "40003008", "ABS", "Basic", "A00", "S0", "abs-basic"),
+        
+        // ASA Basic products (GFL02 material ID)
+        NormalizedProduct("31101", "40003101", "ASA", "Basic", "A00", "K0", "asa-basic"),
+        NormalizedProduct("31102", "40003102", "ASA", "Basic", "A00", "W0", "asa-basic"),
+        NormalizedProduct("31103", "40003103", "ASA", "Basic", "A00", "R0", "asa-basic"),
+        NormalizedProduct("31104", "40003104", "ASA", "Basic", "A00", "G0", "asa-basic"),
+        NormalizedProduct("31105", "40003105", "ASA", "Basic", "A00", "B0", "asa-basic"),
+        NormalizedProduct("31106", "40003106", "ASA", "Basic", "A00", "Y0", "asa-basic"),
+        NormalizedProduct("31107", "40003107", "ASA", "Basic", "A00", "S0", "asa-basic"),
+        
+        // TPU 90A products (GFL04 material ID)
+        NormalizedProduct("40101", "40004001", "TPU", "90A", "A00", "K0", "tpu-90a"),
+        NormalizedProduct("40102", "40004002", "TPU", "90A", "A00", "W0", "tpu-90a"),
+        NormalizedProduct("40103", "40004003", "TPU", "90A", "A00", "C0", "tpu-90a"),
+        NormalizedProduct("40104", "40004004", "TPU", "90A", "A00", "R0", "tpu-90a"),
+        NormalizedProduct("40105", "40004005", "TPU", "90A", "A00", "G0", "tpu-90a"),
+        NormalizedProduct("40106", "40004006", "TPU", "90A", "A00", "B0", "tpu-90a"),
+        NormalizedProduct("40107", "40004007", "TPU", "90A", "A00", "Y0", "tpu-90a"),
+        NormalizedProduct("40108", "40004008", "TPU", "90A", "A00", "O0", "tpu-90a"),
+        
+        // PC Basic products (GFC00 material ID)
+        NormalizedProduct("50101", "40005001", "PC", "Basic", "A00", "K0", "pc-basic"),
+        NormalizedProduct("50102", "40005002", "PC", "Basic", "A00", "W0", "pc-basic"),
+        NormalizedProduct("50103", "40005003", "PC", "Basic", "A00", "C0", "pc-basic"),
+        NormalizedProduct("50104", "40005004", "PC", "Basic", "A00", "R0", "pc-basic"),
+        NormalizedProduct("50105", "40005005", "PC", "Basic", "A00", "B0", "pc-basic"),
+        
+        // PA Basic products (GFN04 material ID)
+        NormalizedProduct("60101", "40006001", "PA", "Basic", "A00", "W0", "pa-nylon"),
+        NormalizedProduct("60102", "40006002", "PA", "Basic", "A00", "K0", "pa-nylon"),
+        NormalizedProduct("60103", "40006003", "PA", "Basic", "A00", "G0", "pa-nylon"),
+        NormalizedProduct("60104", "40006004", "PA", "Basic", "A00", "R0", "pa-nylon"),
+        
+        // Support materials
+        NormalizedProduct("70101", "40007001", "PVA", "Basic", "A00", "W0", "pva-basic"),
+        NormalizedProduct("70201", "40007101", "SUPPORT", "Basic", "A00", "W0", "support-material")
+    )
 
     /**
      * Get material colors for a specific material and variant combination
      */
     fun getMaterialColorsByMaterial(materialName: String, variantName: String): List<MaterialColor> {
-        NormalizedDataPopulator.initialize()
+        if (materialColors.isEmpty()) {
+            Log.w(TAG, "getMaterialColorsByMaterial called but materialColors is empty")
+            return emptyList()
+        }
         return materialColors.filter { it.materialName == materialName && it.variantName == variantName }
     }
     
     fun getAllMaterialColors(): List<MaterialColor> {
-        NormalizedDataPopulator.initialize()
         return materialColors
     }
 
     fun getNormalizedProductBySku(sku: String): NormalizedProduct? {
-        NormalizedDataPopulator.initialize()
+        if (normalizedProducts.isEmpty()) {
+            Log.w(TAG, "getNormalizedProductBySku called but normalizedProducts is empty")
+            return null
+        }
         return normalizedProducts.find { it.sku == sku }
     }
     
     fun getAllNormalizedProducts(): List<NormalizedProduct> {
-        NormalizedDataPopulator.initialize()
+        if (normalizedProducts.isEmpty()) {
+            Log.w(TAG, "getAllNormalizedProducts called but normalizedProducts is empty")
+        }
         return normalizedProducts
     }
 
@@ -450,7 +699,11 @@ object NormalizedBambuData {
      * Get complete product information with all normalized data
      */
     fun getCompleteProductView(sku: String): CompleteProductView? {
-        NormalizedDataPopulator.initialize()
+        // Simple check to prevent issues when data is empty
+        if (normalizedProducts.isEmpty() || materialColors.isEmpty()) {
+            Log.w(TAG, "getCompleteProductView called but essential data is empty")
+            return null
+        }
         
         val product = getNormalizedProductBySku(sku) ?: return null
         val material = baseMaterials.find { it.name == product.materialName } ?: return null
