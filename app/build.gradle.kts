@@ -43,9 +43,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            isTestCoverageEnabled = true
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -54,6 +51,10 @@ android {
             )
             // Use committed debug keystore for consistent signing
             signingConfig = signingConfigs.getByName("debug")
+        }
+        getByName("debug") {
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
         }
     }
     compileOptions {
