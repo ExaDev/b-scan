@@ -17,7 +17,6 @@ import com.bscan.service.ComponentGroupingService
 import com.bscan.service.InferenceResult
 import com.bscan.service.InferredComponent
 import com.bscan.data.bambu.rfid.BambuMaterialIdMapper
-import com.bscan.data.bambu.rfid.BambuColorCodeMapper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -473,10 +472,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val mockFilamentInfo = FilamentInfo(
                 tagUid = "MOCK${System.currentTimeMillis()}",
                 trayUid = "MOCK_TRAY_${String.format("%03d", (simulationProductIndex / 2) + 1)}",
-                filamentType = BambuMaterialIdMapper.getDisplayName(materialCode),
-                detailedFilamentType = BambuMaterialIdMapper.getDisplayName(materialCode),
+                filamentType = BambuMaterialIdMapper.getDisplayName(materialCode) ?: "Unknown Material",
+                detailedFilamentType = BambuMaterialIdMapper.getDisplayName(materialCode) ?: "Unknown Material",
                 colorHex = "#808080", // Default gray for mock data
-                colorName = BambuColorCodeMapper.getColorInfo(colorCode)?.displayName ?: "Unknown",
+                colorName = "Mock Color $colorCode",
                 spoolWeight = 1000,
                 filamentDiameter = 1.75f,
                 filamentLength = kotlin.random.Random.nextInt(100000, 500000),
