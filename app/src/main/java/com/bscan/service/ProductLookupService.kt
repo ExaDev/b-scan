@@ -1,8 +1,9 @@
 package com.bscan.service
 
 import com.bscan.data.bambu.BambuVariantSkuMapper
+import com.bscan.data.bambu.BambuProductCatalog
+import com.bscan.data.bambu.NormalizedBambuData
 import com.bscan.data.bambu.rfid.BambuMaterialIdMapper
-import com.bscan.data.bambu.rfid.BambuColorCodeMapper
 import com.bscan.model.BambuProduct
 import com.bscan.model.ProductEntry
 import com.bscan.model.SpoolPackaging
@@ -31,21 +32,23 @@ object ProductLookupService {
                     if (variantParts.size == 2) {
                         val colorCode = variantParts[1] // e.g., "K0"
                         
-                        val materialDisplayName = BambuMaterialIdMapper.getDisplayName(materialCode)
-                        val colorInfo = BambuColorCodeMapper.getColorInfo(colorCode)
+                        // Get enhanced color information from product catalog
+                        val product = BambuProductCatalog.getProductBySku(skuInfo.sku)
+                        val materialDisplayName = product?.baseMaterial ?: BambuMaterialIdMapper.getDisplayName(materialCode)
+                        val colorName = product?.colorName ?: skuInfo.colorName
                         
                         ProductEntry(
                         variantId = skuInfo.sku,
-                        productHandle = skuInfo.materialType.lowercase().replace(" ", "-"),
+                        productHandle = (product?.materialType ?: skuInfo.materialType).lowercase().replace(" ", "-").replace("_", "-"),
                         productName = materialDisplayName,
-                        colorName = colorInfo?.displayName ?: "Unknown",
-                        colorHex = "#808080", // Default - real hex comes from RFID tag Block 5
+                        colorName = colorName,
+                        colorHex = product?.colorHex, // Use catalog hex or null for RFID Block 5
                         colorCode = colorCode,
                         price = 0.0,
                         available = true,
-                        url = "https://bambulab.com/en/filament/${skuInfo.materialType.lowercase().replace(" ", "-")}",
+                        url = "https://bambulab.com/en/filament/${(product?.materialType ?: skuInfo.materialType).lowercase().replace(" ", "-").replace("_", "-")}",
                         manufacturer = "Bambu Lab",
-                        materialType = skuInfo.materialType,
+                        materialType = product?.materialType ?: skuInfo.materialType,
                         internalCode = materialCode,
                         lastUpdated = "2025-08-27T00:00:00Z",
                         filamentWeightGrams = 1000f, // Default 1kg
@@ -93,4 +96,5 @@ object ProductLookupService {
             }
         )
     }
+    
 }

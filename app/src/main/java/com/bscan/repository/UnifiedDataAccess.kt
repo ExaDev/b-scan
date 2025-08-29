@@ -443,10 +443,10 @@ class UnifiedDataAccess(
         // For Bambu Lab, use mapper-based product lookup service
         if (manufacturerId == "bambu") {
             products.addAll(ProductLookupService.getAllProducts())
+        } else {
+            // Add catalog products for non-Bambu manufacturers
+            products.addAll(catalogRepo.getProducts(manufacturerId))
         }
-        
-        // Add catalog products (if any)
-        products.addAll(catalogRepo.getProducts(manufacturerId))
         
         // Add user-added products from custom manufacturers
         val customManufacturer = userRepo.getUserData().customMappings.manufacturers[manufacturerId]
