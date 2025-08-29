@@ -1,47 +1,75 @@
 package com.bscan.data.bambu.rfid
 
-import com.bscan.data.bambu.base.AbstractBambuMapper
-import com.bscan.data.bambu.base.MappingInfo
-import com.bscan.data.bambu.data.BambuMaterialMappings
+import com.bscan.data.bambu.NormalizedBambuData
 
 /**
  * Mapper for Bambu Lab filament material IDs.
- * 
- * Maps internal RFID material codes extracted from Block 1 (bytes 8-15) of Bambu RFID tags.
- * Contains ONLY real data extracted from 428 actual .bin files in test-data/rfid-library/
- * Contains ONLY information NOT available from RFID tag - just display names
+ *
+ * Maps internal RFID material codes extracted from Block 1 (bytes 8-15) of Bambu RFID tags
+ * to display names using the normalized data structure as the single source of truth.
  */
-object BambuMaterialIdMapper : AbstractBambuMapper<MappingInfo>() {
-    
-    override val mappings = BambuMaterialMappings.MATERIAL_ID_MAPPINGS
-    
-    override fun extractDisplayName(info: MappingInfo) = info.displayName
-    
-    override fun createUnknownPlaceholder(code: String) = "Unknown Material ($code)"
+object BambuMaterialIdMapper {
     
     /**
-     * Get material information by material ID
-     * @param materialId The material ID from RFID tag (e.g., "GFA00")
-     * @return MappingInfo or null if not found
+     * Material ID to base material and variant mapping
+     * This maps RFID material IDs to normalized material+variant combinations
      */
-    fun getMaterialInfo(materialId: String): MappingInfo? {
-        return getInfo(materialId)
-    }
+    private val materialIdMappings = mapOf(
+        // PLA variants
+        "GFA00" to ("PLA" to "Basic"),
+        "GFA01" to ("PLA" to "Matte"), 
+        "GFA02" to ("PLA" to "Metal"),
+        "GFA05" to ("PLA" to "Silk"),
+        "GFA07" to ("PLA" to "Marble"),
+        "GFA12" to ("PLA" to "Glow"),
+        
+        // PETG variants  
+        "GFG00" to ("PETG" to "Basic"),
+        "GFG01" to ("PETG" to "Basic"),
+        
+        // ABS variants
+        "GFL01" to ("ABS" to "Basic"),
+        
+        // ASA variants
+        "GFL02" to ("ASA" to "Basic"),
+        
+        // PC variants
+        "GFC00" to ("PC" to "Basic"),
+        
+        // PA variants  
+        "GFN04" to ("PA" to "Basic"),
+        
+        // TPU variants
+        "GFL04" to ("TPU" to "90A"),
+        
+        // Support variants
+        "GFS00" to ("PVA" to "Basic"),
+        "GFS01" to ("SUPPORT" to "Basic")
+    )
     
     /**
-     * Check if a material ID is known
-     * @param materialId The material ID to check
-     * @return true if the material ID is in the database
+     * Get display name for RFID material ID using normalized data
      */
-    fun isKnownMaterial(materialId: String): Boolean {
-        return isKnown(materialId)
-    }
-    
-    /**
-     * Get all known material IDs
-     * @return Set of all known material IDs
-     */
-    fun getAllKnownMaterialIds(): Set<String> {
-        return getAllKnownCodes()
+    fun getDisplayName(materialId: String): String {
+        val materialMapping = materialIdMappings[materialId]
+        if (materialMapping == null) {
+            return "Unknown ($materialId)"
+        }
+        
+        val (baseMaterialName, variantName) = materialMapping
+        val baseMaterial = NormalizedBambuData.baseMaterials.find { it.name == baseMaterialName }
+        val variant = NormalizedBambuData.materialVariants.find { it.name == variantName }
+        
+        return when {
+            baseMaterial != null && variant != null -> {
+                if (variantName == "Basic") {
+                    "Bambu ${baseMaterial.displayName}"
+                } else {
+                    "Bambu ${baseMaterial.displayName} ${variant.displayName}"
+                }
+            }
+            baseMaterial != null -> "Bambu ${baseMaterial.displayName}"
+            else -> "Unknown ($materialId)"
+        }
     }
 }
