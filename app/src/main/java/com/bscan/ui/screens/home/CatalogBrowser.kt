@@ -56,6 +56,10 @@ fun CatalogBrowser(
     val userDataRepository = remember { UserDataRepository(context) }
     val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userDataRepository) }
     
+    // Get user preferences for catalog display mode
+    val userData by remember { derivedStateOf { userDataRepository.getUserData() } }
+    val catalogDisplayMode = userData?.preferences?.catalogDisplayMode ?: CatalogDisplayMode.COMPLETE_TITLE
+    
     
     // Get catalog data
     val catalog by remember { derivedStateOf { catalogRepository.getCatalog() } }
@@ -135,6 +139,7 @@ fun CatalogBrowser(
                     item(key = "${productInfo.manufacturerId}_${productInfo.product.variantId}") {
                         ProductCard(
                             productInfo = productInfo,
+                            catalogDisplayMode = catalogDisplayMode,
                             onClick = {
                                 onNavigateToDetails?.invoke(
                                     DetailType.SKU, 
@@ -214,6 +219,7 @@ data class ProductWithManufacturer private constructor(
 @Composable
 fun ProductCard(
     productInfo: ProductWithManufacturer,
+    catalogDisplayMode: CatalogDisplayMode,
     onClick: () -> Unit
 ) {
     val product = productInfo.product
@@ -242,19 +248,37 @@ fun ProductCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                // Title based on display mode
                 Text(
-                    text = "${productInfo.normalizedProduct.variantName} ${productInfo.materialColor.colorName} ${productInfo.normalizedProduct.materialName}",
+                    text = when (catalogDisplayMode) {
+                        CatalogDisplayMode.COMPLETE_TITLE -> 
+                            "${productInfo.normalizedProduct.variantName} ${productInfo.materialColor.colorName} ${productInfo.normalizedProduct.materialName}"
+                        CatalogDisplayMode.COLOR_FOCUSED -> 
+                            productInfo.materialColor.colorName
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 
-                Text(
-                    text = "${productInfo.normalizedProduct.materialName} ${productInfo.normalizedProduct.variantName} • SKU: ${product.variantId}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Properties based on display mode
+                when (catalogDisplayMode) {
+                    CatalogDisplayMode.COMPLETE_TITLE -> {
+                        Text(
+                            text = "SKU: ${product.variantId}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    CatalogDisplayMode.COLOR_FOCUSED -> {
+                        Text(
+                            text = "${productInfo.normalizedProduct.materialName} ${productInfo.normalizedProduct.variantName} • SKU: ${product.variantId}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 
                 // Temperature info if available
                 productInfo.temperatureProfile?.let { profile ->
