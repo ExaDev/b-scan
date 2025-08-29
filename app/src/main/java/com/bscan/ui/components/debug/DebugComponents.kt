@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.widget.Toast
@@ -525,5 +526,74 @@ private fun exportRawData(context: Context, hexData: String, label: String) {
         
     } catch (e: Exception) {
         Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DebugInfoHeaderPreview() {
+    MaterialTheme {
+        DebugInfoHeader(
+            expanded = false,
+            onToggleExpanded = { },
+            onCopyToClipboard = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DebugSectionPreview() {
+    MaterialTheme {
+        DebugSection(title = "Authentication Status") {
+            DebugRow("Authenticated Sectors", "1, 2, 3")
+            DebugRow("Failed Sectors", "None")
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DebugRowPreview() {
+    MaterialTheme {
+        androidx.compose.foundation.layout.Column {
+            DebugRow("Tag Size", "1024 bytes")
+            DebugRow("UID", "A1B2C3D4E5F6", monospace = true)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun TagInfoSectionPreview() {
+    MaterialTheme {
+        val mockDebugInfo = com.bscan.model.ScanDebugInfo(
+            uid = "A1B2C3D4",
+            tagSizeBytes = 1024,
+            sectorCount = 16,
+            authenticatedSectors = listOf(1, 2, 3),
+            failedSectors = listOf(4, 5),
+            derivedKeys = emptyList(),
+            blockData = emptyMap(),
+            rawColorBytes = "",
+            fullRawHex = "",
+            decryptedHex = "",
+            errorMessages = emptyList(),
+            usedKeyTypes = emptyMap(),
+            parsingDetails = emptyMap()
+        )
+        
+        TagInfoSection(debugInfo = mockDebugInfo)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RawDataDisplayPreview() {
+    MaterialTheme {
+        RawDataDisplay(
+            data = "AABBCCDDEEFF00112233445566778899",
+            label = "Raw Data"
+        )
     }
 }

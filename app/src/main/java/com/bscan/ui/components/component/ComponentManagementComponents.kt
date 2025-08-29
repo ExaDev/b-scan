@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.logic.ComponentValidation
 import com.bscan.model.Component
@@ -607,5 +608,101 @@ private fun formatMass(massGrams: Float?): String {
         "${String.format("%.1f", massGrams / 1000f)}kg"
     } else {
         "${String.format("%.1f", massGrams)}g"
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentListCardPreview() {
+    MaterialTheme {
+        val mockComponent = Component(
+            id = "comp_1",
+            name = "PLA Filament - Ocean Blue",
+            category = "filament",
+            massGrams = 850.0f,
+            manufacturer = "Bambu Lab",
+            description = "Premium PLA filament with excellent print quality and vibrant colors",
+            variableMass = true,
+            isInventoryItem = true,
+            tags = listOf("3d-printing", "pla", "blue")
+        )
+        
+        ComponentListCard(
+            component = mockComponent,
+            onEdit = { },
+            onCopy = { },
+            onDelete = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentEditDialogPreview() {
+    MaterialTheme {
+        val mockComponent = Component(
+            id = "comp_1",
+            name = "PETG Filament",
+            category = "filament",
+            massGrams = 750.0f,
+            manufacturer = "Polymaker",
+            description = "Clear PETG with excellent transparency",
+            variableMass = true
+        )
+        
+        ComponentEditDialog(
+            component = mockComponent,
+            onSave = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentSelectionDialogPreview() {
+    MaterialTheme {
+        val mockComponents = listOf(
+            Component(
+                id = "comp_1",
+                name = "Cardboard Core",
+                category = "core",
+                massGrams = 33.0f,
+                manufacturer = "Generic"
+            ),
+            Component(
+                id = "comp_2",
+                name = "Plastic Spool",
+                category = "spool",
+                massGrams = 250.0f,
+                manufacturer = "Bambu Lab"
+            )
+        )
+        
+        ComponentSelectionDialog(
+            availableComponents = mockComponents,
+            selectedComponents = listOf("comp_1"),
+            onSelectionChanged = { },
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentDeleteConfirmationDialogPreview() {
+    MaterialTheme {
+        val mockComponent = Component(
+            id = "comp_1",
+            name = "Test Component",
+            category = "test",
+            massGrams = 100.0f
+        )
+        
+        ComponentDeleteConfirmationDialog(
+            component = mockComponent,
+            onConfirm = { },
+            onDismiss = { }
+        )
     }
 }

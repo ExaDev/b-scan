@@ -212,4 +212,100 @@ fun InventoryChildComponentCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun InventoryChildComponentCardDepth0Preview() {
+    MaterialTheme {
+        InventoryChildComponentCard(
+            component = createMockChildComponent(depth = 0),
+            allComponents = createMockChildComponents(),
+            depth = 0,
+            onDeleteComponent = { }
+        )
+    }
+}
 
+@Preview(showBackground = true)
+@Composable
+private fun InventoryChildComponentCardDepth1Preview() {
+    MaterialTheme {
+        InventoryChildComponentCard(
+            component = createMockChildComponent(depth = 1),
+            allComponents = createMockChildComponents(),
+            depth = 1,
+            onDeleteComponent = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InventoryChildComponentVariableMassPreview() {
+    MaterialTheme {
+        InventoryChildComponentCard(
+            component = createMockVariableMassComponent(),
+            allComponents = emptyList(),
+            depth = 0,
+            onDeleteComponent = { }
+        )
+    }
+}
+
+// Mock data for preview
+private fun createMockChildComponent(depth: Int): Component {
+    return Component(
+        id = "component_child_$depth",
+        identifiers = listOf(
+            ComponentIdentifier(
+                type = IdentifierType.RFID_HARDWARE,
+                value = "A${depth}B2C3D4",
+                purpose = IdentifierPurpose.AUTHENTICATION
+            ),
+            ComponentIdentifier(
+                type = IdentifierType.SERIAL_NUMBER,
+                value = "SN12345$depth",
+                purpose = IdentifierPurpose.TRACKING
+            )
+        ),
+        name = "RFID Tag #${depth + 1}",
+        category = "rfid-tag",
+        tags = listOf("authentication", "hardware"),
+        parentComponentId = "parent_component",
+        massGrams = 2.5f,
+        manufacturer = "Bambu Lab",
+        description = "Authentication tag for filament identification",
+        lastUpdated = LocalDateTime.now().minusMinutes(30)
+    )
+}
+
+private fun createMockVariableMassComponent(): Component {
+    return Component(
+        id = "component_variable",
+        identifiers = listOf(
+            ComponentIdentifier(
+                type = IdentifierType.CONSUMABLE_UNIT,
+                value = "01008023456789AB",
+                purpose = IdentifierPurpose.TRACKING
+            )
+        ),
+        name = "PLA Filament",
+        category = "filament",
+        tags = listOf("PLA", "Orange", "Low"),
+        parentComponentId = "parent_tray",
+        massGrams = 45.8f,  // Low remaining mass
+        fullMassGrams = 330.0f,  // Original full mass
+        variableMass = true,
+        inferredMass = true,
+        manufacturer = "Bambu Lab",
+        description = "Running low on filament",
+        lastUpdated = LocalDateTime.now().minusHours(1)
+    )
+}
+
+private fun createMockChildComponents(): List<Component> {
+    return listOf(
+        createMockChildComponent(0),
+        createMockChildComponent(1),
+        createMockVariableMassComponent()
+    )
+}

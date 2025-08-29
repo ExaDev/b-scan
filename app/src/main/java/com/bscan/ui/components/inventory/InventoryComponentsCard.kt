@@ -13,8 +13,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
 import com.bscan.logic.WeightUnit
-import com.bscan.model.Component
+import com.bscan.model.*
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -275,4 +277,154 @@ private fun formatMass(massGrams: Float?, preferredUnit: WeightUnit): String {
         WeightUnit.OUNCES -> "${String.format("%.2f", massGrams * 0.035274f)}oz"
         WeightUnit.POUNDS -> "${String.format("%.3f", massGrams * 0.00220462f)}lbs"
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InventoryComponentsCardEmptyPreview() {
+    MaterialTheme {
+        InventoryComponentsCard(
+            inventoryComponent = createMockInventoryComponent(),
+            childComponents = emptyList(),
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onEditComponentMass = { },
+            onAddComponent = { },
+            onRemoveComponent = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InventoryComponentsCardWithComponentsPreview() {
+    MaterialTheme {
+        InventoryComponentsCard(
+            inventoryComponent = createMockInventoryComponent(),
+            childComponents = createMockChildComponentList(),
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onEditComponentMass = { },
+            onAddComponent = { },
+            onRemoveComponent = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ComponentItemCardPreview() {
+    MaterialTheme {
+        ComponentItemCard(
+            component = createMockFilamentComponent(),
+            preferredWeightUnit = WeightUnit.GRAMS,
+            onEditMass = { },
+            onRemove = { }
+        )
+    }
+}
+
+// Mock data for preview
+private fun createMockInventoryComponent(): Component {
+    return Component(
+        id = "inventory_main",
+        identifiers = listOf(
+            ComponentIdentifier(
+                type = IdentifierType.CONSUMABLE_UNIT,
+                value = "01008023456789AB",
+                purpose = IdentifierPurpose.TRACKING
+            )
+        ),
+        name = "PLA Basic Filament Tray",
+        category = "filament-tray",
+        tags = listOf("PLA", "Orange", "1.75mm"),
+        manufacturer = "Bambu Lab",
+        description = "Complete filament tray system"
+    )
+}
+
+private fun createMockChildComponentList(): List<Component> {
+    return listOf(
+        Component(
+            id = "component_filament",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CONSUMABLE_UNIT,
+                    value = "01008023456789AB",
+                    purpose = IdentifierPurpose.TRACKING
+                )
+            ),
+            name = "PLA Filament",
+            category = "filament",
+            tags = listOf("PLA", "Orange"),
+            parentComponentId = "inventory_main",
+            massGrams = 165.5f,
+            fullMassGrams = 330.0f,
+            variableMass = true,
+            manufacturer = "Bambu Lab",
+            description = "Remaining filament material"
+        ),
+        Component(
+            id = "component_spool",
+            name = "Empty Spool",
+            category = "spool",
+            parentComponentId = "inventory_main",
+            massGrams = 245.0f,
+            manufacturer = "Bambu Lab",
+            description = "Reusable spool"
+        ),
+        Component(
+            id = "component_rfid1",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = "A1B2C3D4",
+                    purpose = IdentifierPurpose.AUTHENTICATION
+                )
+            ),
+            name = "RFID Tag #1",
+            category = "rfid-tag",
+            parentComponentId = "inventory_main",
+            massGrams = 2.1f,
+            manufacturer = "Bambu Lab",
+            description = "Primary authentication tag"
+        ),
+        Component(
+            id = "component_rfid2",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = "E5F6G7H8",
+                    purpose = IdentifierPurpose.AUTHENTICATION
+                )
+            ),
+            name = "RFID Tag #2",
+            category = "rfid-tag", 
+            parentComponentId = "inventory_main",
+            massGrams = 2.3f,
+            manufacturer = "Bambu Lab",
+            description = "Secondary authentication tag"
+        )
+    )
+}
+
+private fun createMockFilamentComponent(): Component {
+    return Component(
+        id = "component_filament_preview",
+        identifiers = listOf(
+            ComponentIdentifier(
+                type = IdentifierType.CONSUMABLE_UNIT,
+                value = "01008023456789AB",
+                purpose = IdentifierPurpose.TRACKING
+            )
+        ),
+        name = "PLA Filament",
+        category = "filament",
+        tags = listOf("PLA", "Orange", "Running Low"),
+        parentComponentId = "parent_tray",
+        massGrams = 48.2f,  // Low remaining mass
+        fullMassGrams = 330.0f,  // Original full mass  
+        variableMass = true,
+        manufacturer = "Bambu Lab",
+        description = "Premium PLA filament material",
+        lastUpdated = LocalDateTime.now().minusHours(2)
+    )
 }

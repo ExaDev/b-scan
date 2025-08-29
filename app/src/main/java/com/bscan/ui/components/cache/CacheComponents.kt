@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.cache.CacheStatistics
 import com.bscan.cache.CacheSizeInfo
@@ -256,5 +257,87 @@ fun getCachePerformanceLevel(hitRate: Float): String {
         hitRate >= 0.4f -> "Fair"
         hitRate >= 0.2f -> "Poor"
         else -> "Very Poor"
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CachePerformanceHeaderPreview() {
+    MaterialTheme {
+        CachePerformanceHeader(
+            expanded = false,
+            onExpandToggle = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CacheHitRateDisplayPreview() {
+    MaterialTheme {
+        val mockStats = CacheStatistics(
+            memoryHits = 120,
+            persistentHits = 45,
+            misses = 15,
+            errors = 2,
+            invalidations = 5
+        )
+        
+        CacheHitRateDisplay(stats = mockStats)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CacheDetailedStatsPreview() {
+    MaterialTheme {
+        val mockStats = CacheStatistics(
+            memoryHits = 150,
+            persistentHits = 60,
+            misses = 20,
+            errors = 3,
+            invalidations = 8
+        )
+        
+        val mockSizes = CacheSizeInfo(
+            memorySize = 45,
+            memoryMaxSize = 100,
+            persistentSize = 120,
+            persistentMaxSize = 500
+        )
+        
+        CacheDetailedStats(
+            stats = mockStats,
+            sizes = mockSizes
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CacheStatRowPreview() {
+    MaterialTheme {
+        androidx.compose.foundation.layout.Column {
+            CacheStatRow(
+                label = "Memory Hits",
+                value = "150",
+                icon = Icons.Default.Memory
+            )
+            
+            CacheStatRow(
+                label = "Errors",
+                value = "3",
+                icon = null,
+                valueColor = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CacheNotInitializedDisplayPreview() {
+    MaterialTheme {
+        CacheNotInitializedDisplay()
     }
 }
