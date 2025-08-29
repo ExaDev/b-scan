@@ -309,6 +309,15 @@ private fun buildAllRawDataString(tag: com.bscan.repository.InterpretedScan): St
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun TagRawDataCardPreview() {
+    MaterialTheme {
+        TagRawDataCard(
+            tag = createMockInterpretedScanWithData()
+        )
+    }
+}
 
 // Mock data with blocks and keys for preview
 private fun createMockInterpretedScanWithData(): com.bscan.repository.InterpretedScan {

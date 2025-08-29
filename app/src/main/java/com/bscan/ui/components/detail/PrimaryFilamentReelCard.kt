@@ -65,6 +65,15 @@ fun PrimaryFilamentReelCard(
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+private fun PrimaryFilamentReelCardPreview() {
+    MaterialTheme {
+        PrimaryFilamentReelCard(
+            filamentReel = createMockFilamentReelDetails()
+        )
+    }
+}
 
 // Mock data for preview
 private fun createMockFilamentReelDetails(): com.bscan.repository.FilamentReelDetails {

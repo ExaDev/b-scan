@@ -11,9 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.model.UpdateInfo
 import com.bscan.model.UpdateStatus
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -357,5 +359,96 @@ fun formatFileSize(sizeInBytes: Long): String {
         mb >= 1 -> "%.1f MB".format(mb)
         kb >= 1 -> "%.1f KB".format(kb)
         else -> "$sizeInBytes B"
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UpdateDialogHeaderPreview() {
+    MaterialTheme {
+        UpdateDialogHeader(
+            status = UpdateStatus.AVAILABLE,
+            onDismiss = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UpdateVersionInfoPreview() {
+    MaterialTheme {
+        val mockUpdateInfo = UpdateInfo(
+            latestVersion = "1.5.2",
+            currentVersion = "1.5.0",
+            releaseNotes = "Bug fixes and performance improvements",
+            downloadUrl = "https://github.com/example/releases/1.5.2.apk",
+            publishedAt = LocalDateTime.of(2024, 3, 15, 10, 30),
+            isPrerelease = false,
+            fileSize = 15728640L
+        )
+        
+        UpdateVersionInfo(updateInfo = mockUpdateInfo)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UpdateReleaseInfoPreview() {
+    MaterialTheme {
+        val mockUpdateInfo = UpdateInfo(
+            latestVersion = "1.5.2-beta",
+            currentVersion = "1.5.0",
+            releaseNotes = "Beta release with new features",
+            downloadUrl = "https://github.com/example/releases/1.5.2-beta.apk",
+            publishedAt = LocalDateTime.of(2024, 3, 15, 14, 45),
+            isPrerelease = true,
+            fileSize = 16777216L
+        )
+        
+        UpdateReleaseInfo(updateInfo = mockUpdateInfo)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UpdateProgressIndicatorPreview() {
+    MaterialTheme {
+        androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)) {
+            UpdateProgressIndicator(
+                status = UpdateStatus.DOWNLOADING,
+                downloadProgress = 65
+            )
+            
+            UpdateProgressIndicator(
+                status = UpdateStatus.INSTALLING,
+                downloadProgress = 100
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UpdateActionButtonsPreview() {
+    MaterialTheme {
+        val mockUpdateInfo = UpdateInfo(
+            latestVersion = "1.5.2",
+            currentVersion = "1.5.0",
+            releaseNotes = "Update available",
+            downloadUrl = "https://github.com/example/releases/1.5.2.apk",
+            publishedAt = LocalDateTime.of(2024, 3, 15, 10, 30),
+            isPrerelease = false,
+            fileSize = 15728640L
+        )
+        
+        UpdateActionButtons(
+            status = UpdateStatus.AVAILABLE,
+            updateInfo = mockUpdateInfo,
+            onDownload = { },
+            onInstall = { },
+            onDismiss = { },
+            onViewOnGitHub = { },
+            onDismissVersion = { }
+        )
     }
 }

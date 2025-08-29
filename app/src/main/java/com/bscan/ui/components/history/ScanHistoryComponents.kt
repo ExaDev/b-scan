@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bscan.model.ScanResult
@@ -348,4 +349,143 @@ fun ScanHistoryEmptyState(
         subtitle = subtitle,
         modifier = modifier
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanStatisticsCardPreview() {
+    MaterialTheme {
+        val mockScans = listOf(
+            InterpretedScan(
+                uid = "A1B2C3D4",
+                timestamp = java.time.LocalDateTime.now().minusHours(2),
+                technology = "NFC-A",
+                scanResult = ScanResult.SUCCESS,
+                filamentInfo = com.bscan.model.FilamentInfo(
+                    filamentType = "PLA",
+                    colorName = "Ocean Blue",
+                    colorHex = "#1976D2",
+                    productionDate = "2024-03-15",
+                    trayUid = "01008023456789",
+                    tagUid = "A1B2C3D4"
+                ),
+                debugInfo = com.bscan.model.ScanDebugInfo(
+                    uid = "A1B2C3D4",
+                    tagSizeBytes = 1024,
+                    sectorCount = 16,
+                    authenticatedSectors = listOf(1, 2, 3),
+                    failedSectors = emptyList(),
+                    derivedKeys = emptyList(),
+                    blockData = emptyMap(),
+                    rawColorBytes = "",
+                    fullRawHex = "",
+                    decryptedHex = "",
+                    errorMessages = emptyList(),
+                    usedKeyTypes = emptyMap(),
+                    parsingDetails = emptyMap()
+                )
+            ),
+            InterpretedScan(
+                uid = "E5F6A7B8",
+                timestamp = java.time.LocalDateTime.now().minusHours(1),
+                technology = "NFC-A",
+                scanResult = ScanResult.AUTHENTICATION_FAILED,
+                filamentInfo = null,
+                debugInfo = com.bscan.model.ScanDebugInfo(
+                    uid = "E5F6A7B8",
+                    tagSizeBytes = 1024,
+                    sectorCount = 16,
+                    authenticatedSectors = emptyList(),
+                    failedSectors = listOf(1, 2, 3),
+                    derivedKeys = emptyList(),
+                    blockData = emptyMap(),
+                    rawColorBytes = "",
+                    fullRawHex = "",
+                    decryptedHex = "",
+                    errorMessages = listOf("Authentication failed for sector 1"),
+                    usedKeyTypes = emptyMap(),
+                    parsingDetails = emptyMap()
+                )
+            )
+        )
+        
+        ScanStatisticsCard(
+            repository = com.bscan.repository.ScanHistoryRepository(androidx.compose.ui.platform.LocalContext.current),
+            scans = mockScans
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanHistoryFiltersPreview() {
+    MaterialTheme {
+        ScanHistoryFilters(
+            selectedFilter = "All",
+            onFilterChanged = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanHistoryCardPreview() {
+    MaterialTheme {
+        val mockScan = InterpretedScan(
+            uid = "A1B2C3D4E5F6",
+            timestamp = java.time.LocalDateTime.now().minusHours(1),
+            technology = "NFC-A",
+            scanResult = ScanResult.SUCCESS,
+            filamentInfo = com.bscan.model.FilamentInfo(
+                filamentType = "PLA",
+                colorName = "Vibrant Red",
+                colorHex = "#F44336",
+                productionDate = "2024-03-15",
+                trayUid = "01008023456789",
+                tagUid = "A1B2C3D4E5F6"
+            ),
+            debugInfo = com.bscan.model.ScanDebugInfo(
+                uid = "A1B2C3D4E5F6",
+                tagSizeBytes = 1024,
+                sectorCount = 16,
+                authenticatedSectors = listOf(1, 2, 3, 4),
+                failedSectors = emptyList(),
+                derivedKeys = listOf("key1", "key2"),
+                blockData = mapOf(1 to "00112233445566778899AABBCCDDEEFF"),
+                rawColorBytes = "FF0000",
+                fullRawHex = "AABBCCDDEEFF",
+                decryptedHex = "1122334455",
+                errorMessages = emptyList(),
+                usedKeyTypes = mapOf(1 to "A", 2 to "B"),
+                parsingDetails = mapOf("color_parsed" to true)
+            )
+        )
+        
+        ScanHistoryCard(
+            scan = mockScan,
+            isExpanded = false,
+            onToggleExpanded = { }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanResultBadgePreview() {
+    MaterialTheme {
+        androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            ScanResultBadge(ScanResult.SUCCESS)
+            ScanResultBadge(ScanResult.AUTHENTICATION_FAILED)
+            ScanResultBadge(ScanResult.PARSING_FAILED)
+            ScanResultBadge(ScanResult.NO_NFC_TAG)
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanHistoryEmptyStatePreview() {
+    MaterialTheme {
+        ScanHistoryEmptyState(filter = "All")
+    }
 }
