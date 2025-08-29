@@ -20,8 +20,8 @@ import com.bscan.ble.BlePermissionHandler
 
 class MainActivity : ComponentActivity() {
     
-    private lateinit var nfcManager: NfcManager
-    private lateinit var nfcIntentProcessor: NfcIntentProcessor
+    private var nfcManager: NfcManager? = null
+    private var nfcIntentProcessor: NfcIntentProcessor? = null
     private lateinit var hapticFeedbackProvider: HapticFeedbackProvider
     private lateinit var blePermissionHandler: BlePermissionHandler
     
@@ -38,20 +38,25 @@ class MainActivity : ComponentActivity() {
         CachedBambuKeyDerivation.initialize(this)
         
         
-        nfcManager = NfcManager(this)
+        // Check NFC availability before initialising NFC-dependent components
+        val isNfcSupported = NfcAdapter.getDefaultAdapter(this) != null
+        
         hapticFeedbackProvider = HapticFeedbackProvider(this)
         blePermissionHandler = BlePermissionHandler(this)
-        nfcIntentProcessor = NfcIntentProcessor(
-            nfcManager = nfcManager,
-            viewModel = viewModel,
-            lifecycleScope = lifecycleScope,
-            hapticFeedbackProvider = hapticFeedbackProvider
-        )
         
-        if (!nfcManager.isNfcAvailable()) {
-            Toast.makeText(this, "NFC is not supported on this device", Toast.LENGTH_LONG).show()
-            finish()
-            return
+        if (isNfcSupported) {
+            val nfcManagerInstance = NfcManager(this)
+            nfcManager = nfcManagerInstance
+            nfcIntentProcessor = NfcIntentProcessor(
+                nfcManager = nfcManagerInstance,
+                viewModel = viewModel,
+                lifecycleScope = lifecycleScope,
+                hapticFeedbackProvider = hapticFeedbackProvider
+            )
+        } else {
+            // Show informational message but continue app functionality
+            Toast.makeText(this, "NFC not available - app will work with limited functionality", Toast.LENGTH_LONG).show()
+            viewModel.setNfcError("NFC hardware not available on this device")
         }
         
         setContent {
@@ -72,22 +77,23 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         
-        if (!nfcManager.isNfcEnabled()) {
-            viewModel.setNfcError("NFC is disabled")
-            return
+        nfcManager?.let { manager ->
+            if (!manager.isNfcEnabled()) {
+                viewModel.setNfcError("NFC is disabled")
+                return
+            }
+            manager.enableForegroundDispatch()
         }
-        
-        nfcManager.enableForegroundDispatch()
     }
     
     override fun onPause() {
         super.onPause()
-        nfcManager.disableForegroundDispatch()
+        nfcManager?.disableForegroundDispatch()
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        nfcManager.cleanup()
+        nfcManager?.cleanup()
     }
     
     override fun onNewIntent(intent: Intent) {
@@ -96,6 +102,6 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleIntent(intent: Intent) {
-        nfcIntentProcessor.handleIntent(intent)
+        nfcIntentProcessor?.handleIntent(intent)
     }
 }
