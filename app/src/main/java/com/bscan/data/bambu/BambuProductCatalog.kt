@@ -1,10 +1,9 @@
 package com.bscan.data.bambu
 
 /**
- * Bambu Lab product catalog facade providing backward compatibility.
+ * Bambu Lab product catalog facade.
  * 
- * This facade delegates to NormalizedBambuData for all actual data storage
- * while maintaining the same API as the original denormalized catalog.
+ * This facade delegates to NormalizedBambuData for all actual data storage.
  */
 object BambuProductCatalog {
 

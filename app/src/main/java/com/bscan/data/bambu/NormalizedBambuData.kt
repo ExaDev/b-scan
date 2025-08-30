@@ -681,7 +681,7 @@ object NormalizedBambuData {
         val productUrl: String?
     ) {
         /**
-         * Get material type string for backwards compatibility
+         * Get material type string
          */
         val materialType: String
             get() = if (variant.name.equals("Basic", ignoreCase = true)) {
@@ -691,7 +691,7 @@ object NormalizedBambuData {
             }
 
         /**
-         * Convert to PurchaseLinks for UI compatibility
+         * Convert to PurchaseLinks for UI display
          */
         fun toPurchaseLinks(): PurchaseLinks {
             return PurchaseLinks(

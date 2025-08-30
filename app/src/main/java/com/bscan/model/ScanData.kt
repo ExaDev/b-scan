@@ -198,7 +198,7 @@ object RfidDataFormat {
     }
     
     /**
-     * Get data blocks only (legacy format)
+     * Get data blocks only
      */
     fun getDataBlocks(data: ByteArray): Map<Int, String> = when (detectFormat(data)) {
         RfidFormat.DATA_ONLY -> getDataOnlyBlocks(data)

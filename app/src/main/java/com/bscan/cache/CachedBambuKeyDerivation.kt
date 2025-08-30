@@ -6,8 +6,7 @@ import com.bscan.nfc.BambuKeyDerivation
 
 /**
  * Cached wrapper for BambuKeyDerivation that provides transparent caching
- * of expensive HKDF operations. This class maintains backward compatibility
- * while adding caching capabilities.
+ * of expensive HKDF operations.
  * 
  * Usage:
  * - Replace direct BambuKeyDerivation.deriveKeys() calls with this wrapper

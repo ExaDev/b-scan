@@ -43,7 +43,6 @@ class InterpreterFactory(
         }
         
         // If format is UNKNOWN or tagged interpreter failed, try all interpreters
-        // This handles legacy scan data that was stored with UNKNOWN format
         for ((_, interpreter) in interpreters) {
             if (interpreter.canInterpret(decryptedData)) {
                 return interpreter.interpret(decryptedData)

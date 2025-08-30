@@ -172,7 +172,7 @@ object BambuTagDecoder {
             // Block 17: Unknown data (capture all 16 bytes for research per official guide)
             val unknownBlock17 = bytes(data.bytes, 17, 0, 16)
             val unknownBlock17Hex = hexstring(data.bytes, 17, 0, 16)
-            val unknownBlock17FirstTwoBytes = bytes(data.bytes, 17, 0, 2) // Keep original 2-byte field for compatibility
+            val unknownBlock17FirstTwoBytes = bytes(data.bytes, 17, 0, 2) // First 2 bytes for analysis
             Log.d(TAG, "Block 17 full data: $unknownBlock17Hex")
             Log.d(TAG, "Block 17 first 2 bytes: ${unknownBlock17FirstTwoBytes.joinToString("") { "%02X".format(it) }}")
             

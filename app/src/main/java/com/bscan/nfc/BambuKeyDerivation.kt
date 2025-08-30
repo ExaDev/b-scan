@@ -30,7 +30,7 @@ object BambuKeyDerivation {
             return arrayOf()
         }
         
-        // Generate both key derivation methods and combine them for broader compatibility
+        // Generate standard HKDF keys
         val standardKeys = deriveKeysStandard(uid)
         Log.d(TAG, "Generated ${standardKeys.size} standard HKDF keys from UID")
         
