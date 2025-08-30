@@ -22,6 +22,8 @@ import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.*
 import com.bscan.ui.screens.ScanDetailScreen
+import com.bscan.ui.screens.TagDetailScreen
+import com.bscan.ui.screens.ComponentDetailScreen
 import com.bscan.viewmodel.UpdateViewModel
 import com.bscan.ble.BlePermissionHandler
 
@@ -196,13 +198,39 @@ fun AppNavigation(
                         }
                     )
                 }
+                "tag" -> {
+                    Log.d("AppNavigation", "Showing TagDetailScreen for tag UID: $identifier")
+                    TagDetailScreen(
+                        tagUid = identifier.trim(),
+                        onNavigateBack = { 
+                            Log.d("AppNavigation", "Navigating back from TagDetailScreen")
+                            navController.popBackStack() 
+                        }
+                    )
+                }
+                "component" -> {
+                    Log.d("AppNavigation", "Showing ComponentDetailScreen for component ID: $identifier")
+                    ComponentDetailScreen(
+                        componentId = identifier.trim(),
+                        onNavigateBack = { 
+                            Log.d("AppNavigation", "Navigating back from ComponentDetailScreen")
+                            navController.popBackStack() 
+                        },
+                        onNavigateToDetails = { newDetailType, newIdentifier ->
+                            if (newIdentifier.isNotBlank()) {
+                                Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
+                                navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                            } else {
+                                Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                            }
+                        }
+                    )
+                }
                 else -> {
                     val detailType = when (typeStr.lowercase().trim()) {
-                        "tag" -> DetailType.TAG
                         "spool" -> DetailType.INVENTORY_STOCK
                         "inventory_stock" -> DetailType.INVENTORY_STOCK
                         "sku" -> DetailType.SKU
-                        "component" -> DetailType.COMPONENT
                         else -> {
                             Log.e("AppNavigation", "Unknown detail type: $typeStr")
                             // Navigate back to main screen on unknown type
