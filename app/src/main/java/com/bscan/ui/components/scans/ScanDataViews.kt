@@ -14,10 +14,10 @@ import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
 
 /**
- * Display raw tag data in formatted hex dump
+ * Display raw tag data in formatted hex dump (encoded data as received)
  */
 @Composable
-fun RawDataView(
+fun EncodedDataView(
     encryptedScanData: EncryptedScanData,
     modifier: Modifier = Modifier
 ) {
@@ -482,6 +482,118 @@ private fun ErrorMessagesCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Display combined decoded and decrypted data view (comprehensive view)
+ */
+@Composable
+fun DecodedDecryptedDataView(
+    encryptedScanData: EncryptedScanData,
+    decryptedScanData: DecryptedScanData,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        item {
+            Text(
+                text = "Complete Scan Data",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        // Basic tag information (decoded)
+        item {
+            MetadataCard(
+                title = "Tag Information",
+                items = listOf(
+                    "Tag UID" to encryptedScanData.tagUid,
+                    "Technology" to encryptedScanData.technology,
+                    "Format" to decryptedScanData.tagFormat.name,
+                    "Data Size" to "${encryptedScanData.encryptedData.size} bytes"
+                )
+            )
+        }
+        
+        // Scan performance and timing (decoded)
+        item {
+            MetadataCard(
+                title = "Scan Performance",
+                items = buildList {
+                    add("Timestamp" to encryptedScanData.timestamp.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    add("Scan Duration" to "${encryptedScanData.scanDurationMs}ms")
+                    if (decryptedScanData.keyDerivationTimeMs > 0) {
+                        add("Key Derivation" to "${decryptedScanData.keyDerivationTimeMs}ms")
+                    }
+                    if (decryptedScanData.authenticationTimeMs > 0) {
+                        add("Authentication" to "${decryptedScanData.authenticationTimeMs}ms")
+                    }
+                }
+            )
+        }
+        
+        // Authentication results (decoded + decrypted)
+        item {
+            AuthenticationResultsCard(
+                authenticatedSectors = decryptedScanData.authenticatedSectors,
+                failedSectors = decryptedScanData.failedSectors,
+                usedKeys = decryptedScanData.usedKeys
+            )
+        }
+        
+        // Derived keys (decrypted)
+        if (decryptedScanData.derivedKeys.isNotEmpty()) {
+            item {
+                DerivedKeysCard(derivedKeys = decryptedScanData.derivedKeys)
+            }
+        }
+        
+        // Decrypted blocks (decrypted)
+        if (decryptedScanData.decryptedBlocks.isNotEmpty()) {
+            item {
+                DecryptedBlocksCard(blocks = decryptedScanData.decryptedBlocks)
+            }
+        }
+        
+        // Raw hex dump (encoded)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Raw Hex Dump",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    SelectionContainer {
+                        Text(
+                            text = formatHexDump(encryptedScanData.encryptedData),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Error messages (if any)
+        if (decryptedScanData.errors.isNotEmpty()) {
+            item {
+                ErrorMessagesCard(errors = decryptedScanData.errors)
             }
         }
     }
