@@ -302,8 +302,13 @@ data class Component(
     
     /**
      * Extract visual properties from child and sibling components and combine them intelligently
+     * @param getChildComponents Function to retrieve components by their IDs
+     * @param parentComponent Optional parent component to look up missing properties (DRY principle)
      */
-    fun getAggregatedVisualProperties(getChildComponents: (List<String>) -> List<Component>): Map<String, String> {
+    fun getAggregatedVisualProperties(
+        getChildComponents: (List<String>) -> List<Component>,
+        parentComponent: Component? = null
+    ): Map<String, String> {
         val aggregatedProperties = mutableMapOf<String, String>()
         val colorProperties = mutableSetOf<String>()
         val materialProperties = mutableSetOf<String>()
@@ -382,17 +387,57 @@ data class Component(
             }
         }
         
+        // DRY: Check parent component for missing properties (avoid data duplication)
+        parentComponent?.let { parent ->
+            // Only look up missing colorHex from parent if we don't already have it
+            if (colorHexProperties.isEmpty()) {
+                listOf("colorHex", "colourHex", "hexColor", "hexColour").forEach { key ->
+                    parent.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) colorHexProperties.add(value)
+                    }
+                }
+            }
+            
+            // Only look up missing color names from parent if we don't already have them
+            if (colorProperties.isEmpty()) {
+                listOf("color", "colour", "colorName", "colourName").forEach { key ->
+                    parent.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) colorProperties.add(value)
+                    }
+                }
+            }
+            
+            // Only look up missing materials from parent if we don't already have them
+            if (materialProperties.isEmpty()) {
+                listOf("material", "materialType", "filamentType").forEach { key ->
+                    parent.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) materialProperties.add(value)
+                    }
+                }
+            }
+        }
+        
         // If no properties found at all, return empty map
         if (colorProperties.isEmpty() && materialProperties.isEmpty() && colorHexProperties.isEmpty()) {
             return emptyMap()
         }
         
         // Debug logging for component hierarchy investigation
-        android.util.Log.d("Component", "getAggregatedVisualProperties for ${name} (${category})")
-        android.util.Log.d("Component", "Child components: ${childComponents.size} - ${childComponents}")
-        android.util.Log.d("Component", "Color properties: $colorProperties")
-        android.util.Log.d("Component", "Material properties: $materialProperties") 
-        android.util.Log.d("Component", "ColorHex properties: $colorHexProperties")
+        android.util.Log.d("Component", "=== getAggregatedVisualProperties for ${name} (${category}) ===")
+        android.util.Log.d("Component", "Own metadata: $metadata")
+        android.util.Log.d("Component", "Child components requested: ${childComponents.size} - ${childComponents}")
+        android.util.Log.d("Component", "Sibling references: ${siblingReferences.size} - ${siblingReferences}")
+        
+        // Check what components are actually found by the lambda
+        val allFoundComponents = getChildComponents(childComponents + siblingReferences)
+        android.util.Log.d("Component", "All components found: ${allFoundComponents.size} - ${allFoundComponents.map { "${it.name}(${it.id})" }}")
+        allFoundComponents.forEach { comp ->
+            android.util.Log.d("Component", "  - ${comp.name}: metadata = ${comp.metadata}")
+        }
+        
+        android.util.Log.d("Component", "Final aggregated - Colors: $colorProperties")
+        android.util.Log.d("Component", "Final aggregated - Materials: $materialProperties") 
+        android.util.Log.d("Component", "Final aggregated - ColorHex: $colorHexProperties")
         
         // Combine properties intelligently
         if (colorProperties.size == 1 && materialProperties.size == 1) {
