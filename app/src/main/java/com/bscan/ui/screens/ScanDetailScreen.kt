@@ -18,6 +18,8 @@ import com.bscan.repository.ScanHistoryRepository
 import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
+import com.bscan.ui.components.scans.DecryptedEncodedDataView
+import com.bscan.ui.components.scans.DecryptedDecodedDataView
 import com.bscan.ui.components.scans.DecodedDecryptedDataView
 import kotlinx.coroutines.launch
 
@@ -265,19 +267,17 @@ private fun DecryptedTabContent(
         Box(modifier = Modifier.fillMaxSize()) {
             when (selectedSubTabIndex) {
                 0 -> {
-                    // Encoded (Raw decrypted blocks)
+                    // Encoded (Raw decrypted blocks as hex)
                     if (decryptedScan != null) {
-                        DecryptedDataView(decryptedScanData = decryptedScan)
+                        DecryptedEncodedDataView(decryptedScanData = decryptedScan)
                     } else {
                         DataNotAvailableMessage("Decrypted data not available")
                     }
                 }
                 1 -> {
-                    // Decoded (Interpreted decrypted content)
+                    // Decoded (Interpreted decrypted content as meaningful filament data)
                     if (decryptedScan != null) {
-                        // For now, show the same decrypted view
-                        // You could create a more interpreted/formatted view here
-                        DecryptedDataView(decryptedScanData = decryptedScan)
+                        DecryptedDecodedDataView(decryptedScanData = decryptedScan)
                     } else {
                         DataNotAvailableMessage("Interpreted data not available")
                     }
