@@ -8,6 +8,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.model.Component
 import com.bscan.repository.ComponentRepository
+import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.UserComponentRepository
+import com.bscan.service.ComponentGenerationService
+import com.bscan.service.ComponentMergerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -78,15 +82,33 @@ class InventoryViewModel(private val context: Context) : ViewModel() {
     }
     
     /**
-     * Load all component data from repository
+     * Load all component data using on-demand generation + user overlay system
      */
     fun loadInventoryData() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                 
-                val allComponents = componentRepository.getComponents()
-                val inventoryItems = componentRepository.getInventoryItems()
+                // Initialize services
+                val componentGenerationService = ComponentGenerationService(context)
+                val scanHistoryRepository = ScanHistoryRepository(context)
+                val userComponentRepository = UserComponentRepository(context)
+                val componentMergerService = ComponentMergerService()
+                
+                // Load scan data (source of truth)
+                val allScanData = scanHistoryRepository.getAllDecryptedScans()
+                
+                // Generate components from scan data (on-demand, not persisted)
+                val generatedComponents = componentGenerationService.generateComponentsFromScans(allScanData)
+                
+                // Load user overlays (persisted user customisations)
+                val userOverlays = userComponentRepository.getActiveOverlays()
+                
+                // Merge generated components with user customisations
+                val allComponents = componentMergerService.mergeComponents(generatedComponents, userOverlays)
+                
+                // Filter for inventory items (root components with unique identifiers)
+                val inventoryItems = allComponents.filter { it.isInventoryItem }
                 
                 withContext(Dispatchers.Main) {
                     _uiState.value = _uiState.value.copy(

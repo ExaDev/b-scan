@@ -13,8 +13,11 @@ import com.bscan.model.ScanProgress
 import com.bscan.model.ScanStage
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.ComponentRepository
+import com.bscan.repository.UserComponentRepository
 import com.bscan.model.Component
 import com.bscan.model.DecryptedScanData
+import com.bscan.service.ComponentGenerationService
+import com.bscan.service.ComponentMergerService
 import com.bscan.ui.screens.home.*
 import com.bscan.ui.screens.home.ViewMode
 import com.bscan.ui.screens.home.SortProperty
@@ -54,31 +57,42 @@ fun HomeScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
     
-    // Load data using modern Component-based architecture
+    // Load data using on-demand component generation + user overlay system
     LaunchedEffect(Unit) {
         try {
-            // Load all components from repository
-            val allComponents = repository.getComponents()
-            components = allComponents
+            // Initialize services
+            val componentGenerationService = ComponentGenerationService(context)
+            val userComponentRepository = UserComponentRepository(context)
+            val componentMergerService = ComponentMergerService()
             
-            // Load scan history data
+            // Load scan data (source of truth)
             val allScanData = scanHistoryRepository.getAllDecryptedScans()
             scanData = allScanData
             
-            // Extract filter options from components
-            availableFilamentTypes = allComponents
+            // Generate components from scan data (on-demand, not persisted)
+            val generatedComponents = componentGenerationService.generateComponentsFromScans(allScanData)
+            
+            // Load user overlays (persisted user customisations)
+            val userOverlays = userComponentRepository.getActiveOverlays()
+            
+            // Merge generated components with user customisations
+            val mergedComponents = componentMergerService.mergeComponents(generatedComponents, userOverlays)
+            components = mergedComponents
+            
+            // Extract filter options from final merged components
+            availableFilamentTypes = mergedComponents
                 .mapNotNull { component -> component.metadata["materialType"] }
                 .toSet()
             
-            availableColors = allComponents
+            availableColors = mergedComponents
                 .mapNotNull { component -> component.metadata["colorName"] }
                 .toSet()
             
-            availableBaseMaterials = allComponents
+            availableBaseMaterials = mergedComponents
                 .mapNotNull { component -> component.metadata["baseMaterial"] }
                 .toSet()
             
-            availableMaterialSeries = allComponents
+            availableMaterialSeries = mergedComponents
                 .mapNotNull { component -> component.metadata["series"] }
                 .toSet()
                 

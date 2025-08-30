@@ -41,8 +41,8 @@ fun DetailScreen(
     val catalogRepository = remember { CatalogRepository(context) }
     val userRepository = remember { UserDataRepository(context) }
     val scanHistoryRepository = remember { ScanHistoryRepository(context) }
-    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userRepository, scanHistoryRepository) }
     val componentRepository = remember { com.bscan.repository.ComponentRepository(context) }
+    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userRepository, scanHistoryRepository, componentRepository, context) }
     val componentGroupingService = remember { com.bscan.service.ComponentGroupingService(componentRepository) }
     val massInferenceService = remember { com.bscan.service.MassInferenceService(componentRepository) }
     val interpreterFactory = remember { com.bscan.interpreter.InterpreterFactory(unifiedDataAccess) }

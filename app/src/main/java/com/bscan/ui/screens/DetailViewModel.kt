@@ -15,6 +15,8 @@ import com.bscan.model.IdentifierType
 import com.bscan.model.IdentifierPurpose
 import com.bscan.model.MeasurementType
 import com.bscan.service.ComponentGroupingService
+import com.bscan.service.ComponentGenerationService
+import com.bscan.service.ComponentMergerService
 import com.bscan.service.MassInferenceService
 import com.bscan.service.ComponentFactory
 import com.bscan.ble.ScaleReading
@@ -259,101 +261,160 @@ class DetailViewModel(
         )
     }
     
-    private suspend fun loadSpoolDetails(trayUid: String) {
-        Log.d("DetailViewModel", "Loading spool details for trayUid: '$trayUid'")
+    private suspend fun loadSpoolDetails(identifierValue: String) {
+        Log.d("DetailViewModel", "Loading inventory details for identifier: '$identifierValue'")
         
         try {
-            // Try component system approach - look for inventory item first
-            val inventoryItem = unifiedDataAccess.getInventoryItem(trayUid)
-            if (inventoryItem != null) {
-                Log.d("DetailViewModel", "Found inventory item for ID: $trayUid, redirecting to component view")
+            // Check if we have the required context and repositories
+            val context = unifiedDataAccess.appContext
+                ?: throw IllegalStateException("Context not available in UnifiedDataAccess")
+            
+            // Use on-demand component generation system
+            val componentGenerationService = ComponentGenerationService(context)
+            val userComponentRepository = com.bscan.repository.UserComponentRepository(context)
+            val componentMergerService = com.bscan.service.ComponentMergerService()
+            
+            // Load all scan data (source of truth)
+            val allScanData = unifiedDataAccess.getAllDecryptedScanData()
+            
+            // Generate components from scan data (on-demand, not persisted)
+            val generatedComponents = componentGenerationService.generateComponentsFromScans(allScanData)
+            
+            // Load user overlays (persisted user customizations)
+            val userOverlays = userComponentRepository.getActiveOverlays()
+            
+            // Merge generated components with user customizations  
+            val allComponents = componentMergerService.mergeComponents(generatedComponents, userOverlays)
+            
+            // Find the component with the matching identifier
+            val targetComponent = allComponents.find { component ->
+                component.identifiers.any { identifier ->
+                    identifier.value == identifierValue
+                }
+            }
+            
+            if (targetComponent != null) {
+                Log.d("DetailViewModel", "Found component with identifier '$identifierValue': ${targetComponent.name}")
                 
-                // Handle inventory item with component list (component IDs)
-                if (inventoryItem.hasComponents && componentRepository != null) {
-                    // Try to find a root component from the component list
-                    val rootComponentId = withContext(Dispatchers.IO) {
-                        inventoryItem.components.firstOrNull { componentId ->
-                            val component = componentRepository!!.getComponent(componentId)
-                            component?.isRootComponent == true
-                        }
+                // Switch to component detail mode with the found component
+                _uiState.value = _uiState.value.copy(
+                    isLoading = true,
+                    detailType = DetailType.COMPONENT
+                )
+                
+                // Load component details using the component ID
+                loadComponentDetailsFromGeneratedComponent(targetComponent, allComponents)
+                return
+            } else {
+                Log.w("DetailViewModel", "No component found with identifier: $identifierValue")
+                
+                // Fallback: Try to find related scans and create basic view
+                val relatedScans = allScanData.filter { scanData ->
+                    try {
+                        val interpreted = interpretScan(scanData)
+                        interpreted?.trayUid == identifierValue
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                
+                if (relatedScans.isNotEmpty()) {
+                    Log.d("DetailViewModel", "Found ${relatedScans.size} scans for identifier: $identifierValue")
+                    
+                    val relatedTags = relatedScans.map { it.tagUid }.distinct()
+                    val associatedSku = try {
+                        val firstScanInterpreted = interpretScan(relatedScans.first())
+                        getAssociatedSku(firstScanInterpreted)
+                    } catch (e: Exception) {
+                        Log.e("DetailViewModel", "Failed to get associated SKU", e)
+                        emptyList()
                     }
                     
-                    if (rootComponentId != null) {
-                        // Switch to component detail mode
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = true,
-                            detailType = DetailType.COMPONENT
-                        )
-                        loadComponentDetails(rootComponentId)
-                        return
-                    } else {
-                        // Create virtual root component for inventory item with no root
-                        Log.d("DetailViewModel", "Creating virtual root component for inventory item with ${inventoryItem.components.size} components")
-                        
-                        val childComponents = withContext(Dispatchers.IO) {
-                            inventoryItem.components.mapNotNull { componentId ->
-                                componentRepository!!.getComponent(componentId)
-                            }
-                        }
-                        
-                        val virtualRootComponent = createVirtualRootComponent(inventoryItem, childComponents)
-                        
-                        // Use virtual component directly without persistence
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            detailType = DetailType.COMPONENT,
-                            primaryComponent = virtualRootComponent,
-                            error = null
-                        )
-                        return
-                    }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        relatedScans = relatedScans,
+                        relatedTags = relatedTags,
+                        relatedComponents = emptyList(),
+                        relatedSkus = associatedSku
+                    )
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Found inventory item but component functionality not available or no components defined."
+                        error = "No inventory item found with identifier: $identifierValue"
                     )
-                    return
                 }
-            }
-            
-            // Fallback: Try to find related scans and create basic view
-            val allScans = unifiedDataAccess.getAllDecryptedScanData()
-            val relatedScans = allScans.filter { 
-                interpretScan(it)?.trayUid == trayUid 
-            }
-            
-            if (relatedScans.isNotEmpty()) {
-                Log.d("DetailViewModel", "Found ${relatedScans.size} scans for trayUid: $trayUid")
-                
-                val relatedTags = relatedScans.map { it.tagUid }.distinct()
-                val associatedSku = try {
-                    val firstScanInterpreted = interpretScan(relatedScans.first())
-                    getAssociatedSku(firstScanInterpreted)
-                } catch (e: Exception) {
-                    Log.e("DetailViewModel", "Failed to get associated SKU", e)
-                    emptyList()
-                }
-                
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    relatedScans = relatedScans,
-                    relatedTags = relatedTags,
-                    relatedComponents = emptyList(),
-                    relatedSkus = associatedSku
-                )
-                
-                Log.d("DetailViewModel", "Successfully loaded scan-based data")
-            } else {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Inventory item not found for ID: $trayUid"
-                )
             }
         } catch (e: Exception) {
-            Log.e("DetailViewModel", "Exception loading spool details", e)
+            Log.e("DetailViewModel", "Exception loading inventory details", e)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = "Failed to load spool details: ${e.message}"
+                error = "Failed to load inventory details: ${e.message}"
+            )
+        }
+    }
+    
+    /**
+     * Load component details from a generated component (not persisted)
+     */
+    private suspend fun loadComponentDetailsFromGeneratedComponent(
+        targetComponent: Component, 
+        allComponents: List<Component>
+    ) {
+        Log.d("DetailViewModel", "Loading details for generated component: ${targetComponent.id}")
+        
+        try {
+            // Get child components
+            val childComponents = targetComponent.childComponents.mapNotNull { childId ->
+                allComponents.find { it.id == childId }
+            }
+            
+            // Find related scans for this component
+            val allScanData = unifiedDataAccess.getAllDecryptedScanData()
+            
+            // For Bambu components, find scans that match this component's tray UID
+            val relatedScans = allScanData.filter { scanData ->
+                try {
+                    val interpreted = interpretScan(scanData)
+                    val trackingIdentifier = targetComponent.getIdentifierByType(com.bscan.model.IdentifierType.CONSUMABLE_UNIT)
+                    trackingIdentifier?.value == interpreted?.trayUid
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            
+            val relatedTags = relatedScans.map { it.tagUid }.distinct()
+            
+            // Get associated SKU information
+            val associatedSku = try {
+                if (relatedScans.isNotEmpty()) {
+                    val firstScanInterpreted = interpretScan(relatedScans.first())
+                    getAssociatedSku(firstScanInterpreted)
+                } else {
+                    emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("DetailViewModel", "Failed to get associated SKU", e)
+                emptyList()
+            }
+            
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                detailType = DetailType.COMPONENT,
+                primaryComponent = targetComponent,
+                childComponents = childComponents,
+                relatedScans = relatedScans,
+                relatedTags = relatedTags,
+                relatedComponents = emptyList(),
+                relatedSkus = associatedSku,
+                error = null
+            )
+            
+            Log.d("DetailViewModel", "Successfully loaded generated component details with ${childComponents.size} children")
+        } catch (e: Exception) {
+            Log.e("DetailViewModel", "Exception loading generated component details", e)
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Failed to load component details: ${e.message}"
             )
         }
     }
