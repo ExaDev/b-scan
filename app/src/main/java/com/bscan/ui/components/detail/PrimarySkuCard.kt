@@ -130,32 +130,6 @@ private fun createMockSkuInfoLowSuccess(): com.bscan.ui.screens.home.SkuInfo {
     )
 }
 
-private fun createMockSkuInfo(): com.bscan.ui.screens.home.SkuInfo {
-    return com.bscan.ui.screens.home.SkuInfo(
-        filamentInfo = com.bscan.model.FilamentInfo(
-            tagUid = "A1B2C3D4",
-            trayUid = "01008023",
-            tagFormat = com.bscan.model.TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = "Bambu Lab",
-            filamentType = "PLA",
-            detailedFilamentType = "PLA Basic",
-            colorHex = "#E74C3C",
-            colorName = "Red",
-            spoolWeight = 1000,
-            filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            productionDate = "2024-03",
-            minTemperature = 210,
-            maxTemperature = 230,
-            bedTemperature = 60,
-            dryingTemperature = 40,
-            dryingTime = 8
-        ),
-        filamentReelCount = 3,
-        firstSeen = LocalDateTime.now().minusDays(15),
-        lastSeen = LocalDateTime.now().minusDays(2)
-    )
-}
 
 @Preview(showBackground = true)
 @Composable
