@@ -196,6 +196,12 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             componentRepository.saveComponent(updatedChild)
         }
         
+        // Update RFID tag to reference tray as parent 
+        val updatedRfidTag = componentRepository.getComponent(rfidTagComponentId)?.copy(parentComponentId = trayComponent.id)
+        if (updatedRfidTag != null) {
+            componentRepository.saveComponent(updatedRfidTag)
+        }
+        
         componentRepository.saveComponent(trayComponent)
         
         // Create inventory item
