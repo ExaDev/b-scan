@@ -142,6 +142,7 @@ class DebugDataCollector {
         uid: String,
         technology: String,
         result: ScanResult,
+        tagFormat: TagFormat = TagFormat.UNKNOWN,
         keyDerivationTimeMs: Long = 0,
         authenticationTimeMs: Long = 0
     ): DecryptedScanData {
@@ -151,6 +152,7 @@ class DebugDataCollector {
             tagUid = uid,
             technology = technology,
             scanResult = result,
+            tagFormat = tagFormat,
             decryptedBlocks = getBlockData(), // All available blocks based on scan format
             authenticatedSectors = getAuthenticatedSectors(),
             failedSectors = getFailedSectors(),

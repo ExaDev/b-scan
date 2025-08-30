@@ -10,6 +10,7 @@ import android.nfc.tech.NfcA
 import android.os.Build
 import android.util.Log
 import com.bscan.debug.DebugDataCollector
+import com.bscan.detector.TagDetector
 import com.bscan.model.NfcTagData
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.DecryptedScanData
@@ -30,6 +31,7 @@ class NfcManager(private val activity: Activity) {
     private val nfcAdapter: NfcAdapter? = NfcAdapter.getDefaultAdapter(activity)
     val debugCollector = DebugDataCollector()
     private val tagDataCache = TagDataCache.getInstance(activity)
+    private val tagDetector = TagDetector()
     private val backgroundScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val pendingIntent: PendingIntent = PendingIntent.getActivity(
         activity, 0,
@@ -441,10 +443,13 @@ class NfcManager(private val activity: Activity) {
         
         val uid = bytesToHex(tag.id)
         val timestamp = java.time.LocalDateTime.now()
-        val technology = "MifareClassic"
         val scanStartTime = System.currentTimeMillis()
         
-        Log.d(TAG, "Starting full tag read for UID: $uid")
+        // Detect tag format using TagDetector
+        val detectionResult = tagDetector.detectTag(tag)
+        Log.d(TAG, "Starting full tag read for UID: $uid, detected format: ${detectionResult.tagFormat}, confidence: ${detectionResult.confidence}")
+        
+        val technology = detectionResult.technology.name
         
         // First read the existing way to get decrypted data
         val nfcTagData = readTagData(tag, progressCallback)
@@ -479,6 +484,7 @@ class NfcManager(private val activity: Activity) {
             uid = uid,
             technology = technology,
             result = scanResult,
+            tagFormat = detectionResult.tagFormat,
             keyDerivationTimeMs = 0, // Performance monitoring - would need separate timing for key derivation phase
             authenticationTimeMs = 0  // Performance monitoring - would need separate timing for authentication phase
         )

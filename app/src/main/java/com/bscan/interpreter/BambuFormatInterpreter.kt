@@ -37,10 +37,13 @@ class BambuFormatInterpreter(
         
         // For UNKNOWN format, check if it looks like Mifare Classic 1K with typical Bambu structure
         if (decryptedData.tagFormat == TagFormat.UNKNOWN) {
+            val totalSectors = decryptedData.authenticatedSectors.size + decryptedData.failedSectors.size
             val canInterpret = decryptedData.technology.contains("MifareClassic", ignoreCase = true) &&
-                               decryptedData.sectorCount == 16 &&
-                               decryptedData.tagSizeBytes == 1024 &&
-                               decryptedData.decryptedBlocks.isNotEmpty()
+                               totalSectors == 16 &&
+                               decryptedData.decryptedBlocks.isNotEmpty() &&
+                               decryptedData.scanResult == ScanResult.SUCCESS
+            Log.d(TAG, "canInterpret: ${if (canInterpret) "TRUE" else "FALSE"} for ${decryptedData.tagUid} - UNKNOWN format analysis: " +
+                      "technology=${decryptedData.technology}, sectors=$totalSectors, blocks=${decryptedData.decryptedBlocks.size}, result=${decryptedData.scanResult}")
             return canInterpret
         }
         
