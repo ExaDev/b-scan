@@ -248,6 +248,51 @@ class ScanHistoryRepository(private val context: Context) {
     }
     
     /**
+     * Get scans grouped by tag UID
+     */
+    fun getScansGroupedByTagUid(): Map<String, List<DecryptedScanData>> {
+        return getAllDecryptedScans().groupBy { it.tagUid }
+    }
+    
+    /**
+     * Get encrypted scan data for a decrypted scan by matching timestamp and UID
+     */
+    fun getEncryptedScanForDecrypted(decryptedScan: DecryptedScanData): EncryptedScanData? {
+        val encryptedScans = getAllEncryptedScans()
+        return encryptedScans.find { encrypted ->
+            encrypted.tagUid == decryptedScan.tagUid && 
+            encrypted.timestamp == decryptedScan.timestamp
+        }
+    }
+    
+    /**
+     * Get count of unique tags scanned
+     */
+    fun getUniqueTagCount(): Int {
+        return getAllDecryptedScans().map { it.tagUid }.distinct().size
+    }
+    
+    /**
+     * Get summary statistics for a specific tag UID
+     */
+    fun getTagStatistics(tagUid: String): TagStatistics {
+        val scans = getDecryptedScansByTagUid(tagUid)
+        val successfulScans = scans.count { it.scanResult == ScanResult.SUCCESS }
+        val successRate = if (scans.isNotEmpty()) successfulScans.toFloat() / scans.size else 0f
+        val latestScan = scans.maxByOrNull { it.timestamp }
+        val firstScan = scans.minByOrNull { it.timestamp }
+        
+        return TagStatistics(
+            tagUid = tagUid,
+            totalScans = scans.size,
+            successfulScans = successfulScans,
+            successRate = successRate,
+            latestScanTimestamp = latestScan?.timestamp,
+            firstScanTimestamp = firstScan?.timestamp
+        )
+    }
+    
+    /**
      * Refresh the FilamentInterpreter with updated mappings
      */
     fun refreshMappings() {
@@ -277,3 +322,15 @@ class ScanHistoryRepository(private val context: Context) {
         }
     }
 }
+
+/**
+ * Statistics for a specific tag UID
+ */
+data class TagStatistics(
+    val tagUid: String,
+    val totalScans: Int,
+    val successfulScans: Int,
+    val successRate: Float,
+    val latestScanTimestamp: LocalDateTime?,
+    val firstScanTimestamp: LocalDateTime?
+)
