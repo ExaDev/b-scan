@@ -21,7 +21,7 @@ import com.bscan.repository.UserPreferencesRepository
 import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.home.CatalogDisplayMode
 import com.bscan.repository.UserDataRepository
-import com.bscan.repository.PhysicalComponentRepository
+import com.bscan.repository.ComponentRepository
 import com.bscan.model.AppTheme
 import com.bscan.ble.BlePermissionHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,13 +43,13 @@ fun SettingsScreen(
     val exportManager = remember { DataExportManager(context) }
     val userPrefsRepository = remember { UserPreferencesRepository(context) }
     val userDataRepository = viewModel.getUserDataRepository()
-    val physicalComponentRepository = remember { PhysicalComponentRepository(context) }
+    val componentRepository = remember { ComponentRepository(context) }
     val scope = rememberCoroutineScope()
     
     // Physical component stats
-    val allComponents = remember { physicalComponentRepository.getComponents() }
-    val userDefinedComponents = remember { allComponents.filter { it.isUserDefined } }
-    val builtInComponents = remember { allComponents.filter { !it.isUserDefined } }
+    val allComponents = remember { componentRepository.getComponents() }
+    val userDefinedComponents = remember { allComponents.filter { it.tags.contains("user-defined") } }
+    val builtInComponents = remember { allComponents.filter { !it.tags.contains("user-defined") } }
     val totalComponents = allComponents.size
     
     // Initialize user data flow and observe reactively
@@ -184,14 +184,7 @@ fun SettingsScreen(
                 )
             }
             
-            item {
-                PhysicalComponentsManagementCard(
-                    totalComponents = totalComponents,
-                    userDefinedComponents = userDefinedComponents.size,
-                    builtInComponents = builtInComponents.size,
-                    onManageComponents = onNavigateToComponents
-                )
-            }
+            // TODO: Add ComponentsManagementCard after completing Component model migration
             
             item {
                 Text(

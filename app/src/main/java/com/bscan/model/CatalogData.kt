@@ -74,7 +74,7 @@ data class TemperatureProfile(
  */
 data class ComponentDefault(
     val name: String,
-    val type: PhysicalComponentType,
+    val category: String,
     val massGrams: Float,
     val description: String,
     val manufacturer: String? = null

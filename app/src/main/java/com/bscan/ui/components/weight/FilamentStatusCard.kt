@@ -357,9 +357,8 @@ private fun FilamentStatusCardPreview() {
         measurements = listOf(
             MassMeasurement(
                 id = "measurement-001",
-                trayUid = "01008023ABC123",
+                componentId = "01008023ABC123",
                 measuredMassGrams = 1245.0f,
-                componentIds = listOf("filament-001", "core-001", "spool-001"),
                 measurementType = MeasurementType.TOTAL_MASS,
                 measuredAt = LocalDateTime.now().minusDays(7),
                 notes = "Initial full spool measurement",
@@ -367,9 +366,8 @@ private fun FilamentStatusCardPreview() {
             ),
             MassMeasurement(
                 id = "measurement-002",
-                trayUid = "01008023ABC123", 
+                componentId = "01008023ABC123", 
                 measuredMassGrams = 1050.0f,
-                componentIds = listOf("filament-001", "core-001", "spool-001"),
                 measurementType = MeasurementType.TOTAL_MASS,
                 measuredAt = LocalDateTime.now(),
                 notes = "Current measurement",
@@ -412,9 +410,8 @@ private fun FilamentStatusCardLowPreview() {
         measurements = listOf(
             MassMeasurement(
                 id = "measurement-001",
-                trayUid = "01008023ABC123",
+                componentId = "01008023ABC123",
                 measuredMassGrams = 300.0f,
-                componentIds = listOf("filament-001", "core-001", "spool-001"),
                 measurementType = MeasurementType.TOTAL_MASS,
                 measuredAt = LocalDateTime.now(),
                 notes = "Running low!",

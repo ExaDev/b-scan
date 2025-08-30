@@ -11,7 +11,7 @@ import com.bscan.ui.components.MaterialDisplaySettings
  */
 data class UserData(
     val version: Int,
-    val components: Map<String, PhysicalComponent>,
+    val components: Map<String, Component>,
     val inventoryItems: Map<String, InventoryItem>,
     val scans: ScanDataContainer,
     val measurements: List<MassMeasurement>,

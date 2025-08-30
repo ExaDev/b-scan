@@ -155,21 +155,21 @@ object BambuCatalogGenerator {
         return mapOf(
             "filament_1kg" to ComponentDefault(
                 name = "1kg Filament",
-                type = PhysicalComponentType.FILAMENT,
+                category = "filament",
                 massGrams = 1000f,
                 description = "Standard 1kg filament spool",
                 manufacturer = "bambu"
             ),
             "spool_standard" to ComponentDefault(
                 name = "Standard Spool",
-                type = PhysicalComponentType.BASE_SPOOL,
+                category = "spool",
                 massGrams = 212f,
                 description = "Standard Bambu Lab plastic spool",
                 manufacturer = "bambu"
             ),
             "core_cardboard" to ComponentDefault(
                 name = "Cardboard Core",
-                type = PhysicalComponentType.CORE_RING,
+                category = "core",
                 massGrams = 33f,
                 description = "Standard cardboard core tube",
                 manufacturer = "bambu"
