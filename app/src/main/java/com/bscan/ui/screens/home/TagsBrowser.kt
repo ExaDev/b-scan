@@ -174,16 +174,10 @@ private fun TagGroupCard(
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    // Navigate to the most recent scan for this tag
-    val latestScan = scans.maxByOrNull { it.timestamp }
-    val scanId = latestScan?.let { "${it.timestamp}-${it.tagUid}" }
-    
     Card(
         modifier = modifier.fillMaxWidth(),
         onClick = { 
-            if (scanId != null) {
-                onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
-            }
+            onNavigateToDetails?.invoke(DetailType.TAG, tagUid)
         }
     ) {
         Row(

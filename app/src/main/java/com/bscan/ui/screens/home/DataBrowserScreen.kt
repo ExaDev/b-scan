@@ -368,12 +368,16 @@ fun DataBrowserScreen(
             ) { page ->
                 val actualPage = page % tabCount
                 when (ViewMode.values()[actualPage]) {
-                    ViewMode.INVENTORY -> Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Inventory view - Under development")
-                    }
+                    ViewMode.INVENTORY -> InventoryBrowser(
+                        allComponents = filamentReels + individualTags,
+                        lazyListState = lazyListStates[actualPage],
+                        onNavigateToDetails = onNavigateToDetails,
+                        scanState = scanState,
+                        scanProgress = scanProgress,
+                        onSimulateScan = onSimulateScan,
+                        compactPromptHeightDp = compactPromptHeightDp,
+                        fullPromptHeightDp = fullPromptHeightDp
+                    )
                     ViewMode.CATALOG -> CatalogBrowser(
                         allComponents = filamentReels,
                         sortProperty = sortProperty,
