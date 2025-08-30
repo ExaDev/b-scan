@@ -63,11 +63,25 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                 return@withContext null
             }
             
-            return@withContext processBambuRfidScan(
-                tagUid = encryptedScanData.tagUid,
-                trayUid = filamentInfo.trayUid,
-                filamentInfo = filamentInfo
-            )
+            // Create RFID tag component
+            val rfidTagComponent = createRfidTagComponent(encryptedScanData.tagUid, filamentInfo.trayUid, filamentInfo)
+            componentRepository.saveComponent(rfidTagComponent)
+            
+            // Find or create tray component
+            var trayComponent = componentRepository.findInventoryByUniqueId(filamentInfo.trayUid)
+            
+            if (trayComponent == null) {
+                // Create new tray with all standard components
+                trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
+                Log.i(factoryType, "Created new tray component: ${trayComponent.name}")
+            } else {
+                // Add this RFID tag to existing tray
+                trayComponent = trayComponent.withChildComponent(rfidTagComponent.id)
+                componentRepository.saveComponent(trayComponent)
+                Log.i(factoryType, "Added RFID tag ${encryptedScanData.tagUid} to existing tray: ${trayComponent.name}")
+            }
+            
+            return@withContext trayComponent
         } catch (e: Exception) {
             Log.e(factoryType, "Error processing Bambu RFID scan", e)
             null
@@ -104,43 +118,6 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         }
     }
     
-    /**
-     * Process an RFID scan and create/update the component hierarchy
-     * Legacy method maintained for backwards compatibility
-     */
-    suspend fun processBambuRfidScan(
-        tagUid: String,
-        trayUid: String,
-        filamentInfo: FilamentInfo
-    ): Component? = withContext(Dispatchers.IO) {
-        try {
-            Log.d(factoryType, "Processing Bambu RFID scan for tray: $trayUid, tag: $tagUid")
-            
-            // Create RFID tag component
-            val rfidTagComponent = createRfidTagComponent(tagUid, trayUid, filamentInfo)
-            componentRepository.saveComponent(rfidTagComponent)
-            
-            // Find or create tray component
-            var trayComponent = componentRepository.findInventoryByUniqueId(trayUid)
-            
-            if (trayComponent == null) {
-                // Create new tray with all standard components
-                trayComponent = createCompleteTrayComponent(trayUid, filamentInfo, rfidTagComponent.id)
-                Log.i(factoryType, "Created new tray component: ${trayComponent.name}")
-            } else {
-                // Add this RFID tag to existing tray
-                trayComponent = trayComponent.withChildComponent(rfidTagComponent.id)
-                componentRepository.saveComponent(trayComponent)
-                Log.i(factoryType, "Added RFID tag ${tagUid} to existing tray: ${trayComponent.name}")
-            }
-            
-            return@withContext trayComponent
-            
-        } catch (e: Exception) {
-            Log.e(factoryType, "Error processing Bambu RFID scan", e)
-            return@withContext null
-        }
-    }
     
     /**
      * Create a complete tray component with all standard child components

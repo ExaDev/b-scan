@@ -616,56 +616,6 @@ class InventoryRepository(private val context: Context) {
         }
     }
     
-    // Temporary wrapper methods for compatibility - BambuComponentFactory should be used instead
-    private fun createFilamentComponent(
-        filamentType: String,
-        colorName: String,
-        estimatedMass: Float
-    ): Component {
-        return Component(
-            id = "filament_${System.currentTimeMillis()}",
-            uniqueIdentifier = "filament_${filamentType}_${colorName}",
-            name = "$colorName $filamentType Filament",
-            category = "filament",
-            massGrams = estimatedMass,
-            variableMass = true,
-            fullMassGrams = estimatedMass,
-            manufacturer = "Bambu Lab"
-        )
-    }
-    
-    private fun getBambuCoreComponent(): Component {
-        return componentRepository.findComponentByUniqueId("bambu_core") ?: createBambuCoreComponent()
-    }
-    
-    private fun createBambuCoreComponent(): Component {
-        return Component(
-            id = "core_${System.currentTimeMillis()}",
-            uniqueIdentifier = "bambu_core",
-            name = "Bambu Core Ring",
-            category = "core",
-            massGrams = 10f, // Typical core ring mass
-            variableMass = false,
-            manufacturer = "Bambu Lab"
-        )
-    }
-    
-    private fun getBambuSpoolComponent(): Component {
-        return componentRepository.findComponentByUniqueId("bambu_spool") ?: createBambuSpoolComponent()
-    }
-    
-    private fun createBambuSpoolComponent(): Component {
-        return Component(
-            id = "spool_${System.currentTimeMillis()}",
-            uniqueIdentifier = "bambu_spool",
-            name = "Bambu Spool",
-            category = "spool",
-            massGrams = 240f, // Typical Bambu spool mass
-            variableMass = false,
-            manufacturer = "Bambu Lab"
-        )
-    }
-    
     companion object {
         private const val INVENTORY_ITEMS_KEY = "inventory_items"
         private const val TAG = "InventoryRepository"
