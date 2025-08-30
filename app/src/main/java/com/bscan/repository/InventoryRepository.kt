@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.bscan.model.*
 import com.bscan.logic.MassCalculationService
 import com.bscan.service.BambuComponentFactory
+import com.bscan.service.BambuComponentDefinitions
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
@@ -119,12 +120,7 @@ class InventoryRepository(private val context: Context) {
      * Get default mass based on material type
      */
     private fun getDefaultMassByMaterial(filamentType: String): Float {
-        return when (filamentType.uppercase()) {
-            "TPU" -> 500f  // TPU typically comes in 500g spools
-            "PVA", "SUPPORT" -> 500f  // Support materials typically 500g
-            "PC", "PA", "PAHT" -> 1000f  // Engineering materials typically 1kg
-            else -> 1000f  // Standard 1kg for PLA, PETG, ABS, ASA
-        }
+        return BambuComponentDefinitions.DEFAULT_FILAMENT_MASSES[filamentType.uppercase()] ?: 1000f
     }
     
     /**
@@ -352,37 +348,35 @@ class InventoryRepository(private val context: Context) {
                 android.util.Log.d(TAG, "Using default mass for ${filamentInfo.filamentType}: ${filamentMass}g")
             }
             
-            // Create filament component with resilient data handling using BambuComponentFactory
+            // Create filament component using centralized definitions
             val finalFilamentComponent = Component(
                 id = "filament_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}",
-                name = "${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC"} ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color"} Filament",
-                category = "filament",
-                tags = listOf("consumable", "variable-mass", "bambu"),
+                name = BambuComponentDefinitions.Filament.getName(filamentInfo.filamentType, filamentInfo.colorName),
+                category = BambuComponentDefinitions.Filament.CATEGORY,
+                tags = BambuComponentDefinitions.Filament.TAGS,
                 massGrams = filamentMass,
                 fullMassGrams = skuMass ?: filamentMass,
-                variableMass = true,
-                manufacturer = "Bambu Lab",
-                description = "Bambu Lab ${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC"} filament in ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color"}"
+                variableMass = BambuComponentDefinitions.Filament.VARIABLE_MASS,
+                manufacturer = BambuComponentDefinitions.Filament.MANUFACTURER,
+                description = BambuComponentDefinitions.Filament.getDescription(filamentInfo.filamentType, filamentInfo.colorName),
+                metadata = BambuComponentDefinitions.Filament.getMetadata(filamentInfo.filamentType, filamentInfo.colorName, trayUid)
             )
             
             // Save the filament component
             componentRepository.saveComponent(finalFilamentComponent)
             android.util.Log.d(TAG, "Created filament component: ${finalFilamentComponent.id}")
             
-            // Get built-in components (create core component directly)
+            // Create core component using centralized definitions
             val coreComponent = Component(
                 id = "core_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}",
-                name = "Bambu Cardboard Core",
-                category = "core",
-                tags = listOf("reusable", "fixed-mass", "bambu"),
-                massGrams = 33f,
+                name = BambuComponentDefinitions.Core.NAME,
+                category = BambuComponentDefinitions.Core.CATEGORY,
+                tags = BambuComponentDefinitions.Core.TAGS,
+                massGrams = BambuComponentDefinitions.Core.MASS_GRAMS,
                 variableMass = false,
-                manufacturer = "Bambu Lab",
-                description = "Standard Bambu Lab cardboard core (33g)",
-                metadata = mapOf(
-                    "material" to "cardboard",
-                    "standardWeight" to "33g"
-                )
+                manufacturer = BambuComponentDefinitions.Core.MANUFACTURER,
+                description = BambuComponentDefinitions.Core.DESCRIPTION,
+                metadata = BambuComponentDefinitions.Core.METADATA
             ).also {
                 componentRepository.saveComponent(it)
             }
@@ -390,18 +384,14 @@ class InventoryRepository(private val context: Context) {
             val spoolComponent = if (includeRefillableSpool) {
                 Component(
                     id = "spool_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}",
-                    name = "Bambu Refillable Spool",
-                    category = "spool",
-                    tags = listOf("reusable", "fixed-mass", "bambu"),
-                    massGrams = 212f,
+                    name = BambuComponentDefinitions.Spool.NAME,
+                    category = BambuComponentDefinitions.Spool.CATEGORY,
+                    tags = BambuComponentDefinitions.Spool.TAGS,
+                    massGrams = BambuComponentDefinitions.Spool.MASS_GRAMS,
                     variableMass = false,
-                    manufacturer = "Bambu Lab",
-                    description = "Standard Bambu Lab refillable spool (212g)",
-                    metadata = mapOf(
-                        "material" to "plastic",
-                        "standardWeight" to "212g",
-                        "type" to "refillable"
-                    )
+                    manufacturer = BambuComponentDefinitions.Spool.MANUFACTURER,
+                    description = BambuComponentDefinitions.Spool.DESCRIPTION,
+                    metadata = BambuComponentDefinitions.Spool.METADATA
                 ).also {
                     componentRepository.saveComponent(it)
                 }

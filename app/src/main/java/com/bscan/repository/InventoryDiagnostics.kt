@@ -3,7 +3,9 @@ package com.bscan.repository
 import android.content.Context
 import android.util.Log
 import com.bscan.model.FilamentInfo
-import com.bscan.model.PhysicalComponent
+import com.bscan.model.Component
+import com.bscan.service.BambuComponentFactory
+import kotlinx.coroutines.runBlocking
 
 /**
  * Diagnostic tools for troubleshooting SKU lookup and component setup issues.
@@ -15,7 +17,8 @@ class InventoryDiagnostics(private val context: Context) {
     private val userDataRepository by lazy { UserDataRepository(context) }
     private val unifiedDataAccess by lazy { UnifiedDataAccess(catalogRepository, userDataRepository) }
     private val inventoryRepository by lazy { InventoryRepository(context) }
-    private val physicalComponentRepository by lazy { PhysicalComponentRepository(context) }
+    private val componentRepository by lazy { ComponentRepository(context) }
+    private val bambuComponentFactory by lazy { BambuComponentFactory(context) }
     
     companion object {
         private const val TAG = "InventoryDiagnostics"
@@ -131,26 +134,58 @@ class InventoryDiagnostics(private val context: Context) {
             try {
                 when (test.testName) {
                     "createFilamentComponent" -> {
-                        val component = physicalComponentRepository.createFilamentComponent(
-                            filamentType = "PLA_BASIC",
-                            colorName = "Test Color",
-                            colorHex = "#FF0000",
-                            massGrams = 1000f,
-                            manufacturer = "Test Manufacturer",
-                            fullMassGrams = 1000f
+                        val filamentInfo = createMockFilamentInfo(
+                            "TEST_TRAY",
+                            "PLA_BASIC",
+                            "Test Color",
+                            "#FF0000"
                         )
-                        test.success = component.id.isNotBlank()
-                        test.componentId = component.id
+                        val components = runBlocking {
+                            bambuComponentFactory.createComponents(
+                                tagUid = filamentInfo.tagUid,
+                                interpretedData = filamentInfo,
+                                metadata = emptyMap()
+                            )
+                        }
+                        val filamentComponent = components.find { it.category == "filament" }
+                        test.success = filamentComponent != null
+                        test.componentId = filamentComponent?.id
                     }
                     "getBambuCoreComponent" -> {
-                        val component = physicalComponentRepository.getBambuCoreComponent()
-                        test.success = component.id.isNotBlank()
-                        test.componentId = component.id
+                        val filamentInfo = createMockFilamentInfo(
+                            "TEST_TRAY_CORE", 
+                            "PLA_BASIC", 
+                            "Black", 
+                            "#000000"
+                        )
+                        val components = runBlocking {
+                            bambuComponentFactory.createComponents(
+                                tagUid = filamentInfo.tagUid,
+                                interpretedData = filamentInfo,
+                                metadata = emptyMap()
+                            )
+                        }
+                        val coreComponent = components.find { it.category == "core" }
+                        test.success = coreComponent != null
+                        test.componentId = coreComponent?.id
                     }
                     "getBambuSpoolComponent" -> {
-                        val component = physicalComponentRepository.getBambuSpoolComponent()
-                        test.success = component.id.isNotBlank()
-                        test.componentId = component.id
+                        val filamentInfo = createMockFilamentInfo(
+                            "TEST_TRAY_SPOOL",
+                            "PLA_BASIC",
+                            "White",
+                            "#FFFFFF"
+                        )
+                        val components = runBlocking {
+                            bambuComponentFactory.createComponents(
+                                tagUid = filamentInfo.tagUid,
+                                interpretedData = filamentInfo,
+                                metadata = emptyMap()
+                            )
+                        }
+                        val spoolComponent = components.find { it.category == "spool" }
+                        test.success = spoolComponent != null
+                        test.componentId = spoolComponent?.id
                     }
                 }
                 Log.d(TAG, "Component test ${test.testName}: ${if (test.success) "SUCCESS" else "FAILED"}")
@@ -260,7 +295,6 @@ class InventoryDiagnostics(private val context: Context) {
         return try {
             // Test basic functionality with modern catalog system
             val bambuProducts = unifiedDataAccess.getProducts("bambu")
-            val core = physicalComponentRepository.getBambuCoreComponent()
             
             val testFilamentInfo = createMockFilamentInfo("HEALTH_CHECK", "PLA_BASIC", "Black", "#000000")
             val components = inventoryRepository.setupBambuComponents(testFilamentInfo.trayUid, testFilamentInfo)

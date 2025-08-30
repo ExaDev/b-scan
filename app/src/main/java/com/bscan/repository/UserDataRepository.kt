@@ -109,7 +109,7 @@ class UserDataRepository(private val context: Context) {
     /**
      * Save a physical component
      */
-    fun saveComponent(component: PhysicalComponent) {
+    fun saveComponent(component: Component) {
         updateUserData { userData ->
             userData.copy(
                 components = userData.components + (component.id to component)
@@ -120,14 +120,14 @@ class UserDataRepository(private val context: Context) {
     /**
      * Get a physical component by ID
      */
-    fun getComponent(componentId: String): PhysicalComponent? {
+    fun getComponent(componentId: String): Component? {
         return getUserData().components[componentId]
     }
     
     /**
      * Get all physical components
      */
-    fun getComponents(): Map<String, PhysicalComponent> {
+    fun getComponents(): Map<String, Component> {
         return getUserData().components
     }
     

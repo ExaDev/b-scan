@@ -522,21 +522,21 @@ class UnifiedDataAccess(
     /**
      * Get a physical component by ID
      */
-    fun getComponent(componentId: String): PhysicalComponent? {
+    fun getComponent(componentId: String): Component? {
         return userRepo.getComponent(componentId)
     }
     
     /**
      * Get all physical components
      */
-    fun getComponents(): Map<String, PhysicalComponent> {
+    fun getComponents(): Map<String, Component> {
         return userRepo.getComponents()
     }
     
     /**
      * Save a physical component
      */
-    fun saveComponent(component: PhysicalComponent) {
+    fun saveComponent(component: Component) {
         userRepo.saveComponent(component)
     }
     
@@ -547,19 +547,19 @@ class UnifiedDataAccess(
         manufacturerId: String,
         filamentType: String,
         trayUid: String
-    ): List<PhysicalComponent> {
+    ): List<Component> {
         val manufacturer = catalogRepo.getManufacturer(manufacturerId)
-        val components = mutableListOf<PhysicalComponent>()
+        val components = mutableListOf<Component>()
         
         if (manufacturer != null) {
             // Create components from catalog data
             // Create filament component
             val filamentDefault = manufacturer.componentDefaults["filament_1kg"]
             if (filamentDefault != null) {
-                val filamentComponent = PhysicalComponent(
+                val filamentComponent = Component(
                     id = "${trayUid}_filament",
                     name = "${manufacturer.materials[filamentType]?.displayName ?: filamentType} Filament",
-                    type = PhysicalComponentType.FILAMENT,
+                    category = "filament",
                     massGrams = filamentDefault.massGrams,
                     fullMassGrams = filamentDefault.massGrams,
                     variableMass = true,
@@ -573,10 +573,10 @@ class UnifiedDataAccess(
             // Create spool component
             val spoolDefault = manufacturer.componentDefaults["spool_standard"]
             if (spoolDefault != null) {
-                val spoolComponent = PhysicalComponent(
+                val spoolComponent = Component(
                     id = "${trayUid}_spool",
                     name = spoolDefault.name,
-                    type = PhysicalComponentType.BASE_SPOOL,
+                    category = "spool",
                     massGrams = spoolDefault.massGrams,
                     fullMassGrams = spoolDefault.massGrams,
                     variableMass = false,
@@ -590,10 +590,10 @@ class UnifiedDataAccess(
             // Create core component
             val coreDefault = manufacturer.componentDefaults["core_cardboard"]
             if (coreDefault != null) {
-                val coreComponent = PhysicalComponent(
+                val coreComponent = Component(
                     id = "${trayUid}_core",
                     name = coreDefault.name,
-                    type = PhysicalComponentType.CORE_RING,
+                    category = "core",
                     massGrams = coreDefault.massGrams,
                     fullMassGrams = coreDefault.massGrams,
                     variableMass = false,
@@ -608,10 +608,10 @@ class UnifiedDataAccess(
             Log.w(TAG, "No manufacturer data found for '$manufacturerId', creating basic default components")
             
             // Create basic filament component
-            val filamentComponent = PhysicalComponent(
+            val filamentComponent = Component(
                 id = "${trayUid}_filament",
                 name = "$filamentType Filament",
-                type = PhysicalComponentType.FILAMENT,
+                category = "filament",
                 massGrams = 1000f, // Default 1kg filament
                 fullMassGrams = 1000f,
                 variableMass = true,
@@ -622,10 +622,10 @@ class UnifiedDataAccess(
             saveComponent(filamentComponent)
             
             // Create basic spool component
-            val spoolComponent = PhysicalComponent(
+            val spoolComponent = Component(
                 id = "${trayUid}_spool",
                 name = "Standard Spool",
-                type = PhysicalComponentType.BASE_SPOOL,
+                category = "spool",
                 massGrams = 212f, // Standard Bambu spool weight
                 fullMassGrams = 212f,
                 variableMass = false,
@@ -636,10 +636,10 @@ class UnifiedDataAccess(
             saveComponent(spoolComponent)
             
             // Create basic core component
-            val coreComponent = PhysicalComponent(
+            val coreComponent = Component(
                 id = "${trayUid}_core",
                 name = "Cardboard Core",
-                type = PhysicalComponentType.CORE_RING,
+                category = "core",
                 massGrams = 33f, // Standard cardboard core weight
                 fullMassGrams = 33f,
                 variableMass = false,
