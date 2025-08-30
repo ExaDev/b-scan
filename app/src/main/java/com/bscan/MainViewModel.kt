@@ -48,12 +48,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val componentFactory = BambuComponentFactory(application)
     private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
     
-    // Decoupled scanning service
+    // Decoupled scanning service (only persists scan data, not components)
     private val scanningService: ScanningService = DefaultScanningService(
         context = application,
-        componentRepository = componentRepository,
-        scanHistoryRepository = scanHistoryRepository,
-        componentFactory = componentFactory
+        scanHistoryRepository = scanHistoryRepository
     )
     
     // Track simulation state to cycle through all products

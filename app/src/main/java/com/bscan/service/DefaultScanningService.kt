@@ -2,11 +2,9 @@ package com.bscan.service
 
 import android.content.Context
 import com.bscan.ScanState
-import com.bscan.model.Component
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
 import com.bscan.model.ScanProgress
-import com.bscan.repository.ComponentRepository
 import com.bscan.repository.ScanHistoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,14 +13,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
- * Default implementation of ScanningService that handles component creation
- * and persistence without coupling to specific UI implementations.
+ * Default implementation of ScanningService that handles scan data persistence
+ * without coupling to specific UI implementations. Components are generated on-demand
+ * by ComponentGenerationService instead of being persisted during scanning.
  */
 class DefaultScanningService(
     private val context: Context,
-    private val componentRepository: ComponentRepository,
-    private val scanHistoryRepository: ScanHistoryRepository,
-    private val componentFactory: ComponentFactory
+    private val scanHistoryRepository: ScanHistoryRepository
 ) : ScanningService {
     
     private val _scanState = MutableStateFlow<ScanState>(ScanState.IDLE)
@@ -41,22 +38,15 @@ class DefaultScanningService(
         val startTime = System.currentTimeMillis()
         
         try {
-            // Create components using appropriate factory
-            val rootComponent = componentFactory.processScan(encryptedData, decryptedData)
-            val components = if (rootComponent != null) listOf(rootComponent) else emptyList()
-            
-            // Persist components to repository
-            components.forEach { component ->
-                componentRepository.saveComponent(component)
-            }
-            
-            // Persist scan history with synchronized timestamps
+            // Only persist scan data - components will be generated on-demand
             scanHistoryRepository.saveScan(encryptedData, decryptedData)
             
             val scanDuration = System.currentTimeMillis() - startTime
             
+            // Return result without pre-generated components
+            // Components will be generated on-demand by ComponentGenerationService
             val result = ScanResult(
-                components = components,
+                components = emptyList(), // No pre-generated components
                 encryptedData = encryptedData,
                 decryptedData = decryptedData,
                 scanDurationMs = scanDuration
