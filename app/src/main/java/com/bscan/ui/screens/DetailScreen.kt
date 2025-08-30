@@ -19,6 +19,7 @@ import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.UnifiedDataAccess
+import com.bscan.model.Component
 import com.bscan.ui.components.detail.*
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.components.MaterialDisplaySettings
@@ -153,10 +154,22 @@ fun DetailScreen(
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Get visual properties from child components
-                                val visualProperties = component.getAggregatedVisualProperties { childIds ->
-                                    uiState.childComponents.filter { it.id in childIds }
-                                }
+                                // Get visual properties from child components AND sibling components (for filament getting properties from RFID tag siblings)
+                                // DRY: Pass parent component so RFID tags can look up colorHex from parent tray without data duplication
+                                val visualProperties = component.getAggregatedVisualProperties(
+                                    getChildComponents = { componentIds ->
+                                        val foundComponents = mutableListOf<Component>()
+                                        
+                                        // Add child components that match the requested IDs
+                                        foundComponents.addAll(uiState.childComponents.filter { it.id in componentIds })
+                                        
+                                        // Add ALL sibling components (RFID tags are siblings of filament component)
+                                        foundComponents.addAll(uiState.siblingComponents)
+                                        
+                                        foundComponents
+                                    },
+                                    parentComponent = uiState.parentComponent
+                                )
                                 
                                 // Color preview box if we have color and material information
                                 val colorHex = visualProperties["aggregatedColorHex"]
