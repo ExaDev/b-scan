@@ -10,6 +10,9 @@ import com.bscan.ui.screens.home.SkuInfo
 import com.bscan.model.Component
 import com.bscan.model.ComponentIdentifier
 import com.bscan.model.ComponentMeasurement
+import com.bscan.model.InventoryItem
+import com.bscan.model.IdentifierType
+import com.bscan.model.IdentifierPurpose
 import com.bscan.model.MeasurementType
 import com.bscan.service.ComponentGroupingService
 import com.bscan.service.MassInferenceService
@@ -284,9 +287,23 @@ class DetailViewModel(
                         loadComponentDetails(rootComponentId)
                         return
                     } else {
+                        // Create virtual root component for inventory item with no root
+                        Log.d("DetailViewModel", "Creating virtual root component for inventory item with ${inventoryItem.components.size} components")
+                        
+                        val childComponents = withContext(Dispatchers.IO) {
+                            inventoryItem.components.mapNotNull { componentId ->
+                                componentRepository!!.getComponent(componentId)
+                            }
+                        }
+                        
+                        val virtualRootComponent = createVirtualRootComponent(inventoryItem, childComponents)
+                        
+                        // Use virtual component directly without persistence
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = "Found inventory item with ${inventoryItem.components.size} component IDs but no accessible root component."
+                            detailType = DetailType.COMPONENT,
+                            primaryComponent = virtualRootComponent,
+                            error = null
                         )
                         return
                     }
@@ -568,7 +585,25 @@ class DetailViewModel(
         }
         
         try {
-            val component = componentRepository!!.getComponent(componentId)
+            val component = if (isVirtualComponentId(componentId)) {
+                // Handle virtual component - recreate from inventory item
+                val trayUid = getTrayUidFromVirtualId(componentId)
+                val inventoryItem = unifiedDataAccess.getInventoryItem(trayUid)
+                
+                if (inventoryItem != null && inventoryItem.hasComponents) {
+                    val childComponents = withContext(Dispatchers.IO) {
+                        inventoryItem.components.mapNotNull { childComponentId ->
+                            componentRepository!!.getComponent(childComponentId)
+                        }
+                    }
+                    createVirtualRootComponent(inventoryItem, childComponents)
+                } else {
+                    null
+                }
+            } else {
+                // Handle regular component
+                componentRepository!!.getComponent(componentId)
+            }
             
             if (component == null) {
                 _uiState.value = _uiState.value.copy(
@@ -1354,6 +1389,87 @@ class DetailViewModel(
         }
     }
     
+    /**
+     * Check if a component ID represents a virtual component
+     */
+    private fun isVirtualComponentId(componentId: String): Boolean {
+        return componentId.startsWith("virtual_root_")
+    }
+    
+    /**
+     * Extract trayUid from virtual component ID
+     */
+    private fun getTrayUidFromVirtualId(virtualId: String): String {
+        return virtualId.removePrefix("virtual_root_")
+    }
+    
+    /**
+     * Create a virtual root component for an inventory item that has multiple components
+     * but no designated root component. This allows the UI to display a unified view.
+     */
+    private fun createVirtualRootComponent(
+        inventoryItem: InventoryItem,
+        childComponents: List<Component>
+    ): Component {
+        val virtualId = "virtual_root_${inventoryItem.trayUid}"
+        
+        // Generate a meaningful name from child components
+        val componentNames = childComponents.take(3).map { it.name }
+        val name = when {
+            componentNames.isEmpty() -> "Inventory Item"
+            componentNames.size == 1 -> componentNames.first()
+            componentNames.size <= 3 -> componentNames.joinToString(", ")
+            else -> "${componentNames.take(2).joinToString(", ")}, +${componentNames.size - 2} more"
+        }
+        
+        // Calculate total mass from child components
+        val totalMass = childComponents.mapNotNull { it.massGrams }.sum().takeIf { it > 0f }
+        
+        // Create primary tracking identifier from trayUid
+        val trackingIdentifier = ComponentIdentifier(
+            type = IdentifierType.CONSUMABLE_UNIT,
+            value = inventoryItem.trayUid,
+            purpose = IdentifierPurpose.TRACKING
+        )
+        
+        // Determine category from child components (use most common or first)
+        val category = childComponents.groupingBy { it.category }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key ?: "inventory-group"
+        
+        // Aggregate tags from all child components
+        val aggregatedTags = childComponents.flatMap { it.tags }.distinct()
+        
+        // Create metadata marking this as virtual
+        val metadata = mapOf(
+            "isVirtual" to "true",
+            "sourceType" to "inventory_aggregation",
+            "childCount" to childComponents.size.toString(),
+            "originalTrayUid" to inventoryItem.trayUid
+        )
+        
+        return Component(
+            id = virtualId,
+            identifiers = listOf(trackingIdentifier),
+            name = name,
+            category = category,
+            tags = aggregatedTags,
+            childComponents = childComponents.map { it.id },
+            siblingReferences = emptyList(), // Virtual component has no siblings
+            parentComponentId = null, // This is the root
+            massGrams = totalMass,
+            fullMassGrams = totalMass, // Assume current mass is full for virtual component
+            variableMass = childComponents.any { it.variableMass },
+            inferredMass = totalMass != null, // Mass is inferred from children
+            manufacturer = childComponents.firstOrNull()?.manufacturer ?: "Mixed",
+            description = "Virtual root component aggregating ${childComponents.size} inventory components",
+            metadata = metadata,
+            createdAt = System.currentTimeMillis(),
+            lastUpdated = inventoryItem.lastUpdated
+        )
+    }
+
     companion object {
         private const val TAG = "DetailViewModel"
     }
