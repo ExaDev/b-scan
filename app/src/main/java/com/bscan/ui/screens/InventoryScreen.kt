@@ -1,30 +1,32 @@
 package com.bscan.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bscan.MainViewModel
 import com.bscan.model.*
 import com.bscan.ui.screens.DetailType
-import com.bscan.repository.ComponentRepository
 import com.bscan.ui.components.common.ConfirmationDialog
 import com.bscan.ui.components.inventory.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun InventoryScreen(
     viewModel: MainViewModel = viewModel(),
@@ -33,72 +35,50 @@ fun InventoryScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    
-    // Load hierarchical components using ComponentRepository
-    var allComponents by remember { mutableStateOf<List<Component>>(emptyList()) }
-    var inventoryItems by remember { mutableStateOf<List<Component>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    
-    // UI state for hierarchy display
-    var expandedComponents by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
-    var selectedTag by remember { mutableStateOf<String?>(null) }
+    val inventoryViewModel = remember { InventoryViewModel(context) }
+    val uiState by inventoryViewModel.uiState.collectAsStateWithLifecycle()
     
     // Show delete confirmation dialog
     var componentToDelete by remember { mutableStateOf<Component?>(null) }
+    var componentsToDelete by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var showFilters by remember { mutableStateOf(false) }
     
-    // Load hierarchical component data
-    LaunchedEffect(Unit) {
-        scope.launch(Dispatchers.IO) {
-            try {
-                val componentRepository = ComponentRepository(context)
-                val loadedComponents = componentRepository.getComponents()
-                val loadedInventoryItems = componentRepository.getInventoryItems()
-                
-                withContext(Dispatchers.Main) {
-                    allComponents = loadedComponents
-                    inventoryItems = loadedInventoryItems
-                    isLoading = false
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    isLoading = false
-                }
-            }
-        }
-    }
     
-    // Delete confirmation dialog
+    // Delete confirmation dialog for single component
     componentToDelete?.let { component ->
         ConfirmationDialog(
             title = "Remove Component",
             message = "Remove component '${component.name}' and all its children? This cannot be undone.",
             confirmText = "Remove",
             onConfirm = {
-                scope.launch(Dispatchers.IO) {
-                    try {
-                        val componentRepository = ComponentRepository(context)
-                        componentRepository.deleteComponent(component.id)
-                        
-                        // Refresh data
-                        val updatedComponents = componentRepository.getComponents()
-                        val updatedInventoryItems = componentRepository.getInventoryItems()
-                        
-                        withContext(Dispatchers.Main) {
-                            allComponents = updatedComponents
-                            inventoryItems = updatedInventoryItems
-                        }
-                    } catch (e: Exception) {
-                        // Handle error silently for now
-                    }
-                }
+                inventoryViewModel.deleteComponent(component)
                 componentToDelete = null
             },
             onDismiss = { componentToDelete = null },
             isDestructive = true
         )
+    }
+    
+    // Bulk delete confirmation dialog
+    if (componentsToDelete.isNotEmpty()) {
+        ConfirmationDialog(
+            title = "Remove Components",
+            message = "Remove ${componentsToDelete.size} components and all their children? This cannot be undone.",
+            confirmText = "Remove All",
+            onConfirm = {
+                inventoryViewModel.deleteBulkComponents(componentsToDelete)
+                componentsToDelete = emptySet()
+            },
+            onDismiss = { componentsToDelete = emptySet() },
+            isDestructive = true
+        )
+    }
+    
+    // Error snackbar
+    uiState.error?.let { error ->
+        LaunchedEffect(error) {
+            // Show error somehow - could use SnackbarHost if added to Scaffold
+        }
     }
     
     Scaffold(
@@ -112,78 +92,225 @@ fun InventoryScreen(
                             contentDescription = "Back"
                         )
                     }
+                },
+                actions = {
+                    // Bulk selection toggle
+                    IconButton(onClick = { inventoryViewModel.toggleBulkSelectionMode() }) {
+                        Icon(
+                            imageVector = if (uiState.isBulkSelectionMode) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                            contentDescription = if (uiState.isBulkSelectionMode) "Exit selection mode" else "Enter selection mode",
+                            tint = if (uiState.isBulkSelectionMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    
+                    // Filter toggle
+                    IconButton(onClick = { showFilters = !showFilters }) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = "Toggle filters",
+                            tint = if (showFilters) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             )
+        },
+        floatingActionButton = {
+            // Show bulk actions when in bulk selection mode
+            if (uiState.isBulkSelectionMode && uiState.selectedComponents.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = { componentsToDelete = uiState.selectedComponents },
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete selected",
+                        tint = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            } else {
+                // Quick actions FAB for general inventory operations
+                InventoryQuickActionsFAB(
+                    onScanComponent = { /* TODO: Trigger NFC scan */ },
+                    onAddComponent = { /* TODO: Manual component creation */ },
+                    onExportInventory = { /* TODO: Export inventory to file */ },
+                    onRefreshInventory = { inventoryViewModel.loadInventoryData() }
+                )
+            }
         }
     ) { paddingValues ->
-        
-        if (isLoading) {
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // View mode selector
+            InventoryViewModeSelector(
+                selectedViewMode = uiState.viewMode,
+                onViewModeChange = { inventoryViewModel.setViewMode(it) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            
+            // Filters panel (collapsible)
+            AnimatedVisibility(
+                visible = showFilters,
+                enter = expandVertically(),
+                exit = shrinkVertically()
             ) {
-                CircularProgressIndicator()
+                InventoryFilterPanel(
+                    searchQuery = uiState.searchQuery,
+                    onSearchQueryChange = { inventoryViewModel.setSearchQuery(it) },
+                    selectedCategory = uiState.selectedCategory,
+                    onCategoryChange = { inventoryViewModel.setSelectedCategory(it) },
+                    selectedTag = uiState.selectedTag,
+                    onTagChange = { inventoryViewModel.setSelectedTag(it) },
+                    selectedManufacturer = uiState.selectedManufacturer,
+                    onManufacturerChange = { inventoryViewModel.setSelectedManufacturer(it) },
+                    availableCategories = inventoryViewModel.getAvailableCategories(),
+                    availableTags = inventoryViewModel.getAvailableTags(),
+                    availableManufacturers = inventoryViewModel.getAvailableManufacturers(),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
-        } else if (inventoryItems.isEmpty()) {
-            Box(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                InventoryEmptyState()
-            }
-        } else {
-            // Filter components based on search and filters
-            val filteredComponents = remember(allComponents, searchQuery, selectedCategory, selectedTag) {
-                filterComponents(allComponents, searchQuery, selectedCategory, selectedTag)
-            }
-            LazyColumn(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Statistics summary
-                item {
-                    InventoryStatisticsCard(
-                        allComponents = allComponents,
-                        inventoryItems = inventoryItems
+            
+            // Sorting selector
+            InventorySortingSelector(
+                selectedSortMode = uiState.sortMode,
+                onSortModeChange = { inventoryViewModel.setSortMode(it) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            
+            // Bulk selection info bar
+            if (uiState.isBulkSelectionMode) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
-                }
-                
-                // Search and filter controls
-                item {
-                    InventorySearchAndFilters(
-                        searchQuery = searchQuery,
-                        onSearchQueryChange = { searchQuery = it },
-                        selectedCategory = selectedCategory,
-                        onCategoryChange = { selectedCategory = it },
-                        selectedTag = selectedTag,
-                        onTagChange = { selectedTag = it },
-                        allComponents = allComponents
-                    )
-                }
-                
-                // Hierarchical inventory items display
-                items(inventoryItems) { inventoryItem ->
-                    InventoryItemCard(
-                        inventoryItem = inventoryItem,
-                        allComponents = filteredComponents,
-                        isExpanded = inventoryItem.id in expandedComponents,
-                        onToggleExpanded = { componentId ->
-                            expandedComponents = if (componentId in expandedComponents) {
-                                expandedComponents - componentId
-                            } else {
-                                expandedComponents + componentId
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${uiState.selectedComponents.size} items selected",
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        
+                        Row {
+                            TextButton(
+                                onClick = { inventoryViewModel.selectAllComponents() },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            ) {
+                                Text("Select All")
                             }
-                        },
-                        onDeleteComponent = { componentToDelete = it },
-                        onNavigateToDetails = onNavigateToDetails
-                    )
+                            
+                            TextButton(
+                                onClick = { inventoryViewModel.clearAllSelections() },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            ) {
+                                Text("Clear")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Content based on state
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (uiState.filteredComponents.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    InventoryEmptyState()
+                }
+            } else {
+                // Statistics summary
+                InventoryStatisticsCard(
+                    allComponents = uiState.allComponents,
+                    inventoryItems = uiState.inventoryItems,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                
+                // Content based on view mode
+                when (uiState.viewMode) {
+                    InventoryViewMode.DETAILED -> {
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.filteredComponents, key = { it.id }) { inventoryItem ->
+                                InventoryItemCard(
+                                    inventoryItem = inventoryItem,
+                                    allComponents = uiState.allComponents,
+                                    isExpanded = inventoryItem.id in uiState.expandedComponents,
+                                    onToggleExpanded = { componentId ->
+                                        inventoryViewModel.toggleComponentExpansion(componentId)
+                                    },
+                                    onDeleteComponent = { componentToDelete = it },
+                                    onNavigateToDetails = onNavigateToDetails
+                                )
+                            }
+                        }
+                    }
+                    
+                    InventoryViewMode.COMPACT -> {
+                        InventoryCompactListView(
+                            inventoryItems = uiState.filteredComponents,
+                            allComponents = uiState.allComponents,
+                            selectedComponents = uiState.selectedComponents,
+                            isBulkSelectionMode = uiState.isBulkSelectionMode,
+                            onNavigateToDetails = onNavigateToDetails,
+                            onToggleSelection = { inventoryViewModel.toggleComponentSelection(it) },
+                            onDeleteComponent = { componentToDelete = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    
+                    InventoryViewMode.TABLE -> {
+                        InventoryTableView(
+                            inventoryItems = uiState.filteredComponents,
+                            allComponents = uiState.allComponents,
+                            selectedComponents = uiState.selectedComponents,
+                            isBulkSelectionMode = uiState.isBulkSelectionMode,
+                            onNavigateToDetails = onNavigateToDetails,
+                            onToggleSelection = { inventoryViewModel.toggleComponentSelection(it) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    
+                    InventoryViewMode.GALLERY -> {
+                        InventoryGalleryView(
+                            inventoryItems = uiState.filteredComponents,
+                            allComponents = uiState.allComponents,
+                            selectedComponents = uiState.selectedComponents,
+                            isBulkSelectionMode = uiState.isBulkSelectionMode,
+                            onNavigateToDetails = onNavigateToDetails,
+                            onToggleSelection = { inventoryViewModel.toggleComponentSelection(it) },
+                            onDeleteComponent = { componentToDelete = it },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
