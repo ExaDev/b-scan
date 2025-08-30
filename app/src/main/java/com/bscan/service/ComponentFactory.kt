@@ -203,28 +203,17 @@ abstract class ComponentFactory(
     
     /**
      * Shared utility: Add component to existing parent hierarchy
+     * NOTE: This method is no longer used in on-demand generation architecture.
+     * Component relationships are established during generation, not persisted separately.
+     * User modifications handled via UserComponentOverlay system.
      */
     protected suspend fun addComponentToParent(
         parentId: String,
         childComponent: Component
     ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val parent = componentRepository.getComponent(parentId) ?: return@withContext false
-            
-            // Save child with parent reference
-            val updatedChild = childComponent.copy(parentComponentId = parentId)
-            componentRepository.saveComponent(updatedChild)
-            
-            // Update parent to include child
-            val updatedParent = parent.withChildComponent(updatedChild.id)
-            componentRepository.saveComponent(updatedParent)
-            
-            Log.d(factoryType, "Added component ${childComponent.name} to parent $parentId")
-            true
-        } catch (e: Exception) {
-            Log.e(factoryType, "Error adding component to parent", e)
-            false
-        }
+        // This method is deprecated in favor of on-demand generation
+        Log.w(factoryType, "addComponentToParent called but persistence disabled in on-demand generation")
+        return@withContext false
     }
     
     /**

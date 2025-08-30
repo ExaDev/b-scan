@@ -63,36 +63,13 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                 return@withContext null
             }
             
-            // Find or create RFID tag component (avoid duplicates)
-            var rfidTagComponent = componentRepository.findComponentByUniqueId(encryptedScanData.tagUid)
-            if (rfidTagComponent == null) {
-                rfidTagComponent = createRfidTagComponent(encryptedScanData.tagUid, filamentInfo.trayUid, filamentInfo)
-                componentRepository.saveComponent(rfidTagComponent)
-                Log.i(factoryType, "Created new RFID tag component: ${encryptedScanData.tagUid}")
-            } else {
-                Log.i(factoryType, "Found existing RFID tag component: ${encryptedScanData.tagUid}")
-            }
+            // Generate RFID tag component (fresh each time - no persistence)
+            val rfidTagComponent = createRfidTagComponent(encryptedScanData.tagUid, filamentInfo.trayUid, filamentInfo)
+            Log.i(factoryType, "Generated RFID tag component: ${encryptedScanData.tagUid}")
             
-            // Find or create tray component
-            var trayComponent = componentRepository.findInventoryByUniqueId(filamentInfo.trayUid)
-            
-            if (trayComponent == null) {
-                // Create new tray with all standard components
-                trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
-                Log.i(factoryType, "Created new tray component: ${trayComponent.name}")
-            } else {
-                // Add this RFID tag to existing tray (if not already there)
-                if (rfidTagComponent.id !in trayComponent.childComponents) {
-                    trayComponent = trayComponent.withChildComponent(rfidTagComponent.id)
-                    // Update RFID tag to reference tray as parent
-                    rfidTagComponent = rfidTagComponent.copy(parentComponentId = trayComponent.id)
-                    componentRepository.saveComponent(rfidTagComponent)
-                    componentRepository.saveComponent(trayComponent)
-                    Log.i(factoryType, "Added RFID tag ${encryptedScanData.tagUid} to existing tray: ${trayComponent.name}")
-                } else {
-                    Log.i(factoryType, "RFID tag ${encryptedScanData.tagUid} already exists in tray: ${trayComponent.name}")
-                }
-            }
+            // Generate tray component with all children (fresh each time - no persistence)
+            val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
+            Log.i(factoryType, "Generated tray component: ${trayComponent.name}")
             
             return@withContext trayComponent
         } catch (e: Exception) {
@@ -112,15 +89,9 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             return@withContext emptyList()
         }
         
-        // Find or create RFID tag component (avoid duplicates)
-        var rfidTagComponent = componentRepository.findComponentByUniqueId(tagUid)
-        if (rfidTagComponent == null) {
-            rfidTagComponent = createRfidTagComponent(tagUid, filamentInfo.trayUid, filamentInfo)
-            componentRepository.saveComponent(rfidTagComponent)
-            Log.i(factoryType, "Created new RFID tag component: $tagUid")
-        } else {
-            Log.i(factoryType, "Found existing RFID tag component: $tagUid")
-        }
+        // Generate RFID tag component fresh each time
+        val rfidTagComponent = createRfidTagComponent(tagUid, filamentInfo.trayUid, filamentInfo)
+        Log.i(factoryType, "Generated RFID tag component: $tagUid")
         
         // Create complete tray component hierarchy
         val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
@@ -149,15 +120,12 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         
         // Create filament component
         val filamentComponent = createFilamentComponent(filamentInfo)
-        componentRepository.saveComponent(filamentComponent)
         
         // Create core component
         val coreComponent = createCoreComponent()
-        componentRepository.saveComponent(coreComponent)
         
         // Create spool component
         val spoolComponent = createSpoolComponent()
-        componentRepository.saveComponent(spoolComponent)
         
         // Create tray component containing all others
         val trayComponent = Component(
@@ -190,19 +158,9 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             lastUpdated = LocalDateTime.now()
         )
         
-        // Update child components to reference this tray as parent
-        listOf(filamentComponent, coreComponent, spoolComponent).forEach { child ->
-            val updatedChild = child.copy(parentComponentId = trayComponent.id)
-            componentRepository.saveComponent(updatedChild)
-        }
-        
-        // Update RFID tag to reference tray as parent 
-        val updatedRfidTag = componentRepository.getComponent(rfidTagComponentId)?.copy(parentComponentId = trayComponent.id)
-        if (updatedRfidTag != null) {
-            componentRepository.saveComponent(updatedRfidTag)
-        }
-        
-        componentRepository.saveComponent(trayComponent)
+        // Child components already have parentComponentId set in tray creation
+        // RFID tag parent relationship handled during generation
+        // No persistence needed - components generated fresh each time
         
         // Create inventory item
         createInventoryItem(
@@ -408,12 +366,9 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
     suspend fun addComponentToTray(trayUid: String, component: Component): Boolean = withContext(Dispatchers.IO) {
         val tray = componentRepository.findInventoryByUniqueId(trayUid) ?: return@withContext false
         
-        // Save the new component first
-        componentRepository.saveComponent(component.copy(parentComponentId = tray.id))
-        
-        // Add to tray's children
-        val updatedTray = tray.withChildComponent(component.id)
-        componentRepository.saveComponent(updatedTray)
+        // Note: This method is no longer used in on-demand generation
+        // Components are generated fresh each time from scan data
+        // User modifications handled via UserComponentOverlay system
         
         Log.d(factoryType, "Added component ${component.name} to tray $trayUid")
         return@withContext true
@@ -459,10 +414,9 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             parentComponentId = tray.id
         )
         
-        // Save and add to tray
-        componentRepository.saveComponent(inferredComponent)
-        val updatedTray = tray.withChildComponent(inferredComponent.id)
-        componentRepository.saveComponent(updatedTray)
+        // Note: This method is no longer used in on-demand generation
+        // Mass inference will be handled via ComponentMergerService
+        // User modifications handled via UserComponentOverlay system
         
         Log.i(factoryType, "Inferred and added component: $componentName (${inferredMass}g) to tray $trayUid")
         return@withContext inferredComponent

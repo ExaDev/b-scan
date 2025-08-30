@@ -168,8 +168,7 @@ class CrealityComponentFactory(context: Context) : ComponentFactory(context) {
                 lastUpdated = LocalDateTime.now()
             )
             
-            // Save component
-            componentRepository.saveComponent(component)
+            // Component generated fresh each time - no persistence needed
             
             Log.d(factoryType, "Created Creality component: ${component.name} (${filamentMass}g)")
             return@withContext listOf(component)
@@ -204,7 +203,7 @@ class CrealityComponentFactory(context: Context) : ComponentFactory(context) {
                 lastUpdated = LocalDateTime.now()
             )
             
-            componentRepository.saveComponent(updatedComponent)
+            // Component updated in-memory only - no persistence needed
             Log.d(factoryType, "Updated existing Creality component: ${updatedComponent.name}")
             
             updatedComponent

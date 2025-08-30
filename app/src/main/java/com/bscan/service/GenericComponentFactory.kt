@@ -118,8 +118,7 @@ class GenericComponentFactory(context: Context) : ComponentFactory(context) {
                 lastUpdated = LocalDateTime.now()
             )
             
-            // Save component
-            componentRepository.saveComponent(component)
+            // Component generated fresh each time - no persistence needed
             
             Log.d(factoryType, "Created generic component: ${component.name}")
             return@withContext listOf(component)
@@ -293,7 +292,7 @@ class GenericComponentFactory(context: Context) : ComponentFactory(context) {
                 lastUpdated = LocalDateTime.now()
             )
             
-            componentRepository.saveComponent(updatedComponent)
+            // Component updated in-memory only - no persistence needed
             Log.d(factoryType, "Updated existing generic component: ${updatedComponent.name}")
             
             updatedComponent

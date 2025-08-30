@@ -168,10 +168,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
                 }
             }
             
-            // Save all components
-            components.forEach { component ->
-                componentRepository.saveComponent(component)
-            }
+            // Components generated fresh each time - no persistence needed
             
             Log.d(factoryType, "Created ${components.size} OpenTag components using ${openTagInfo.creationStrategy}")
             return@withContext components
@@ -411,7 +408,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
                 lastUpdated = LocalDateTime.now()
             )
             
-            componentRepository.saveComponent(updatedComponent)
+            // Component updated in-memory only - no persistence needed
             Log.d(factoryType, "Updated existing OpenTag component: ${updatedComponent.name}")
             
             updatedComponent
