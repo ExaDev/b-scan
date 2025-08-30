@@ -139,20 +139,45 @@ fun TagInfoRow(
 @Composable
 fun SpoolOverviewCardPreview() {
     MaterialTheme {
+        val mockFilamentInfo = com.bscan.model.FilamentInfo(
+            tagUid = "A1B2C3D4",
+            trayUid = "01008023456789ABCDEF",
+            tagFormat = com.bscan.model.TagFormat.BAMBU_PROPRIETARY,
+            manufacturerName = "Bambu Lab",
+            filamentType = "PLA",
+            detailedFilamentType = "PLA Basic",
+            colorHex = "#E74C3C",
+            colorName = "Red",
+            spoolWeight = 1000,
+            filamentDiameter = 1.75f,
+            filamentLength = 330000,
+            productionDate = "2024-03",
+            minTemperature = 210,
+            maxTemperature = 230,
+            bedTemperature = 60,
+            dryingTemperature = 40,
+            dryingTime = 8
+        )
+        
         val mockSpoolDetails = FilamentReelDetails(
             trayUid = "01008023456789ABCDEF",
+            filamentInfo = mockFilamentInfo,
             tagUids = listOf("A1B2C3D4", "E5F6A7B8", "C9D0E1F2"),
-            totalScans = 45,
-            successfulScans = 42,
-            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30),
+            allScans = emptyList(),
             scansByTag = mapOf(
                 "A1B2C3D4" to emptyList(),
                 "E5F6A7B8" to emptyList(),
                 "C9D0E1F2" to emptyList()
-            )
+            ),
+            totalScans = 45,
+            successfulScans = 42,
+            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30)
         )
         
-        SpoolOverviewCard(spoolDetails = mockSpoolDetails)
+        
+        SpoolOverviewCard(
+            spoolDetails = mockSpoolDetails
+        )
     }
 }
 
@@ -160,19 +185,44 @@ fun SpoolOverviewCardPreview() {
 @Composable
 fun AssociatedTagsCardPreview() {
     MaterialTheme {
+        val mockFilamentInfo = com.bscan.model.FilamentInfo(
+            tagUid = "A1B2C3D4",
+            trayUid = "01008023456789ABCDEF",
+            tagFormat = com.bscan.model.TagFormat.BAMBU_PROPRIETARY,
+            manufacturerName = "Bambu Lab",
+            filamentType = "PLA",
+            detailedFilamentType = "PLA Basic",
+            colorHex = "#2E8B57",
+            colorName = "Green",
+            spoolWeight = 1000,
+            filamentDiameter = 1.75f,
+            filamentLength = 330000,
+            productionDate = "2024-03",
+            minTemperature = 210,
+            maxTemperature = 230,
+            bedTemperature = 60,
+            dryingTemperature = 40,
+            dryingTime = 8
+        )
+        
         val mockSpoolDetails = FilamentReelDetails(
             trayUid = "01008023456789ABCDEF",
+            filamentInfo = mockFilamentInfo,
             tagUids = listOf("A1B2C3D4", "E5F6A7B8"),
-            totalScans = 30,
-            successfulScans = 28,
-            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30),
+            allScans = emptyList(),
             scansByTag = mapOf(
                 "A1B2C3D4" to emptyList(),
                 "E5F6A7B8" to emptyList()
-            )
+            ),
+            totalScans = 30,
+            successfulScans = 28,
+            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30)
         )
         
-        AssociatedTagsCard(spoolDetails = mockSpoolDetails)
+        
+        AssociatedTagsCard(
+            spoolDetails = mockSpoolDetails
+        )
     }
 }
 
