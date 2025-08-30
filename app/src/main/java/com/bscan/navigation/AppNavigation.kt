@@ -58,6 +58,9 @@ fun AppNavigation(
                     // Optional: clear the back stack to prevent going back to scanning state
                     // popUpTo("main") { inclusive = false }
                 }
+                
+                // Reset the component creation result so future scans will trigger navigation
+                viewModel.resetComponentState()
             }
         }
     }
