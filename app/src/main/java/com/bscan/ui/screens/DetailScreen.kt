@@ -144,11 +144,27 @@ fun DetailScreen(
                                     .fillMaxWidth()
                                     .padding(16.dp)
                             ) {
+                                // Get visual properties from child components
+                                val visualProperties = component.getAggregatedVisualProperties { childIds ->
+                                    uiState.childComponents.filter { it.id in childIds }
+                                }
+                                val displayName = visualProperties["displayName"] ?: component.name
+                                
                                 Text(
-                                    text = component.name,
+                                    text = displayName,
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold
                                 )
+                                
+                                // Show original name if display name is different
+                                if (displayName != component.name) {
+                                    Text(
+                                        text = "Original: ${component.name}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
                                     text = "Category: ${component.category}",
@@ -164,6 +180,23 @@ fun DetailScreen(
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
+                                
+                                // Show aggregated visual properties if available
+                                visualProperties["aggregatedColors"]?.let { colors ->
+                                    Text(
+                                        text = "Colors: $colors",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                visualProperties["aggregatedMaterials"]?.let { materials ->
+                                    Text(
+                                        text = "Materials: $materials",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                
                                 if (component.description.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
