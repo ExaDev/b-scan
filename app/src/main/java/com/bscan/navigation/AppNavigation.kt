@@ -14,8 +14,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.bscan.MainViewModel
-import com.bscan.ScanState
 import com.bscan.model.UpdateStatus
+import com.bscan.model.ComponentCreationResult
 import com.bscan.nfc.NfcManager
 import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
@@ -32,16 +32,17 @@ fun AppNavigation(
     navController: NavHostController = rememberNavController()
 ) {
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
-    val scanUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val componentCreationResult by viewModel.componentCreationResult.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     
-    // Handle navigation after successful scan
-    LaunchedEffect(scanUiState.scanState, scanUiState.filamentInfo) {
-        if (scanUiState.scanState == ScanState.SUCCESS) {
-            scanUiState.filamentInfo?.let { filamentInfo ->
-                val trayUid = filamentInfo.trayUid
-                // Navigate to spool details page after successful scan
-                navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/$trayUid") {
+    // Handle navigation after successful component creation
+    LaunchedEffect(componentCreationResult) {
+        val result = componentCreationResult
+        if (result is ComponentCreationResult.Success) {
+            val rootComponent = result.rootComponent
+            if (rootComponent.isInventoryItem) {
+                // Navigate to component details for the root component
+                navController.navigate("details/${DetailType.COMPONENT.name.lowercase()}/${rootComponent.id}") {
                     // Optional: clear the back stack to prevent going back to scanning state
                     // popUpTo("main") { inclusive = false }
                 }
@@ -173,6 +174,7 @@ fun AppNavigation(
                 "spool" -> DetailType.INVENTORY_STOCK
                 "inventory_stock" -> DetailType.INVENTORY_STOCK
                 "sku" -> DetailType.SKU
+                "component" -> DetailType.COMPONENT
                 else -> {
                     Log.e("AppNavigation", "Unknown detail type: $typeStr")
                     // Navigate back to main screen on unknown type
