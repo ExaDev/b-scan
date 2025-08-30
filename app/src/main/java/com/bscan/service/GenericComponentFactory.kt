@@ -159,7 +159,7 @@ class GenericComponentFactory(context: Context) : ComponentFactory(context) {
             blockCount = decryptedScanData.decryptedBlocks.size,
             extractedText = extractedText,
             likelyCategory = likelyCategory,
-            hasAuthenticatedData = decryptedScanData.scanResult == ScanResult.SUCCESS,
+            hasAuthenticatedData = decryptedScanData.scanResult == com.bscan.model.ScanResult.SUCCESS,
             rawDataHex = encryptedScanData.encryptedData.joinToString("") { "%02X".format(it) }
         )
     }

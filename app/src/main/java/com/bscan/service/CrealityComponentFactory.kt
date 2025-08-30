@@ -59,7 +59,7 @@ class CrealityComponentFactory(context: Context) : ComponentFactory(context) {
         try {
             Log.d(factoryType, "Processing Creality RFID scan for tag: ${encryptedScanData.tagUid}")
             
-            if (decryptedScanData.scanResult != ScanResult.SUCCESS) {
+            if (decryptedScanData.scanResult != com.bscan.model.ScanResult.SUCCESS) {
                 Log.w(factoryType, "Scan failed: ${decryptedScanData.scanResult}")
                 return@withContext null
             }
