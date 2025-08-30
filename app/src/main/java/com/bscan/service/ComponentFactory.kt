@@ -97,7 +97,17 @@ abstract class ComponentFactory(
     ): Component = withContext(Dispatchers.IO) {
         Component(
             id = generateComponentId("rfid_tag"),
-            uniqueIdentifier = tagUid,
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = tagUid,
+                    purpose = IdentifierPurpose.AUTHENTICATION,
+                    metadata = mapOf(
+                        "manufacturer" to manufacturer,
+                        "chipType" to "mifare-classic-1k"
+                    )
+                )
+            ),
             name = "RFID Tag $tagUid",
             category = "rfid-tag",
             tags = listOf("identifier", "fixed-mass", manufacturer.lowercase()),
@@ -230,8 +240,11 @@ abstract class ComponentFactory(
                 return@withContext false
             }
             
+            val uniqueId = rootComponent.identifiers.firstOrNull { it.isUnique }?.value
+                ?: throw IllegalStateException("Root component missing unique identifier")
+            
             val inventoryItem = InventoryItem(
-                trayUid = rootComponent.uniqueIdentifier!!,
+                trayUid = uniqueId,
                 components = rootComponent.childComponents,
                 totalMeasuredMass = null,
                 measurements = emptyList(),
@@ -240,7 +253,7 @@ abstract class ComponentFactory(
             )
             
             userDataRepository.saveInventoryItem(inventoryItem)
-            Log.d(factoryType, "Created inventory item for: ${rootComponent.uniqueIdentifier}")
+            Log.d(factoryType, "Created inventory item for: $uniqueId")
             true
         } catch (e: Exception) {
             Log.e(factoryType, "Error creating inventory item", e)

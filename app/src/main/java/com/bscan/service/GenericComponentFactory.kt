@@ -92,7 +92,18 @@ class GenericComponentFactory(context: Context) : ComponentFactory(context) {
             // Create single generic component
             val component = Component(
                 id = generateComponentId("generic"),
-                uniqueIdentifier = tagUid,
+                identifiers = listOf(
+                    ComponentIdentifier(
+                        type = IdentifierType.RFID_HARDWARE,
+                        value = tagUid,
+                        purpose = IdentifierPurpose.TRACKING,
+                        metadata = mapOf(
+                            "manufacturer" to genericInfo.manufacturer,
+                            "technology" to genericInfo.technology,
+                            "format" to "hex"
+                        )
+                    )
+                ),
                 name = "RFID Component ${tagUid.take(8)}",
                 category = "generic",
                 tags = listOf("generic", "rfid", "inventory-item", genericInfo.technology.lowercase()),

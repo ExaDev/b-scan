@@ -140,7 +140,19 @@ class CrealityComponentFactory(context: Context) : ComponentFactory(context) {
             // Create single component representing complete spool
             val component = Component(
                 id = generateComponentId("creality_spool"),
-                uniqueIdentifier = tagUid, // Use hardware UID as unique identifier
+                identifiers = listOf(
+                    ComponentIdentifier(
+                        type = IdentifierType.RFID_HARDWARE,
+                        value = tagUid,
+                        purpose = IdentifierPurpose.TRACKING,
+                        metadata = mapOf(
+                            "manufacturer" to "Creality",
+                            "chipType" to "ntag213",
+                            "format" to "hex",
+                            "encoding" to "ascii"
+                        )
+                    )
+                ),
                 name = "Creality ${crealityInfo.material} - ${crealityInfo.colorName}",
                 category = "filament-spool",
                 tags = listOf("creality", "consumable", "variable-mass", "inventory-item"),

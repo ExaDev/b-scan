@@ -143,7 +143,17 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         // Create tray component containing all others
         val trayComponent = Component(
             id = generateComponentId("tray"),
-            uniqueIdentifier = trayUid,
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CONSUMABLE_UNIT,
+                    value = trayUid,
+                    purpose = IdentifierPurpose.TRACKING,
+                    metadata = mapOf(
+                        "format" to "hex",
+                        "source" to "bambu_rfid_application_data"
+                    )
+                )
+            ),
             name = "Bambu ${filamentInfo.filamentType} - ${filamentInfo.colorName}",
             category = "filament-tray",
             tags = listOf("bambu", "composite", "inventory-item"),
@@ -188,7 +198,18 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
     ): Component = withContext(Dispatchers.IO) {
         return@withContext Component(
             id = generateComponentId("rfid_tag"),
-            uniqueIdentifier = tagUid,
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = tagUid,
+                    purpose = IdentifierPurpose.AUTHENTICATION,
+                    metadata = mapOf(
+                        "manufacturer" to "Bambu Lab",
+                        "chipType" to "mifare-classic-1k",
+                        "format" to "hex"
+                    )
+                )
+            ),
             name = "RFID Tag $tagUid",
             category = "rfid-tag",
             tags = listOf("bambu", "identifier", "fixed-mass"),
@@ -440,8 +461,11 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
      */
     private suspend fun createInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) = withContext(Dispatchers.IO) {
         try {
+            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value
+                ?: throw IllegalStateException("Tray component missing CONSUMABLE_UNIT identifier")
+            
             val inventoryItem = InventoryItem(
-                trayUid = trayComponent.uniqueIdentifier!!,
+                trayUid = trayUid,
                 components = trayComponent.childComponents,
                 totalMeasuredMass = null, // User hasn't measured yet
                 measurements = emptyList(),
@@ -452,10 +476,11 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             // Save to UserDataRepository
             userDataRepository.saveInventoryItem(inventoryItem)
             
-            Log.i(factoryType, "Created inventory item for tray: ${trayComponent.uniqueIdentifier}")
+            Log.i(factoryType, "Created inventory item for tray: $trayUid")
             
         } catch (e: Exception) {
-            Log.e(factoryType, "Error creating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
+            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value ?: "unknown"
+            Log.e(factoryType, "Error creating inventory item for tray: $trayUid", e)
         }
     }
     
@@ -464,7 +489,10 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
      */
     private suspend fun updateInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) = withContext(Dispatchers.IO) {
         try {
-            val existingItem = userDataRepository.getInventoryItem(trayComponent.uniqueIdentifier!!)
+            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value
+                ?: throw IllegalStateException("Tray component missing CONSUMABLE_UNIT identifier")
+                
+            val existingItem = userDataRepository.getInventoryItem(trayUid)
             if (existingItem != null) {
                 // Update component list and timestamp
                 val updatedItem = existingItem.copy(
@@ -474,14 +502,15 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                 )
                 
                 userDataRepository.saveInventoryItem(updatedItem)
-                Log.i(factoryType, "Updated inventory item for tray: ${trayComponent.uniqueIdentifier}")
+                Log.i(factoryType, "Updated inventory item for tray: $trayUid")
             } else {
                 // Create new inventory item if somehow missing
                 createInventoryItemForTray(trayComponent, filamentInfo)
             }
             
         } catch (e: Exception) {
-            Log.e(factoryType, "Error updating inventory item for tray: ${trayComponent.uniqueIdentifier}", e)
+            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value ?: "unknown"
+            Log.e(factoryType, "Error updating inventory item for tray: $trayUid", e)
         }
     }
     

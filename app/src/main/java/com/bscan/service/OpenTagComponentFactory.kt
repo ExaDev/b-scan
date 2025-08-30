@@ -32,6 +32,37 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
     
     override val factoryType: String = "OpenTagComponentFactory"
     
+    /**
+     * Helper function to create ComponentIdentifier list from optional unique identifier
+     */
+    private fun createIdentifiers(uniqueIdentifier: String?, tagUid: String): List<ComponentIdentifier> {
+        return if (uniqueIdentifier != null) {
+            listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CUSTOM,
+                    value = uniqueIdentifier,
+                    purpose = IdentifierPurpose.TRACKING,
+                    metadata = mapOf(
+                        "source" to "opentag_user_defined",
+                        "format" to "string"
+                    )
+                )
+            )
+        } else {
+            listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.RFID_HARDWARE,
+                    value = tagUid,
+                    purpose = IdentifierPurpose.TRACKING,
+                    metadata = mapOf(
+                        "source" to "rfid_hardware_uid",
+                        "format" to "hex"
+                    )
+                )
+            )
+        }
+    }
+    
     override fun supportsTagFormat(encryptedScanData: EncryptedScanData): Boolean {
         return try {
             // Check for OpenTag format indicators
@@ -174,7 +205,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
         // Create root component
         val rootComponent = Component(
             id = generateComponentId(openTagInfo.componentType),
-            uniqueIdentifier = openTagInfo.uniqueIdentifier ?: tagUid,
+            identifiers = createIdentifiers(openTagInfo.uniqueIdentifier, tagUid),
             name = openTagInfo.name,
             category = openTagInfo.componentType,
             tags = openTagInfo.tags + listOf("opentag", "composite", "inventory-item"),
@@ -196,7 +227,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
         openTagInfo.childComponents.forEach { childInfo ->
             val childComponent = Component(
                 id = generateComponentId(childInfo.componentType),
-                uniqueIdentifier = childInfo.uniqueIdentifier,
+                identifiers = createIdentifiers(childInfo.uniqueIdentifier, tagUid),
                 name = childInfo.name,
                 category = childInfo.componentType,
                 tags = childInfo.tags + listOf("opentag"),
@@ -237,7 +268,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
         // Create shared parent component
         val parentComponent = Component(
             id = generateComponentId("opentag_group"),
-            uniqueIdentifier = openTagInfo.uniqueIdentifier ?: tagUid,
+            identifiers = createIdentifiers(openTagInfo.uniqueIdentifier, tagUid),
             name = "OpenTag Group - ${openTagInfo.name}",
             category = "component-group",
             tags = listOf("opentag", "group", "inventory-item"),
@@ -259,7 +290,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
         // Add main component as sibling
         val mainComponent = Component(
             id = generateComponentId(openTagInfo.componentType),
-            uniqueIdentifier = null, // Not an inventory item
+            identifiers = emptyList(), // Not an inventory item
             name = openTagInfo.name,
             category = openTagInfo.componentType,
             tags = openTagInfo.tags + listOf("opentag"),
@@ -281,7 +312,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
         openTagInfo.childComponents.forEach { childInfo ->
             val siblingComponent = Component(
                 id = generateComponentId(childInfo.componentType),
-                uniqueIdentifier = childInfo.uniqueIdentifier,
+                identifiers = createIdentifiers(childInfo.uniqueIdentifier, tagUid),
                 name = childInfo.name,
                 category = childInfo.componentType,
                 tags = childInfo.tags + listOf("opentag"),
@@ -317,7 +348,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
     ): Component = withContext(Dispatchers.IO) {
         Component(
             id = generateComponentId(openTagInfo.componentType),
-            uniqueIdentifier = openTagInfo.uniqueIdentifier ?: tagUid,
+            identifiers = createIdentifiers(openTagInfo.uniqueIdentifier, tagUid),
             name = openTagInfo.name,
             category = openTagInfo.componentType,
             tags = openTagInfo.tags + listOf("opentag", "inventory-item"),
