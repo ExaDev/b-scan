@@ -385,19 +385,6 @@ class ComponentRepository(private val context: Context) {
     }
     
     /**
-     * Regenerate inventory items with corrected structure (includes root component IDs)
-     * 
-     * DEPRECATED: This method is no longer needed with the on-demand component generation architecture.
-     * Components are now generated fresh from scan data every time, eliminating the need for regeneration.
-     */
-    @Deprecated("No longer needed with on-demand component generation")
-    fun regenerateInventoryItems() {
-        Log.w(TAG, "regenerateInventoryItems called but is deprecated - use on-demand generation instead")
-        // Method disabled - components are now generated on-demand from scan data
-        // No persistence or regeneration needed
-    }
-    
-    /**
      * Clear all components (for testing/reset)
      */
     fun clearComponents() {
