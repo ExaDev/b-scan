@@ -50,9 +50,8 @@ class DefaultScanningService(
                 componentRepository.saveComponent(component)
             }
             
-            // Persist scan history
-            scanHistoryRepository.saveEncryptedScan(encryptedData)
-            scanHistoryRepository.saveDecryptedScan(decryptedData)
+            // Persist scan history with synchronized timestamps
+            scanHistoryRepository.saveScan(encryptedData, decryptedData)
             
             val scanDuration = System.currentTimeMillis() - startTime
             
