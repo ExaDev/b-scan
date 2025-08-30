@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.ScanResult
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.ui.components.scans.RawDataView
+import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
 import com.bscan.ui.screens.DetailType
@@ -51,8 +51,6 @@ fun ScansBrowser(
         }
     }
     
-    // Track expanded scans
-    var expandedScans by remember { mutableStateOf(setOf<String>()) }
     
     LazyColumn(
         state = lazyListState,
@@ -89,15 +87,6 @@ fun ScansBrowser(
                 val scanId = "${scan.timestamp}-${scan.tagUid}"
                 ScanCard(
                     scan = scan,
-                    isExpanded = expandedScans.contains(scanId),
-                    onToggleExpanded = {
-                        expandedScans = if (expandedScans.contains(scanId)) {
-                            expandedScans - scanId
-                        } else {
-                            expandedScans + scanId
-                        }
-                    },
-                    repository = repository,
                     onNavigateToDetails = onNavigateToDetails
                 )
             }
@@ -213,22 +202,20 @@ private fun ScansSummaryCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScanCard(
     scan: DecryptedScanData,
-    isExpanded: Boolean,
-    onToggleExpanded: () -> Unit,
-    repository: ScanHistoryRepository,
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val encryptedScan = repository.getEncryptedScanForDecrypted(scan)
+    val scanId = "${scan.timestamp}-${scan.tagUid}"
     
     Card(
         modifier = modifier.fillMaxWidth(),
-        onClick = { onToggleExpanded() },
+        onClick = { 
+            onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
+        },
         colors = CardDefaults.cardColors(
             containerColor = when (scan.scanResult) {
                 ScanResult.SUCCESS -> MaterialTheme.colorScheme.surface
@@ -236,106 +223,45 @@ private fun ScanCard(
             }
         )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header with scan info
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = scan.tagUid,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    Text(
-                        text = scan.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ScanResultChip(scanResult = scan.scanResult)
-                        Text(
-                            text = scan.technology,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = scan.tagUid,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
                 
-                IconButton(onClick = onToggleExpanded) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Collapse" else "Expand"
+                Text(
+                    text = scan.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ScanResultChip(scanResult = scan.scanResult)
+                    Text(
+                        text = scan.technology,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             
-            // Expanded content with tabs
-            if (isExpanded) {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Tab row for data views
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Tab(
-                        selected = selectedTabIndex == 0,
-                        onClick = { selectedTabIndex = 0 },
-                        text = { Text("Raw Data") }
-                    )
-                    Tab(
-                        selected = selectedTabIndex == 1,
-                        onClick = { selectedTabIndex = 1 },
-                        text = { Text("Decoded") }
-                    )
-                    Tab(
-                        selected = selectedTabIndex == 2,
-                        onClick = { selectedTabIndex = 2 },
-                        text = { Text("Decrypted") }
-                    )
-                }
-                
-                // Content based on selected tab
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp)
-                ) {
-                    when (selectedTabIndex) {
-                        0 -> {
-                            if (encryptedScan != null) {
-                                RawDataView(encryptedScanData = encryptedScan)
-                            } else {
-                                DataNotAvailableMessage("Raw data not available")
-                            }
-                        }
-                        1 -> {
-                            if (encryptedScan != null) {
-                                DecodedDataView(
-                                    encryptedScanData = encryptedScan, 
-                                    decryptedScanData = scan
-                                )
-                            } else {
-                                DataNotAvailableMessage("Decoded data not available")
-                            }
-                        }
-                        2 -> {
-                            DecryptedDataView(decryptedScanData = scan)
-                        }
-                    }
-                }
-            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "View details",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

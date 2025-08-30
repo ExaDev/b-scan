@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.bscan.model.DecryptedScanData
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TagStatistics
-import com.bscan.ui.components.scans.RawDataView
+import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
 import com.bscan.ui.screens.DetailType
@@ -50,8 +50,6 @@ fun TagsBrowser(
         }
     }
     
-    // Track expanded tag groups
-    var expandedTags by remember { mutableStateOf(setOf<String>()) }
     
     LazyColumn(
         state = lazyListState,
@@ -86,15 +84,6 @@ fun TagsBrowser(
                     tagUid = tagUid,
                     scans = scans,
                     statistics = repository.getTagStatistics(tagUid),
-                    isExpanded = expandedTags.contains(tagUid),
-                    onToggleExpanded = { 
-                        expandedTags = if (expandedTags.contains(tagUid)) {
-                            expandedTags - tagUid
-                        } else {
-                            expandedTags + tagUid
-                        }
-                    },
-                    repository = repository,
                     onNavigateToDetails = onNavigateToDetails
                 )
             }
@@ -176,191 +165,62 @@ private fun TagsSummaryCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TagGroupCard(
     tagUid: String,
     scans: List<DecryptedScanData>,
     statistics: TagStatistics,
-    isExpanded: Boolean,
-    onToggleExpanded: () -> Unit,
-    repository: ScanHistoryRepository,
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val scope = rememberCoroutineScope()
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var selectedScanIndex by remember { mutableIntStateOf(0) }
+    // Navigate to the most recent scan for this tag
+    val latestScan = scans.maxByOrNull { it.timestamp }
+    val scanId = latestScan?.let { "${it.timestamp}-${it.tagUid}" }
     
     Card(
         modifier = modifier.fillMaxWidth(),
-        onClick = { onToggleExpanded() }
+        onClick = { 
+            if (scanId != null) {
+                onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
+            }
+        }
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header with tag info
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tagUid,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    Text(
-                        text = "${statistics.totalScans} scans • ${(statistics.successRate * 100).toInt()}% success",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    statistics.latestScanTimestamp?.let { timestamp ->
-                        Text(
-                            text = "Latest: ${timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = tagUid,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
                 
-                IconButton(onClick = onToggleExpanded) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Collapse" else "Expand"
+                Text(
+                    text = "${statistics.totalScans} scans • ${(statistics.successRate * 100).toInt()}% success",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                statistics.latestScanTimestamp?.let { timestamp ->
+                    Text(
+                        text = "Latest: ${timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             
-            // Expanded content
-            if (isExpanded) {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Scan selection dropdown if multiple scans
-                if (scans.size > 1) {
-                    var showScanSelector by remember { mutableStateOf(false) }
-                    
-                    Box {
-                        OutlinedButton(
-                            onClick = { showScanSelector = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Scan ${selectedScanIndex + 1} of ${scans.size} - ${scans[selectedScanIndex].timestamp.format(DateTimeFormatter.ofPattern("MMM dd HH:mm"))}")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select scan")
-                        }
-                        
-                        DropdownMenu(
-                            expanded = showScanSelector,
-                            onDismissRequest = { showScanSelector = false }
-                        ) {
-                            scans.forEachIndexed { index, scan ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(
-                                                text = scan.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                            Text(
-                                                text = scan.scanResult.name,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = if (scan.scanResult.name == "SUCCESS") 
-                                                    MaterialTheme.colorScheme.primary 
-                                                else 
-                                                    MaterialTheme.colorScheme.error
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        selectedScanIndex = index
-                                        showScanSelector = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-                
-                val selectedScan = scans.getOrNull(selectedScanIndex) ?: scans.first()
-                val encryptedScan = repository.getEncryptedScanForDecrypted(selectedScan)
-                
-                // Tab row for data views
-                TabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Tab(
-                        selected = selectedTabIndex == 0,
-                        onClick = { selectedTabIndex = 0 },
-                        text = { Text("Raw Data") }
-                    )
-                    Tab(
-                        selected = selectedTabIndex == 1,
-                        onClick = { selectedTabIndex = 1 },
-                        text = { Text("Decoded") }
-                    )
-                    Tab(
-                        selected = selectedTabIndex == 2,
-                        onClick = { selectedTabIndex = 2 },
-                        text = { Text("Decrypted") }
-                    )
-                }
-                
-                // Content based on selected tab
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp)
-                ) {
-                    when (selectedTabIndex) {
-                        0 -> {
-                            if (encryptedScan != null) {
-                                RawDataView(encryptedScanData = encryptedScan)
-                            } else {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "Raw data not available",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                        1 -> {
-                            if (encryptedScan != null) {
-                                DecodedDataView(
-                                    encryptedScanData = encryptedScan,
-                                    decryptedScanData = selectedScan
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "Decoded data not available",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                        2 -> {
-                            DecryptedDataView(decryptedScanData = selectedScan)
-                        }
-                    }
-                }
-            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "View latest scan details",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
