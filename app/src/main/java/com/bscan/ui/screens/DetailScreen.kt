@@ -37,7 +37,19 @@ fun DetailScreen(
     val userRepository = remember { UserDataRepository(context) }
     val scanHistoryRepository = remember { ScanHistoryRepository(context) }
     val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userRepository, scanHistoryRepository) }
-    val viewModel = remember { DetailViewModel(unifiedDataAccess) }
+    val componentRepository = remember { com.bscan.repository.ComponentRepository(context) }
+    val componentGroupingService = remember { com.bscan.service.ComponentGroupingService(componentRepository) }
+    val massInferenceService = remember { com.bscan.service.MassInferenceService(componentRepository) }
+    val interpreterFactory = remember { com.bscan.interpreter.InterpreterFactory(unifiedDataAccess) }
+    val viewModel = remember { 
+        DetailViewModel(
+            unifiedDataAccess = unifiedDataAccess,
+            componentRepository = componentRepository,
+            componentGroupingService = componentGroupingService,
+            massInferenceService = massInferenceService,
+            interpreterFactory = interpreterFactory
+        ) 
+    }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
