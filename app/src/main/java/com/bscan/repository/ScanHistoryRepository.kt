@@ -71,11 +71,31 @@ class ScanHistoryRepository(private val context: Context) {
     private val maxHistorySize = 100 // Keep last 100 scans
     
     /**
-     * Save both encrypted and decrypted scan data
+     * Save both encrypted and decrypted scan data with synchronized timestamps
      */
     suspend fun saveScan(encryptedScan: EncryptedScanData, decryptedScan: DecryptedScanData) {
-        saveEncryptedScan(encryptedScan)
-        saveDecryptedScan(decryptedScan)
+        // Ensure both scans have the same timestamp for proper matching
+        val timestamp = if (encryptedScan.timestamp == LocalDateTime.MIN && decryptedScan.timestamp == LocalDateTime.MIN) {
+            LocalDateTime.now()
+        } else {
+            // Use the timestamp from whichever scan has a valid timestamp, or current time
+            maxOf(encryptedScan.timestamp, decryptedScan.timestamp)
+        }
+        
+        val synchronizedEncrypted = if (encryptedScan.timestamp == LocalDateTime.MIN) {
+            encryptedScan.copy(timestamp = timestamp)
+        } else {
+            encryptedScan
+        }
+        
+        val synchronizedDecrypted = if (decryptedScan.timestamp == LocalDateTime.MIN) {
+            decryptedScan.copy(timestamp = timestamp) 
+        } else {
+            decryptedScan
+        }
+        
+        saveEncryptedScan(synchronizedEncrypted)
+        saveDecryptedScan(synchronizedDecrypted)
     }
     
     /**
@@ -255,13 +275,23 @@ class ScanHistoryRepository(private val context: Context) {
     }
     
     /**
-     * Get encrypted scan data for a decrypted scan by matching timestamp and UID
+     * Get encrypted scan data for a decrypted scan by matching UID and timestamp
+     * Uses fuzzy timestamp matching to handle slight timing differences
      */
     fun getEncryptedScanForDecrypted(decryptedScan: DecryptedScanData): EncryptedScanData? {
         val encryptedScans = getAllEncryptedScans()
-        return encryptedScans.find { encrypted ->
+        
+        // First try exact timestamp match
+        val exactMatch = encryptedScans.find { encrypted ->
             encrypted.tagUid == decryptedScan.tagUid && 
             encrypted.timestamp == decryptedScan.timestamp
+        }
+        if (exactMatch != null) return exactMatch
+        
+        // If no exact match, try fuzzy timestamp matching (within 5 seconds)
+        return encryptedScans.find { encrypted ->
+            encrypted.tagUid == decryptedScan.tagUid && 
+            kotlin.math.abs(java.time.Duration.between(encrypted.timestamp, decryptedScan.timestamp).seconds) <= 5
         }
     }
     
