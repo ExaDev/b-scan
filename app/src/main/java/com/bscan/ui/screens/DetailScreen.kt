@@ -20,6 +20,9 @@ import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.ui.components.detail.*
+import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.MaterialDisplaySettings
+import com.bscan.ui.screens.home.CatalogDisplayMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +56,11 @@ fun DetailScreen(
     }
     
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Get user preferences for display settings similar to CatalogBrowser
+    val userData by remember { derivedStateOf { userRepository.getUserData() } }
+    val catalogDisplayMode = userData?.preferences?.catalogDisplayMode ?: CatalogDisplayMode.COMPLETE_TITLE
+    val materialDisplaySettings = userData?.preferences?.materialDisplaySettings ?: MaterialDisplaySettings.DEFAULT
     
     // Add comprehensive error logging
     LaunchedEffect(uiState.error) {
@@ -139,71 +147,113 @@ fun DetailScreen(
                                 .padding(vertical = 4.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Column(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp)
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 // Get visual properties from child components
                                 val visualProperties = component.getAggregatedVisualProperties { childIds ->
                                     uiState.childComponents.filter { it.id in childIds }
                                 }
-                                val displayName = visualProperties["displayName"] ?: component.name
                                 
-                                Text(
-                                    text = displayName,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                // Color preview box if we have color and material information
+                                val colorHex = visualProperties["aggregatedColorHex"]
+                                val materials = visualProperties["aggregatedMaterials"]
                                 
-                                // Show original name if display name is different
-                                if (displayName != component.name) {
+                                if (colorHex != null && materials != null) {
+                                    FilamentColorBox(
+                                        colorHex = colorHex,
+                                        filamentType = materials,
+                                        materialDisplaySettings = materialDisplaySettings,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                }
+                                
+                                // Component information
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Title based on catalog display mode using visual properties
+                                    val colors = visualProperties["aggregatedColors"]
+                                    val displayTitle = when {
+                                        colors != null && materials != null -> {
+                                            when (catalogDisplayMode) {
+                                                CatalogDisplayMode.COMPLETE_TITLE -> 
+                                                    "$colors $materials"
+                                                CatalogDisplayMode.COLOR_FOCUSED -> 
+                                                    colors
+                                            }
+                                        }
+                                        else -> visualProperties["displayName"] ?: component.name
+                                    }
+                                    
                                     Text(
-                                        text = "Original: ${component.name}",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        text = displayTitle,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    
+                                    // Show original name if display name is different
+                                    val originalName = component.name
+                                    if (displayTitle != originalName) {
+                                        Text(
+                                            text = "Original: $originalName",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    
+                                    // Properties based on display mode (similar to catalog)
+                                    when (catalogDisplayMode) {
+                                        CatalogDisplayMode.COMPLETE_TITLE -> {
+                                            Text(
+                                                text = "Category: ${component.category}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        CatalogDisplayMode.COLOR_FOCUSED -> {
+                                            if (colors != null && materials != null) {
+                                                Text(
+                                                    text = "$materials • Category: ${component.category}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = "Category: ${component.category}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                    
+                                    Text(
+                                        text = "Manufacturer: ${component.manufacturer}",
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
-                                
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Category: ${component.category}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                Text(
-                                    text = "Manufacturer: ${component.manufacturer}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                component.massGrams?.let { mass ->
-                                    Text(
-                                        text = "Mass: ${mass}g",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                                
-                                // Show aggregated visual properties if available
-                                visualProperties["aggregatedColors"]?.let { colors ->
-                                    Text(
-                                        text = "Colors: $colors",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                visualProperties["aggregatedMaterials"]?.let { materials ->
-                                    Text(
-                                        text = "Materials: $materials",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                
-                                if (component.description.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = component.description,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    
+                                    component.massGrams?.let { mass ->
+                                        Text(
+                                            text = "Mass: ${mass}g",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    
+                                    if (component.description.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = component.description,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
