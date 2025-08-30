@@ -299,6 +299,82 @@ data class Component(
             lastUpdated = LocalDateTime.now()
         )
     }
+    
+    /**
+     * Extract visual properties from child components and combine them intelligently
+     */
+    fun getAggregatedVisualProperties(getChildComponents: (List<String>) -> List<Component>): Map<String, String> {
+        if (childComponents.isEmpty()) return emptyMap()
+        
+        val children = getChildComponents(childComponents)
+        val aggregatedProperties = mutableMapOf<String, String>()
+        val colorProperties = mutableSetOf<String>()
+        val materialProperties = mutableSetOf<String>()
+        
+        // Extract color and material properties from all children
+        children.forEach { child ->
+            // Check for color properties in various keys
+            listOf("color", "colour", "colorName", "colourName").forEach { key ->
+                child.metadata[key]?.let { value ->
+                    if (value.isNotBlank()) colorProperties.add(value)
+                }
+            }
+            
+            // Check for material properties
+            listOf("material", "materialType", "filamentType").forEach { key ->
+                child.metadata[key]?.let { value ->
+                    if (value.isNotBlank()) materialProperties.add(value)
+                }
+            }
+        }
+        
+        // Combine properties intelligently
+        if (colorProperties.size == 1 && materialProperties.size == 1) {
+            // Simple case: one color, one material
+            aggregatedProperties["displayName"] = "${colorProperties.first()} ${materialProperties.first()}"
+        } else if (colorProperties.size == 1 && materialProperties.isEmpty()) {
+            // Only color available
+            aggregatedProperties["displayName"] = colorProperties.first()
+        } else if (colorProperties.isEmpty() && materialProperties.size == 1) {
+            // Only material available  
+            aggregatedProperties["displayName"] = materialProperties.first()
+        } else if (colorProperties.size > 1 || materialProperties.size > 1) {
+            // Multiple colors or materials - show as mixed
+            val colorPart = when (colorProperties.size) {
+                0 -> ""
+                1 -> colorProperties.first()
+                else -> "Mixed Colors"
+            }
+            val materialPart = when (materialProperties.size) {
+                0 -> ""
+                1 -> materialProperties.first()
+                else -> "Mixed Materials"
+            }
+            
+            aggregatedProperties["displayName"] = listOf(colorPart, materialPart)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .takeIf { it.isNotBlank() } ?: "Mixed Properties"
+        }
+        
+        // Store individual properties for reference
+        if (colorProperties.isNotEmpty()) {
+            aggregatedProperties["aggregatedColors"] = colorProperties.joinToString(", ")
+        }
+        if (materialProperties.isNotEmpty()) {
+            aggregatedProperties["aggregatedMaterials"] = materialProperties.joinToString(", ")
+        }
+        
+        return aggregatedProperties
+    }
+    
+    /**
+     * Get display name with visual properties from children if available
+     */
+    fun getDisplayNameWithVisualProperties(getChildComponents: (List<String>) -> List<Component>): String {
+        val visualProperties = getAggregatedVisualProperties(getChildComponents)
+        return visualProperties["displayName"] ?: name
+    }
 }
 
 /**
