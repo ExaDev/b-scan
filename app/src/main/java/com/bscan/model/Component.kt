@@ -301,7 +301,7 @@ data class Component(
     }
     
     /**
-     * Extract visual properties from child components and combine them intelligently
+     * Extract visual properties from child and sibling components and combine them intelligently
      */
     fun getAggregatedVisualProperties(getChildComponents: (List<String>) -> List<Component>): Map<String, String> {
         val aggregatedProperties = mutableMapOf<String, String>()
@@ -349,6 +349,33 @@ data class Component(
                 // Check for color hex properties
                 listOf("colorHex", "colourHex", "hexColor", "hexColour").forEach { key ->
                     child.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) colorHexProperties.add(value)
+                    }
+                }
+            }
+        }
+        
+        // ALSO extract visual properties from sibling components (RFID tags are siblings of filament)
+        if (siblingReferences.isNotEmpty()) {
+            val siblings = getChildComponents(siblingReferences)
+            siblings.forEach { sibling ->
+                // Check for color properties in various keys
+                listOf("color", "colour", "colorName", "colourName").forEach { key ->
+                    sibling.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) colorProperties.add(value)
+                    }
+                }
+                
+                // Check for material properties
+                listOf("material", "materialType", "filamentType").forEach { key ->
+                    sibling.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) materialProperties.add(value)
+                    }
+                }
+                
+                // Check for color hex properties
+                listOf("colorHex", "colourHex", "hexColor", "hexColour").forEach { key ->
+                    sibling.metadata[key]?.let { value ->
                         if (value.isNotBlank()) colorHexProperties.add(value)
                     }
                 }
