@@ -125,8 +125,8 @@ data class MassMeasurement(
      */
     fun calculateFilamentMass(fixedComponentMassGrams: Float): Float {
         return when (measurementType) {
-            MeasurementType.FULL_WEIGHT -> measuredMassGrams - fixedComponentMassGrams
-            MeasurementType.EMPTY_WEIGHT -> 0f // Empty measurement, no filament
+            MeasurementType.TOTAL_MASS -> measuredMassGrams - fixedComponentMassGrams
+            MeasurementType.COMPONENT_ONLY -> 0f // Component only, no filament
             MeasurementType.TOTAL_MASS -> measuredMassGrams - fixedComponentMassGrams
             MeasurementType.COMPONENT_ONLY -> 0f // Component only, no filament
         }

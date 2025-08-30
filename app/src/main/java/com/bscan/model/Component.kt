@@ -56,8 +56,7 @@ data class ComponentIdentifier(
  */
 data class Component(
     val id: String,                              // Internal component ID
-    val uniqueIdentifier: String? = null,        // Legacy: External unique ID (for backwards compatibility)
-    val identifiers: List<ComponentIdentifier> = emptyList(),  // New: Multiple identifier support
+    val identifiers: List<ComponentIdentifier> = emptyList(),  // Multiple identifier support
     val name: String,
     val category: String = "general",
     val tags: List<String> = emptyList(),
@@ -84,7 +83,7 @@ data class Component(
      * Check if this component represents an inventory item (uniquely identifiable)
      */
     val isInventoryItem: Boolean
-        get() = (uniqueIdentifier != null || hasUniqueIdentifier()) && parentComponentId == null
+        get() = hasUniqueIdentifier() && parentComponentId == null
     
     /**
      * Check if this component has any unique identifiers
@@ -320,9 +319,7 @@ data class ComponentMeasurement(
  */
 enum class MeasurementType {
     TOTAL_MASS,     // Total mass of component and all children
-    COMPONENT_ONLY, // Mass of just this component (excluding children)
-    FULL_WEIGHT,    // Weight with filament (PhysicalComponent compatibility)
-    EMPTY_WEIGHT    // Weight without filament (PhysicalComponent compatibility)
+    COMPONENT_ONLY  // Mass of just this component (excluding children)
 }
 
 /**

@@ -83,6 +83,7 @@ data class DecryptedScanData(
     val tagUid: String, // Individual tag UID (unique per tag)
     val technology: String,
     val scanResult: ScanResult,
+    val tagFormat: TagFormat = TagFormat.UNKNOWN, // Tag format detected during scan
     
     // Decrypted block data (after successful authentication)
     // Map of block number -> 16-byte block data in hex format
@@ -113,6 +114,7 @@ data class DecryptedScanData(
         if (tagUid != other.tagUid) return false
         if (technology != other.technology) return false
         if (scanResult != other.scanResult) return false
+        if (tagFormat != other.tagFormat) return false
         if (decryptedBlocks != other.decryptedBlocks) return false
         if (authenticatedSectors != other.authenticatedSectors) return false
         if (failedSectors != other.failedSectors) return false
@@ -131,6 +133,7 @@ data class DecryptedScanData(
         result = 31 * result + tagUid.hashCode()
         result = 31 * result + technology.hashCode()
         result = 31 * result + scanResult.hashCode()
+        result = 31 * result + tagFormat.hashCode()
         result = 31 * result + decryptedBlocks.hashCode()
         result = 31 * result + authenticatedSectors.hashCode()
         result = 31 * result + failedSectors.hashCode()
