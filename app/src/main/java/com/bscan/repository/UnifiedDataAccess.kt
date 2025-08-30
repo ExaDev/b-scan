@@ -27,6 +27,11 @@ class UnifiedDataAccess(
         private const val TAG = "UnifiedDataAccess"
     }
     
+    /**
+     * Public accessor for the context
+     */
+    val appContext: Context? get() = context
+    
     // === Component Creation Workflow ===
     
     /**

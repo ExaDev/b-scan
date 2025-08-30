@@ -2,6 +2,7 @@ package com.bscan.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.bscan.model.*
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
@@ -385,39 +386,15 @@ class ComponentRepository(private val context: Context) {
     
     /**
      * Regenerate inventory items with corrected structure (includes root component IDs)
-     * This fixes legacy inventory items that only contained child components
+     * 
+     * DEPRECATED: This method is no longer needed with the on-demand component generation architecture.
+     * Components are now generated fresh from scan data every time, eliminating the need for regeneration.
      */
+    @Deprecated("No longer needed with on-demand component generation")
     fun regenerateInventoryItems() {
-        val inventoryRepository = InventoryRepository(context)
-        val existingInventoryItems = inventoryRepository.getInventoryItems()
-        
-        Log.d(TAG, "Regenerating ${existingInventoryItems.size} inventory items with corrected structure")
-        
-        existingInventoryItems.forEach { inventoryItem ->
-            // Get all components for this inventory item
-            val allComponents = inventoryItem.components.mapNotNull { componentId ->
-                getComponent(componentId)
-            }
-            
-            // Find the root component (should exist now due to BambuComponentFactory fix)
-            val rootComponent = allComponents.find { it.isRootComponent }
-            
-            if (rootComponent != null) {
-                // Update inventory item to include root component ID first
-                val updatedInventoryItem = inventoryItem.copy(
-                    components = listOf(rootComponent.id) + rootComponent.childComponents
-                )
-                
-                // Save the corrected inventory item
-                inventoryRepository.addOrUpdateInventoryItem(updatedInventoryItem)
-                
-                Log.d(TAG, "Updated inventory item ${inventoryItem.trayUid} to include root component ${rootComponent.id}")
-            } else {
-                Log.w(TAG, "No root component found for inventory item ${inventoryItem.trayUid}, skipping regeneration")
-            }
-        }
-        
-        Log.d(TAG, "Completed inventory item regeneration")
+        Log.w(TAG, "regenerateInventoryItems called but is deprecated - use on-demand generation instead")
+        // Method disabled - components are now generated on-demand from scan data
+        // No persistence or regeneration needed
     }
     
     /**
