@@ -227,8 +227,9 @@ private fun CatalogDisplayModeCardPreview() {
             currentMode = CatalogDisplayMode.COMPLETE_TITLE,
             currentMaterialSettings = MaterialDisplaySettings(
                 showMaterialShapes = true,
-                showFinishEffects = true,
-                accelerometerEffects = false
+                showMaterialNameInShape = false,
+                showMaterialVariantInShape = true,
+                showFullVariantNamesInShape = false
             ),
             onModeChanged = { }
         )

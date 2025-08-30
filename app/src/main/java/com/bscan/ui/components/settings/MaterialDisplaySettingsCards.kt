@@ -440,8 +440,9 @@ private fun MaterialShapeStyleCardPreview() {
         MaterialShapeStyleCard(
             currentSettings = MaterialDisplaySettings(
                 showMaterialShapes = true,
-                showFinishEffects = true,
-                accelerometerEffects = false
+                showMaterialNameInShape = false,
+                showMaterialVariantInShape = true,
+                showFullVariantNamesInShape = false
             ),
             onSettingsChanged = { }
         )
@@ -457,8 +458,7 @@ private fun MaterialTextOverlayCardPreview() {
                 showMaterialShapes = true,
                 showMaterialNameInShape = true,
                 showMaterialVariantInShape = false,
-                showFinishEffects = true,
-                accelerometerEffects = false
+                showFullVariantNamesInShape = true
             ),
             onSettingsChanged = { }
         )
@@ -474,9 +474,7 @@ private fun MaterialVariantNameCardPreview() {
                 showMaterialShapes = true,
                 showMaterialNameInShape = true,
                 showMaterialVariantInShape = true,
-                showFullVariantNamesInShape = false,
-                showFinishEffects = true,
-                accelerometerEffects = false
+                showFullVariantNamesInShape = false
             ),
             onSettingsChanged = { }
         )
