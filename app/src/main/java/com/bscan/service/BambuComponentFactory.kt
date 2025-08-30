@@ -63,9 +63,15 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                 return@withContext null
             }
             
-            // Create RFID tag component
-            val rfidTagComponent = createRfidTagComponent(encryptedScanData.tagUid, filamentInfo.trayUid, filamentInfo)
-            componentRepository.saveComponent(rfidTagComponent)
+            // Find or create RFID tag component (avoid duplicates)
+            var rfidTagComponent = componentRepository.findComponentByUniqueId(encryptedScanData.tagUid)
+            if (rfidTagComponent == null) {
+                rfidTagComponent = createRfidTagComponent(encryptedScanData.tagUid, filamentInfo.trayUid, filamentInfo)
+                componentRepository.saveComponent(rfidTagComponent)
+                Log.i(factoryType, "Created new RFID tag component: ${encryptedScanData.tagUid}")
+            } else {
+                Log.i(factoryType, "Found existing RFID tag component: ${encryptedScanData.tagUid}")
+            }
             
             // Find or create tray component
             var trayComponent = componentRepository.findInventoryByUniqueId(filamentInfo.trayUid)
@@ -75,10 +81,17 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                 trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
                 Log.i(factoryType, "Created new tray component: ${trayComponent.name}")
             } else {
-                // Add this RFID tag to existing tray
-                trayComponent = trayComponent.withChildComponent(rfidTagComponent.id)
-                componentRepository.saveComponent(trayComponent)
-                Log.i(factoryType, "Added RFID tag ${encryptedScanData.tagUid} to existing tray: ${trayComponent.name}")
+                // Add this RFID tag to existing tray (if not already there)
+                if (rfidTagComponent.id !in trayComponent.childComponents) {
+                    trayComponent = trayComponent.withChildComponent(rfidTagComponent.id)
+                    // Update RFID tag to reference tray as parent
+                    rfidTagComponent = rfidTagComponent.copy(parentComponentId = trayComponent.id)
+                    componentRepository.saveComponent(rfidTagComponent)
+                    componentRepository.saveComponent(trayComponent)
+                    Log.i(factoryType, "Added RFID tag ${encryptedScanData.tagUid} to existing tray: ${trayComponent.name}")
+                } else {
+                    Log.i(factoryType, "RFID tag ${encryptedScanData.tagUid} already exists in tray: ${trayComponent.name}")
+                }
             }
             
             return@withContext trayComponent
@@ -99,9 +112,15 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             return@withContext emptyList()
         }
         
-        // Create RFID tag component first
-        val rfidTagComponent = createRfidTagComponent(tagUid, filamentInfo.trayUid, filamentInfo)
-        componentRepository.saveComponent(rfidTagComponent)
+        // Find or create RFID tag component (avoid duplicates)
+        var rfidTagComponent = componentRepository.findComponentByUniqueId(tagUid)
+        if (rfidTagComponent == null) {
+            rfidTagComponent = createRfidTagComponent(tagUid, filamentInfo.trayUid, filamentInfo)
+            componentRepository.saveComponent(rfidTagComponent)
+            Log.i(factoryType, "Created new RFID tag component: $tagUid")
+        } else {
+            Log.i(factoryType, "Found existing RFID tag component: $tagUid")
+        }
         
         // Create complete tray component hierarchy
         val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
