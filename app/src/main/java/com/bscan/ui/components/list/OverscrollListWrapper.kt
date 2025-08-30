@@ -3,7 +3,9 @@ package com.bscan.ui.components.list
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,6 +18,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import android.util.Log
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
@@ -182,16 +186,20 @@ fun OverscrollListWrapper(
 private fun OverscrollListWrapperPreview() {
     MaterialTheme {
         OverscrollListWrapper(
-            isEmpty = false,
-            itemCount = 3,
-            scanState = ScanState.Idle,
-            scanProgress = 0f,
+            lazyListState = rememberLazyListState(),
+            scanState = ScanState.IDLE,
+            scanProgress = null,
             onSimulateScan = { },
             modifier = Modifier.height(200.dp)
-        ) {
-            item { Text("Sample Item 1", modifier = Modifier.padding(16.dp)) }
-            item { Text("Sample Item 2", modifier = Modifier.padding(16.dp)) }
-            item { Text("Sample Item 3", modifier = Modifier.padding(16.dp)) }
+        ) { contentPadding ->
+            LazyColumn(
+                contentPadding = contentPadding,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item { Text("Sample Item 1", modifier = Modifier.padding(16.dp)) }
+                item { Text("Sample Item 2", modifier = Modifier.padding(16.dp)) }
+                item { Text("Sample Item 3", modifier = Modifier.padding(16.dp)) }
+            }
         }
     }
 }
