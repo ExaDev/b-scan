@@ -1,0 +1,285 @@
+name: Wiki Bidirectional Sync
+
+# Sync between wiki submodule in main repo and GitHub wiki
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wiki/**'
+  schedule:
+    # Check for wiki changes daily at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+    inputs:
+      force_sync:
+        description: 'Force complete sync (ignores change detection)'
+        required: false
+        default: 'false'
+        type: boolean
+      sync_direction:
+        description: 'Sync direction'
+        required: false
+        default: 'both'
+        type: choice
+        options:
+          - 'both'
+          - 'submodule-to-wiki'
+          - 'wiki-to-submodule'
+
+permissions:
+  contents: write
+  pages: read
+
+env:
+  WIKI_SUBMODULE_PATH: 'wiki'
+
+jobs:
+  # Job 1: Sync submodule changes to GitHub wiki
+  submodule-to-wiki:
+    name: Sync Submodule → Wiki
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch' && 
+      (github.event.inputs.sync_direction == 'both' || github.event.inputs.sync_direction == 'submodule-to-wiki')
+    
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+      
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Check for wiki submodule changes
+        id: check-changes
+        run: |
+          cd ${{ env.WIKI_SUBMODULE_PATH }}
+          
+          # Get the last commit that modified the wiki submodule
+          LAST_WIKI_COMMIT=$(git log --oneline -1 --pretty=format:"%H")
+          echo "last_commit=$LAST_WIKI_COMMIT" >> $GITHUB_OUTPUT
+          
+          # Check if this is a force sync or if there are actual changes
+          if [ "${{ github.event.inputs.force_sync }}" = "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Force sync requested"
+          else
+            # Check if wiki submodule has changes in the latest push
+            cd ..
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD | grep "^${{ env.WIKI_SUBMODULE_PATH }}/" || true)
+            
+            if [ -n "$CHANGED_FILES" ]; then
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "Wiki submodule changes detected in latest commit"
+            else
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+              echo "No wiki submodule changes detected"
+            fi
+          fi
+      
+      - name: Checkout GitHub wiki
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          # Clone the GitHub wiki (separate repository)
+          WIKI_REPO_URL="https://github.com/${{ github.repository }}.wiki.git"
+          
+          # Check if wiki exists (wikis must have at least one page)
+          if git ls-remote --heads "$WIKI_REPO_URL" &>/dev/null; then
+            git clone "$WIKI_REPO_URL" github-wiki
+            echo "Wiki repository cloned successfully"
+          else
+            echo "Wiki repository doesn't exist yet - creating initial structure"
+            mkdir -p github-wiki
+            cd github-wiki
+            git init
+            git remote add origin "$WIKI_REPO_URL"
+            
+            # Create a minimal home page if none exists
+            if [ ! -f "../${{ env.WIKI_SUBMODULE_PATH }}/Home.md" ]; then
+              echo "# B-Scan Wiki" > Home.md
+              echo "" >> Home.md
+              echo "Welcome to the B-Scan project wiki." >> Home.md
+              git add Home.md
+              git commit -m "docs: initialise wiki with home page"
+            fi
+            cd ..
+          fi
+      
+      - name: Sync submodule content to wiki
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          # Copy all files from wiki submodule to GitHub wiki
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.gitmodules' \
+            "${{ env.WIKI_SUBMODULE_PATH }}/" \
+            github-wiki/
+          
+          cd github-wiki
+          
+          # Check if there are changes to commit
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            git add .
+            git commit -m "docs: sync from main repository submodule ($(echo '${{ steps.check-changes.outputs.last_commit }}' | cut -c1-7))"
+            
+            # Push with authentication
+            git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git"
+            git push origin master 2>/dev/null || git push origin main 2>/dev/null || {
+              echo "Failed to push to wiki - this might be expected for new wikis"
+              echo "Creating initial wiki structure..."
+              git push --set-upstream origin master
+            }
+            
+            echo "Successfully synced submodule content to GitHub wiki"
+          else
+            echo "No changes to sync to GitHub wiki"
+          fi
+
+  # Job 2: Sync GitHub wiki changes back to submodule
+  wiki-to-submodule:
+    name: Sync Wiki → Submodule
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      github.event_name == 'schedule' || 
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.sync_direction == 'both' || github.event.inputs.sync_direction == 'wiki-to-submodule'))
+    
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+      
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Checkout GitHub wiki
+        id: checkout-wiki
+        run: |
+          WIKI_REPO_URL="https://github.com/${{ github.repository }}.wiki.git"
+          
+          # Check if wiki exists
+          if git ls-remote --heads "$WIKI_REPO_URL" &>/dev/null; then
+            git clone "$WIKI_REPO_URL" github-wiki
+            echo "wiki_exists=true" >> $GITHUB_OUTPUT
+            
+            cd github-wiki
+            WIKI_LAST_COMMIT=$(git log --oneline -1 --pretty=format:"%H")
+            echo "wiki_last_commit=$WIKI_LAST_COMMIT" >> $GITHUB_OUTPUT
+            cd ..
+          else
+            echo "wiki_exists=false" >> $GITHUB_OUTPUT
+            echo "GitHub wiki doesn't exist yet"
+          fi
+      
+      - name: Check for changes between wiki and submodule
+        if: steps.checkout-wiki.outputs.wiki_exists == 'true'
+        id: compare-changes
+        run: |
+          # Get last commit hash from submodule
+          cd ${{ env.WIKI_SUBMODULE_PATH }}
+          SUBMODULE_LAST_COMMIT=$(git log --oneline -1 --pretty=format:"%H")
+          cd ..
+          
+          # Compare content between GitHub wiki and submodule
+          if [ "${{ github.event.inputs.force_sync }}" = "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Force sync requested"
+          else
+            # Use rsync to check for differences (dry run)
+            DIFF_OUTPUT=$(rsync -av --dry-run --delete \
+              --exclude='.git' \
+              github-wiki/ \
+              ${{ env.WIKI_SUBMODULE_PATH }}/ 2>&1 || true)
+            
+            # Check if there are actual file differences
+            if echo "$DIFF_OUTPUT" | grep -q "^>f"; then
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "Changes detected between GitHub wiki and submodule"
+            else
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+              echo "No changes detected between GitHub wiki and submodule"
+            fi
+          fi
+          
+          echo "submodule_last_commit=$SUBMODULE_LAST_COMMIT" >> $GITHUB_OUTPUT
+      
+      - name: Sync wiki content to submodule
+        if: steps.checkout-wiki.outputs.wiki_exists == 'true' && steps.compare-changes.outputs.has_changes == 'true'
+        run: |
+          # Sync content from GitHub wiki to submodule
+          rsync -av --delete \
+            --exclude='.git' \
+            github-wiki/ \
+            ${{ env.WIKI_SUBMODULE_PATH }}/
+          
+          # Check if there are changes in the submodule
+          cd ${{ env.WIKI_SUBMODULE_PATH }}
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "docs: sync from GitHub wiki ($(echo '${{ steps.checkout-wiki.outputs.wiki_last_commit }}' | cut -c1-7))"
+            
+            # Push the submodule changes
+            git push origin HEAD
+            
+            # Update the parent repository to point to new submodule commit
+            cd ..
+            git add ${{ env.WIKI_SUBMODULE_PATH }}
+            git commit -m "chore: update wiki submodule with changes from GitHub wiki
+
+            - Synced content from GitHub wiki
+            - Wiki commit: ${{ steps.checkout-wiki.outputs.wiki_last_commit }}
+            - Previous submodule: ${{ steps.compare-changes.outputs.submodule_last_commit }}
+
+            [skip ci]"
+            git push origin main
+            
+            echo "Successfully synced GitHub wiki content to submodule"
+          else
+            echo "No changes to sync to submodule"
+          fi
+
+  # Job 3: Summary and notification
+  sync-summary:
+    name: Sync Summary
+    runs-on: ubuntu-latest
+    needs: [submodule-to-wiki, wiki-to-submodule]
+    if: always()
+    
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 📚 Wiki Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Direction | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Submodule → Wiki | ${{ needs.submodule-to-wiki.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Wiki → Submodule | ${{ needs.wiki-to-submodule.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add trigger-specific information
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "### 🔄 Triggered by Push" >> $GITHUB_STEP_SUMMARY
+            echo "- Syncing submodule changes to GitHub wiki" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "### ⏰ Scheduled Sync (Daily)" >> $GITHUB_STEP_SUMMARY
+            echo "- Checking for wiki changes to sync back to submodule" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "### 🎯 Manual Sync" >> $GITHUB_STEP_SUMMARY
+            echo "- Direction: ${{ github.event.inputs.sync_direction || 'both' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Force sync: ${{ github.event.inputs.force_sync || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          fi
