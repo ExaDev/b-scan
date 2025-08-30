@@ -1,3 +1,6 @@
 [submodule "test-data/rfid-library"]
 	path = test-data/rfid-library
 	url = https://github.com/Mearman/Bambu-Lab-RFID-Library.git
+[submodule "wiki"]
+	path = wiki
+	url = https://github.com/ExaDev/b-scan.wiki.git
