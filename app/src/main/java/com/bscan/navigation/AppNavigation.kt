@@ -17,6 +17,7 @@ import com.bscan.MainViewModel
 import com.bscan.model.UpdateStatus
 import com.bscan.model.ComponentCreationResult
 import com.bscan.nfc.NfcManager
+import com.bscan.repository.ComponentRepository
 import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.*
@@ -39,10 +40,21 @@ fun AppNavigation(
     LaunchedEffect(componentCreationResult) {
         val result = componentCreationResult
         if (result is ComponentCreationResult.Success) {
-            val rootComponent = result.rootComponent
-            if (rootComponent.isInventoryItem) {
-                // Navigate to component details for the root component
-                navController.navigate("details/${DetailType.COMPONENT.name.lowercase()}/${rootComponent.id}") {
+            val scannedComponent = result.rootComponent
+            
+            // Find the inventory item that contains this component (could be the component itself or its parent)
+            val inventoryItem = if (scannedComponent.isInventoryItem) {
+                // Component is already an inventory item
+                scannedComponent
+            } else {
+                // Find the root component (inventory item) that contains this component
+                val componentRepository = ComponentRepository(viewModel.getApplication())
+                componentRepository.getRootComponent(scannedComponent.id)
+            }
+            
+            inventoryItem?.let { item ->
+                // Navigate to the inventory item details
+                navController.navigate("details/${DetailType.COMPONENT.name.lowercase()}/${item.id}") {
                     // Optional: clear the back stack to prevent going back to scanning state
                     // popUpTo("main") { inclusive = false }
                 }
