@@ -201,6 +201,13 @@ class UnifiedDataAccess(
     // === Enhanced Resolution Methods ===
     
     /**
+     * Find a product by SKU ID for a specific manufacturer
+     */
+    fun findProductBySku(manufacturerId: String, skuId: String): ProductEntry? {
+        return catalogRepo.findProductBySku(manufacturerId, skuId)
+    }
+    
+    /**
      * Resolve components by identifier type and value
      */
     suspend fun resolveComponentsByIdentifier(

@@ -344,49 +344,28 @@ class DetailViewModel(
     }
     
     private suspend fun loadSkuDetails(skuKey: String) {
-        val allScans = unifiedDataAccess.getAllScans()
-        
-        // Parse the SKU key to understand what we're looking for
-        val parts = skuKey.split("-")
-        val filamentType = parts.getOrNull(0) ?: ""
-        val colorName = parts.getOrNull(1) ?: ""
-        
-        // Find scans that match this SKU pattern - include ALL scans, not just successful ones
-        // This ensures we show actual scanned data even for incomplete/failed scans
-        var skuScans = allScans.filter { scan ->
-            scan.filamentInfo?.let { info ->
-                val scanKey = "${info.filamentType}-${info.colorName}"
-                scanKey == skuKey
-            } ?: false
+        // Parse the SKU key format: "manufacturerId:skuId" (e.g., "bambu:30105")
+        val parts = skuKey.split(":", limit = 2)
+        if (parts.size != 2) {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = "Invalid SKU format. Expected 'manufacturer:skuId' but got: $skuKey"
+            )
+            return
         }
         
-        // If still no exact matches, try more flexible matching for incomplete data
-        if (skuScans.isEmpty()) {
-            skuScans = allScans.filter { scan ->
-                scan.filamentInfo?.let { info ->
-                    // Match if filament type matches and color is empty/null (for cases like "PLA-")
-                    if (colorName.isEmpty() || colorName.isBlank()) {
-                        info.filamentType == filamentType && (info.colorName.isEmpty() || info.colorName.isBlank())
-                    } else {
-                        // Try partial matching
-                        info.filamentType.contains(filamentType, ignoreCase = true) ||
-                        info.colorName.contains(colorName, ignoreCase = true)
-                    }
-                } ?: false
-            }
-        }
+        val manufacturerId = parts[0]
+        val skuId = parts[1]
         
-        // Even broader search - try to find any scan with similar filament type
-        if (skuScans.isEmpty() && filamentType.isNotEmpty()) {
-            skuScans = allScans.filter { scan ->
-                scan.filamentInfo?.filamentType?.contains(filamentType, ignoreCase = true) == true
-            }
-        }
+        // Look up the product in the catalog
+        Log.d("DetailViewModel", "Looking up SKU: manufacturerId='$manufacturerId', skuId='$skuId'")
+        val product = unifiedDataAccess.findProductBySku(manufacturerId, skuId)
+        Log.d("DetailViewModel", "Product lookup result: $product")
         
-        // Final fallback - if we still have nothing, create a synthetic entry from the SKU key itself
-        if (skuScans.isEmpty()) {
-            // We'll create a minimal SkuInfo based on the parsed key information
-            val syntheticFilamentInfo = createSyntheticFilamentInfo(filamentType, colorName)
+        if (product == null) {
+            Log.w("DetailViewModel", "No catalog product found for SKU: $manufacturerId:$skuId")
+            // No catalog product found, create a synthetic entry
+            val syntheticFilamentInfo = createSyntheticFilamentInfo(skuKey, "Unknown")
             val primarySku = SkuInfo(
                 skuKey = skuKey,
                 filamentInfo = syntheticFilamentInfo,
@@ -408,37 +387,64 @@ class DetailViewModel(
             return
         }
         
-        val mostRecentScan = skuScans.maxByOrNull { it.timestamp }!!
-        val filamentInfo = mostRecentScan.filamentInfo!!
+        // Convert ProductEntry to FilamentInfo for SkuInfo
+        val filamentInfo = com.bscan.model.FilamentInfo(
+            tagUid = "catalog",
+            trayUid = skuKey,
+            filamentType = product.materialType,
+            detailedFilamentType = product.productName,
+            colorHex = product.colorHex ?: "#808080",
+            colorName = product.colorName,
+            spoolWeight = 0, // Not available in catalog
+            filamentDiameter = 1.75f, // Default diameter
+            filamentLength = 0, // Not available in catalog
+            productionDate = "",
+            minTemperature = 0, // Not available in catalog
+            maxTemperature = 0, // Not available in catalog
+            bedTemperature = 0, // Not available in catalog
+            dryingTemperature = 0, // Not available in catalog
+            dryingTime = 0 // Not available in catalog
+        )
         
-        val uniqueFilamentReels = skuScans.groupBy { it.filamentInfo!!.trayUid }.size
-        val totalScans = skuScans.size
-        val successfulScans = skuScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
-        val lastScanned = skuScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
+        // Find related scans for this product
+        val allScans = unifiedDataAccess.getAllScans()
+        val relatedScans = allScans.filter { scan ->
+            // Try to match scans that might be for this product
+            scan.filamentInfo?.let { info ->
+                info.filamentType.contains(product.materialType, ignoreCase = true) &&
+                (product.colorName.isBlank() || info.colorName.contains(product.colorName, ignoreCase = true))
+            } ?: false
+        }
+        
+        // Create SKU info from catalog product
+        val totalScans = relatedScans.size
+        val successfulScans = relatedScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
+        val lastScanned = relatedScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
         
         val primarySku = SkuInfo(
             skuKey = skuKey,
             filamentInfo = filamentInfo,
-            filamentReelCount = uniqueFilamentReels,
+            filamentReelCount = relatedScans.groupBy { it.filamentInfo?.trayUid }.size,
             totalScans = totalScans,
             successfulScans = successfulScans,
             lastScanned = lastScanned,
             successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f
         )
         
-        // Get related spools and tags
-        val relatedSpools = skuScans
-            .groupBy { it.filamentInfo!!.trayUid }
-            .mapNotNull { (trayUid, scans) ->
+        // Get related spools and tags from scans
+        val relatedSpools = relatedScans
+            .mapNotNull { it.filamentInfo?.trayUid }
+            .distinct()
+            .mapNotNull { trayUid ->
                 unifiedDataAccess.getFilamentReelDetails(trayUid)
             }
         
-        val relatedTags = skuScans.map { it.uid }.distinct()
+        val relatedTags = relatedScans.map { it.uid }.distinct()
         
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             primarySku = primarySku,
-            relatedScans = skuScans,
+            relatedScans = relatedScans,
             relatedTags = relatedTags,
             relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
             relatedSkus = listOf(primarySku)
