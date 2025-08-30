@@ -60,9 +60,9 @@ fun ScanDetailScreen(
         }
     }
     
-    // Pager state for the 4 tabs
-    val pagerState = rememberPagerState(pageCount = { 4 })
-    val tabTitles = listOf("Encoded", "Decoded", "Decrypted", "Decoded+Decrypted")
+    // Pager state for the 2 main tabs
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val tabTitles = listOf("Encrypted", "Decrypted")
     
     Scaffold(
         topBar = {
@@ -161,50 +161,125 @@ fun ScanDetailScreen(
                     }
                 }
                 
-                // Pager content
+                // Pager content with nested tabs
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     when (page) {
                         0 -> {
-                            // Encoded (Raw) Data
-                            if (encryptedScan != null) {
-                                EncodedDataView(encryptedScanData = encryptedScan!!)
-                            } else {
-                                DataNotAvailableMessage("Encoded data not available")
-                            }
+                            // Encrypted tab with encoded/decoded subtabs
+                            EncryptedTabContent(
+                                encryptedScan = encryptedScan,
+                                decryptedScan = decryptedScan
+                            )
                         }
                         1 -> {
-                            // Decoded (Non-encrypted readable data)
-                            if (encryptedScan != null && decryptedScan != null) {
-                                DecodedDataView(
-                                    encryptedScanData = encryptedScan!!,
-                                    decryptedScanData = decryptedScan!!
-                                )
-                            } else {
-                                DataNotAvailableMessage("Decoded data not available")
-                            }
+                            // Decrypted tab with encoded/decoded subtabs  
+                            DecryptedTabContent(
+                                decryptedScan = decryptedScan
+                            )
                         }
-                        2 -> {
-                            // Decrypted (Decrypted blocks)
-                            if (decryptedScan != null) {
-                                DecryptedDataView(decryptedScanData = decryptedScan!!)
-                            } else {
-                                DataNotAvailableMessage("Decrypted data not available")
-                            }
-                        }
-                        3 -> {
-                            // Decoded + Decrypted (Combined view)
-                            if (encryptedScan != null && decryptedScan != null) {
-                                DecodedDecryptedDataView(
-                                    encryptedScanData = encryptedScan!!,
-                                    decryptedScanData = decryptedScan!!
-                                )
-                            } else {
-                                DataNotAvailableMessage("Combined data not available")
-                            }
-                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EncryptedTabContent(
+    encryptedScan: EncryptedScanData?,
+    decryptedScan: DecryptedScanData?,
+    modifier: Modifier = Modifier
+) {
+    var selectedSubTabIndex by remember { mutableIntStateOf(0) }
+    val subTabTitles = listOf("Encoded", "Decoded")
+    
+    Column(modifier = modifier.fillMaxSize()) {
+        // Sub-tab row
+        TabRow(
+            selectedTabIndex = selectedSubTabIndex,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            subTabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedSubTabIndex == index,
+                    onClick = { selectedSubTabIndex = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+        
+        // Sub-tab content
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (selectedSubTabIndex) {
+                0 -> {
+                    // Encoded (Raw encrypted data)
+                    if (encryptedScan != null) {
+                        EncodedDataView(encryptedScanData = encryptedScan)
+                    } else {
+                        DataNotAvailableMessage("Encoded data not available")
+                    }
+                }
+                1 -> {
+                    // Decoded (Non-encrypted readable metadata)
+                    if (encryptedScan != null && decryptedScan != null) {
+                        DecodedDataView(
+                            encryptedScanData = encryptedScan,
+                            decryptedScanData = decryptedScan
+                        )
+                    } else {
+                        DataNotAvailableMessage("Decoded data not available")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DecryptedTabContent(
+    decryptedScan: DecryptedScanData?,
+    modifier: Modifier = Modifier
+) {
+    var selectedSubTabIndex by remember { mutableIntStateOf(0) }
+    val subTabTitles = listOf("Encoded", "Decoded")
+    
+    Column(modifier = modifier.fillMaxSize()) {
+        // Sub-tab row
+        TabRow(
+            selectedTabIndex = selectedSubTabIndex,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            subTabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedSubTabIndex == index,
+                    onClick = { selectedSubTabIndex = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+        
+        // Sub-tab content
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (selectedSubTabIndex) {
+                0 -> {
+                    // Encoded (Raw decrypted blocks)
+                    if (decryptedScan != null) {
+                        DecryptedDataView(decryptedScanData = decryptedScan)
+                    } else {
+                        DataNotAvailableMessage("Decrypted data not available")
+                    }
+                }
+                1 -> {
+                    // Decoded (Interpreted decrypted content)
+                    if (decryptedScan != null) {
+                        // For now, show the same decrypted view
+                        // You could create a more interpreted/formatted view here
+                        DecryptedDataView(decryptedScanData = decryptedScan)
+                    } else {
+                        DataNotAvailableMessage("Interpreted data not available")
                     }
                 }
             }
