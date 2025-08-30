@@ -162,16 +162,36 @@ private fun InventorySearchAndFiltersPreview() {
     MaterialTheme {
         InventorySearchAndFilters(
             searchQuery = "PLA",
-            onSearchChange = { },
+            onSearchQueryChange = { },
             selectedCategory = "filament",
             onCategoryChange = { },
             selectedTag = "thermoplastic",
             onTagChange = { },
-            availableCategories = listOf("filament", "tool", "spool"),
-            availableTags = listOf("thermoplastic", "bambu", "hardware"),
+            allComponents = createMockComponents(),
             modifier = Modifier.padding(16.dp)
         )
     }
+}
+
+private fun createMockComponents(): List<Component> {
+    return listOf(
+        Component(
+            id = "comp_1",
+            name = "PLA Filament",
+            category = "filament",
+            tags = listOf("thermoplastic", "bambu"),
+            massGrams = 800.0f,
+            manufacturer = "Bambu Lab"
+        ),
+        Component(
+            id = "comp_2", 
+            name = "Workshop Tool",
+            category = "tool",
+            tags = listOf("hardware", "maintenance"),
+            massGrams = 2500.0f,
+            manufacturer = "Generic"
+        )
+    )
 }
 
 

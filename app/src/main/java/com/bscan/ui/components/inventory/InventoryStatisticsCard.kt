@@ -136,6 +136,7 @@ private fun InventoryStatisticsCardPreview() {
                 name = "PLA Red Filament",
                 category = "filament",
                 tags = listOf("thermoplastic", "bambu"),
+                massGrams = 800.0f,
                 manufacturer = "Bambu Lab"
             ),
             Component(
@@ -143,6 +144,7 @@ private fun InventoryStatisticsCardPreview() {
                 name = "PETG Blue Filament",
                 category = "filament",
                 tags = listOf("thermoplastic", "transparent"),
+                massGrams = 750.0f,
                 manufacturer = "Bambu Lab"
             ),
             Component(
@@ -150,6 +152,7 @@ private fun InventoryStatisticsCardPreview() {
                 name = "Tool A",
                 category = "tool",
                 tags = listOf("hardware"),
+                massGrams = 1200.0f,
                 manufacturer = "Generic"
             )
         )

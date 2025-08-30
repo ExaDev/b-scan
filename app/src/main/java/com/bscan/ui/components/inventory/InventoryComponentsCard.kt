@@ -336,6 +336,7 @@ private fun createMockInventoryComponent(): Component {
         name = "PLA Basic Filament Tray",
         category = "filament-tray",
         tags = listOf("PLA", "Orange", "1.75mm"),
+        massGrams = 1245.0f,
         manufacturer = "Bambu Lab",
         description = "Complete filament tray system"
     )
