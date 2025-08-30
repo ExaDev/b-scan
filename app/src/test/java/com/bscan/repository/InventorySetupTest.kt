@@ -4,8 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bscan.model.FilamentInfo
 import com.bscan.model.TagFormat
-import com.bscan.model.PhysicalComponent
-import com.bscan.model.PhysicalComponentType
+import com.bscan.model.Component
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -79,18 +78,18 @@ class InventorySetupTest {
         assertTrue(components.isNotEmpty(), "Should create at least one component")
         
         // Find filament component
-        val filamentComponent = components.find { it.type == PhysicalComponentType.FILAMENT }
+        val filamentComponent = components.find { it.category == "filament" }
         assertNotNull(filamentComponent, "Should have filament component")
         assertTrue(filamentComponent.variableMass, "Filament should have variable mass")
         
         // Find core component
-        val coreComponent = components.find { it.type == PhysicalComponentType.CORE_RING }
+        val coreComponent = components.find { it.category == "core" }
         if (coreComponent != null) {
             assertTrue(!coreComponent.variableMass, "Core should have fixed mass")
         }
         
         // Find spool component
-        val spoolComponent = components.find { it.type == PhysicalComponentType.BASE_SPOOL }
+        val spoolComponent = components.find { it.category == "spool" }
         if (spoolComponent != null) {
             assertTrue(!spoolComponent.variableMass, "Spool should have fixed mass")
         }
