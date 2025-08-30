@@ -197,7 +197,7 @@ fun ScanStateIndicatorInactivePreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun ScanStateIndicatorAllStatesPreview() {
+fun ScanStateIndicatorColumnPreview() {
     MaterialTheme {
         Column(
             modifier = Modifier.padding(16.dp),

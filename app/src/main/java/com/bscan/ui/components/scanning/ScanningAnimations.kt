@@ -497,7 +497,7 @@ fun PulsingRingsInactivePreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun SpinningLoaderPreview() {
+fun SpinningLoaderBoxPreview() {
     MaterialTheme {
         Box(
             modifier = Modifier
@@ -515,7 +515,7 @@ fun SpinningLoaderPreview() {
 
 @Preview(showBackground = true)
 @Composable
-fun DetectedSuccessRingPreview() {
+fun DetectedSuccessRingBoxPreview() {
     MaterialTheme {
         Box(
             modifier = Modifier
