@@ -78,7 +78,7 @@ object ProductLookupService {
     }
 
     /**
-     * Convert ProductEntry to BambuProduct for legacy compatibility
+     * Convert ProductEntry to BambuProduct
      */
     fun convertToBambuProduct(product: ProductEntry): BambuProduct {
         return BambuProduct(

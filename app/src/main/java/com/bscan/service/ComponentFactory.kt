@@ -202,21 +202,6 @@ abstract class ComponentFactory(
     }
     
     /**
-     * Shared utility: Add component to existing parent hierarchy
-     * NOTE: This method is no longer used in on-demand generation architecture.
-     * Component relationships are established during generation, not persisted separately.
-     * User modifications handled via UserComponentOverlay system.
-     */
-    protected suspend fun addComponentToParent(
-        parentId: String,
-        childComponent: Component
-    ): Boolean = withContext(Dispatchers.IO) {
-        // This method is deprecated in favor of on-demand generation
-        Log.w(factoryType, "addComponentToParent called but persistence disabled in on-demand generation")
-        return@withContext false
-    }
-    
-    /**
      * Shared utility: Create inventory item for root component
      */
     protected suspend fun createInventoryItem(
@@ -241,8 +226,7 @@ abstract class ComponentFactory(
                 notes = notes.ifEmpty { "Auto-created from ${factoryType} scan" }
             )
             
-            userDataRepository.saveInventoryItem(inventoryItem)
-            Log.d(factoryType, "Created inventory item for: $uniqueId")
+            Log.d(factoryType, "Would have created inventory item for: $uniqueId (now using on-demand generation)")
             true
         } catch (e: Exception) {
             Log.e(factoryType, "Error creating inventory item", e)

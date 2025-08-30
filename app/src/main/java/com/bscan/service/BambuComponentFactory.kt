@@ -439,8 +439,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                 notes = "Auto-created from Bambu RFID scan - ${filamentInfo.filamentType} ${filamentInfo.colorName}"
             )
             
-            // Save to UserDataRepository
-            userDataRepository.saveInventoryItem(inventoryItem)
+            // Note: No longer saving inventory items - using on-demand generation
             
             Log.i(factoryType, "Created inventory item for tray: $trayUid")
             
@@ -458,21 +457,8 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value
                 ?: throw IllegalStateException("Tray component missing CONSUMABLE_UNIT identifier")
                 
-            val existingItem = userDataRepository.getInventoryItem(trayUid)
-            if (existingItem != null) {
-                // Update component list and timestamp
-                val updatedItem = existingItem.copy(
-                    components = listOf(trayComponent.id) + trayComponent.childComponents,
-                    lastUpdated = LocalDateTime.now(),
-                    notes = existingItem.notes + " | Additional RFID tag scanned"
-                )
-                
-                userDataRepository.saveInventoryItem(updatedItem)
-                Log.i(factoryType, "Updated inventory item for tray: $trayUid")
-            } else {
-                // Create new inventory item if somehow missing
-                createInventoryItemForTray(trayComponent, filamentInfo)
-            }
+            // Note: No longer updating inventory items - using on-demand generation
+            Log.i(factoryType, "Would have updated inventory item for tray: $trayUid (now using on-demand generation)")
             
         } catch (e: Exception) {
             val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value ?: "unknown"
