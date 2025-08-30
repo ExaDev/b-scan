@@ -378,16 +378,20 @@ fun UpdateDialogHeaderPreview() {
 fun UpdateVersionInfoPreview() {
     MaterialTheme {
         val mockUpdateInfo = UpdateInfo(
+            isUpdateAvailable = true,
             latestVersion = "1.5.2",
             currentVersion = "1.5.0",
-            releaseNotes = "Bug fixes and performance improvements",
+            releaseUrl = "https://github.com/example/releases/tag/1.5.2",
             downloadUrl = "https://github.com/example/releases/1.5.2.apk",
+            releaseNotes = "Bug fixes and performance improvements",
             publishedAt = LocalDateTime.of(2024, 3, 15, 10, 30),
             isPrerelease = false,
             fileSize = 15728640L
         )
         
-        UpdateVersionInfo(updateInfo = mockUpdateInfo)
+        UpdateVersionInfo(
+            updateInfo = mockUpdateInfo
+        )
     }
 }
 
@@ -396,16 +400,20 @@ fun UpdateVersionInfoPreview() {
 fun UpdateReleaseInfoPreview() {
     MaterialTheme {
         val mockUpdateInfo = UpdateInfo(
+            isUpdateAvailable = true,
             latestVersion = "1.5.2-beta",
             currentVersion = "1.5.0",
-            releaseNotes = "Beta release with new features",
+            releaseUrl = "https://github.com/example/releases/tag/1.5.2-beta",
             downloadUrl = "https://github.com/example/releases/1.5.2-beta.apk",
+            releaseNotes = "Beta release with new features",
             publishedAt = LocalDateTime.of(2024, 3, 15, 14, 45),
             isPrerelease = true,
             fileSize = 16777216L
         )
         
-        UpdateReleaseInfo(updateInfo = mockUpdateInfo)
+        UpdateReleaseInfo(
+            updateInfo = mockUpdateInfo
+        )
     }
 }
 
@@ -432,10 +440,12 @@ fun UpdateProgressIndicatorPreview() {
 fun UpdateActionButtonsPreview() {
     MaterialTheme {
         val mockUpdateInfo = UpdateInfo(
+            isUpdateAvailable = true,
             latestVersion = "1.5.2",
             currentVersion = "1.5.0",
-            releaseNotes = "Update available",
+            releaseUrl = "https://github.com/example/releases/tag/1.5.2",
             downloadUrl = "https://github.com/example/releases/1.5.2.apk",
+            releaseNotes = "Update available",
             publishedAt = LocalDateTime.of(2024, 3, 15, 10, 30),
             isPrerelease = false,
             fileSize = 15728640L
