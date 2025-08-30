@@ -22,7 +22,7 @@ import com.bscan.model.DecryptedScanData
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.repository.TagStatistics
 import com.bscan.ui.components.scans.RawDataView
-import com.bscan.ui.components.scans.EncryptedDataView
+import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
 import com.bscan.ui.screens.DetailType
 import kotlinx.coroutines.launch
@@ -304,7 +304,7 @@ private fun TagGroupCard(
                     Tab(
                         selected = selectedTabIndex == 1,
                         onClick = { selectedTabIndex = 1 },
-                        text = { Text("Encrypted") }
+                        text = { Text("Decoded") }
                     )
                     Tab(
                         selected = selectedTabIndex == 2,
@@ -338,14 +338,17 @@ private fun TagGroupCard(
                         }
                         1 -> {
                             if (encryptedScan != null) {
-                                EncryptedDataView(encryptedScanData = encryptedScan)
+                                DecodedDataView(
+                                    encryptedScanData = encryptedScan,
+                                    decryptedScanData = selectedScan
+                                )
                             } else {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "Encrypted data not available",
+                                        text = "Decoded data not available",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )

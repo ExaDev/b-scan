@@ -86,11 +86,12 @@ fun RawDataView(
 }
 
 /**
- * Display encrypted scan data with metadata
+ * Display decoded tag information (readable metadata and non-encrypted data)
  */
 @Composable
-fun EncryptedDataView(
+fun DecodedDataView(
     encryptedScanData: EncryptedScanData,
+    decryptedScanData: DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -100,49 +101,93 @@ fun EncryptedDataView(
     ) {
         item {
             Text(
-                text = "Encrypted Scan Data",
+                text = "Decoded Tag Data",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
         }
         
+        // Basic tag information (readable without decryption)
         item {
             MetadataCard(
-                title = "Scan Metadata",
+                title = "Tag Information",
                 items = listOf(
-                    "Timestamp" to encryptedScanData.timestamp.toString(),
                     "Tag UID" to encryptedScanData.tagUid,
                     "Technology" to encryptedScanData.technology,
-                    "Scan Duration" to "${encryptedScanData.scanDurationMs}ms",
+                    "Format" to decryptedScanData.tagFormat.name,
                     "Data Size" to "${encryptedScanData.encryptedData.size} bytes"
                 )
             )
         }
         
+        // Scan timing information  
         item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Encrypted Data:",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            MetadataCard(
+                title = "Scan Performance",
+                items = buildList {
+                    add("Timestamp" to encryptedScanData.timestamp.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    add("Scan Duration" to "${encryptedScanData.scanDurationMs}ms")
+                    if (decryptedScanData.keyDerivationTimeMs > 0) {
+                        add("Key Derivation" to "${decryptedScanData.keyDerivationTimeMs}ms")
+                    }
+                    if (decryptedScanData.authenticationTimeMs > 0) {
+                        add("Authentication" to "${decryptedScanData.authenticationTimeMs}ms")
+                    }
+                }
             )
         }
         
+        // Scan result and status
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+            MetadataCard(
+                title = "Scan Results",
+                items = listOf(
+                    "Result" to decryptedScanData.scanResult.name,
+                    "Authenticated Sectors" to if (decryptedScanData.authenticatedSectors.isNotEmpty()) 
+                        decryptedScanData.authenticatedSectors.joinToString(", ") else "None",
+                    "Failed Sectors" to if (decryptedScanData.failedSectors.isNotEmpty()) 
+                        decryptedScanData.failedSectors.joinToString(", ") else "None"
                 )
-            ) {
-                SelectionContainer {
-                    Text(
-                        text = formatHexDump(encryptedScanData.encryptedData),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(16.dp)
+            )
+        }
+        
+        // Key usage information (metadata about authentication)
+        if (decryptedScanData.usedKeys.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Authentication Method",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        decryptedScanData.usedKeys.forEach { (sector, keyType) ->
+                            SelectionContainer {
+                                Text(
+                                    text = "Sector $sector: $keyType",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
                 }
+            }
+        }
+        
+        // Error information (non-encrypted diagnostic data)
+        if (decryptedScanData.errors.isNotEmpty()) {
+            item {
+                ErrorMessagesCard(errors = decryptedScanData.errors)
             }
         }
     }

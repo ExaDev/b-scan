@@ -20,7 +20,7 @@ import com.bscan.model.DecryptedScanData
 import com.bscan.model.ScanResult
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.ui.components.scans.RawDataView
-import com.bscan.ui.components.scans.EncryptedDataView
+import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
 import com.bscan.ui.screens.DetailType
 import java.time.format.DateTimeFormatter
@@ -297,7 +297,7 @@ private fun ScanCard(
                     Tab(
                         selected = selectedTabIndex == 1,
                         onClick = { selectedTabIndex = 1 },
-                        text = { Text("Encrypted") }
+                        text = { Text("Decoded") }
                     )
                     Tab(
                         selected = selectedTabIndex == 2,
@@ -322,9 +322,12 @@ private fun ScanCard(
                         }
                         1 -> {
                             if (encryptedScan != null) {
-                                EncryptedDataView(encryptedScanData = encryptedScan)
+                                DecodedDataView(
+                                    encryptedScanData = encryptedScan, 
+                                    decryptedScanData = scan
+                                )
                             } else {
-                                DataNotAvailableMessage("Encrypted data not available")
+                                DataNotAvailableMessage("Decoded data not available")
                             }
                         }
                         2 -> {
