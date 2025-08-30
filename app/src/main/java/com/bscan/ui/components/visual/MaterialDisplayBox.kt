@@ -38,7 +38,6 @@ fun MaterialDisplayBox(
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
     shape: Shape? = null, // Allow override, but default to material-based shape
-    displayMode: MaterialDisplayMode? = null, // Allow override of display mode (deprecated)
     materialDisplaySettings: MaterialDisplaySettings? = null, // New granular settings
     category: String = "filament" // Component category for extension to non-filament types
 ) {
@@ -47,18 +46,10 @@ fun MaterialDisplayBox(
     
     // Get display settings from parameter or user preferences
     val actualDisplaySettings = materialDisplaySettings ?: run {
-        // For backward compatibility, check if legacy displayMode is provided
-        if (displayMode != null) {
-            when (displayMode) {
-                MaterialDisplayMode.SHAPES -> MaterialDisplaySettings.SHAPES_ONLY
-                MaterialDisplayMode.TEXT_LABELS -> MaterialDisplaySettings.TEXT_LABELS
-            }
-        } else {
-            // Convert from user preferences
-            when (userPrefsRepository.getMaterialDisplayMode()) {
-                MaterialDisplayMode.SHAPES -> MaterialDisplaySettings.SHAPES_ONLY
-                MaterialDisplayMode.TEXT_LABELS -> MaterialDisplaySettings.TEXT_LABELS
-            }
+        // Convert from user preferences
+        when (userPrefsRepository.getMaterialDisplayMode()) {
+            MaterialDisplayMode.SHAPES -> MaterialDisplaySettings.SHAPES_ONLY
+            MaterialDisplayMode.TEXT_LABELS -> MaterialDisplaySettings.TEXT_LABELS
         }
     }
     

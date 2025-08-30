@@ -21,7 +21,6 @@ fun FilamentColorBox(
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
     shape: Shape? = null, // Allow override, but default to material-based shape
-    displayMode: MaterialDisplayMode? = null, // Allow override of display mode (deprecated)
     materialDisplaySettings: MaterialDisplaySettings? = null // New granular settings
 ) {
     MaterialDisplayBox(
@@ -30,7 +29,6 @@ fun FilamentColorBox(
         modifier = modifier,
         size = size,
         shape = shape,
-        displayMode = displayMode,
         materialDisplaySettings = materialDisplaySettings,
         category = "filament" // Maintain filament-specific behavior
     )

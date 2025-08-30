@@ -291,12 +291,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Expose component repository for component architecture
     fun getComponentRepository() = componentRepository
     
-    // Inventory tracking methods with proper reactive flows
-    fun getInventoryItems() = unifiedDataAccess.getInventoryItems()
-    
-    fun getInventoryItem(trayUid: String) = unifiedDataAccess.getInventoryItem(trayUid)
-    
-    fun saveInventoryItem(item: InventoryItem) = unifiedDataAccess.saveInventoryItem(item)
+    // Legacy inventory methods removed - use on-demand component generation instead
     
     // Mappings access methods
     fun getManufacturers() = unifiedDataAccess.getAllManufacturers()
@@ -487,10 +482,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return "${prefix}_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}"
     }
     
-    // Removed legacy methods:
-    // - createOrUpdateInventoryItem (replaced by ScanningService)
-    // - detectFilamentTypeFromScan (replaced by component factories)
-    // - getDefaultMinTemp, getDefaultMaxTemp, etc. (replaced by catalog data)
 } // End of MainViewModel class
 
 

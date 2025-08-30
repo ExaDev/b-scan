@@ -10,8 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.bscan.repository.ComponentRepository
-import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.UnifiedDataAccess
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
+import com.bscan.service.ComponentGenerationService
 import com.bscan.model.Component
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.spool.*
@@ -24,19 +26,24 @@ fun SpoolListScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val componentRepository = remember { ComponentRepository(context) }
-    val scanHistoryRepository = remember { ScanHistoryRepository(context) }
+    val catalogRepo = remember { CatalogRepository(context) }
+    val userRepo = remember { UserDataRepository(context) }
+    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepo, userRepo, context = context) }
+    val componentGenerationService = remember { ComponentGenerationService(context) }
     var filamentComponents by remember { mutableStateOf(listOf<Component>()) }
     var selectedFilter by remember { mutableStateOf("All") }
     var filterByType by remember { mutableStateOf("All Types") }
     
     LaunchedEffect(Unit) {
         try {
-            // Get all inventory items that are filament-related
-            filamentComponents = componentRepository.getInventoryItems().filter { component ->
+            // Generate components from all scan data and filter for filament-related items
+            val allScans = unifiedDataAccess.getAllDecryptedScanData()
+            val allComponents = componentGenerationService.generateComponentsFromScans(allScans)
+            filamentComponents = allComponents.filter { component ->
                 component.category == "filament" || 
                 component.metadata.containsKey("filamentType") ||
-                component.tags.contains("filament")
+                component.tags.contains("filament") ||
+                component.isInventoryItem // Include inventory root components
             }
         } catch (e: Exception) {
             filamentComponents = emptyList()

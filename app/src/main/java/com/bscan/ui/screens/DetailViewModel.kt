@@ -176,15 +176,11 @@ class DetailViewModel(
         // Get related data
         val interpretedScan = interpretScan(primaryScan)
         val trayUid = interpretedScan?.trayUid
-        val relatedComponents = if (trayUid != null) {
-            // Try to get component data if available
-            unifiedDataAccess.getInventoryItem(trayUid)?.let { inventoryItem ->
-                if (inventoryItem.hasComponents && componentRepository != null) {
-                    inventoryItem.components.mapNotNull { componentId ->
-                        componentRepository.getComponent(componentId)
-                    }
-                } else emptyList()
-            } ?: emptyList()
+        val relatedComponents = if (trayUid != null && unifiedDataAccess.appContext != null) {
+            // Generate components on-demand from scan data
+            val componentGenerationService = ComponentGenerationService(unifiedDataAccess.appContext!!)
+            val relatedScans = allScans.filter { interpretScan(it)?.trayUid == trayUid }
+            componentGenerationService.generateComponentsFromScans(relatedScans)
         } else {
             emptyList()
         }
@@ -227,15 +223,11 @@ class DetailViewModel(
         // Get related data
         val interpretedTag = interpretScan(primaryTag)
         val trayUid = interpretedTag?.trayUid
-        val relatedComponents = if (trayUid != null) {
-            // Try to get component data if available
-            unifiedDataAccess.getInventoryItem(trayUid)?.let { inventoryItem ->
-                if (inventoryItem.hasComponents && componentRepository != null) {
-                    inventoryItem.components.mapNotNull { componentId ->
-                        componentRepository.getComponent(componentId)
-                    }
-                } else emptyList()
-            } ?: emptyList()
+        val relatedComponents = if (trayUid != null && unifiedDataAccess.appContext != null) {
+            // Generate components on-demand from scan data
+            val componentGenerationService = ComponentGenerationService(unifiedDataAccess.appContext!!)
+            val relatedScans = allScans.filter { interpretScan(it)?.trayUid == trayUid }
+            componentGenerationService.generateComponentsFromScans(relatedScans)
         } else {
             emptyList()
         }
@@ -512,14 +504,15 @@ class DetailViewModel(
             .mapNotNull { interpretScan(it)?.trayUid }
             .distinct()
         
-        val relatedComponents = relatedTrayUids.mapNotNull { trayUid ->
-            unifiedDataAccess.getInventoryItem(trayUid)?.let { inventoryItem ->
-                if (inventoryItem.hasComponents && componentRepository != null) {
-                    inventoryItem.components.mapNotNull { componentId ->
-                        componentRepository.getComponent(componentId)
-                    }.firstOrNull { it.isRootComponent }
-                } else null
+        val relatedComponents = if (unifiedDataAccess.appContext != null) {
+            val componentGenerationService = ComponentGenerationService(unifiedDataAccess.appContext!!)
+            relatedTrayUids.mapNotNull { trayUid ->
+                val trayScans = relatedScans.filter { interpretScan(it)?.trayUid == trayUid }
+                val generatedComponents = componentGenerationService.generateComponentsFromScans(trayScans)
+                generatedComponents.firstOrNull { it.isInventoryItem }
             }
+        } else {
+            emptyList()
         }
         
         val relatedTags = relatedScans.map { it.tagUid }.distinct()
@@ -647,23 +640,21 @@ class DetailViewModel(
         
         try {
             val component = if (isVirtualComponentId(componentId)) {
-                // Handle virtual component - recreate from inventory item
+                // Handle virtual component - generate from scan data on-demand
                 val trayUid = getTrayUidFromVirtualId(componentId)
-                val inventoryItem = unifiedDataAccess.getInventoryItem(trayUid)
-                
-                if (inventoryItem != null && inventoryItem.hasComponents) {
-                    val childComponents = withContext(Dispatchers.IO) {
-                        inventoryItem.components.mapNotNull { childComponentId ->
-                            componentRepository!!.getComponent(childComponentId)
-                        }
-                    }
-                    createVirtualRootComponent(inventoryItem, childComponents)
+                if (unifiedDataAccess.appContext != null) {
+                    val componentGenerationService = ComponentGenerationService(unifiedDataAccess.appContext!!)
+                    val allScans = unifiedDataAccess.getAllDecryptedScanData()
+                    val trayScans = allScans.filter { interpretScan(it)?.trayUid == trayUid }
+                    val generatedComponents = componentGenerationService.generateComponentsFromScans(trayScans)
+                    generatedComponents.firstOrNull { it.isInventoryItem }
                 } else {
                     null
                 }
             } else {
-                // Handle regular component
-                componentRepository!!.getComponent(componentId)
+                // Handle regular component - no longer persisted, should not exist
+                Log.w("DetailViewModel", "Attempted to load regular component ID $componentId but components are now generated on-demand")
+                null
             }
             
             if (component == null) {
