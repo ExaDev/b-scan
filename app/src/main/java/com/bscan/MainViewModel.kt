@@ -206,15 +206,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             unifiedDataAccess.recordScan(encryptedData, decryptedData)
             
             // Enhanced processing: Try component factory architecture first
+            var componentSucceeded = false
             if (decryptedData.scanResult == ScanResult.SUCCESS) {
                 try {
                     val componentResult = createComponentsFromScan(encryptedData, decryptedData)
                     if (componentResult is ComponentCreationResult.Success) {
                         Log.d("MainViewModel", "Successfully created components using factory pattern")
+                        componentSucceeded = true
                         // Factory succeeded, update state flows
                         withContext(Dispatchers.Main) {
                             _componentCreationResult.value = componentResult
                         }
+                        
+                        // Also try to get legacy FilamentInfo for navigation compatibility
+                        try {
+                            val filamentInfo = interpreterFactory.interpret(decryptedData)
+                            if (filamentInfo != null) {
+                                withContext(Dispatchers.Main) {
+                                    _uiState.value = BScanUiState(
+                                        filamentInfo = filamentInfo,
+                                        scanState = ScanState.SUCCESS,
+                                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                                    )
+                                    _scanProgress.value = ScanProgress(
+                                        stage = ScanStage.COMPLETED,
+                                        percentage = 1.0f,
+                                        statusMessage = "Component creation successful"
+                                    )
+                                }
+                                return@launch // Exit early on success
+                            }
+                        } catch (e: Exception) {
+                            Log.w("MainViewModel", "Legacy interpreter failed, but component creation succeeded", e)
+                        }
+                        
+                        // Component creation succeeded but no legacy FilamentInfo - still a success
+                        withContext(Dispatchers.Main) {
+                            _uiState.value = BScanUiState(
+                                filamentInfo = null,
+                                scanState = ScanState.SUCCESS,
+                                debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                            )
+                            _scanProgress.value = ScanProgress(
+                                stage = ScanStage.COMPLETED,
+                                percentage = 1.0f,
+                                statusMessage = "Component creation successful"
+                            )
+                        }
+                        return@launch // Exit early on success
                     } else {
                         Log.w("MainViewModel", "Component factory failed, falling back to legacy processing")
                         // Fall back to legacy inventory item creation
@@ -227,7 +266,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             
-            val result = if (decryptedData.scanResult == ScanResult.SUCCESS) {
+            // Only do legacy processing if component creation didn't succeed
+            val result = if (!componentSucceeded && decryptedData.scanResult == ScanResult.SUCCESS) {
                 try {
                     // Use FilamentInterpreter to convert decrypted data to FilamentInfo
                     val filamentInfo = interpreterFactory.interpret(decryptedData)
@@ -240,14 +280,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     e.printStackTrace()
                     TagReadResult.ReadError
                 }
-            } else {
-                // Map scan result to TagReadResult
+            } else if (!componentSucceeded) {
+                // Map scan result to TagReadResult only if components didn't succeed
                 when (decryptedData.scanResult) {
                     ScanResult.AUTHENTICATION_FAILED -> TagReadResult.ReadError
                     ScanResult.INSUFFICIENT_DATA -> TagReadResult.InsufficientData
                     ScanResult.PARSING_FAILED -> TagReadResult.InvalidTag
                     else -> TagReadResult.ReadError
                 }
+            } else {
+                // Components succeeded, don't overwrite with legacy results
+                return@launch
             }
             withContext(Dispatchers.Main) {
                 _scanProgress.value = when (result) {
