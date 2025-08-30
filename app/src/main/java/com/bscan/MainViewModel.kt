@@ -9,14 +9,13 @@ import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.ComponentRepository
-import com.bscan.interpreter.InterpreterFactory
-import com.bscan.detector.TagDetector
+import com.bscan.repository.ScanHistoryRepository
 import com.bscan.service.ComponentFactory
-import com.bscan.service.MassInferenceService
-import com.bscan.service.ComponentGroupingService
-import com.bscan.service.InferenceResult
-import com.bscan.service.InferredComponent
-import com.bscan.data.bambu.rfid.BambuMaterialIdMapper
+import com.bscan.service.ScanningService
+import com.bscan.service.DefaultScanningService
+import com.bscan.service.BambuComponentFactory
+import com.bscan.service.ScanResult as ServiceScanResult
+import com.bscan.model.TagFormat
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,22 +44,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val catalogRepository = CatalogRepository(application)
     private val userDataRepository = UserDataRepository(application)
     private val componentRepository = ComponentRepository(application)
+    private val scanHistoryRepository = ScanHistoryRepository(application)
+    private val componentFactory = BambuComponentFactory(application)
     private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
     
-    // Note: Repository access now unified through UnifiedDataAccess
-    
-    // InterpreterFactory for runtime interpretation (legacy support)
-    private var interpreterFactory = InterpreterFactory(unifiedDataAccess)
-    
-    // Component architecture services
-    private val tagDetector = TagDetector()
-    private val massInferenceService = MassInferenceService(componentRepository)
-    private val componentGroupingService = ComponentGroupingService(componentRepository)
+    // Decoupled scanning service
+    private val scanningService: ScanningService = DefaultScanningService(
+        context = application,
+        componentRepository = componentRepository,
+        scanHistoryRepository = scanHistoryRepository,
+        componentFactory = componentFactory
+    )
     
     // Track simulation state to cycle through all products
     private var simulationProductIndex = 0
     
     fun onTagDetected() {
+        scanningService.onTagDetected()
+        
         _uiState.value = _uiState.value.copy(
             scanState = ScanState.TAG_DETECTED,
             error = null
@@ -70,284 +71,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             percentage = 0.0f,
             statusMessage = "Tag detected"
         )
-        
-        // Show tag detected state for a brief moment before processing
-        viewModelScope.launch {
-            delay(300) // Show detection for 300ms
-            if (_uiState.value.scanState == ScanState.TAG_DETECTED) {
-                // Only proceed if still in TAG_DETECTED state (not cancelled)
-                // The actual processTag call will update the state to PROCESSING
-            }
-        }
     }
     
-    /**
-     * Enhanced tag processing using Component Factory pattern
-     */
-    suspend fun processTagWithFactory(tag: Tag): ComponentCreationResult {
-        return viewModelScope.async(Dispatchers.IO) {
-            try {
-                Log.d("MainViewModel", "Processing tag with component factory pattern")
-                _componentOperationState.value = ComponentOperationState.DetectingFormat
-                
-                // Step 1: Detect tag format
-                val detectionResult = tagDetector.detectTag(tag)
-                Log.d("MainViewModel", "Tag detected: ${detectionResult.tagFormat} (confidence: ${detectionResult.confidence})")
-                
-                if (detectionResult.confidence < 0.5f) {
-                    Log.w("MainViewModel", "Low confidence detection: ${detectionResult.detectionReason}")
-                    return@async ComponentCreationResult.FormatDetectionFailed(
-                        reason = detectionResult.detectionReason,
-                        confidence = detectionResult.confidence
-                    )
-                }
-                
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.ProcessingTag
-                }
-                
-                // This method returns the result - actual NFC reading will be handled separately
-                ComponentCreationResult.FormatDetected(
-                    format = detectionResult.tagFormat,
-                    confidence = detectionResult.confidence,
-                    manufacturerName = detectionResult.manufacturerName
-                )
-                
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Error in processTagWithFactory", e)
-                ComponentCreationResult.ProcessingError("Tag processing failed: ${e.message}")
-            }
-        }.await()
-    }
+    // Removed processTagWithFactory() - replaced by ScanningService
+    
+    // Removed createComponentsFromScan() - replaced by ScanningService
     
     /**
-     * Create components from scan data using the appropriate factory
-     */
-    suspend fun createComponentsFromScan(
-        encryptedData: EncryptedScanData, 
-        decryptedData: DecryptedScanData
-    ): ComponentCreationResult {
-        return viewModelScope.async(Dispatchers.IO) {
-            try {
-                Log.d("MainViewModel", "Creating components from scan data")
-                _componentOperationState.value = ComponentOperationState.CreatingComponents
-                
-                // Step 1: Detect format from scan data
-                val detectionResult = tagDetector.detectFromData(
-                    encryptedData.technology, 
-                    encryptedData.encryptedData
-                )
-                
-                if (detectionResult.confidence < 0.5f) {
-                    return@async ComponentCreationResult.FormatDetectionFailed(
-                        reason = detectionResult.detectionReason,
-                        confidence = detectionResult.confidence
-                    )
-                }
-                
-                // Step 2: Create appropriate factory
-                val factory = ComponentFactory.createFactory(getApplication(), encryptedData)
-                Log.d("MainViewModel", "Using factory: ${factory.factoryType}")
-                
-                // Step 3: Process scan with factory
-                val rootComponent = factory.processScan(encryptedData, decryptedData)
-                
-                if (rootComponent == null) {
-                    return@async ComponentCreationResult.ComponentCreationFailed(
-                        "Factory failed to create components"
-                    )
-                }
-                
-                // Step 4: Update component operation state
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.ComponentsCreated
-                    _componentCreationResult.value = ComponentCreationResult.Success(
-                        rootComponent = rootComponent,
-                        factoryType = factory.factoryType,
-                        tagFormat = detectionResult.tagFormat
-                    )
-                }
-                
-                Log.d("MainViewModel", "Successfully created component hierarchy with root: ${rootComponent.name}")
-                ComponentCreationResult.Success(
-                    rootComponent = rootComponent,
-                    factoryType = factory.factoryType,
-                    tagFormat = detectionResult.tagFormat
-                )
-                
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Error creating components from scan", e)
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.Error(e.message ?: "Unknown error")
-                }
-                ComponentCreationResult.ProcessingError("Component creation failed: ${e.message}")
-            }
-        }.await()
-    }
-    
-    /**
-     * Enhanced method to process scan data using both legacy and new component architecture
+     * Process scan data using decoupled scanning service
      */
     fun processScanData(encryptedData: EncryptedScanData, decryptedData: DecryptedScanData) {
-        viewModelScope.launch(Dispatchers.IO) {
-            withContext(Dispatchers.Main) {
-                _uiState.value = _uiState.value.copy(
-                    scanState = ScanState.PROCESSING,
-                    error = null
+        viewModelScope.launch {
+            try {
+                // Use the decoupled scanning service
+                val scanResult = scanningService.processScanData(encryptedData, decryptedData)
+                
+                // Update UI state based on scan result
+                _uiState.value = BScanUiState(
+                    scanState = ScanState.SUCCESS,
+                    debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                 )
-                _scanProgress.value = ScanProgress(
-                    stage = ScanStage.PARSING,
-                    percentage = 0.9f,
-                    statusMessage = "Interpreting filament data"
-                )
-            }
-            
-            // Store the raw scan data and record the scan
-            unifiedDataAccess.recordScan(encryptedData, decryptedData)
-            
-            // Enhanced processing: Try component factory architecture first
-            var componentSucceeded = false
-            if (decryptedData.scanResult == ScanResult.SUCCESS) {
-                try {
-                    val componentResult = createComponentsFromScan(encryptedData, decryptedData)
-                    if (componentResult is ComponentCreationResult.Success) {
-                        Log.d("MainViewModel", "Successfully created components using factory pattern")
-                        componentSucceeded = true
-                        // Factory succeeded, update state flows
-                        withContext(Dispatchers.Main) {
-                            _componentCreationResult.value = componentResult
-                        }
-                        
-                        // Also try to get legacy FilamentInfo for navigation compatibility
-                        try {
-                            val filamentInfo = interpreterFactory.interpret(decryptedData)
-                            if (filamentInfo != null) {
-                                withContext(Dispatchers.Main) {
-                                    _uiState.value = BScanUiState(
-                                        filamentInfo = filamentInfo,
-                                        scanState = ScanState.SUCCESS,
-                                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                                    )
-                                    _scanProgress.value = ScanProgress(
-                                        stage = ScanStage.COMPLETED,
-                                        percentage = 1.0f,
-                                        statusMessage = "Component creation successful"
-                                    )
-                                }
-                                return@launch // Exit early on success
-                            }
-                        } catch (e: Exception) {
-                            Log.w("MainViewModel", "Legacy interpreter failed, but component creation succeeded", e)
-                        }
-                        
-                        // Component creation succeeded but no legacy FilamentInfo - still a success
-                        withContext(Dispatchers.Main) {
-                            _uiState.value = BScanUiState(
-                                filamentInfo = null,
-                                scanState = ScanState.SUCCESS,
-                                debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                            )
-                            _scanProgress.value = ScanProgress(
-                                stage = ScanStage.COMPLETED,
-                                percentage = 1.0f,
-                                statusMessage = "Component creation successful"
-                            )
-                        }
-                        return@launch // Exit early on success
-                    } else {
-                        Log.w("MainViewModel", "Component factory failed, falling back to legacy processing")
-                        // Fall back to legacy inventory item creation
-                        createOrUpdateInventoryItem(decryptedData)
-                    }
-                } catch (e: Exception) {
-                    Log.w("MainViewModel", "Component architecture failed, using legacy processing", e)
-                    // Fall back to legacy processing on any error
-                    createOrUpdateInventoryItem(decryptedData)
-                }
-            }
-            
-            // Only do legacy processing if component creation didn't succeed
-            val result = if (!componentSucceeded && decryptedData.scanResult == ScanResult.SUCCESS) {
-                try {
-                    // Use FilamentInterpreter to convert decrypted data to FilamentInfo
-                    val filamentInfo = interpreterFactory.interpret(decryptedData)
-                    if (filamentInfo != null) {
-                        TagReadResult.Success(filamentInfo)
-                    } else {
-                        TagReadResult.InvalidTag
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    TagReadResult.ReadError
-                }
-            } else if (!componentSucceeded) {
-                // Map scan result to TagReadResult only if components didn't succeed
-                when (decryptedData.scanResult) {
-                    ScanResult.AUTHENTICATION_FAILED -> TagReadResult.ReadError
-                    ScanResult.INSUFFICIENT_DATA -> TagReadResult.InsufficientData
-                    ScanResult.PARSING_FAILED -> TagReadResult.InvalidTag
-                    else -> TagReadResult.ReadError
-                }
-            } else {
-                // Components succeeded, don't overwrite with legacy results
-                return@launch
-            }
-            withContext(Dispatchers.Main) {
-                _scanProgress.value = when (result) {
-                    is TagReadResult.Success -> ScanProgress(
-                        stage = ScanStage.COMPLETED,
-                        percentage = 1.0f,
-                        statusMessage = "Scan completed successfully"
-                    )
-                    is TagReadResult.InvalidTag -> ScanProgress(
-                        stage = ScanStage.ERROR,
-                        percentage = 0.0f,
-                        statusMessage = "Invalid or unsupported tag"
-                    )
-                    is TagReadResult.ReadError -> ScanProgress(
-                        stage = ScanStage.ERROR,
-                        percentage = 0.0f,
-                        statusMessage = "Error reading or authenticating tag"
-                    )
-                    is TagReadResult.InsufficientData -> ScanProgress(
-                        stage = ScanStage.ERROR,
-                        percentage = 0.0f,
-                        statusMessage = "Insufficient data on tag"
-                    )
-                    else -> ScanProgress(
-                        stage = ScanStage.ERROR,
-                        percentage = 0.0f,
-                        statusMessage = "Unknown error occurred"
+                
+                // Store component creation result for UI access
+                val firstComponent = scanResult.components.firstOrNull()
+                if (firstComponent != null) {
+                    _componentCreationResult.value = ComponentCreationResult.Success(
+                        rootComponent = firstComponent,
+                        factoryType = "ScanningService",
+                        tagFormat = TagFormat.BAMBU_PROPRIETARY // Default for now
                     )
                 }
                 
-                _uiState.value = when (result) {
-                    is TagReadResult.Success -> BScanUiState(
-                        filamentInfo = result.filamentInfo,
-                        scanState = ScanState.SUCCESS,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                    is TagReadResult.InvalidTag -> BScanUiState(
-                        error = "Invalid or unsupported tag",
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                    is TagReadResult.ReadError -> BScanUiState(
-                        error = "Error reading or authenticating tag", 
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                    is TagReadResult.InsufficientData -> BScanUiState(
-                        error = "Insufficient data on tag",
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                    else -> BScanUiState(
-                        error = "Unknown error occurred",
-                        scanState = ScanState.ERROR,
-                        debugInfo = createDebugInfoFromDecryptedData(decryptedData)
-                    )
-                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Scanning service failed", e)
+                _uiState.value = BScanUiState(
+                    scanState = ScanState.ERROR,
+                    error = "Scanning failed: ${e.message}",
+                    debugInfo = createDebugInfoFromDecryptedData(decryptedData)
+                )
             }
         }
     }
@@ -375,6 +136,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     
     fun setScanning() {
+        scanningService.setScanning()
         _uiState.value = _uiState.value.copy(
             scanState = ScanState.PROCESSING,
             error = null
@@ -382,10 +144,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun updateScanProgress(progress: ScanProgress) {
+        scanningService.updateScanProgress(progress)
         _scanProgress.value = progress
     }
     
     fun setNfcError(error: String) {
+        scanningService.setError(error)
         _uiState.value = _uiState.value.copy(
             error = error,
             scanState = ScanState.ERROR
@@ -415,20 +179,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Save to history even for failed scans
         viewModelScope.launch(Dispatchers.IO) {
             unifiedDataAccess.recordScan(encryptedData, decryptedData)
-            
-            // Try to detect format even for failed scans (for debugging)
-            try {
-                val detectionResult = tagDetector.detectFromData(tagData.technology, byteArrayOf())
-                Log.d("MainViewModel", "Failed scan format detection: ${detectionResult.tagFormat} (${detectionResult.confidence})")
-                
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.Error(
-                        "Authentication failed for ${detectionResult.tagFormat} tag"
-                    )
-                }
-            } catch (e: Exception) {
-                Log.w("MainViewModel", "Error detecting format for failed scan", e)
-            }
         }
         
         _uiState.value = _uiState.value.copy(
@@ -436,6 +186,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             scanState = ScanState.ERROR,
             debugInfo = createDebugInfoFromDecryptedData(decryptedData)
         )
+        
+        _componentOperationState.value = ComponentOperationState.Error("Authentication failed")
     }
     
     fun clearError() {
@@ -448,6 +200,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     fun resetScan() {
+        scanningService.clearScanState()
         _uiState.value = BScanUiState()
         _scanProgress.value = null
         resetComponentState()
@@ -464,83 +217,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             // Reset component state for new simulation
             resetComponentState()
             
+            // Simulate progress stages
             val stages = listOf(
                 ScanProgress(ScanStage.TAG_DETECTED, 0.0f, statusMessage = "Tag detected"),
-                ScanProgress(ScanStage.CONNECTING, 0.05f, statusMessage = "Connecting to tag"),
-                ScanProgress(ScanStage.KEY_DERIVATION, 0.1f, statusMessage = "Deriving keys"),
+                ScanProgress(ScanStage.CONNECTING, 0.2f, statusMessage = "Connecting to tag"),
+                ScanProgress(ScanStage.KEY_DERIVATION, 0.4f, statusMessage = "Deriving keys"),
+                ScanProgress(ScanStage.AUTHENTICATING, 0.6f, statusMessage = "Authenticating"),
+                ScanProgress(ScanStage.READING_BLOCKS, 0.8f, statusMessage = "Reading data blocks"),
+                ScanProgress(ScanStage.PARSING, 0.9f, statusMessage = "Parsing component data")
             )
             
-            // Simulate authenticating sectors
-            for (sector in 0..15) {
-                _scanProgress.value = ScanProgress(
-                    stage = ScanStage.AUTHENTICATING,
-                    percentage = 0.15f + (sector * 0.04f), // 15% to 75%
-                    currentSector = sector,
-                    statusMessage = "Authenticating sector ${sector + 1}/16"
-                )
-                delay(80) // Short delay per sector
+            // Step through progress stages
+            for (stage in stages) {
+                _scanProgress.value = stage
+                delay(150)
             }
             
-            // Reading blocks
-            _scanProgress.value = ScanProgress(
-                stage = ScanStage.READING_BLOCKS,
-                percentage = 0.8f,
-                statusMessage = "Reading data blocks"
-            )
-            delay(200)
-            
-            // Assembling data
-            _scanProgress.value = ScanProgress(
-                stage = ScanStage.ASSEMBLING_DATA,
-                percentage = 0.85f,
-                statusMessage = "Assembling data"
-            )
-            delay(150)
-            
-            // Parsing
-            _scanProgress.value = ScanProgress(
-                stage = ScanStage.PARSING,
-                percentage = 0.9f,
-                statusMessage = "Parsing filament data"
-            )
-            delay(200)
-            
-            // Complete with mock data - cycle through some basic materials
-            val materialCodes = listOf("GFA00", "GFA01", "GFB00", "GFC00") // PLA, PETG, ABS, ASA
-            val colorCodes = listOf("K0", "W0", "R0", "B0") // Black, White, Red, Blue
-            val materialCode = materialCodes[simulationProductIndex % materialCodes.size]
-            val colorCode = colorCodes[(simulationProductIndex / materialCodes.size) % colorCodes.size]
-            simulationProductIndex = (simulationProductIndex + 1) % (materialCodes.size * colorCodes.size)
-            
-            val mockFilamentInfo = FilamentInfo(
-                tagUid = "MOCK${System.currentTimeMillis()}",
-                trayUid = "MOCK_TRAY_${String.format("%03d", (simulationProductIndex / 2) + 1)}",
-                filamentType = BambuMaterialIdMapper.getDisplayName(materialCode) ?: "Unknown Material",
-                detailedFilamentType = BambuMaterialIdMapper.getDisplayName(materialCode) ?: "Unknown Material",
-                colorHex = "#808080", // Default gray for mock data
-                colorName = "Mock Color $colorCode",
-                spoolWeight = 1000,
-                filamentDiameter = 1.75f,
-                filamentLength = kotlin.random.Random.nextInt(100000, 500000),
-                productionDate = "2024-${kotlin.random.Random.nextInt(1, 13).toString().padStart(2, '0')}",
-                minTemperature = this@MainViewModel.getDefaultMinTemp(materialCode),
-                maxTemperature = this@MainViewModel.getDefaultMaxTemp(materialCode),
-                bedTemperature = this@MainViewModel.getDefaultBedTemp(materialCode),
-                dryingTemperature = this@MainViewModel.getDefaultDryingTemp(materialCode),
-                dryingTime = this@MainViewModel.getDefaultDryingTime(materialCode),
-                bambuProduct = null // No longer using BambuProduct objects
+            // Create mock component hierarchy
+            val trayId = generateComponentId("tray")
+            val mockTrayComponent = Component(
+                id = trayId,
+                identifiers = listOf(
+                    ComponentIdentifier(
+                        type = IdentifierType.CONSUMABLE_UNIT,
+                        value = "MOCK_TRAY_${System.currentTimeMillis()}",
+                        purpose = IdentifierPurpose.TRACKING
+                    )
+                ),
+                name = "Mock Filament Tray",
+                category = "filament-tray",
+                tags = listOf("simulation", "mock", "consumable"),
+                parentComponentId = null,
+                childComponents = emptyList(),
+                massGrams = 1000f,
+                variableMass = true,
+                manufacturer = "Mock Manufacturer",
+                description = "Simulated filament tray for testing",
+                metadata = mapOf(
+                    "materialType" to "PLA",
+                    "colorHex" to "#808080",
+                    "colorName" to "Mock Gray",
+                    "simulation" to "true"
+                ),
+                createdAt = System.currentTimeMillis(),
+                lastUpdated = java.time.LocalDateTime.now()
             )
             
+            // Complete simulation
             _scanProgress.value = ScanProgress(
                 stage = ScanStage.COMPLETED,
                 percentage = 1.0f,
-                statusMessage = "Scan completed successfully"
+                statusMessage = "Simulation completed"
             )
             
             _uiState.value = BScanUiState(
-                filamentInfo = mockFilamentInfo,
                 scanState = ScanState.SUCCESS,
                 debugInfo = null
+            )
+            
+            // Store mock component creation result
+            _componentCreationResult.value = ComponentCreationResult.Success(
+                rootComponent = mockTrayComponent,
+                factoryType = "MockSimulation",
+                tagFormat = TagFormat.BAMBU_PROPRIETARY
             )
         }
     }
@@ -568,97 +307,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     fun getProducts(manufacturerId: String) = unifiedDataAccess.getProducts(manufacturerId)
     
-    /**
-     * Refresh the FilamentInterpreter with updated mappings
-     */
-    fun refreshMappings() {
-        interpreterFactory.refreshMappings()
-    }
+    // Removed refreshMappings() - no longer using interpreterFactory
     
-    /**
-     * Integrate BLE scale reading for mass inference
-     */
-    fun integrateMassReading(scaleReading: Float, unit: String = "g") {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                Log.d("MainViewModel", "Integrating mass reading: ${scaleReading}${unit}")
-                
-                // Get current component creation result
-                val currentResult = _componentCreationResult.value
-                if (currentResult !is ComponentCreationResult.Success) {
-                    Log.w("MainViewModel", "No components available for mass integration")
-                    return@launch
-                }
-                
-                // Use mass inference service to distribute mass across components
-                val massInferenceResult = massInferenceService.inferComponentMass(
-                    parentComponent = currentResult.rootComponent,
-                    totalMeasuredMass = scaleReading
-                )
-                
-                withContext(Dispatchers.Main) {
-                    _massInferenceResult.value = when (massInferenceResult) {
-                        is InferenceResult.Success -> MassInferenceResult.Success(
-                            updatedComponents = massInferenceResult.inferredComponents.map { it.component },
-                            totalMass = massInferenceResult.totalMeasuredMass,
-                            inferredMass = massInferenceResult.inferredComponents.sumOf { it.inferredMass.toDouble() }.toFloat()
-                        )
-                        is InferenceResult.Warning -> MassInferenceResult.PartialSuccess(
-                            updatedComponents = massInferenceResult.inferredComponents.map { it.component },
-                            failedComponents = massInferenceResult.validationWarnings,
-                            totalMass = massInferenceResult.totalMeasuredMass
-                        )
-                        is InferenceResult.Error -> MassInferenceResult.Error(massInferenceResult.message)
-                    }
-                    
-                    if (massInferenceResult is InferenceResult.Success) {
-                        Log.d("MainViewModel", "Successfully inferred masses for ${massInferenceResult.inferredComponents.size} components")
-                    }
-                }
-                
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Error integrating mass reading", e)
-                withContext(Dispatchers.Main) {
-                    _massInferenceResult.value = MassInferenceResult.Error("Mass integration failed: ${e.message}")
-                }
-            }
-        }
-    }
+    // Removed integrateMassReading() - mass inference moved to scanning service
     
-    /**
-     * Create or update component relationships using ComponentGroupingService
-     */
-    fun updateComponentRelationships(parentId: String, childIds: List<String>) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                Log.d("MainViewModel", "Updating component relationships: parent=$parentId, children=${childIds.size}")
-                _componentOperationState.value = ComponentOperationState.UpdatingRelationships
-                
-                // Use hierarchical grouping to establish parent-child relationships
-                val groupingResult = componentGroupingService.createHierarchicalGroup(
-                    parentId = parentId,
-                    childIds = childIds
-                )
-                val success = groupingResult.success
-                
-                withContext(Dispatchers.Main) {
-                    if (success) {
-                        _componentOperationState.value = ComponentOperationState.RelationshipsUpdated
-                        Log.d("MainViewModel", "Successfully updated component relationships")
-                    } else {
-                        _componentOperationState.value = ComponentOperationState.Error("Failed to update relationships")
-                        Log.e("MainViewModel", "Failed to update component relationships")
-                    }
-                }
-                
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Error updating component relationships", e)
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.Error("Relationship update failed: ${e.message}")
-                }
-            }
-        }
-    }
+    // Removed updateComponentRelationships() - component grouping moved to scanning service
     
     /**
      * Calculate total hierarchy mass for a component
@@ -836,106 +489,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return "${prefix}_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}"
     }
     
-    /**
-     * Create or update inventory item with proper component setup for successful scans
-     */
-    private suspend fun createOrUpdateInventoryItem(decryptedData: DecryptedScanData) {
-        // Try to interpret the scan to get trayUid
-        val filamentInfo = interpreterFactory.interpret(decryptedData)
-        val trayUid = filamentInfo?.trayUid ?: return
-        
-        // Check if inventory item already exists
-        val existingItem = unifiedDataAccess.getInventoryItem(trayUid)
-        if (existingItem == null) {
-            // Create new inventory item with default components for Bambu Lab
-            try {
-                val manufacturerId = "bambu_lab"
-                val filamentType = detectFilamentTypeFromScan(decryptedData)
-                
-                if (filamentType != null) {
-                    unifiedDataAccess.createInventoryItemWithComponents(
-                        trayUid = trayUid,
-                        manufacturerId = manufacturerId,
-                        filamentType = filamentType
-                    )
-                    Log.d("MainViewModel", "Created inventory item with components for tray $trayUid")
-                }
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Failed to create inventory item for tray $trayUid", e)
-            }
-        }
-    }
-    
-    /**
-     * Detect filament type from scan data for component creation
-     */
-    private fun detectFilamentTypeFromScan(decryptedData: DecryptedScanData): String? {
-        // Try to extract material type from the decrypted blocks
-        // This is a simplified version - in reality this would use the interpreters
-        decryptedData.decryptedBlocks.forEach { (blockNumber, hexData) ->
-            // Convert hex string to bytes for text analysis
-            try {
-                val bytes = hexData.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-                val dataStr = String(bytes, Charsets.UTF_8).trim('\u0000')
-                when {
-                    dataStr.contains("PLA", ignoreCase = true) -> return "pla_basic"
-                    dataStr.contains("ABS", ignoreCase = true) -> return "abs_basic"
-                    dataStr.contains("PETG", ignoreCase = true) -> return "petg_basic"
-                    dataStr.contains("TPU", ignoreCase = true) -> return "tpu_95a"
-                    dataStr.contains("ASA", ignoreCase = true) -> return "asa_basic"
-                    dataStr.contains("PC", ignoreCase = true) -> return "pc_basic"
-                    dataStr.contains("PA", ignoreCase = true) -> return "pa_cf"
-                }
-            } catch (e: Exception) {
-                // Skip this block if hex conversion fails
-            }
-        }
-        
-        // Default to PLA if we can't detect the type
-        return "pla_basic"
-    }
-    
-    /**
-     * Get default printing temperatures based on material type
-     */
-    private fun getDefaultMinTemp(materialType: String): Int = when {
-        materialType.contains("PLA") -> 190
-        materialType.contains("ABS") -> 220
-        materialType.contains("PETG") -> 220
-        materialType.contains("TPU") -> 200
-        else -> 190
-    }
-    
-    private fun getDefaultMaxTemp(materialType: String): Int = when {
-        materialType.contains("PLA") -> 220
-        materialType.contains("ABS") -> 250
-        materialType.contains("PETG") -> 250
-        materialType.contains("TPU") -> 230
-        else -> 220
-    }
-    
-    private fun getDefaultBedTemp(materialType: String): Int = when {
-        materialType.contains("PLA") -> 60
-        materialType.contains("ABS") -> 80
-        materialType.contains("PETG") -> 70
-        materialType.contains("TPU") -> 50
-        else -> 60
-    }
-    
-    private fun getDefaultDryingTemp(materialType: String): Int = when {
-        materialType.contains("PLA") -> 45
-        materialType.contains("ABS") -> 60
-        materialType.contains("PETG") -> 65
-        materialType.contains("TPU") -> 40
-        else -> 45
-    }
-    
-    private fun getDefaultDryingTime(materialType: String): Int = when {
-        materialType.contains("TPU") -> 12
-        materialType.contains("PETG") -> 8
-        materialType.contains("ABS") -> 4
-        else -> 6
-    }
+    // Removed legacy methods:
+    // - createOrUpdateInventoryItem (replaced by ScanningService)
+    // - detectFilamentTypeFromScan (replaced by component factories)
+    // - getDefaultMinTemp, getDefaultMaxTemp, etc. (replaced by catalog data)
 } // End of MainViewModel class
 
 
@@ -975,7 +532,6 @@ sealed class MassInferenceResult {
 }
 
 data class BScanUiState(
-    val filamentInfo: FilamentInfo? = null,
     val scanState: ScanState = ScanState.IDLE,
     val error: String? = null,
     val debugInfo: ScanDebugInfo? = null
@@ -993,7 +549,6 @@ enum class ScanState {
  * Enhanced UI state with component architecture support
  */
 data class ComponentEnhancedUIState(
-    val filamentInfo: FilamentInfo? = null,
     val rootComponent: Component? = null,
     val componentHierarchy: List<Component>? = null,
     val scanState: ScanState = ScanState.IDLE,
