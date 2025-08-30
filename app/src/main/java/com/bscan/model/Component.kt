@@ -309,7 +309,7 @@ data class Component(
         val materialProperties = mutableSetOf<String>()
         val colorHexProperties = mutableSetOf<String>()
         
-        // Also check the parent component's own metadata for visual properties
+        // ALWAYS check the component's own metadata for visual properties first
         listOf("color", "colour", "colorName", "colourName").forEach { key ->
             metadata[key]?.let { value ->
                 if (value.isNotBlank()) colorProperties.add(value)
@@ -328,7 +328,7 @@ data class Component(
             }
         }
         
-        // Extract color, material, and color hex properties from all children
+        // ALSO extract color, material, and color hex properties from children (if any)
         if (childComponents.isNotEmpty()) {
             val children = getChildComponents(childComponents)
             children.forEach { child ->
@@ -354,6 +354,18 @@ data class Component(
                 }
             }
         }
+        
+        // If no properties found at all, return empty map
+        if (colorProperties.isEmpty() && materialProperties.isEmpty() && colorHexProperties.isEmpty()) {
+            return emptyMap()
+        }
+        
+        // Debug logging for component hierarchy investigation
+        android.util.Log.d("Component", "getAggregatedVisualProperties for ${name} (${category})")
+        android.util.Log.d("Component", "Child components: ${childComponents.size} - ${childComponents}")
+        android.util.Log.d("Component", "Color properties: $colorProperties")
+        android.util.Log.d("Component", "Material properties: $materialProperties") 
+        android.util.Log.d("Component", "ColorHex properties: $colorHexProperties")
         
         // Combine properties intelligently
         if (colorProperties.size == 1 && materialProperties.size == 1) {
