@@ -245,7 +245,7 @@ abstract class ComponentFactory(
             
             val inventoryItem = InventoryItem(
                 trayUid = uniqueId,
-                components = rootComponent.childComponents,
+                components = listOf(rootComponent.id) + rootComponent.childComponents,
                 totalMeasuredMass = null,
                 measurements = emptyList(),
                 lastUpdated = LocalDateTime.now(),

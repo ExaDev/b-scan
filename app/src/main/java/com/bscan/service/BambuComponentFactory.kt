@@ -478,7 +478,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             
             val inventoryItem = InventoryItem(
                 trayUid = trayUid,
-                components = trayComponent.childComponents,
+                components = listOf(trayComponent.id) + trayComponent.childComponents,
                 totalMeasuredMass = null, // User hasn't measured yet
                 measurements = emptyList(),
                 lastUpdated = LocalDateTime.now(),
@@ -508,7 +508,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             if (existingItem != null) {
                 // Update component list and timestamp
                 val updatedItem = existingItem.copy(
-                    components = trayComponent.childComponents,
+                    components = listOf(trayComponent.id) + trayComponent.childComponents,
                     lastUpdated = LocalDateTime.now(),
                     notes = existingItem.notes + " | Additional RFID tag scanned"
                 )
