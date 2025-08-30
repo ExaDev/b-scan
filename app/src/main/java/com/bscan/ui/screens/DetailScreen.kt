@@ -162,6 +162,12 @@ fun DetailScreen(
                                 val colorHex = visualProperties["aggregatedColorHex"]
                                 val materials = visualProperties["aggregatedMaterials"]
                                 
+                                // Debug logging for child components
+                                Log.d("DetailScreen", "Component: ${component.name}, Category: ${component.category}")
+                                Log.d("DetailScreen", "Visual properties: $visualProperties")
+                                Log.d("DetailScreen", "Component metadata: ${component.metadata}")
+                                Log.d("DetailScreen", "ColorHex: $colorHex, Materials: $materials")
+                                
                                 if (colorHex != null && materials != null) {
                                     FilamentColorBox(
                                         colorHex = colorHex,
