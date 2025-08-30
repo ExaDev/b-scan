@@ -44,7 +44,7 @@ class ComponentManagementLogicTest {
         val result = massCalculationService.calculateFilamentMassFromTotal(
             totalMeasuredMass = totalMeasuredMass,
             components = components,
-            measurementType = MeasurementType.FULL_WEIGHT
+            measurementType = MeasurementType.TOTAL_MASS
         )
         
         // Assert
@@ -66,7 +66,7 @@ class ComponentManagementLogicTest {
         val result = massCalculationService.calculateFilamentMassFromTotal(
             totalMeasuredMass = emptyMass,
             components = components,
-            measurementType = MeasurementType.EMPTY_WEIGHT
+            measurementType = MeasurementType.COMPONENT_ONLY
         )
         
         // Assert

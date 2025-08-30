@@ -43,7 +43,13 @@ class ComponentRepositoryTest {
         // Create parent component (inventory item)
         val parentComponent = Component(
             id = "inventory_001",
-            uniqueIdentifier = "TRAY_ABC123",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CONSUMABLE_UNIT,
+                    value = "TRAY_ABC123",
+                    purpose = IdentifierPurpose.TRACKING
+                )
+            ),
             name = "Bambu PLA Black",
             category = "filament-tray",
             tags = listOf("bambu", "inventory-item"),
@@ -130,7 +136,13 @@ class ComponentRepositoryTest {
         
         val tray = Component(
             id = "tray_001",
-            uniqueIdentifier = "TRAY_123",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CONSUMABLE_UNIT,
+                    value = "TRAY_123",
+                    purpose = IdentifierPurpose.TRACKING
+                )
+            ),
             name = "Complete Tray",
             category = "filament-tray",
             childComponents = listOf("filament_001", "core_001", "spool_001"),
@@ -180,7 +192,13 @@ class ComponentRepositoryTest {
         
         val parent = Component(
             id = "parent_001",
-            uniqueIdentifier = "PARENT_123",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CONSUMABLE_UNIT,
+                    value = "PARENT_123",
+                    purpose = IdentifierPurpose.TRACKING
+                )
+            ),
             name = "Parent Component",
             category = "composite",
             childComponents = listOf("known_001", "known_002", "unknown_001"),
@@ -311,7 +329,13 @@ class ComponentRepositoryTest {
         
         val parent = Component(
             id = "parent_001",
-            uniqueIdentifier = "PARENT_ID",
+            identifiers = listOf(
+                ComponentIdentifier(
+                    type = IdentifierType.CONSUMABLE_UNIT,
+                    value = "PARENT_ID",
+                    purpose = IdentifierPurpose.TRACKING
+                )
+            ),
             name = "Parent Component",
             category = "composite",
             childComponents = emptyList(),

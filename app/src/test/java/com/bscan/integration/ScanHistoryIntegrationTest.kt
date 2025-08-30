@@ -245,7 +245,8 @@ class ScanHistoryIntegrationTest {
         assertEquals("History count should be 0", 0, repository.getHistoryCount())
         assertTrue("Successful scans should be empty", repository.getSuccessfulDecryptedScans().isEmpty())
         assertTrue("Failed scans should be empty", repository.getFailedDecryptedScans().isEmpty())
-        assertTrue("All scans should be empty", repository.getAllScans().isEmpty())
+        assertTrue("All encrypted scans should be empty", repository.getAllEncryptedScans().isEmpty())
+        assertTrue("All decrypted scans should be empty", repository.getAllDecryptedScans().isEmpty())
     }
 
     // Helper methods

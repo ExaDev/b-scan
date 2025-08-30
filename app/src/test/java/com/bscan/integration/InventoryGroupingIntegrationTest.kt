@@ -116,9 +116,9 @@ class InventoryGroupingIntegrationTest {
         
         // When - store scans in repository 
         runBlocking {
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag1.uid), createMockDecryptedScan(tag1.uid, "TRAY001"))
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY002"))
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag3.uid), createMockDecryptedScan(tag3.uid, "TRAY003"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("45FF5A04"), createMockDecryptedScan("45FF5A04", "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("658127A5"), createMockDecryptedScan("658127A5", "TRAY002"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("17F3F42B"), createMockDecryptedScan("17F3F42B", "TRAY003"))
         }
         
         // Then - verify scans were saved at the repository level (bypass interpretation issues)
@@ -167,8 +167,8 @@ class InventoryGroupingIntegrationTest {
         
         // When - store scans in repository
         runBlocking {
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag1.uid), createMockDecryptedScan(tag1.uid, "TRAY001"))
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("45FF5A04"), createMockDecryptedScan("45FF5A04", "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("45FF5A05"), createMockDecryptedScan("45FF5A05", "TRAY001"))
         }
         
         // Then - verify scans were saved at the repository level
@@ -215,9 +215,9 @@ class InventoryGroupingIntegrationTest {
         
         // When - store scans with properly extracted tray UIDs (post-fix)
         runBlocking {
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag1.uid), createMockDecryptedScan(tag1.uid, "TRAY001"))
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag2.uid), createMockDecryptedScan(tag2.uid, "TRAY002"))
-            scanHistoryRepository.saveScan(createMockEncryptedScan(tag3.uid), createMockDecryptedScan(tag3.uid, "TRAY003"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("45FF5A04"), createMockDecryptedScan("45FF5A04", "TRAY001"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("658127A5"), createMockDecryptedScan("658127A5", "TRAY002"))
+            scanHistoryRepository.saveScan(createMockEncryptedScan("17F3F42B"), createMockDecryptedScan("17F3F42B", "TRAY003"))
         }
         
         // Then - verify scans were saved correctly at the repository level
@@ -264,7 +264,7 @@ class InventoryGroupingIntegrationTest {
         trayUid: String, 
         material: String,
         color: String
-    ): InterpretedScan {
+    ): FilamentInfo {
         val filamentInfo = FilamentInfo(
             tagUid = tagUid,
             trayUid = trayUid,
@@ -293,11 +293,7 @@ class InventoryGroupingIntegrationTest {
         val encryptedScan = createMockEncryptedScan(tagUid)
         val decryptedScan = createMockDecryptedScan(tagUid, trayUid)
         
-        return InterpretedScan(
-            encryptedData = encryptedScan,
-            decryptedData = decryptedScan,
-            filamentInfo = filamentInfo
-        )
+        return filamentInfo
     }
     
     private fun createMockEncryptedScan(tagUid: String): EncryptedScanData {

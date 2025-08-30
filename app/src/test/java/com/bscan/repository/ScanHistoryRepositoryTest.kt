@@ -147,10 +147,12 @@ class ScanHistoryRepositoryTest {
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
         // When
-        val result = repository.getAllScans()
+        val encryptedScans = repository.getAllEncryptedScans()
+        val decryptedScans = repository.getAllDecryptedScans()
         
         // Then
-        assertTrue("Should return empty list", result.isEmpty())
+        assertTrue("Should return empty encrypted list", encryptedScans.isEmpty())
+        assertTrue("Should return empty decrypted list", decryptedScans.isEmpty())
     }
 
     @Test
@@ -160,10 +162,12 @@ class ScanHistoryRepositoryTest {
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn("{invalid json}")
         
         // When
-        val result = repository.getAllScans()
+        val encryptedScans = repository.getAllEncryptedScans()
+        val decryptedScans = repository.getAllDecryptedScans()
         
         // Then
-        assertTrue("Should return empty list for corrupted data", result.isEmpty())
+        assertTrue("Should return empty encrypted list for corrupted data", encryptedScans.isEmpty())
+        assertTrue("Should return empty decrypted list for corrupted data", decryptedScans.isEmpty())
         verify(mockEditor, atLeast(2)).remove(any()) // Should clear both encrypted and decrypted corrupted data
         verify(mockEditor, atLeast(2)).apply()
     }
@@ -192,9 +196,11 @@ class ScanHistoryRepositoryTest {
         `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         
-        val result = repository.getScansByTagUid("test-uid")
+        val encryptedResult = repository.getEncryptedScansByTagUid("test-uid")
+        val decryptedResult = repository.getDecryptedScansByTagUid("test-uid")
         
-        assertTrue("Should return empty list", result.isEmpty())
+        assertTrue("Should return empty encrypted list", encryptedResult.isEmpty())
+        assertTrue("Should return empty decrypted list", decryptedResult.isEmpty())
     }
 
     @Test
