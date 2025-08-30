@@ -173,6 +173,27 @@ class CatalogRepository(private val context: Context) {
         }
     }
     
+    /**
+     * Find a product by identifier across all manufacturers
+     * Searches both primary variantId and alternative identifiers
+     */
+    fun findProductBySku(skuId: String): ProductEntry? {
+        getCatalog().manufacturers.forEach { (_, catalog) ->
+            val product = catalog.products.find { it.matchesIdentifier(skuId) }
+            if (product != null) {
+                return product
+            }
+        }
+        return null
+    }
+    
+    /**
+     * Find a product by identifier for a specific manufacturer
+     * Searches both primary variantId and alternative identifiers
+     */
+    fun findProductBySku(manufacturerId: String, skuId: String): ProductEntry? {
+        return getProducts(manufacturerId).find { it.matchesIdentifier(skuId) }
+    }
 
     /**
      * Force reload catalog (useful for testing)

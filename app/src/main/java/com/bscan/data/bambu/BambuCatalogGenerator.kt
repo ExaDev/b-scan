@@ -220,6 +220,15 @@ object BambuCatalogGenerator {
         val colorHex = product?.colorHex ?: ColorUtils.getHexColorForName(colorName)
         val colorCode = variantId.split("-").getOrNull(1) ?: ""
 
+        // Create alternative identifiers set including the numeric SKU ID
+        val alternativeIds = mutableSetOf<String>()
+        
+        // Add the numeric SKU ID as an alternative identifier
+        alternativeIds.add(skuInfo.sku)
+        
+        // Add other potential identifiers
+        product?.let { alternativeIds.add("${materialType}_${colorName}".replace(" ", "_")) }
+
         return ProductEntry(
             variantId = variantId,
             productHandle = "bambu-${materialType.lowercase().replace(" ", "-")}-${colorName.lowercase().replace(" ", "-")}",
@@ -235,7 +244,8 @@ object BambuCatalogGenerator {
             internalCode = materialId,
             lastUpdated = "2025-01-16T00:00:00Z",
             filamentWeightGrams = 1000f,
-            spoolType = SpoolPackaging.WITH_SPOOL
+            spoolType = SpoolPackaging.WITH_SPOOL,
+            alternativeIds = alternativeIds
         )
     }
 

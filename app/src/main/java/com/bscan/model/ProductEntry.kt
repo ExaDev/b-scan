@@ -20,7 +20,8 @@ data class ProductEntry(
     val internalCode: String,       // Bambu internal code (e.g., "GFL00")
     val lastUpdated: String,        // ISO timestamp when this entry was scraped
     val filamentWeightGrams: Float?, // Expected filament weight in grams (e.g., 500, 750, 1000)
-    val spoolType: SpoolPackaging?   // Packaging type: REFILL or WITH_SPOOL
+    val spoolType: SpoolPackaging?,  // Packaging type: REFILL or WITH_SPOOL
+    val alternativeIds: Set<String> = emptySet() // Additional identifiers for lookup (SKU ID, internal codes, etc.)
 ) {
     /**
      * Extract a clean color name suitable for display by removing variant information.
@@ -82,6 +83,14 @@ data class ProductEntry(
             }
             filamentWeight + spoolComponentWeight
         }
+    }
+    
+    /**
+     * Check if this product can be found by the given identifier
+     * Checks the primary variantId and all alternative identifiers
+     */
+    fun matchesIdentifier(identifier: String): Boolean {
+        return variantId == identifier || alternativeIds.contains(identifier)
     }
 }
 
