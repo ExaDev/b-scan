@@ -10,8 +10,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.bscan.repository.ComponentRepository
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.UniqueFilamentReel
+import com.bscan.model.Component
+import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.spool.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,41 +24,48 @@ fun SpoolListScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { ScanHistoryRepository(context) }
-    var filamentReels by remember { mutableStateOf(listOf<UniqueFilamentReel>()) }
+    val componentRepository = remember { ComponentRepository(context) }
+    val scanHistoryRepository = remember { ScanHistoryRepository(context) }
+    var filamentComponents by remember { mutableStateOf(listOf<Component>()) }
     var selectedFilter by remember { mutableStateOf("All") }
     var filterByType by remember { mutableStateOf("All Types") }
     
     LaunchedEffect(Unit) {
         try {
-            filamentReels = repository.getUniqueFilamentReelsByTray() // Group by tray UID instead of tag UID
+            // Get all inventory items that are filament-related
+            filamentComponents = componentRepository.getInventoryItems().filter { component ->
+                component.category == "filament" || 
+                component.metadata.containsKey("filamentType") ||
+                component.tags.contains("filament")
+            }
         } catch (e: Exception) {
-            filamentReels = emptyList()
+            filamentComponents = emptyList()
         }
     }
     
     // Apply filters
-    val filteredFilamentReels = filamentReels.filter { filamentReel ->
+    val filteredFilamentComponents = filamentComponents.filter { component ->
         val matchesSuccessFilter = when (selectedFilter) {
-            "Successful Only" -> filamentReel.successCount > 0
-            "High Success Rate" -> filamentReel.successRate >= 0.8f
+            "Successful Only" -> component.hasUniqueIdentifier()
+            "High Success Rate" -> component.massGrams != null // Components with known mass are "successful"
             else -> true
         }
         
+        val componentType = component.metadata["filamentType"] ?: component.category
+        val detailedType = component.metadata["detailedFilamentType"]
         val matchesTypeFilter = when (filterByType) {
             "All Types" -> true
-            else -> filamentReel.filamentInfo.filamentType == filterByType || 
-                    filamentReel.filamentInfo.detailedFilamentType == filterByType
+            else -> componentType == filterByType || detailedType == filterByType
         }
         
         matchesSuccessFilter && matchesTypeFilter
     }
     
     // Get unique filament types for filter
-    val availableTypes = remember(repository) {
+    val availableTypes = remember(filamentComponents) {
         try {
-            val types = repository.getAllScans()
-                .mapNotNull { it.filamentInfo?.filamentType }
+            val types = filamentComponents
+                .mapNotNull { it.metadata["filamentType"] ?: it.category.takeIf { it != "general" } }
                 .distinct()
                 .sorted()
             listOf("All Types") + types
@@ -86,7 +95,7 @@ fun SpoolListScreen(
         ) {
             // Statistics Card
             item {
-                FilamentReelStatisticsCard(filamentReels = filamentReels)
+                FilamentReelStatisticsCard(filamentComponents = filamentComponents)
             }
             
             // Filter Row
@@ -100,21 +109,21 @@ fun SpoolListScreen(
                 )
             }
             
-            // Spools List
-            items(filteredFilamentReels) { filamentReel ->
+            // Components List
+            items(filteredFilamentComponents) { component ->
                 FilamentReelCard(
-                    filamentReel = filamentReel,
-                    onClick = { trayUid ->
-                        onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, trayUid)
+                    component = component,
+                    onClick = { componentId ->
+                        onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, componentId)
                     }
                 )
             }
             
             // Empty state
-            if (filteredFilamentReels.isEmpty()) {
+            if (filteredFilamentComponents.isEmpty()) {
                 item {
                     FilamentReelListEmptyState(
-                        hasFilamentReels = filamentReels.isNotEmpty(),
+                        hasFilamentComponents = filamentComponents.isNotEmpty(),
                         currentFilter = selectedFilter
                     )
                 }

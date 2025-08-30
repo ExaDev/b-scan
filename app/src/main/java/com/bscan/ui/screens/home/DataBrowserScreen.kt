@@ -23,8 +23,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
-import com.bscan.repository.UniqueFilamentReel
-import com.bscan.repository.InterpretedScan
+import com.bscan.model.Component
+import com.bscan.model.DecryptedScanData
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.ScanPromptScreen
 import kotlinx.coroutines.launch
@@ -37,9 +37,9 @@ fun DataBrowserScreen(
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    filamentReels: List<UniqueFilamentReel>,
-    individualTags: List<UniqueFilamentReel>,
-    allScans: List<InterpretedScan>,
+    filamentReels: List<Component>,
+    individualTags: List<Component>,
+    allScans: List<DecryptedScanData>,
     availableFilamentTypes: Set<String>,
     availableColors: Set<String>,
     availableBaseMaterials: Set<String>,
@@ -368,23 +368,14 @@ fun DataBrowserScreen(
             ) { page ->
                 val actualPage = page % tabCount
                 when (ViewMode.values()[actualPage]) {
-                    ViewMode.INVENTORY -> FilamentReelsList(
-                        filamentReels = filamentReels, 
-                        sortProperty = sortProperty, 
-                        sortDirection = sortDirection, 
-                        groupByOption = groupByOption, 
-                        filterState = filterState, 
-                        lazyListState = lazyListStates[actualPage], 
-                        onNavigateToDetails = onNavigateToDetails,
-                        scanState = scanState,
-                        scanProgress = scanProgress,
-                        onSimulateScan = onSimulateScan,
-                        compactPromptHeightDp = compactPromptHeightDp,
-                        fullPromptHeightDp = fullPromptHeightDp,
-                        hasData = filamentReels.isNotEmpty()
-                    )
+                    ViewMode.INVENTORY -> Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Inventory view - Under development")
+                    }
                     ViewMode.CATALOG -> CatalogBrowser(
-                        allScans = allScans,
+                        allComponents = filamentReels,
                         sortProperty = sortProperty,
                         sortDirection = sortDirection,
                         groupByOption = groupByOption,
@@ -397,34 +388,18 @@ fun DataBrowserScreen(
                         compactPromptHeightDp = compactPromptHeightDp,
                         fullPromptHeightDp = fullPromptHeightDp
                     )
-                    ViewMode.TAGS -> TagsList(
-                        individualTags = individualTags,
-                        sortProperty = sortProperty,
-                        sortDirection = sortDirection,
-                        groupByOption = groupByOption,
-                        filterState = filterState,
-                        lazyListState = lazyListStates[actualPage],
-                        onNavigateToDetails = onNavigateToDetails,
-                        scanState = scanState,
-                        scanProgress = scanProgress,
-                        onSimulateScan = onSimulateScan,
-                        compactPromptHeightDp = compactPromptHeightDp,
-                        fullPromptHeightDp = fullPromptHeightDp
-                    )
-                    ViewMode.SCANS -> ScansList(
-                        allScans = allScans,
-                        sortProperty = sortProperty,
-                        sortDirection = sortDirection,
-                        groupByOption = groupByOption,
-                        filterState = filterState,
-                        lazyListState = lazyListStates[actualPage],
-                        onNavigateToDetails = onNavigateToDetails,
-                        scanState = scanState,
-                        scanProgress = scanProgress,
-                        onSimulateScan = onSimulateScan,
-                        compactPromptHeightDp = compactPromptHeightDp,
-                        fullPromptHeightDp = fullPromptHeightDp
-                    )
+                    ViewMode.TAGS -> Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Tags view - Under development")
+                    }
+                    ViewMode.SCANS -> Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Scans view - Under development")
+                    }
                 }
             }
         }

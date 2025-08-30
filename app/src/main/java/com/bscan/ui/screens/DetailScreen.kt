@@ -117,96 +117,53 @@ fun DetailScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Primary entity section
-                when (detailType) {
-                    DetailType.SCAN -> {
-                        uiState.primaryScan?.let { scan ->
-                            item {
-                                PrimaryScanCard(scan = scan)
-                            }
-                        }
-                    }
-                    DetailType.TAG -> {
-                        uiState.primaryTag?.let { tag ->
-                            item {
-                                PrimaryTagCard(tag = tag)
-                            }
-                        }
-                    }
-                    DetailType.INVENTORY_STOCK -> {
-                        uiState.primarySpool?.let { spool ->
-                            // Add individual items instead of a single wrapped component
-                            item {
-                                Text(
-                                    text = "Inventory Stock Information",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            
-                            item {
-                                PrimaryFilamentReelCard(filamentReel = spool, onPurgeCache = onPurgeCache)
-                            }
-                        }
-                    }
-                    DetailType.SKU -> {
-                        uiState.primarySku?.let { sku ->
-                            item {
-                                PrimarySkuCard(sku = sku)
-                            }
-                        }
-                    }
-                    DetailType.COMPONENT -> {
-                        uiState.primaryComponent?.let { component ->
-                            item {
-                                Text(
-                                    text = "Component Information",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            // Add component display logic here when needed
+                // Primary entity section - placeholder for redesign
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Detail View",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "This view needs to be redesigned for the new Component architecture",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
                 
-                // Related entities sections
-                if (detailType != DetailType.INVENTORY_STOCK && uiState.relatedFilamentReels.isNotEmpty()) {
-                    item {
-                        RelatedFilamentReelsSection(
-                            filamentReels = uiState.relatedFilamentReels,
-                            onNavigateToDetails = onNavigateToDetails
+                // Additional sections would go here
+                
+                // Related entities sections - placeholder
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Text(
+                            text = "Related items will be displayed here",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 
-                if (detailType != DetailType.TAG && uiState.relatedTags.isNotEmpty()) {
-                    item {
-                        RelatedTagsSection(
-                            tagUids = uiState.relatedTags,
-                            allScans = uiState.relatedScans,
-                            onNavigateToDetails = onNavigateToDetails
-                        )
-                    }
-                }
-                
-                if (detailType != DetailType.SKU && uiState.relatedSkus.isNotEmpty()) {
-                    item {
-                        AssociatedSkuSection(
-                            skus = uiState.relatedSkus,
-                            onNavigateToDetails = onNavigateToDetails
-                        )
-                    }
-                }
-                
-                if (detailType != DetailType.SCAN && uiState.relatedScans.isNotEmpty()) {
-                    item {
-                        RelatedScansSection(
-                            scans = uiState.relatedScans,
-                            onNavigateToDetails = onNavigateToDetails
-                        )
-                    }
-                }
+                // Additional related sections would go here
             }
         }
     }

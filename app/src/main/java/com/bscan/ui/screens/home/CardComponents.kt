@@ -1,14 +1,9 @@
 package com.bscan.ui.screens.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -17,245 +12,125 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
-import com.bscan.model.ScanResult
-import com.bscan.repository.UniqueFilamentReel
-import com.bscan.repository.InterpretedScan
+import com.bscan.model.Component
+import com.bscan.model.DecryptedScanData
 import com.bscan.ui.components.ScanStateIndicator
-import com.bscan.ui.components.FilamentColorBox
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
-data class SkuInfo(
-    val skuKey: String,
-    val filamentInfo: com.bscan.model.FilamentInfo,
-    val filamentReelCount: Int,
-    val totalScans: Int,
-    val successfulScans: Int,
-    val lastScanned: java.time.LocalDateTime,
-    val successRate: Float,
-    val isScannedOnly: Boolean = false // True if scanned from tag but no matching catalog product
-)
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FilamentReelCard(
-    filamentReel: UniqueFilamentReel,
+fun ComponentCard(
+    component: Component,
     modifier: Modifier = Modifier,
     onClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        onClick = { 
-            android.util.Log.d("FilamentReelCard", "Clicked item with trayUid: '${filamentReel.filamentInfo.trayUid}', colorName: '${filamentReel.filamentInfo.colorName}'")
-            onClick?.invoke(filamentReel.filamentInfo.trayUid) 
-        }
+        onClick = { onClick?.invoke(component.id) }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Color preview
-            FilamentColorBox(
-                colorHex = filamentReel.filamentInfo.colorHex,
-                filamentType = filamentReel.filamentInfo.filamentType,
-                size = 48.dp
+            // Category icon
+            Icon(
+                imageVector = when (component.category.lowercase()) {
+                    "filament" -> Icons.Default.Cable
+                    "rfid-tag" -> Icons.Default.Tag
+                    "core", "spool" -> Icons.Default.Circle
+                    "tool" -> Icons.Default.Build
+                    "equipment" -> Icons.Default.Devices
+                    else -> Icons.Default.Inventory
+                },
+                contentDescription = "Component type: ${component.category}",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
             )
             
-            // Filament info
+            // Component info
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = filamentReel.filamentInfo.colorName,
+                    text = component.name,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
                 Text(
-                    text = "${filamentReel.filamentInfo.filamentType} • ${filamentReel.filamentInfo.trayUid}",
+                    text = "${component.category} • ${component.id}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
-                Text(
-                    text = "${filamentReel.scanCount} scans • ${(filamentReel.successRate * 100).toInt()}% success",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            // Success rate indicator
-            when {
-                filamentReel.successRate >= 0.9f -> {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "High success rate",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                filamentReel.successRate >= 0.7f -> {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Good success rate", 
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                else -> {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Low success rate",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TagCard(
-    uid: String,
-    mostRecentScan: InterpretedScan,
-    filamentInfo: com.bscan.model.FilamentInfo?,
-    allScans: List<InterpretedScan>,
-    modifier: Modifier = Modifier
-) {
-    val tagScans = allScans.filter { it.uid == uid }
-    val successRate = tagScans.count { it.scanResult == ScanResult.SUCCESS }.toFloat() / tagScans.size
-    
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Tag icon with color if available
-            if (filamentInfo != null) {
-                Box(
-                    modifier = Modifier.size(40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    FilamentColorBox(
-                        colorHex = filamentInfo.colorHex,
-                        filamentType = filamentInfo.filamentType,
-                        size = 40.dp
-                    )
-                    Icon(
-                        imageVector = Icons.Default.Tag,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Tag,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-            
-            // Tag info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = uid,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
-                )
-                
-                if (filamentInfo != null) {
+                if (component.parentComponentId != null) {
                     Text(
-                        text = "${filamentInfo.colorName} • ${filamentInfo.trayUid}",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "Child of ${component.parentComponentId}",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
-                    Text(
-                        text = "Unknown filament",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
                 }
-                
-                Text(
-                    text = "${tagScans.size} scans • ${(successRate * 100).toInt()}% success",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
             
-            // Result indicator
-            Icon(
-                imageVector = when (mostRecentScan.scanResult) {
-                    ScanResult.SUCCESS -> Icons.Default.CheckCircle
-                    else -> Icons.Default.Error
-                },
-                contentDescription = null,
-                tint = when (mostRecentScan.scanResult) {
-                    ScanResult.SUCCESS -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.error
-                },
-                modifier = Modifier.size(20.dp)
-            )
+            // Mass information if available
+            component.massGrams?.let { mass ->
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = "${mass}g",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "mass",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScanCard(
-    scan: InterpretedScan,
+fun ScanHistoryCard(
+    scanData: DecryptedScanData,
     modifier: Modifier = Modifier,
-    onClick: ((InterpretedScan) -> Unit)? = null
+    onClick: ((DecryptedScanData) -> Unit)? = null
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable { onClick(scan) }
-                } else {
-                    Modifier
-                }
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            .let { if (onClick != null) it else it },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = { onClick?.invoke(scanData) }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Result icon
+            // NFC icon
             Icon(
-                imageVector = when (scan.scanResult) {
-                    ScanResult.SUCCESS -> Icons.Default.CheckCircle
-                    ScanResult.AUTHENTICATION_FAILED -> Icons.Default.Lock
-                    ScanResult.INSUFFICIENT_DATA -> Icons.Default.Warning
-                    ScanResult.PARSING_FAILED -> Icons.Default.Error
-                    ScanResult.NO_NFC_TAG -> Icons.Default.SignalWifiOff
-                    ScanResult.UNKNOWN_ERROR -> Icons.AutoMirrored.Filled.Help
-                },
-                contentDescription = null,
-                tint = when (scan.scanResult) {
-                    ScanResult.SUCCESS -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.error
-                },
+                imageVector = Icons.Default.Nfc,
+                contentDescription = "NFC scan",
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
             
@@ -263,164 +138,34 @@ fun ScanCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                if (scan.filamentInfo != null) {
-                    Text(
-                        text = scan.filamentInfo.colorName,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "${scan.filamentInfo.filamentType} • ${scan.uid}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                } else {
-                    Text(
-                        text = scan.uid,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = scan.scanResult.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                
                 Text(
-                    text = scan.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "NFC Scan",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
                 )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SkuCard(
-    sku: SkuInfo,
-    modifier: Modifier = Modifier,
-    onClick: ((String) -> Unit)? = null
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable { onClick(sku.skuKey) }
-                } else {
-                    Modifier
-                }
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Color preview
-            FilamentColorBox(
-                colorHex = sku.filamentInfo.colorHex,
-                filamentType = sku.filamentInfo.filamentType,
-                size = 48.dp
-            )
-            
-            // SKU info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = sku.filamentInfo.colorName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                    
-                    // Show indicator for scanned-only products (not in catalog)
-                    if (sku.isScannedOnly) {
-                        Icon(
-                            imageVector = Icons.Default.QuestionMark,
-                            contentDescription = "Scanned product (not in catalog)",
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
                 
                 Text(
-                    text = sku.filamentInfo.filamentType,
+                    text = "UID: ${scanData.tagUid}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 
                 Text(
-                    text = if (sku.filamentReelCount == 0 && sku.totalScans == 0) {
-                        "Available • Not scanned"
-                    } else {
-                        "${sku.filamentReelCount} reel${if (sku.filamentReelCount != 1) "s" else ""} • ${sku.totalScans} scans • ${(sku.successRate * 100).toInt()}% success"
-                    },
+                    text = scanData.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
-            // Status indicator
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                when {
-                    sku.filamentReelCount == 0 && sku.totalScans == 0 -> {
-                        // Unscanned product - show shopping cart
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Available for purchase",
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    sku.successRate >= 0.9f -> {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "High success rate",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    sku.successRate >= 0.7f -> {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Good success rate", 
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    else -> {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = "Low success rate",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-                
-                Text(
-                    text = if (sku.filamentReelCount == 0 && sku.totalScans == 0) "0" else "${sku.filamentReelCount}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Data size indicator
+            Text(
+                text = "${scanData.decryptedBlocks.size} blocks",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -459,7 +204,7 @@ fun CompactScanPrompt(
                     modifier = Modifier.weight(1f)
                 ) {
                     val title = when (scanState) {
-                        ScanState.IDLE -> "Scan a Spool"
+                        ScanState.IDLE -> "Scan a Component"
                         ScanState.TAG_DETECTED -> "Tag Detected"
                         ScanState.PROCESSING -> "Scanning..."
                         ScanState.SUCCESS -> "Scan Complete"
@@ -474,10 +219,10 @@ fun CompactScanPrompt(
                     )
                     
                     val description = when (scanState) {
-                        ScanState.IDLE -> "Tap your device against a filament spool to read its information"
+                        ScanState.IDLE -> "Hold your device against an NFC/RFID tag to scan"
                         ScanState.TAG_DETECTED -> "Preparing to read tag data"
                         ScanState.PROCESSING -> scanProgress?.statusMessage ?: "Processing tag data"
-                        ScanState.SUCCESS -> "Filament information successfully read"
+                        ScanState.SUCCESS -> "Component information successfully read"
                         ScanState.ERROR -> "Unable to read tag data"
                     }
                     
@@ -529,5 +274,53 @@ fun CompactScanPrompt(
                 }
             }
         }
+    }
+}
+
+// Preview functions
+
+@Preview(showBackground = true)
+@Composable
+fun ComponentCardPreview() {
+    MaterialTheme {
+        ComponentCard(
+            component = Component(
+                id = "PLA_RED_001",
+                name = "Red PLA Filament",
+                category = "filament",
+                massGrams = 1000f
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ScanHistoryCardPreview() {
+    MaterialTheme {
+        ScanHistoryCard(
+            scanData = DecryptedScanData(
+                tagUid = "A1B2C3D4",
+                timestamp = LocalDateTime.now(),
+                technology = "Mifare Classic 1K",
+                scanResult = com.bscan.model.ScanResult.SUCCESS,
+                decryptedBlocks = mapOf(1 to "0102030405060708", 2 to "090A0B0C0D0E0F10"),
+                authenticatedSectors = listOf(1, 2),
+                failedSectors = emptyList(),
+                usedKeys = emptyMap(),
+                derivedKeys = emptyList(),
+                errors = emptyList()
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CompactScanPromptPreview() {
+    MaterialTheme {
+        CompactScanPrompt(
+            scanState = ScanState.IDLE
+        )
     }
 }

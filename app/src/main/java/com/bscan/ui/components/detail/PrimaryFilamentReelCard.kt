@@ -7,6 +7,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bscan.model.Component
+import com.bscan.model.ComponentIdentifier
+import com.bscan.model.IdentifierType
+import com.bscan.model.IdentifierPurpose
 import java.time.LocalDateTime
 
 /**
@@ -15,8 +19,8 @@ import java.time.LocalDateTime
  */
 @Composable
 fun PrimaryFilamentReelCard(
-    filamentReel: com.bscan.repository.FilamentReelDetails,
-    onPurgeCache: ((String) -> Unit)? = null,
+    component: Component,
+    onAction: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // Simplified version to test layout constraints
@@ -29,38 +33,40 @@ fun PrimaryFilamentReelCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Filament Reel: ${filamentReel.trayUid}",
+                text = "Component: ${component.name}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
             
             DetailInfoRow(
-                label = "Material",
-                value = filamentReel.filamentInfo.filamentType
+                label = "Category",
+                value = component.category
             )
             
             DetailInfoRow(
-                label = "Color",
-                value = filamentReel.filamentInfo.colorName
+                label = "Manufacturer",
+                value = component.manufacturer
             )
             
-            DetailInfoRow(
-                label = "Detailed Type",
-                value = filamentReel.filamentInfo.detailedFilamentType.ifEmpty { "Standard" }
-            )
+            if (component.massGrams != null) {
+                DetailInfoRow(
+                    label = "Mass",
+                    value = "${component.massGrams}g"
+                )
+            }
             
-            DetailInfoRow(
-                label = "Spool Weight",
-                value = "${filamentReel.filamentInfo.spoolWeight}g"
-            )
+            if (component.identifiers.isNotEmpty()) {
+                val primaryId = component.getPrimaryTrackingIdentifier()
+                if (primaryId != null) {
+                    DetailInfoRow(
+                        label = "ID",
+                        value = primaryId.value
+                    )
+                }
+            }
             
-            DetailInfoRow(
-                label = "Filament Length",
-                value = "${filamentReel.filamentInfo.filamentLength}m"
-            )
-            
-            // TODO: Add more detailed reel information and actions
-            // This component can be expanded based on FilamentReelDetails structure
+            // TODO: Add more component-specific information and actions
+            // This component can be expanded based on component category and metadata
         }
     }
 }
@@ -70,37 +76,33 @@ fun PrimaryFilamentReelCard(
 private fun PrimaryFilamentReelCardPreview() {
     MaterialTheme {
         PrimaryFilamentReelCard(
-            filamentReel = createMockFilamentReelDetails()
+            component = createMockComponent()
         )
     }
 }
 
 // Mock data for preview
-private fun createMockFilamentReelDetails(): com.bscan.repository.FilamentReelDetails {
-    return com.bscan.repository.FilamentReelDetails(
-        trayUid = "01008023456789AB",
-        filamentInfo = com.bscan.model.FilamentInfo(
-            tagUid = "A1B2C3D4E5F6G7H8",
-            trayUid = "01008023456789AB",
-            filamentType = "PLA",
-            detailedFilamentType = "PLA Basic",
-            colorName = "Marble Orange",
-            colorHex = "#FF8B42",
-            spoolWeight = 245,
-            filamentDiameter = 1.75f,
-            filamentLength = 330,
-            productionDate = "2024-01-15",
-            minTemperature = 210,
-            maxTemperature = 230,
-            bedTemperature = 60,
-            dryingTemperature = 45,
-            dryingTime = 8
+private fun createMockComponent(): Component {
+    return Component(
+        id = "tray-001",
+        identifiers = listOf(
+            ComponentIdentifier(
+                type = IdentifierType.CONSUMABLE_UNIT,
+                value = "01008023456789AB",
+                purpose = IdentifierPurpose.TRACKING
+            ),
+            ComponentIdentifier(
+                type = IdentifierType.RFID_HARDWARE,
+                value = "A1B2C3D4E5F6G7H8",
+                purpose = IdentifierPurpose.AUTHENTICATION
+            )
         ),
-        tagUids = listOf("A1B2C3D4E5F6G7H8"),
-        allScans = emptyList(),
-        scansByTag = emptyMap(),
-        totalScans = 12,
-        successfulScans = 10,
-        lastScanned = LocalDateTime.now().minusHours(3)
+        name = "Bambu PLA Tray - Marble Orange",
+        category = "filament",
+        massGrams = 1245.0f,
+        fullMassGrams = 1245.0f,
+        variableMass = true,
+        manufacturer = "Bambu Lab",
+        description = "PLA Basic filament in Marble Orange"
     )
 }

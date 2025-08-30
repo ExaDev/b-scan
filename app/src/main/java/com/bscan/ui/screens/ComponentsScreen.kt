@@ -301,7 +301,7 @@ fun ComponentsScreen(
                                     val copiedComponent = component.copy(
                                         id = "component_${System.currentTimeMillis()}",
                                         name = "${component.name} (Copy)",
-                                        uniqueIdentifier = null, // Remove unique identifier from copies
+                                        identifiers = emptyList(), // Remove identifiers from copies
                                         parentComponentId = null, // Remove parent relationship from copies
                                         childComponents = emptyList() // Remove child relationships from copies
                                     )

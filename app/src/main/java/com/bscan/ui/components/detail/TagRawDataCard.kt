@@ -13,9 +13,10 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.bscan.model.DecryptedScanData
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.ScanResult
 import java.time.LocalDateTime
-import com.bscan.model.tagSizeBytes
-import com.bscan.model.manufacturerName
 
 /**
  * Expandable card displaying raw data from RFID tag including decrypted blocks and derived keys.
@@ -23,7 +24,7 @@ import com.bscan.model.manufacturerName
  */
 @Composable
 fun TagRawDataCard(
-    tag: com.bscan.repository.InterpretedScan,
+    tag: DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -62,19 +63,14 @@ fun TagRawDataCard(
             
             if (expanded) {
                 DetailInfoRow(
-                    label = "Encrypted Size", 
-                    value = "${tag.encryptedData.encryptedData.size} bytes"
-                )
-                
-                DetailInfoRow(
                     label = "Decrypted Blocks", 
-                    value = "${tag.decryptedData.decryptedBlocks.size} blocks"
+                    value = "${tag.decryptedBlocks.size} blocks"
                 )
                 
                 // Show decrypted blocks
-                if (tag.decryptedData.decryptedBlocks.isNotEmpty()) {
+                if (tag.decryptedBlocks.isNotEmpty()) {
                     DecryptedBlocksSection(
-                        blocks = tag.decryptedData.decryptedBlocks,
+                        blocks = tag.decryptedBlocks,
                         showAllBlocks = showAllBlocks,
                         onToggleShowAll = { showAllBlocks = !showAllBlocks },
                         clipboardManager = clipboardManager
@@ -82,9 +78,9 @@ fun TagRawDataCard(
                 }
                 
                 // Show derived keys (truncated for security)
-                if (tag.decryptedData.derivedKeys.isNotEmpty()) {
+                if (tag.derivedKeys.isNotEmpty()) {
                     DerivedKeysSection(
-                        keys = tag.decryptedData.derivedKeys,
+                        keys = tag.derivedKeys,
                         showAllKeys = showAllKeys,
                         onToggleShowAll = { showAllKeys = !showAllKeys },
                         clipboardManager = clipboardManager
@@ -272,37 +268,34 @@ private fun DerivedKeysSection(
     }
 }
 
-private fun buildAllRawDataString(tag: com.bscan.repository.InterpretedScan): String {
+private fun buildAllRawDataString(tag: DecryptedScanData): String {
     return buildString {
         appendLine("=== TAG RAW DATA ===")
-        appendLine("Tag UID: ${tag.uid}")
+        appendLine("Tag UID: ${tag.tagUid}")
         appendLine("Technology: ${tag.technology}")
-        appendLine("Manufacturer: ${tag.encryptedData.manufacturerName}")
         appendLine("Scan Result: ${tag.scanResult}")
-        appendLine("Tag Size: ${tag.decryptedData.tagSizeBytes} bytes")
-        appendLine("Encrypted Data Size: ${tag.encryptedData.encryptedData.size} bytes")
         appendLine()
         
         appendLine("=== DECRYPTED BLOCKS ===")
-        tag.decryptedData.decryptedBlocks.entries.sortedBy { it.key }.forEach { (blockNum, data) ->
+        tag.decryptedBlocks.entries.sortedBy { it.key }.forEach { (blockNum, data) ->
             appendLine("Block $blockNum: $data")
         }
         appendLine()
         
         appendLine("=== AUTHENTICATION ===")
-        appendLine("Authenticated Sectors: ${tag.decryptedData.authenticatedSectors.sorted().joinToString(", ")}")
-        appendLine("Failed Sectors: ${tag.decryptedData.failedSectors.sorted().joinToString(", ")}")
+        appendLine("Authenticated Sectors: ${tag.authenticatedSectors.sorted().joinToString(", ")}")
+        appendLine("Failed Sectors: ${tag.failedSectors.sorted().joinToString(", ")}")
         appendLine()
         
         appendLine("=== DERIVED KEYS ===")
-        tag.decryptedData.derivedKeys.forEach { key ->
+        tag.derivedKeys.forEach { key ->
             appendLine(key)
         }
         
-        if (tag.decryptedData.errors.isNotEmpty()) {
+        if (tag.errors.isNotEmpty()) {
             appendLine()
             appendLine("=== ERRORS ===")
-            tag.decryptedData.errors.forEach { error ->
+            tag.errors.forEach { error ->
                 appendLine("• $error")
             }
         }
@@ -314,48 +307,36 @@ private fun buildAllRawDataString(tag: com.bscan.repository.InterpretedScan): St
 private fun TagRawDataCardPreview() {
     MaterialTheme {
         TagRawDataCard(
-            tag = createMockInterpretedScanWithData()
+            tag = createMockDecryptedScanDataWithData()
         )
     }
 }
 
 // Mock data with blocks and keys for preview
-private fun createMockInterpretedScanWithData(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            id = 1L,
-            timestamp = LocalDateTime.now(),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(1024),
-            scanDurationMs = 1250L
+private fun createMockDecryptedScanDataWithData(): DecryptedScanData {
+    return DecryptedScanData(
+        timestamp = LocalDateTime.now(),
+        tagUid = "A1B2C3D4",
+        technology = "MIFARE Classic 1K",
+        scanResult = ScanResult.SUCCESS,
+        decryptedBlocks = mapOf(
+            4 to "424D4C00474642303000000000000000",
+            5 to "4B30000000000000000000000000000",
+            6 to "010080230000000000000000000000000",
+            7 to "5041534C61637465DABE656E20466961",
+            8 to "6D656E7400000000000000000000000"
         ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            id = 1L,
-            timestamp = LocalDateTime.now(),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.SUCCESS,
-            decryptedBlocks = mapOf(
-                4 to "424D4C00474642303000000000000000",
-                5 to "4B30000000000000000000000000000",
-                6 to "010080230000000000000000000000000",
-                7 to "5041534C61637465DABE656E20466961",
-                8 to "6D656E7400000000000000000000000"
-            ),
-            authenticatedSectors = listOf(1, 2, 3, 4, 5, 6, 7, 8),
-            failedSectors = listOf(9),
-            usedKeys = mapOf(1 to "KeyA", 2 to "KeyB"),
-            derivedKeys = listOf(
-                "ABCD1234567890EF1234567890ABCDEF",
-                "1234ABCDEF567890FEDCBA0987654321",
-                "FEDCBA0987654321ABCD1234567890EF",
-                "567890ABCDEF1234EFCDAB0987654321"
-            ),
-            errors = listOf("Failed to authenticate sector 9: Timeout"),
-            keyDerivationTimeMs = 450L,
-            authenticationTimeMs = 350L
+        authenticatedSectors = listOf(1, 2, 3, 4, 5, 6, 7, 8),
+        failedSectors = listOf(9),
+        usedKeys = mapOf(1 to "KeyA", 2 to "KeyB"),
+        derivedKeys = listOf(
+            "ABCD1234567890EF1234567890ABCDEF",
+            "1234ABCDEF567890FEDCBA0987654321",
+            "FEDCBA0987654321ABCD1234567890EF",
+            "567890ABCDEF1234EFCDAB0987654321"
         ),
-        filamentInfo = null
+        errors = listOf("Failed to authenticate sector 9: Timeout"),
+        keyDerivationTimeMs = 450L,
+        authenticationTimeMs = 350L
     )
 }

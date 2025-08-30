@@ -253,7 +253,6 @@ private fun createMockComponentHierarchy(): Map<String, Component> {
     // Root tray component
     val trayComponent = Component(
         id = "tray-001",
-        uniqueIdentifier = "01008023ABC123",
         identifiers = listOf(
             ComponentIdentifier(
                 type = IdentifierType.CONSUMABLE_UNIT,
@@ -333,7 +332,6 @@ private fun createMockComponentHierarchy(): Map<String, Component> {
     // Add a second root component (tool)
     val toolComponent = Component(
         id = "tool-001",
-        uniqueIdentifier = "DRILL_SN12345",
         identifiers = listOf(
             ComponentIdentifier(
                 type = IdentifierType.SERIAL_NUMBER,

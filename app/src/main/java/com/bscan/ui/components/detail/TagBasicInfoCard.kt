@@ -7,7 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.bscan.model.manufacturerName
+import com.bscan.model.DecryptedScanData
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.ScanResult
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -16,7 +18,7 @@ import java.time.format.DateTimeFormatter
  */
 @Composable
 fun TagBasicInfoCard(
-    tag: com.bscan.repository.InterpretedScan,
+    tag: DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -33,9 +35,9 @@ fun TagBasicInfoCard(
                 fontWeight = FontWeight.Bold
             )
             
-            DetailInfoRow(label = "Tag UID", value = tag.uid)
+            DetailInfoRow(label = "Tag UID", value = tag.tagUid)
             DetailInfoRow(label = "Technology", value = tag.technology)
-            DetailInfoRow(label = "Manufacturer", value = tag.encryptedData.manufacturerName)
+            DetailInfoRow(label = "Manufacturer", value = "Unknown")
             DetailInfoRow(
                 label = "Last Scanned", 
                 value = tag.timestamp.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"))
@@ -47,30 +49,20 @@ fun TagBasicInfoCard(
 
 
 // Mock data for preview
-private fun createMockInterpretedScan(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            timestamp = LocalDateTime.now(),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(0),
-            scanDurationMs = 1250L
-        ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            timestamp = LocalDateTime.now(),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.SUCCESS,
-            decryptedBlocks = emptyMap(),
-            authenticatedSectors = listOf(1, 2, 3),
-            failedSectors = emptyList(),
-            usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyB"),
-            derivedKeys = listOf("ABCD1234567890EF", "1234ABCDEF567890"),
-            errors = emptyList(),
-            keyDerivationTimeMs = 450L,
-            authenticationTimeMs = 350L
-        ),
-        filamentInfo = null
+private fun createMockDecryptedScanData(): DecryptedScanData {
+    return DecryptedScanData(
+        timestamp = LocalDateTime.now(),
+        tagUid = "A1B2C3D4",
+        technology = "MIFARE Classic 1K",
+        scanResult = ScanResult.SUCCESS,
+        decryptedBlocks = emptyMap(),
+        authenticatedSectors = listOf(1, 2, 3),
+        failedSectors = emptyList(),
+        usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyB"),
+        derivedKeys = listOf("ABCD1234567890EF", "1234ABCDEF567890"),
+        errors = emptyList(),
+        keyDerivationTimeMs = 450L,
+        authenticationTimeMs = 350L
     )
 }
 
@@ -79,7 +71,7 @@ private fun createMockInterpretedScan(): com.bscan.repository.InterpretedScan {
 private fun TagBasicInfoCardPreview() {
     MaterialTheme {
         TagBasicInfoCard(
-            tag = createMockInterpretedScan(),
+            tag = createMockDecryptedScanData(),
             modifier = Modifier.padding(16.dp)
         )
     }

@@ -9,7 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.bscan.repository.FilamentReelDetails
+import com.bscan.model.Component
 import com.bscan.ui.components.common.StatisticDisplay
 import com.bscan.ui.components.common.StatisticGrid
 import java.time.LocalDateTime
@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpoolOverviewCard(
-    spoolDetails: FilamentReelDetails,
+    component: Component,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -29,7 +29,7 @@ fun SpoolOverviewCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Filament Overview",
+                text = "Component Overview",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Medium
@@ -38,19 +38,22 @@ fun SpoolOverviewCard(
             Spacer(modifier = Modifier.height(12.dp))
             
             val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
-            val successRate = if (spoolDetails.totalScans > 0) {
-                (spoolDetails.successfulScans.toFloat() / spoolDetails.totalScans * 100).toInt()
-            } else 0
+            val primaryId = component.getPrimaryTrackingIdentifier()
             
             StatisticGrid(
-                statistics = listOf(
-                    "Tray UID" to spoolDetails.trayUid,
-                    "Associated Tags" to "${spoolDetails.tagUids.size} tags",
-                    "Total Scans" to spoolDetails.totalScans.toString(),
-                    "Successful Scans" to spoolDetails.successfulScans.toString(),
-                    "Success Rate" to "$successRate%",
-                    "Last Scanned" to spoolDetails.lastScanned.format(formatter)
-                )
+                statistics = buildList {
+                    add("Name" to component.name)
+                    add("Category" to component.category)
+                    add("Manufacturer" to component.manufacturer)
+                    if (primaryId != null) {
+                        add("Primary ID" to primaryId.value)
+                    }
+                    add("Identifiers" to "${component.identifiers.size} IDs")
+                    if (component.massGrams != null) {
+                        add("Mass" to "${component.massGrams}g")
+                    }
+                    add("Created" to component.lastUpdated.format(formatter))
+                }
             )
         }
     }
@@ -58,8 +61,8 @@ fun SpoolOverviewCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AssociatedTagsCard(
-    spoolDetails: FilamentReelDetails,
+fun AssociatedIdentifiersCard(
+    component: Component,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -70,7 +73,7 @@ fun AssociatedTagsCard(
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = "Associated NFC Tags",
+                text = "Component Identifiers",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Medium
@@ -78,34 +81,30 @@ fun AssociatedTagsCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            spoolDetails.tagUids.forEach { tagUid ->
-                val tagScans = spoolDetails.scansByTag[tagUid] ?: emptyList()
-                val tagSuccessCount = tagScans.count { it.scanResult == com.bscan.model.ScanResult.SUCCESS }
-                val tagSuccessRate = if (tagScans.isNotEmpty()) {
-                    (tagSuccessCount.toFloat() / tagScans.size * 100).toInt()
-                } else 0
-                
-                TagInfoRow(
-                    tagUid = tagUid,
-                    scanCount = tagScans.size,
-                    successCount = tagSuccessCount,
-                    successRate = tagSuccessRate
-                )
-                
-                if (tagUid != spoolDetails.tagUids.last()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+            if (component.identifiers.isNotEmpty()) {
+                component.identifiers.forEach { identifier ->
+                    IdentifierInfoRow(
+                        identifier = identifier
+                    )
+                    
+                    if (identifier != component.identifiers.last()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
+            } else {
+                Text(
+                    text = "No identifiers assigned",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
 @Composable
-fun TagInfoRow(
-    tagUid: String,
-    scanCount: Int,
-    successCount: Int,
-    successRate: Int,
+fun IdentifierInfoRow(
+    identifier: com.bscan.model.ComponentIdentifier,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -114,20 +113,20 @@ fun TagInfoRow(
     ) {
         Icon(
             imageVector = Icons.Default.Nfc,
-            contentDescription = "NFC Tag",
+            contentDescription = "Identifier",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp)
         )
         
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = tagUid,
+                text = identifier.value,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )
             
             Text(
-                text = "$scanCount scans • $successCount successful ($successRate%)",
+                text = "${identifier.type.name} • ${identifier.purpose.name}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -139,102 +138,83 @@ fun TagInfoRow(
 @Composable
 fun SpoolOverviewCardPreview() {
     MaterialTheme {
-        val mockFilamentInfo = com.bscan.model.FilamentInfo(
-            tagUid = "A1B2C3D4",
-            trayUid = "01008023456789ABCDEF",
-            tagFormat = com.bscan.model.TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = "Bambu Lab",
-            filamentType = "PLA",
-            detailedFilamentType = "PLA Basic",
-            colorHex = "#E74C3C",
-            colorName = "Red",
-            spoolWeight = 1000,
-            filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            productionDate = "2024-03",
-            minTemperature = 210,
-            maxTemperature = 230,
-            bedTemperature = 60,
-            dryingTemperature = 40,
-            dryingTime = 8
-        )
-        
-        val mockSpoolDetails = FilamentReelDetails(
-            trayUid = "01008023456789ABCDEF",
-            filamentInfo = mockFilamentInfo,
-            tagUids = listOf("A1B2C3D4", "E5F6A7B8", "C9D0E1F2"),
-            allScans = emptyList(),
-            scansByTag = mapOf(
-                "A1B2C3D4" to emptyList(),
-                "E5F6A7B8" to emptyList(),
-                "C9D0E1F2" to emptyList()
+        val mockComponent = Component(
+            id = "tray-001",
+            identifiers = listOf(
+                com.bscan.model.ComponentIdentifier(
+                    type = com.bscan.model.IdentifierType.CONSUMABLE_UNIT,
+                    value = "01008023456789ABCDEF",
+                    purpose = com.bscan.model.IdentifierPurpose.TRACKING
+                ),
+                com.bscan.model.ComponentIdentifier(
+                    type = com.bscan.model.IdentifierType.RFID_HARDWARE,
+                    value = "A1B2C3D4",
+                    purpose = com.bscan.model.IdentifierPurpose.AUTHENTICATION
+                )
             ),
-            totalScans = 45,
-            successfulScans = 42,
-            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30)
+            name = "Bambu PLA Basic - Red",
+            category = "filament",
+            massGrams = 1000.0f,
+            fullMassGrams = 1000.0f,
+            variableMass = true,
+            manufacturer = "Bambu Lab",
+            description = "PLA Basic filament in red color"
         )
-        
         
         SpoolOverviewCard(
-            spoolDetails = mockSpoolDetails
+            component = mockComponent
         )
     }
 }
 
 @Preview(showBackground = true)  
 @Composable
-fun AssociatedTagsCardPreview() {
+fun AssociatedIdentifiersCardPreview() {
     MaterialTheme {
-        val mockFilamentInfo = com.bscan.model.FilamentInfo(
-            tagUid = "A1B2C3D4",
-            trayUid = "01008023456789ABCDEF",
-            tagFormat = com.bscan.model.TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = "Bambu Lab",
-            filamentType = "PLA",
-            detailedFilamentType = "PLA Basic",
-            colorHex = "#2E8B57",
-            colorName = "Green",
-            spoolWeight = 1000,
-            filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            productionDate = "2024-03",
-            minTemperature = 210,
-            maxTemperature = 230,
-            bedTemperature = 60,
-            dryingTemperature = 40,
-            dryingTime = 8
-        )
-        
-        val mockSpoolDetails = FilamentReelDetails(
-            trayUid = "01008023456789ABCDEF",
-            filamentInfo = mockFilamentInfo,
-            tagUids = listOf("A1B2C3D4", "E5F6A7B8"),
-            allScans = emptyList(),
-            scansByTag = mapOf(
-                "A1B2C3D4" to emptyList(),
-                "E5F6A7B8" to emptyList()
+        val mockComponent = Component(
+            id = "tray-002",
+            identifiers = listOf(
+                com.bscan.model.ComponentIdentifier(
+                    type = com.bscan.model.IdentifierType.CONSUMABLE_UNIT,
+                    value = "01008023456789ABCDEF",
+                    purpose = com.bscan.model.IdentifierPurpose.TRACKING
+                ),
+                com.bscan.model.ComponentIdentifier(
+                    type = com.bscan.model.IdentifierType.RFID_HARDWARE,
+                    value = "A1B2C3D4",
+                    purpose = com.bscan.model.IdentifierPurpose.AUTHENTICATION
+                ),
+                com.bscan.model.ComponentIdentifier(
+                    type = com.bscan.model.IdentifierType.SERIAL_NUMBER,
+                    value = "SN-ABC123",
+                    purpose = com.bscan.model.IdentifierPurpose.DISPLAY
+                )
             ),
-            totalScans = 30,
-            successfulScans = 28,
-            lastScanned = LocalDateTime.of(2024, 3, 15, 14, 30)
+            name = "Bambu PLA Basic - Green",
+            category = "filament",
+            massGrams = 850.0f,
+            fullMassGrams = 1000.0f,
+            variableMass = true,
+            manufacturer = "Bambu Lab",
+            description = "PLA Basic filament in green color"
         )
         
-        
-        AssociatedTagsCard(
-            spoolDetails = mockSpoolDetails
+        AssociatedIdentifiersCard(
+            component = mockComponent
         )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun TagInfoRowPreview() {
+fun IdentifierInfoRowPreview() {
     MaterialTheme {
-        TagInfoRow(
-            tagUid = "A1B2C3D4E5F6",
-            scanCount = 15,
-            successCount = 14,
-            successRate = 93
+        IdentifierInfoRow(
+            identifier = com.bscan.model.ComponentIdentifier(
+                type = com.bscan.model.IdentifierType.RFID_HARDWARE,
+                value = "A1B2C3D4E5F6",
+                purpose = com.bscan.model.IdentifierPurpose.AUTHENTICATION
+            )
         )
     }
 }

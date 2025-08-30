@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bscan.model.ScanResult
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.InterpretedScan
+import com.bscan.model.DecryptedScanData
 import com.bscan.ui.components.common.EmptyStateView
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.components.common.StatisticDisplay
@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ScanStatisticsCard(
     repository: ScanHistoryRepository, 
-    scans: List<InterpretedScan>,
+    scans: List<DecryptedScanData>,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -91,7 +91,7 @@ fun ScanHistoryFilters(
 
 @Composable
 fun ScanHistoryCard(
-    scan: InterpretedScan,
+    scan: DecryptedScanData,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
     modifier: Modifier = Modifier,
@@ -100,7 +100,7 @@ fun ScanHistoryCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         onClick = { 
-            val scanId = "${scan.timestamp.toString().replace(":", "-").replace(".", "-")}_${scan.uid}"
+            val scanId = "${scan.timestamp.toString().replace(":", "-").replace(".", "-")}_${scan.tagUid}"
             onScanClick?.invoke(DetailType.SCAN, scanId)
         },
         colors = CardDefaults.cardColors(
@@ -123,7 +123,7 @@ fun ScanHistoryCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = scan.uid,
+                        text = scan.tagUid,
                         style = MaterialTheme.typography.titleMedium,
                         fontFamily = FontFamily.Monospace
                     )
@@ -145,35 +145,14 @@ fun ScanHistoryCard(
                 }
             }
             
-            // Basic Info
-            if (scan.filamentInfo != null) {
+            // Basic Info - Show scan result summary
+            if (scan.scanResult == ScanResult.SUCCESS) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Color indicator
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .background(
-                                color = try {
-                                    if (scan.filamentInfo.colorHex.startsWith("#")) {
-                                        Color(android.graphics.Color.parseColor(scan.filamentInfo.colorHex))
-                                    } else {
-                                        Color(android.graphics.Color.parseColor("#${scan.filamentInfo.colorHex}"))
-                                    }
-                                } catch (e: Exception) {
-                                    Color.Gray
-                                },
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                    )
-                    Text(
-                        text = "${scan.filamentInfo.filamentType} - ${scan.filamentInfo.colorName}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                Text(
+                    text = "Scan successful • ${scan.decryptedBlocks.size} blocks decrypted",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
             
             // Expanded Debug Info
@@ -220,7 +199,7 @@ fun ScanResultBadge(
 
 @Composable
 fun ScanDebugSection(
-    scan: InterpretedScan,
+    scan: DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -235,16 +214,13 @@ fun ScanDebugSection(
         
         // Technical Details
         DebugInfoRow("Technology", scan.technology)
-        DebugInfoRow("Tag Size", "${scan.debugInfo.tagSizeBytes} bytes")
-        DebugInfoRow("Sectors", scan.debugInfo.sectorCount.toString())
-        DebugInfoRow("Authenticated", "${scan.debugInfo.authenticatedSectors.size}/${scan.debugInfo.sectorCount}")
-        
-        if (scan.debugInfo.rawColorBytes.isNotEmpty()) {
-            DebugInfoRow("Raw Color", scan.debugInfo.rawColorBytes)
-        }
+        DebugInfoRow("Tag UID", scan.tagUid)
+        DebugInfoRow("Authenticated Sectors", scan.authenticatedSectors.size.toString())
+        DebugInfoRow("Failed Sectors", scan.failedSectors.size.toString())
+        DebugInfoRow("Decrypted Blocks", scan.decryptedBlocks.size.toString())
         
         // Authentication Details
-        if (scan.debugInfo.authenticatedSectors.isNotEmpty()) {
+        if (scan.authenticatedSectors.isNotEmpty()) {
             Text(
                 text = "Authentication Success:",
                 style = MaterialTheme.typography.bodySmall,
@@ -252,13 +228,13 @@ fun ScanDebugSection(
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Sectors: ${scan.debugInfo.authenticatedSectors.joinToString(", ")}",
+                text = "Sectors: ${scan.authenticatedSectors.joinToString(", ")}",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace
             )
         }
         
-        if (scan.debugInfo.failedSectors.isNotEmpty()) {
+        if (scan.failedSectors.isNotEmpty()) {
             Text(
                 text = "Authentication Failed:",
                 style = MaterialTheme.typography.bodySmall,
@@ -266,21 +242,21 @@ fun ScanDebugSection(
                 color = MaterialTheme.colorScheme.error
             )
             Text(
-                text = "Sectors: ${scan.debugInfo.failedSectors.joinToString(", ")}",
+                text = "Sectors: ${scan.failedSectors.joinToString(", ")}",
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace
             )
         }
         
         // Error Messages
-        if (scan.debugInfo.errorMessages.isNotEmpty()) {
+        if (scan.errors.isNotEmpty()) {
             Text(
                 text = "Errors:",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.error
             )
-            scan.debugInfo.errorMessages.forEach { error ->
+            scan.errors.forEach { error ->
                 Text(
                     text = "• $error",
                     style = MaterialTheme.typography.bodySmall,
@@ -291,13 +267,13 @@ fun ScanDebugSection(
         }
         
         // Key block data
-        if (scan.debugInfo.blockData.isNotEmpty()) {
+        if (scan.decryptedBlocks.isNotEmpty()) {
             Text(
                 text = "Block Data (First 6 blocks):",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold
             )
-            scan.debugInfo.blockData.entries.take(6).forEach { (block, data) ->
+            scan.decryptedBlocks.entries.take(6).forEach { (block, data) ->
                 Text(
                     text = "Block $block: $data",
                     style = MaterialTheme.typography.bodySmall,
@@ -352,60 +328,28 @@ fun ScanHistoryEmptyState(
 }
 
 // Helper function to create mock successful scan
-private fun createMockSuccessfulScan(): InterpretedScan {
-    val mockEncrypted = com.bscan.model.EncryptedScanData(
-        timestamp = java.time.LocalDateTime.now().minusHours(2),
-        tagUid = "A1B2C3D4",
-        technology = "NFC-A", 
-        encryptedData = ByteArray(1024)
-    )
-    
-    val mockDecrypted = com.bscan.model.DecryptedScanData(
+private fun createMockSuccessfulScan(): DecryptedScanData {
+    return com.bscan.model.DecryptedScanData(
         timestamp = java.time.LocalDateTime.now().minusHours(2),
         tagUid = "A1B2C3D4",
         technology = "NFC-A",
         scanResult = ScanResult.SUCCESS,
-        decryptedBlocks = mapOf(4 to "474641303A413030D2DA4B30000000"),
+        decryptedBlocks = mapOf(
+            4 to "474641303A413030D2DA4B30000000",
+            5 to "000000000000000000000000000000",
+            6 to "123456789ABCDEF0123456789ABCDEF"
+        ),
         authenticatedSectors = listOf(1, 2, 3, 4),
         failedSectors = emptyList(),
         usedKeys = mapOf(1 to "KeyA", 2 to "KeyA"),
         derivedKeys = listOf("A1B2C3D4E5F6"),
         errors = emptyList()
     )
-    
-    return InterpretedScan(
-        encryptedData = mockEncrypted,
-        decryptedData = mockDecrypted,
-        filamentInfo = com.bscan.model.FilamentInfo(
-            filamentType = "PLA",
-            detailedFilamentType = "PLA Basic",
-            colorName = "Ocean Blue",
-            colorHex = "#1976D2",
-            productionDate = "2024-03-15",
-            trayUid = "01008023456789",
-            tagUid = "A1B2C3D4",
-            spoolWeight = 1000,
-            filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            minTemperature = 210,
-            maxTemperature = 230,
-            bedTemperature = 60,
-            dryingTemperature = 40,
-            dryingTime = 8
-        )
-    )
 }
 
 // Helper function to create mock failed scan  
-private fun createMockFailedScan(): InterpretedScan {
-    val mockEncrypted = com.bscan.model.EncryptedScanData(
-        timestamp = java.time.LocalDateTime.now().minusHours(1),
-        tagUid = "E5F6A7B8",
-        technology = "NFC-A",
-        encryptedData = ByteArray(1024)
-    )
-    
-    val mockDecrypted = com.bscan.model.DecryptedScanData(
+private fun createMockFailedScan(): DecryptedScanData {
+    return com.bscan.model.DecryptedScanData(
         timestamp = java.time.LocalDateTime.now().minusHours(1),
         tagUid = "E5F6A7B8", 
         technology = "NFC-A",
@@ -416,12 +360,6 @@ private fun createMockFailedScan(): InterpretedScan {
         usedKeys = emptyMap(),
         derivedKeys = emptyList(),
         errors = listOf("Authentication failed for sector 1")
-    )
-    
-    return InterpretedScan(
-        encryptedData = mockEncrypted,
-        decryptedData = mockDecrypted,
-        filamentInfo = null
     )
 }
 

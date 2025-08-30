@@ -24,7 +24,7 @@ import java.time.LocalDateTime
  */
 @Composable
 fun PrimaryScanCard(
-    scan: com.bscan.repository.InterpretedScan,
+    scan: DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -45,96 +45,72 @@ fun PrimaryScanCard(
             onScanClick = null
         )
         
-        scan.filamentInfo?.let { filamentInfo ->
-            ColorPreviewCard(
-                colorHex = filamentInfo.colorHex,
-                colorName = filamentInfo.colorName,
-                filamentType = filamentInfo.filamentType
+        // Display basic scan information (no interpretation available at this level)
+        if (scan.scanResult == ScanResult.SUCCESS) {
+            InfoCard(
+                title = "Scan Result",
+                value = "Successfully decrypted ${scan.decryptedBlocks.size} blocks"
             )
             
             InfoCard(
-                title = "Filament Type",
-                value = filamentInfo.detailedFilamentType.ifEmpty { filamentInfo.filamentType }
+                title = "Authentication",
+                value = "${scan.authenticatedSectors.size} sectors authenticated"
             )
             
-            SpecificationCard(filamentInfo = filamentInfo)
-            TemperatureCard(filamentInfo = filamentInfo)
-            ProductionInfoCard(filamentInfo = filamentInfo)
+            if (scan.errors.isNotEmpty()) {
+                InfoCard(
+                    title = "Warnings",
+                    value = scan.errors.joinToString(", ")
+                )
+            }
+        } else {
+            InfoCard(
+                title = "Scan Result", 
+                value = "Scan failed: ${scan.scanResult.name}"
+            )
         }
     }
 }
 
 
 
-// Mock data with filament info for preview
-private fun createMockInterpretedScanWithFilament(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            timestamp = LocalDateTime.now().minusHours(2),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(1024),
-            scanDurationMs = 1250L
+// Mock data for successful scan preview
+private fun createMockSuccessfulScan(): DecryptedScanData {
+    return com.bscan.model.DecryptedScanData(
+        timestamp = LocalDateTime.now().minusHours(2),
+        tagUid = "A1B2C3D4",
+        technology = "MIFARE Classic 1K",
+        scanResult = com.bscan.model.ScanResult.SUCCESS,
+        decryptedBlocks = mapOf(
+            4 to "474641303A413030D2DA4B30000000",
+            5 to "000000000000000000000000000000",
+            6 to "123456789ABCDEF0123456789ABCDEF"
         ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            timestamp = LocalDateTime.now().minusHours(2),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.SUCCESS,
-            decryptedBlocks = emptyMap(),
-            authenticatedSectors = listOf(1, 2, 3, 4, 5),
-            failedSectors = emptyList(),
-            usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyB", 4 to "KeyA", 5 to "KeyA"),
-            derivedKeys = listOf("ABCD1234567890EF"),
-            errors = emptyList(),
-            keyDerivationTimeMs = 450L,
-            authenticationTimeMs = 350L
-        ),
-        filamentInfo = com.bscan.model.FilamentInfo(
-            tagUid = "A1B2C3D4",
-            trayUid = "01008023456789AB",
-            filamentType = "PLA",
-            detailedFilamentType = "PLA Basic",
-            colorName = "Marble Orange",
-            colorHex = "#FF8B42",
-            spoolWeight = 245,
-            filamentDiameter = 1.75f,
-            filamentLength = 330,
-            productionDate = "2024-01-15",
-            minTemperature = 210,
-            maxTemperature = 230,
-            bedTemperature = 60,
-            dryingTemperature = 45,
-            dryingTime = 8
-        )
+        authenticatedSectors = listOf(1, 2, 3, 4, 5),
+        failedSectors = emptyList(),
+        usedKeys = mapOf(1 to "KeyA", 2 to "KeyA", 3 to "KeyB", 4 to "KeyA", 5 to "KeyA"),
+        derivedKeys = listOf("ABCD1234567890EF"),
+        errors = emptyList(),
+        keyDerivationTimeMs = 450L,
+        authenticationTimeMs = 350L
     )
 }
 
-// Mock data without filament info for preview
-private fun createMockInterpretedScanWithoutFilament(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            timestamp = LocalDateTime.now().minusMinutes(30),
-            tagUid = "E1F2G3H4",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(512),
-            scanDurationMs = 2100L
-        ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            timestamp = LocalDateTime.now().minusMinutes(30),
-            tagUid = "E1F2G3H4",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.PARSING_FAILED,
-            decryptedBlocks = emptyMap(),
-            authenticatedSectors = listOf(1, 2),
-            failedSectors = listOf(3, 4, 5),
-            usedKeys = mapOf(1 to "KeyA", 2 to "KeyB"),
-            derivedKeys = listOf("1234ABCDEF567890"),
-            errors = listOf("Authentication failed for multiple sectors"),
-            keyDerivationTimeMs = 680L,
-            authenticationTimeMs = 890L
-        ),
-        filamentInfo = null
+// Mock data for failed scan preview
+private fun createMockFailedScan(): DecryptedScanData {
+    return com.bscan.model.DecryptedScanData(
+        timestamp = LocalDateTime.now().minusMinutes(30),
+        tagUid = "E1F2G3H4",
+        technology = "MIFARE Classic 1K",
+        scanResult = com.bscan.model.ScanResult.PARSING_FAILED,
+        decryptedBlocks = emptyMap(),
+        authenticatedSectors = listOf(1, 2),
+        failedSectors = listOf(3, 4, 5),
+        usedKeys = mapOf(1 to "KeyA", 2 to "KeyB"),
+        derivedKeys = listOf("1234ABCDEF567890"),
+        errors = listOf("Authentication failed for multiple sectors"),
+        keyDerivationTimeMs = 680L,
+        authenticationTimeMs = 890L
     )
 }
 
@@ -146,16 +122,16 @@ private fun PrimaryScanCardPreview() {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // With filament info
+            // Successful scan
             PrimaryScanCard(
-                scan = createMockInterpretedScanWithFilament()
+                scan = createMockSuccessfulScan()
             )
             
             Divider()
             
-            // Without filament info
+            // Failed scan
             PrimaryScanCard(
-                scan = createMockInterpretedScanWithoutFilament()
+                scan = createMockFailedScan()
             )
         }
     }

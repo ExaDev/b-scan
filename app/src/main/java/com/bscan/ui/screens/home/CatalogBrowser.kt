@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.Dp
 import com.bscan.ScanState
 import com.bscan.model.*
 import com.bscan.repository.CatalogRepository
-import com.bscan.repository.InterpretedScan
+import com.bscan.model.Component
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
@@ -40,7 +40,7 @@ import com.bscan.ui.screens.home.GroupHeader
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogBrowser(
-    allScans: List<InterpretedScan>,
+    allComponents: List<Component>,
     sortProperty: SortProperty,
     sortDirection: SortDirection,
     groupByOption: GroupByOption,

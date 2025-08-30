@@ -11,7 +11,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bscan.repository.UniqueFilamentReel
+import com.bscan.model.Component
+import com.bscan.model.IdentifierType
+import com.bscan.model.IdentifierPurpose
 import com.bscan.ui.components.ColorPreviewCard
 import com.bscan.ui.components.common.EmptyStateView
 import com.bscan.ui.components.common.StatisticDisplay
@@ -20,7 +22,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun FilamentReelStatisticsCard(
-    filamentReels: List<UniqueFilamentReel>,
+    filamentComponents: List<Component>,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -40,18 +42,18 @@ fun FilamentReelStatisticsCard(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            val totalFilamentReels = filamentReels.size
-            val uniqueTypes = filamentReels.map { it.filamentInfo.filamentType }.toSet().size
-            val totalScans = filamentReels.sumOf { it.scanCount }
-            val avgSuccessRate = if (filamentReels.isNotEmpty()) {
-                (filamentReels.sumOf { it.successRate.toDouble() } / filamentReels.size * 100).toInt()
-            } else 0
+            val totalFilamentComponents = filamentComponents.size
+            val uniqueTypes = filamentComponents.map { 
+                it.metadata["filamentType"] ?: it.category 
+            }.toSet().size
+            val uniqueManufacturers = filamentComponents.map { it.manufacturer }.toSet().size
+            val variableMassComponents = filamentComponents.count { it.variableMass }
             
             val statistics = listOf(
-                "Unique Reels" to totalFilamentReels.toString(),
+                "Components" to totalFilamentComponents.toString(),
                 "Types" to uniqueTypes.toString(),
-                "Total Scans" to totalScans.toString(),
-                "Avg Success" to "$avgSuccessRate%"
+                "Manufacturers" to uniqueManufacturers.toString(),
+                "Variable Mass" to variableMassComponents.toString()
             )
             
             StatisticGrid(
@@ -59,11 +61,11 @@ fun FilamentReelStatisticsCard(
                 modifier = Modifier.fillMaxWidth()
             )
             
-            // Most recent scan info
-            filamentReels.maxByOrNull { it.lastScanned }?.let { mostRecent ->
+            // Most recently updated component info
+            filamentComponents.maxByOrNull { it.lastUpdated }?.let { mostRecent ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Most recent scan: ${mostRecent.lastScanned.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}",
+                    text = "Most recent update: ${mostRecent.lastUpdated.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -120,14 +122,16 @@ fun FilamentReelFilterSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FilamentReelCard(
-    filamentReel: UniqueFilamentReel,
+    component: Component,
     modifier: Modifier = Modifier,
     onClick: ((String) -> Unit)? = null
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        onClick = { onClick?.invoke(filamentReel.filamentInfo.trayUid) }
+        onClick = { 
+            onClick?.invoke(component.getPrimaryTrackingIdentifier()?.value ?: component.id) 
+        }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -135,9 +139,9 @@ fun FilamentReelCard(
         ) {
             // Color preview with name
             ColorPreviewCard(
-                colorHex = filamentReel.filamentInfo.colorHex,
-                colorName = filamentReel.filamentInfo.colorName,
-                filamentType = filamentReel.filamentInfo.filamentType,
+                colorHex = component.metadata["colorHex"] ?: "#808080",
+                colorName = component.metadata["colorName"] ?: "Unknown Color",
+                filamentType = component.metadata["filamentType"] ?: component.category,
                 modifier = Modifier.fillMaxWidth()
             )
             
@@ -157,15 +161,18 @@ fun FilamentReelCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = filamentReel.filamentInfo.detailedFilamentType.ifEmpty { filamentReel.filamentInfo.filamentType },
+                        text = component.metadata["detailedFilamentType"]?.ifEmpty { 
+                            component.metadata["filamentType"] ?: component.category 
+                        } ?: (component.metadata["filamentType"] ?: component.category),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium
                     )
-                    if (filamentReel.filamentInfo.detailedFilamentType.isNotEmpty() && 
-                        filamentReel.filamentInfo.detailedFilamentType != filamentReel.filamentInfo.filamentType) {
+                    val detailedType = component.metadata["detailedFilamentType"]
+                    val basicType = component.metadata["filamentType"] ?: component.category
+                    if (!detailedType.isNullOrEmpty() && detailedType != basicType) {
                         Text(
-                            text = filamentReel.filamentInfo.filamentType,
+                            text = basicType,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -173,61 +180,75 @@ fun FilamentReelCard(
                 }
             }
             
-            // Scan statistics
+            // Component information
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Scan count and success rate
+                // Mass information
                 Column {
                     Text(
-                        text = "Scan History",
+                        text = "Mass Information",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "${filamentReel.scanCount} scans",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${(filamentReel.successRate * 100).toInt()}% success rate",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (filamentReel.successRate >= 0.8f) {
-                            MaterialTheme.colorScheme.primary
-                        } else if (filamentReel.successRate >= 0.5f) {
-                            MaterialTheme.colorScheme.secondary
-                        } else {
-                            MaterialTheme.colorScheme.error
+                    component.massGrams?.let { mass ->
+                        Text(
+                            text = "${mass.toInt()}g current",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        component.fullMassGrams?.let { fullMass ->
+                            val percentage = ((mass / fullMass) * 100).toInt()
+                            Text(
+                                text = "$percentage% remaining",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = when {
+                                    percentage >= 80 -> MaterialTheme.colorScheme.primary
+                                    percentage >= 30 -> MaterialTheme.colorScheme.secondary
+                                    else -> MaterialTheme.colorScheme.error
+                                }
+                            )
                         }
-                    )
+                    } ?: run {
+                        Text(
+                            text = if (component.variableMass) "Variable mass" else "Fixed component",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (component.inferredMass) "Mass inferred" else "Mass unknown",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 
-                // Last scanned
+                // Last updated
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "Last Scanned",
+                        text = "Last Updated",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = filamentReel.lastScanned.format(DateTimeFormatter.ofPattern("MMM dd")),
+                        text = component.lastUpdated.format(DateTimeFormatter.ofPattern("MMM dd")),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = filamentReel.lastScanned.format(DateTimeFormatter.ofPattern("yyyy HH:mm")),
+                        text = component.lastUpdated.format(DateTimeFormatter.ofPattern("yyyy HH:mm")),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             
-            // UID information
+            // Identifier information
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -235,43 +256,58 @@ fun FilamentReelCard(
             ) {
                 Column {
                     Text(
-                        text = "Tag UID",
+                        text = "Primary Identifier",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(2.dp))
+                    val primaryId = component.getPrimaryTrackingIdentifier() 
+                        ?: component.identifiers.firstOrNull()
                     Text(
-                        text = filamentReel.uid,
+                        text = primaryId?.value ?: component.id,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                     )
+                    primaryId?.let { id ->
+                        Text(
+                            text = "${id.type.name.replace("_", " ").lowercase()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 
-                // Success rate indicator
+                // Status indicator based on component properties
                 Box(
                     modifier = Modifier
                         .size(24.dp)
                         .padding(4.dp)
                 ) {
                     when {
-                        filamentReel.successRate >= 0.8f -> Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "High Success Rate",
-                            tint = MaterialTheme.colorScheme.primary,
+                        component.isNearlyEmpty -> Icon(
+                            Icons.Default.Error,
+                            contentDescription = "Nearly Empty",
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(20.dp)
                         )
-                        filamentReel.successRate >= 0.5f -> Icon(
+                        component.isRunningLow -> Icon(
                             Icons.Default.Warning,
-                            contentDescription = "Medium Success Rate",
+                            contentDescription = "Running Low",
                             tint = MaterialTheme.colorScheme.secondary,
                             modifier = Modifier.size(20.dp)
                         )
+                        component.hasUniqueIdentifier() -> Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Identified Component",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
                         else -> Icon(
-                            Icons.Default.Error,
-                            contentDescription = "Low Success Rate",
-                            tint = MaterialTheme.colorScheme.error,
+                            Icons.Default.Help,
+                            contentDescription = "Unknown Component",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -283,33 +319,33 @@ fun FilamentReelCard(
 
 @Composable
 fun FilamentReelListEmptyState(
-    hasFilamentReels: Boolean,
+    hasFilamentComponents: Boolean,
     currentFilter: String,
     modifier: Modifier = Modifier
 ) {
-    val (title, subtitle, icon) = if (hasFilamentReels) {
+    val (title, subtitle, icon) = if (hasFilamentComponents) {
         when (currentFilter) {
-            "Successful Only" -> Triple(
-                "No successfully scanned reels", 
-                "Try adjusting your filters",
+            "Running Low" -> Triple(
+                "No components running low", 
+                "Components with less than 20% remaining will appear here",
                 Icons.Default.FilterList
             )
-            "High Success Rate" -> Triple(
-                "No high-success reels found",
-                "Filament reels with 80%+ success rate will appear here",
+            "Nearly Empty" -> Triple(
+                "No nearly empty components",
+                "Components with less than 5% remaining will appear here",
                 Icons.Default.FilterList
             )
             else -> Triple(
-                "No filament reels match your filters",
+                "No filament components match your filters",
                 "Try adjusting your filters", 
                 Icons.Default.FilterList
             )
         }
     } else {
         Triple(
-            "No filament reels in your collection yet",
-            "Scan NFC tags to build your filament collection",
-            Icons.Default.Nfc
+            "No filament components in your collection yet",
+            "Add components through scanning or manual entry",
+            Icons.Default.Inventory
         )
     }
     

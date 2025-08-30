@@ -13,8 +13,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.bscan.model.ScanResult
+import com.bscan.model.DecryptedScanData
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.InterpretedScan
 import com.bscan.ui.components.history.*
 import com.bscan.ui.screens.DetailType
 
@@ -26,14 +26,14 @@ fun ScanHistoryScreen(
 ) {
     val context = LocalContext.current
     val repository = remember { ScanHistoryRepository(context) }
-    var scans by remember { mutableStateOf(listOf<InterpretedScan>()) }
+    var scans by remember { mutableStateOf(listOf<DecryptedScanData>()) }
     var selectedFilter by remember { mutableStateOf("All") }
     var expandedItems by remember { mutableStateOf(setOf<Long>()) }
     val coroutineScope = rememberCoroutineScope()
     
     LaunchedEffect(Unit) {
         try {
-            scans = repository.getAllScans()
+            scans = repository.getAllDecryptedScans()
         } catch (e: Exception) {
             // If loading fails, start with empty list
             scans = emptyList()

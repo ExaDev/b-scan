@@ -7,10 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.bscan.model.sectorCount
-import com.bscan.model.tagSizeBytes
-import com.bscan.model.tagFormat
-import com.bscan.model.manufacturerName
+import com.bscan.model.DecryptedScanData
+import com.bscan.model.EncryptedScanData
+import com.bscan.model.ScanResult
 import java.time.LocalDateTime
 
 /**
@@ -18,7 +17,7 @@ import java.time.LocalDateTime
  */
 @Composable
 fun TagTechnicalInfoCard(
-    tag: com.bscan.repository.InterpretedScan,
+    tag: DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -35,12 +34,10 @@ fun TagTechnicalInfoCard(
                 fontWeight = FontWeight.Bold
             )
             
-            DetailInfoRow(label = "Tag Format", value = tag.decryptedData.tagFormat.name)
-            DetailInfoRow(label = "Tag Size", value = "${tag.decryptedData.tagSizeBytes} bytes")
-            DetailInfoRow(label = "Sector Count", value = "${tag.decryptedData.sectorCount} sectors")
-            DetailInfoRow(label = "Scan Duration", value = "${tag.encryptedData.scanDurationMs}ms")
-            DetailInfoRow(label = "Key Derivation Time", value = "${tag.decryptedData.keyDerivationTimeMs}ms")
-            DetailInfoRow(label = "Authentication Time", value = "${tag.decryptedData.authenticationTimeMs}ms")
+            DetailInfoRow(label = "Technology", value = tag.technology)
+            DetailInfoRow(label = "Sector Count", value = "16 sectors")
+            DetailInfoRow(label = "Key Derivation Time", value = "${tag.keyDerivationTimeMs}ms")
+            DetailInfoRow(label = "Authentication Time", value = "${tag.authenticationTimeMs}ms")
         }
     }
 }
@@ -50,37 +47,25 @@ fun TagTechnicalInfoCard(
 private fun TagTechnicalInfoCardPreview() {
     MaterialTheme {
         TagTechnicalInfoCard(
-            tag = createMockInterpretedScan()
+            tag = createMockDecryptedScanData()
         )
     }
 }
 
 // Mock data for preview
-private fun createMockInterpretedScan(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            id = 1L,
-            timestamp = LocalDateTime.now(),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(1024),
-            scanDurationMs = 1250L
-        ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            id = 1L,
-            timestamp = LocalDateTime.now(),
-            tagUid = "A1B2C3D4",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.SUCCESS,
-            decryptedBlocks = emptyMap(),
-            authenticatedSectors = listOf(1, 2, 3, 4, 5),
-            failedSectors = listOf(6, 7),
-            usedKeys = emptyMap(),
-            derivedKeys = listOf("ABCD1234567890EF", "1234ABCDEF567890"),
-            errors = emptyList(),
-            keyDerivationTimeMs = 450L,
-            authenticationTimeMs = 350L
-        ),
-        filamentInfo = null
+private fun createMockDecryptedScanData(): DecryptedScanData {
+    return DecryptedScanData(
+        timestamp = LocalDateTime.now(),
+        tagUid = "A1B2C3D4",
+        technology = "MIFARE Classic 1K",
+        scanResult = ScanResult.SUCCESS,
+        decryptedBlocks = emptyMap(),
+        authenticatedSectors = listOf(1, 2, 3, 4, 5),
+        failedSectors = listOf(6, 7),
+        usedKeys = emptyMap(),
+        derivedKeys = listOf("ABCD1234567890EF", "1234ABCDEF567890"),
+        errors = emptyList(),
+        keyDerivationTimeMs = 450L,
+        authenticationTimeMs = 350L
     )
 }

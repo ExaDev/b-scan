@@ -4,9 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.repository.UnifiedDataAccess
-import com.bscan.repository.FilamentReelDetails
-import com.bscan.repository.UniqueFilamentReel
-import com.bscan.repository.InterpretedScan
+import com.bscan.model.DecryptedScanData
 import com.bscan.repository.ComponentRepository
 import com.bscan.ui.screens.home.SkuInfo
 import com.bscan.model.Component
@@ -18,6 +16,7 @@ import com.bscan.service.MassInferenceService
 import com.bscan.service.ComponentFactory
 import com.bscan.ble.ScaleReading
 import com.bscan.ble.WeightUnit
+import com.bscan.interpreter.InterpreterFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,9 +35,8 @@ data class DetailUiState(
     val identifier: String = "",
     val error: String? = null,
     // Primary entity data
-    val primaryScan: InterpretedScan? = null,
-    val primaryTag: InterpretedScan? = null, // Most recent scan for this tag UID
-    val primarySpool: FilamentReelDetails? = null,
+    val primaryScan: DecryptedScanData? = null,
+    val primaryTag: DecryptedScanData? = null, // Most recent scan for this tag UID
     val primarySku: SkuInfo? = null,
     val primaryComponent: Component? = null,
     // Component hierarchy data
@@ -59,9 +57,9 @@ data class DetailUiState(
     val canRedo: Boolean = false,
     val pendingOperations: List<String> = emptyList(),
     // Related data
-    val relatedScans: List<InterpretedScan> = emptyList(),
+    val relatedScans: List<DecryptedScanData> = emptyList(),
     val relatedTags: List<String> = emptyList(), // Tag UIDs
-    val relatedFilamentReels: List<UniqueFilamentReel> = emptyList(),
+    val relatedComponents: List<Component> = emptyList(),
     val relatedSkus: List<SkuInfo> = emptyList()
 )
 
@@ -69,7 +67,8 @@ class DetailViewModel(
     private val unifiedDataAccess: UnifiedDataAccess,
     private val componentRepository: ComponentRepository? = null,
     private val componentGroupingService: ComponentGroupingService? = null,
-    private val massInferenceService: MassInferenceService? = null
+    private val massInferenceService: MassInferenceService? = null,
+    private val interpreterFactory: InterpreterFactory? = null
 ) : ViewModel() {
     
     // Secondary constructor for backward compatibility
@@ -150,15 +149,15 @@ class DetailViewModel(
         val uid = parts.last()
         val timestampStr = parts.dropLast(1).joinToString("_")
         
-        val allScans = unifiedDataAccess.getAllScans()
+        val allScans = unifiedDataAccess.getAllDecryptedScanData()
         
         // Try to find scan by generating the same ID format and comparing
         val primaryScan = allScans.find { scan ->
-            val generatedId = "${scan.timestamp.toString().replace(":", "-").replace(".", "-")}_${scan.uid}"
+            val generatedId = "${scan.timestamp.toString().replace(":", "-").replace(".", "-")}_${scan.tagUid}"
             generatedId == scanIdentifier
         } ?: allScans.find { scan ->
             // Fallback: match by UID only if exact match fails
-            scan.uid == uid
+            scan.tagUid == uid
         }
         
         if (primaryScan == null) {
@@ -170,38 +169,46 @@ class DetailViewModel(
         }
         
         // Get related data
-        val trayUid = primaryScan.filamentInfo?.trayUid
-        val relatedSpools = if (trayUid != null) {
-            unifiedDataAccess.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+        val interpretedScan = interpretScan(primaryScan)
+        val trayUid = interpretedScan?.trayUid
+        val relatedComponents = if (trayUid != null) {
+            // Try to get component data if available
+            unifiedDataAccess.getInventoryItem(trayUid)?.let { inventoryItem ->
+                if (inventoryItem.hasComponents && componentRepository != null) {
+                    inventoryItem.components.mapNotNull { componentId ->
+                        componentRepository.getComponent(componentId)
+                    }
+                } else emptyList()
+            } ?: emptyList()
         } else {
             emptyList()
         }
         
         val relatedTags = if (trayUid != null) {
             allScans
-                .filter { it.filamentInfo?.trayUid == trayUid }
-                .map { it.uid }
+                .filter { interpretScan(it)?.trayUid == trayUid }
+                .map { it.tagUid }
                 .distinct()
         } else {
             listOf(uid)
         }
         
-        val relatedScans = allScans.filter { it.uid == uid }
-        val associatedSku = getAssociatedSku(primaryScan.filamentInfo)
+        val relatedScans = allScans.filter { it.tagUid == uid }
+        val associatedSku = getAssociatedSku(interpretedScan)
         
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             primaryScan = primaryScan,
             relatedScans = relatedScans,
             relatedTags = relatedTags,
-            relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
+            relatedComponents = relatedComponents,
             relatedSkus = associatedSku
         )
     }
     
     private suspend fun loadTagDetails(tagUid: String) {
-        val allScans = unifiedDataAccess.getAllScans()
-        val tagScans = unifiedDataAccess.getScansByTagUid(tagUid)
+        val allScans = unifiedDataAccess.getAllDecryptedScanData()
+        val tagScans = unifiedDataAccess.getDecryptedScanDataByTagUid(tagUid)
         val primaryTag = tagScans.maxByOrNull { it.timestamp }
         
         if (primaryTag == null) {
@@ -213,30 +220,38 @@ class DetailViewModel(
         }
         
         // Get related data
-        val trayUid = primaryTag.filamentInfo?.trayUid
-        val relatedSpools = if (trayUid != null) {
-            unifiedDataAccess.getFilamentReelDetails(trayUid)?.let { listOf(it) } ?: emptyList()
+        val interpretedTag = interpretScan(primaryTag)
+        val trayUid = interpretedTag?.trayUid
+        val relatedComponents = if (trayUid != null) {
+            // Try to get component data if available
+            unifiedDataAccess.getInventoryItem(trayUid)?.let { inventoryItem ->
+                if (inventoryItem.hasComponents && componentRepository != null) {
+                    inventoryItem.components.mapNotNull { componentId ->
+                        componentRepository.getComponent(componentId)
+                    }
+                } else emptyList()
+            } ?: emptyList()
         } else {
             emptyList()
         }
         
         val relatedTags = if (trayUid != null) {
             allScans
-                .filter { it.filamentInfo?.trayUid == trayUid }
-                .map { it.uid }
+                .filter { interpretScan(it)?.trayUid == trayUid }
+                .map { it.tagUid }
                 .distinct()
         } else {
             listOf(tagUid)
         }
         
-        val associatedSku = getAssociatedSku(primaryTag.filamentInfo)
+        val associatedSku = getAssociatedSku(interpretedTag)
         
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             primaryTag = primaryTag,
             relatedScans = tagScans,
             relatedTags = relatedTags,
-            relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
+            relatedComponents = relatedComponents,
             relatedSkus = associatedSku
         )
     }
@@ -244,101 +259,84 @@ class DetailViewModel(
     private suspend fun loadSpoolDetails(trayUid: String) {
         Log.d("DetailViewModel", "Loading spool details for trayUid: '$trayUid'")
         
-        // Debug: List all available data
-        val allScans = unifiedDataAccess.getAllScans()
-        Log.d("DetailViewModel", "Available scan count: ${allScans.size}")
-        allScans.take(5).forEach { scan ->
-            Log.d("DetailViewModel", "Available scan - uid: '${scan.uid}', trayUid: '${scan.filamentInfo?.trayUid}', colorName: '${scan.filamentInfo?.colorName}'")
-        }
-        
-        // Debug: Show scan data patterns to understand the identifier mismatch
-        Log.d("DetailViewModel", "Looking for data matching identifier: '$trayUid'")
-        
         try {
-            val filamentReelDetails = unifiedDataAccess.getFilamentReelDetails(trayUid)
-            
-            if (filamentReelDetails == null) {
-                Log.w("DetailViewModel", "No filament reel found for trayUid: '$trayUid'")
+            // Try component system approach - look for inventory item first
+            val inventoryItem = unifiedDataAccess.getInventoryItem(trayUid)
+            if (inventoryItem != null) {
+                Log.d("DetailViewModel", "Found inventory item for ID: $trayUid, redirecting to component view")
                 
-                // Try component system approach - maybe the ID is for an inventory item
-                val inventoryItem = unifiedDataAccess.getInventoryItem(trayUid)
-                if (inventoryItem != null) {
-                    Log.d("DetailViewModel", "Found inventory item for ID: $trayUid, redirecting to component view")
+                // Handle inventory item with component list (component IDs)
+                if (inventoryItem.hasComponents && componentRepository != null) {
+                    // Try to find a root component from the component list
+                    val rootComponentId = withContext(Dispatchers.IO) {
+                        inventoryItem.components.firstOrNull { componentId ->
+                            val component = componentRepository!!.getComponent(componentId)
+                            component?.isRootComponent == true
+                        }
+                    }
                     
-                    // Handle inventory item with component list (component IDs)
-                    if (inventoryItem.hasComponents && componentRepository != null) {
-                        // Try to find a root component from the component list
-                        val rootComponentId = withContext(Dispatchers.IO) {
-                            inventoryItem.components.firstOrNull { componentId ->
-                                val component = componentRepository!!.getComponent(componentId)
-                                component?.isRootComponent == true
-                            }
-                        }
-                        
-                        if (rootComponentId != null) {
-                            // Switch to component detail mode
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = true,
-                                detailType = DetailType.COMPONENT
-                            )
-                            loadComponentDetails(rootComponentId)
-                            return
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                error = "Found inventory item with ${inventoryItem.components.size} component IDs but no accessible root component."
-                            )
-                            return
-                        }
+                    if (rootComponentId != null) {
+                        // Switch to component detail mode
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = true,
+                            detailType = DetailType.COMPONENT
+                        )
+                        loadComponentDetails(rootComponentId)
+                        return
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = "Found inventory item but component functionality not available or no components defined."
+                            error = "Found inventory item with ${inventoryItem.components.size} component IDs but no accessible root component."
                         )
                         return
                     }
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "Found inventory item but component functionality not available or no components defined."
+                    )
+                    return
+                }
+            }
+            
+            // Fallback: Try to find related scans and create basic view
+            val allScans = unifiedDataAccess.getAllDecryptedScanData()
+            val relatedScans = allScans.filter { 
+                interpretScan(it)?.trayUid == trayUid 
+            }
+            
+            if (relatedScans.isNotEmpty()) {
+                Log.d("DetailViewModel", "Found ${relatedScans.size} scans for trayUid: $trayUid")
+                
+                val relatedTags = relatedScans.map { it.tagUid }.distinct()
+                val associatedSku = try {
+                    val firstScanInterpreted = interpretScan(relatedScans.first())
+                    getAssociatedSku(firstScanInterpreted)
+                } catch (e: Exception) {
+                    Log.e("DetailViewModel", "Failed to get associated SKU", e)
+                    emptyList()
                 }
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    relatedScans = relatedScans,
+                    relatedTags = relatedTags,
+                    relatedComponents = emptyList(),
+                    relatedSkus = associatedSku
+                )
+                
+                Log.d("DetailViewModel", "Successfully loaded scan-based data")
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
                     error = "Inventory item not found for ID: $trayUid"
                 )
-                return
             }
-            
-            Log.d("DetailViewModel", "Found filament reel details, loading associated data")
-            
-            // Safely get associated SKU with error handling
-            val associatedSku = try {
-                getAssociatedSku(filamentReelDetails.filamentInfo)
-            } catch (e: Exception) {
-                Log.e("DetailViewModel", "Failed to get associated SKU for filament reel", e)
-                emptyList()
-            }
-            
-            // Safely convert to unique component representation
-            val uniqueComponent = try {
-                filamentReelDetailsToUniqueComponent(filamentReelDetails)
-            } catch (e: Exception) {
-                Log.e("DetailViewModel", "Failed to convert filament reel details to unique component", e)
-                null
-            }
-            
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                primarySpool = filamentReelDetails,
-                relatedScans = filamentReelDetails.allScans,
-                relatedTags = filamentReelDetails.tagUids,
-                relatedFilamentReels = if (uniqueComponent != null) listOf(uniqueComponent) else emptyList(),
-                relatedSkus = associatedSku
-            )
-            
-            Log.d("DetailViewModel", "Successfully loaded filament reel details with ${filamentReelDetails.allScans.size} related scans")
         } catch (e: Exception) {
-            Log.e("DetailViewModel", "Exception loading filament reel details", e)
+            Log.e("DetailViewModel", "Exception loading spool details", e)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = "Failed to load filament reel details: ${e.message}"
+                error = "Failed to load spool details: ${e.message}"
             )
         }
     }
@@ -381,7 +379,7 @@ class DetailViewModel(
                 primarySku = primarySku,
                 relatedScans = emptyList(),
                 relatedTags = emptyList(),
-                relatedFilamentReels = emptyList(),
+                relatedComponents = emptyList(),
                 relatedSkus = listOf(primarySku)
             )
             return
@@ -407,10 +405,10 @@ class DetailViewModel(
         )
         
         // Find related scans for this product
-        val allScans = unifiedDataAccess.getAllScans()
+        val allScans = unifiedDataAccess.getAllDecryptedScanData()
         val relatedScans = allScans.filter { scan ->
             // Try to match scans that might be for this product
-            scan.filamentInfo?.let { info ->
+            interpretScan(scan)?.let { info ->
                 info.filamentType.contains(product.materialType, ignoreCase = true) &&
                 (product.colorName.isBlank() || info.colorName.contains(product.colorName, ignoreCase = true))
             } ?: false
@@ -424,29 +422,36 @@ class DetailViewModel(
         val primarySku = SkuInfo(
             skuKey = skuKey,
             filamentInfo = filamentInfo,
-            filamentReelCount = relatedScans.groupBy { it.filamentInfo?.trayUid }.size,
+            filamentReelCount = relatedScans.groupBy { interpretScan(it)?.trayUid }.size,
             totalScans = totalScans,
             successfulScans = successfulScans,
             lastScanned = lastScanned,
             successRate = if (totalScans > 0) successfulScans.toFloat() / totalScans else 0f
         )
         
-        // Get related spools and tags from scans
-        val relatedSpools = relatedScans
-            .mapNotNull { it.filamentInfo?.trayUid }
+        // Get related components and tags from scans
+        val relatedTrayUids = relatedScans
+            .mapNotNull { interpretScan(it)?.trayUid }
             .distinct()
-            .mapNotNull { trayUid ->
-                unifiedDataAccess.getFilamentReelDetails(trayUid)
-            }
         
-        val relatedTags = relatedScans.map { it.uid }.distinct()
+        val relatedComponents = relatedTrayUids.mapNotNull { trayUid ->
+            unifiedDataAccess.getInventoryItem(trayUid)?.let { inventoryItem ->
+                if (inventoryItem.hasComponents && componentRepository != null) {
+                    inventoryItem.components.mapNotNull { componentId ->
+                        componentRepository.getComponent(componentId)
+                    }.firstOrNull { it.isRootComponent }
+                } else null
+            }
+        }
+        
+        val relatedTags = relatedScans.map { it.tagUid }.distinct()
         
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             primarySku = primarySku,
             relatedScans = relatedScans,
             relatedTags = relatedTags,
-            relatedFilamentReels = relatedSpools.map { filamentReelDetailsToUniqueFilamentReel(it) },
+            relatedComponents = relatedComponents,
             relatedSkus = listOf(primarySku)
         )
     }
@@ -458,13 +463,14 @@ class DetailViewModel(
         }
         
         try {
-            val allScans = unifiedDataAccess.getAllScans()
+            val allScans = unifiedDataAccess.getAllDecryptedScanData()
             
             // Find scans that match BOTH filament type AND color for this specific SKU
             val skuScans = allScans.filter { scan ->
                 try {
-                    scan.filamentInfo?.filamentType == filamentInfo.filamentType &&
-                    scan.filamentInfo?.colorName == filamentInfo.colorName
+                    val scanInfo = interpretScan(scan)
+                    scanInfo?.filamentType == filamentInfo.filamentType &&
+                    scanInfo?.colorName == filamentInfo.colorName
                 } catch (e: Exception) {
                     Log.w("DetailViewModel", "Error filtering scan for SKU association", e)
                     false
@@ -489,10 +495,10 @@ class DetailViewModel(
             
             if (successfulScans.isNotEmpty()) {
                 val mostRecentScan = successfulScans.maxByOrNull { it.timestamp }
-                val info = mostRecentScan?.filamentInfo ?: filamentInfo
+                val info = if (mostRecentScan != null) interpretScan(mostRecentScan) ?: filamentInfo else filamentInfo
                 
                 val uniqueFilamentReels = try {
-                    skuScans.groupBy { it.filamentInfo?.trayUid ?: "unknown" }.size
+                    skuScans.groupBy { interpretScan(it)?.trayUid ?: "unknown" }.size
                 } catch (e: Exception) {
                     Log.w("DetailViewModel", "Error calculating unique filament reels", e)
                     1
@@ -524,34 +530,6 @@ class DetailViewModel(
         }
     }
     
-    private fun filamentReelDetailsToUniqueComponent(filamentReelDetails: FilamentReelDetails): UniqueFilamentReel {
-        return try {
-            UniqueFilamentReel(
-                uid = filamentReelDetails.trayUid, // Use tray UID as the identifier
-                filamentInfo = filamentReelDetails.filamentInfo,
-                scanCount = filamentReelDetails.totalScans,
-                successCount = filamentReelDetails.successfulScans,
-                lastScanned = filamentReelDetails.lastScanned,
-                successRate = if (filamentReelDetails.totalScans > 0) 
-                    filamentReelDetails.successfulScans.toFloat() / filamentReelDetails.totalScans else 0f
-            )
-        } catch (e: Exception) {
-            Log.e("DetailViewModel", "Error converting filament reel details to unique component", e)
-            // Return a minimal valid component if conversion fails
-            UniqueFilamentReel(
-                uid = filamentReelDetails.trayUid,
-                filamentInfo = filamentReelDetails.filamentInfo,
-                scanCount = 0,
-                successCount = 0,
-                lastScanned = LocalDateTime.now(),
-                successRate = 0f
-            )
-        }
-    }
-    
-    private fun filamentReelDetailsToUniqueFilamentReel(filamentReelDetails: FilamentReelDetails): UniqueFilamentReel {
-        return filamentReelDetailsToUniqueComponent(filamentReelDetails)
-    }
     
     private fun createSyntheticFilamentInfo(filamentType: String, colorName: String): com.bscan.model.FilamentInfo {
         return com.bscan.model.FilamentInfo(
@@ -1362,6 +1340,22 @@ class DetailViewModel(
                 }
             }
         }
+    }
+    
+    /**
+     * Interpret a DecryptedScanData to get FilamentInfo if available
+     */
+    private fun interpretScan(scan: DecryptedScanData): com.bscan.model.FilamentInfo? {
+        return try {
+            interpreterFactory?.interpret(scan)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to interpret scan ${scan.tagUid}", e)
+            null
+        }
+    }
+    
+    companion object {
+        private const val TAG = "DetailViewModel"
     }
 }
 

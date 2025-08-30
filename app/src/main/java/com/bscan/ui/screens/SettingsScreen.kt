@@ -214,8 +214,8 @@ fun SettingsScreen(
             }
             
             item {
-                val scanCount = remember { repository.getAllScans().size }
-                val spoolCount = remember { repository.getUniqueFilamentReelsByTray().size }
+                val scanCount = remember { repository.getAllDecryptedScans().size }
+                val spoolCount = remember { repository.getSuccessfulDecryptedScans().distinctBy { it.tagUid }.size }
                 var isExporting by remember { mutableStateOf(false) }
                 var isImporting by remember { mutableStateOf(false) }
                 var exportScope by remember { mutableStateOf(ExportScope.ALL_DATA) }

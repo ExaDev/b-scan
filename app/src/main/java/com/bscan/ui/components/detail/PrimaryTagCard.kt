@@ -19,7 +19,7 @@ import java.time.LocalDateTime
  */
 @Composable
 fun PrimaryTagCard(
-    tag: com.bscan.repository.InterpretedScan,
+    tag: com.bscan.model.DecryptedScanData,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -43,11 +43,6 @@ fun PrimaryTagCard(
         
         // Raw Data Section (expandable)
         TagRawDataCard(tag = tag)
-        
-        // Filament Information (if available)
-        tag.filamentInfo?.let { filamentInfo ->
-            InterpretedFilamentDataCard(filamentInfo = filamentInfo)
-        }
     }
 }
 
@@ -71,89 +66,53 @@ private fun PrimaryTagCardWithoutFilamentPreview() {
     }
 }
 
-// Mock data with filament info for preview
-private fun createMockTagWithFilament(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            timestamp = LocalDateTime.now().minusHours(1),
-            tagUid = "A1B2C3D4E5F6G7H8",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(1024),
-            scanDurationMs = 1150L
+// Mock data for successful tag scan preview
+private fun createMockTagWithFilament(): com.bscan.model.DecryptedScanData {
+    return com.bscan.model.DecryptedScanData(
+        timestamp = LocalDateTime.now().minusHours(1),
+        tagUid = "A1B2C3D4E5F6G7H8",
+        technology = "MIFARE Classic 1K",
+        scanResult = com.bscan.model.ScanResult.SUCCESS,
+        decryptedBlocks = mapOf(
+            4 to "424D4C00474642303000000000000000",
+            5 to "4B30000000000000000000000000000",
+            6 to "010080230000000000000000000000000",
+            7 to "5041534C61637465DABE656E20466961"
         ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            timestamp = LocalDateTime.now().minusHours(1),
-            tagUid = "A1B2C3D4E5F6G7H8",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.SUCCESS,
-            decryptedBlocks = mapOf(
-                4 to "424D4C00474642303000000000000000",
-                5 to "4B30000000000000000000000000000",
-                6 to "010080230000000000000000000000000",
-                7 to "5041534C61637465DABE656E20466961"
-            ),
-            authenticatedSectors = (1..15).toList(),
-            failedSectors = emptyList(),
-            usedKeys = (1..15).associate { it to if (it % 2 == 0) "KeyB" else "KeyA" },
-            derivedKeys = listOf(
-                "ABCD1234567890EF1234567890ABCDEF",
-                "1234ABCDEF567890FEDCBA0987654321",
-                "FEDCBA0987654321ABCD1234567890EF"
-            ),
-            errors = emptyList(),
-            keyDerivationTimeMs = 420L,
-            authenticationTimeMs = 310L
+        authenticatedSectors = (1..15).toList(),
+        failedSectors = emptyList(),
+        usedKeys = (1..15).associate { it to if (it % 2 == 0) "KeyB" else "KeyA" },
+        derivedKeys = listOf(
+            "ABCD1234567890EF1234567890ABCDEF",
+            "1234ABCDEF567890FEDCBA0987654321",
+            "FEDCBA0987654321ABCD1234567890EF"
         ),
-        filamentInfo = com.bscan.model.FilamentInfo(
-            tagUid = "A1B2C3D4E5F6G7H8",
-            trayUid = "01008023456789AB",
-            filamentType = "PETG",
-            detailedFilamentType = "PETG Basic",
-            colorName = "Jade White",
-            colorHex = "#F5F5DC",
-            spoolWeight = 220,
-            filamentDiameter = 1.75f,
-            filamentLength = 320,
-            productionDate = "2024-02-20",
-            minTemperature = 220,
-            maxTemperature = 250,
-            bedTemperature = 70,
-            dryingTemperature = 55,
-            dryingTime = 6
-        )
+        errors = emptyList(),
+        keyDerivationTimeMs = 420L,
+        authenticationTimeMs = 310L
     )
 }
 
-// Mock data without filament info for preview
-private fun createMockTagWithoutFilament(): com.bscan.repository.InterpretedScan {
-    return com.bscan.repository.InterpretedScan(
-        encryptedData = com.bscan.model.EncryptedScanData(
-            timestamp = LocalDateTime.now().minusMinutes(45),
-            tagUid = "1122334455667788",
-            technology = "MIFARE Classic 1K",
-            encryptedData = ByteArray(256),
-            scanDurationMs = 3200L
+// Mock data for failed tag scan preview
+private fun createMockTagWithoutFilament(): com.bscan.model.DecryptedScanData {
+    return com.bscan.model.DecryptedScanData(
+        timestamp = LocalDateTime.now().minusMinutes(45),
+        tagUid = "1122334455667788",
+        technology = "MIFARE Classic 1K",
+        scanResult = com.bscan.model.ScanResult.AUTHENTICATION_FAILED,
+        decryptedBlocks = mapOf(
+            1 to "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
         ),
-        decryptedData = com.bscan.model.DecryptedScanData(
-            timestamp = LocalDateTime.now().minusMinutes(45),
-            tagUid = "1122334455667788",
-            technology = "MIFARE Classic 1K",
-            scanResult = com.bscan.model.ScanResult.AUTHENTICATION_FAILED,
-            decryptedBlocks = mapOf(
-                1 to "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
-            ),
-            authenticatedSectors = listOf(1),
-            failedSectors = (2..15).toList(),
-            usedKeys = mapOf(1 to "KeyA"),
-            derivedKeys = listOf("1234567890ABCDEF"),
-            errors = listOf(
-                "Authentication failed for sector 2",
-                "Authentication failed for sector 3",
-                "Authentication timeout"
-            ),
-            keyDerivationTimeMs = 750L,
-            authenticationTimeMs = 1200L
+        authenticatedSectors = listOf(1),
+        failedSectors = (2..15).toList(),
+        usedKeys = mapOf(1 to "KeyA"),
+        derivedKeys = listOf("1234567890ABCDEF"),
+        errors = listOf(
+            "Authentication failed for sector 2",
+            "Authentication failed for sector 3",
+            "Authentication timeout"
         ),
-        filamentInfo = null
+        keyDerivationTimeMs = 750L,
+        authenticationTimeMs = 1200L
     )
 }
