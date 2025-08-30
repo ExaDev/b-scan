@@ -304,26 +304,53 @@ data class Component(
      * Extract visual properties from child components and combine them intelligently
      */
     fun getAggregatedVisualProperties(getChildComponents: (List<String>) -> List<Component>): Map<String, String> {
-        if (childComponents.isEmpty()) return emptyMap()
-        
-        val children = getChildComponents(childComponents)
         val aggregatedProperties = mutableMapOf<String, String>()
         val colorProperties = mutableSetOf<String>()
         val materialProperties = mutableSetOf<String>()
+        val colorHexProperties = mutableSetOf<String>()
         
-        // Extract color and material properties from all children
-        children.forEach { child ->
-            // Check for color properties in various keys
-            listOf("color", "colour", "colorName", "colourName").forEach { key ->
-                child.metadata[key]?.let { value ->
-                    if (value.isNotBlank()) colorProperties.add(value)
-                }
+        // Also check the parent component's own metadata for visual properties
+        listOf("color", "colour", "colorName", "colourName").forEach { key ->
+            metadata[key]?.let { value ->
+                if (value.isNotBlank()) colorProperties.add(value)
             }
-            
-            // Check for material properties
-            listOf("material", "materialType", "filamentType").forEach { key ->
-                child.metadata[key]?.let { value ->
-                    if (value.isNotBlank()) materialProperties.add(value)
+        }
+        
+        listOf("material", "materialType", "filamentType").forEach { key ->
+            metadata[key]?.let { value ->
+                if (value.isNotBlank()) materialProperties.add(value)
+            }
+        }
+        
+        listOf("colorHex", "colourHex", "hexColor", "hexColour").forEach { key ->
+            metadata[key]?.let { value ->
+                if (value.isNotBlank()) colorHexProperties.add(value)
+            }
+        }
+        
+        // Extract color, material, and color hex properties from all children
+        if (childComponents.isNotEmpty()) {
+            val children = getChildComponents(childComponents)
+            children.forEach { child ->
+                // Check for color properties in various keys
+                listOf("color", "colour", "colorName", "colourName").forEach { key ->
+                    child.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) colorProperties.add(value)
+                    }
+                }
+                
+                // Check for material properties
+                listOf("material", "materialType", "filamentType").forEach { key ->
+                    child.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) materialProperties.add(value)
+                    }
+                }
+                
+                // Check for color hex properties
+                listOf("colorHex", "colourHex", "hexColor", "hexColour").forEach { key ->
+                    child.metadata[key]?.let { value ->
+                        if (value.isNotBlank()) colorHexProperties.add(value)
+                    }
                 }
             }
         }
@@ -359,10 +386,22 @@ data class Component(
         
         // Store individual properties for reference
         if (colorProperties.isNotEmpty()) {
-            aggregatedProperties["aggregatedColors"] = colorProperties.joinToString(", ")
+            aggregatedProperties["aggregatedColors"] = when (colorProperties.size) {
+                1 -> colorProperties.first()
+                else -> "Mixed Colors"
+            }
         }
         if (materialProperties.isNotEmpty()) {
-            aggregatedProperties["aggregatedMaterials"] = materialProperties.joinToString(", ")
+            aggregatedProperties["aggregatedMaterials"] = when (materialProperties.size) {
+                1 -> materialProperties.first()
+                else -> "Mixed Materials"
+            }
+        }
+        if (colorHexProperties.isNotEmpty()) {
+            aggregatedProperties["aggregatedColorHex"] = when (colorHexProperties.size) {
+                1 -> colorHexProperties.first()
+                else -> "#808080" // Gray for mixed colors
+            }
         }
         
         return aggregatedProperties
