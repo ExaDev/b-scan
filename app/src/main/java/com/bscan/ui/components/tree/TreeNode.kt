@@ -366,7 +366,6 @@ private fun TreeNodePreview() {
             fullMassGrams = 250.0f,
             variableMass = true,
             inferredMass = false,
-            isComposite = false,
             tags = listOf("thermoplastic", "bambu"),
             identifiers = listOf(
                 ComponentIdentifier(
