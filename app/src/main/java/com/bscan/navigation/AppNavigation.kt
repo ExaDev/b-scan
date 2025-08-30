@@ -21,6 +21,7 @@ import com.bscan.repository.ComponentRepository
 import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.*
+import com.bscan.ui.screens.ScanDetailScreen
 import com.bscan.viewmodel.UpdateViewModel
 import com.bscan.ble.BlePermissionHandler
 
@@ -184,52 +185,65 @@ fun AppNavigation(
                 return@composable
             }
             
-            val detailType = when (typeStr.lowercase().trim()) {
-                "scan" -> DetailType.SCAN
-                "tag" -> DetailType.TAG
-                "spool" -> DetailType.INVENTORY_STOCK
-                "inventory_stock" -> DetailType.INVENTORY_STOCK
-                "sku" -> DetailType.SKU
-                "component" -> DetailType.COMPONENT
+            when (typeStr.lowercase().trim()) {
+                "scan" -> {
+                    Log.d("AppNavigation", "Showing ScanDetailScreen for identifier: $identifier")
+                    ScanDetailScreen(
+                        scanId = identifier.trim(),
+                        onNavigateBack = { 
+                            Log.d("AppNavigation", "Navigating back from ScanDetailScreen")
+                            navController.popBackStack() 
+                        }
+                    )
+                }
                 else -> {
-                    Log.e("AppNavigation", "Unknown detail type: $typeStr")
-                    // Navigate back to main screen on unknown type
-                    LaunchedEffect(Unit) {
-                        navController.navigate("main") {
-                            popUpTo("main") { inclusive = true }
+                    val detailType = when (typeStr.lowercase().trim()) {
+                        "tag" -> DetailType.TAG
+                        "spool" -> DetailType.INVENTORY_STOCK
+                        "inventory_stock" -> DetailType.INVENTORY_STOCK
+                        "sku" -> DetailType.SKU
+                        "component" -> DetailType.COMPONENT
+                        else -> {
+                            Log.e("AppNavigation", "Unknown detail type: $typeStr")
+                            // Navigate back to main screen on unknown type
+                            LaunchedEffect(Unit) {
+                                navController.navigate("main") {
+                                    popUpTo("main") { inclusive = true }
+                                }
+                            }
+                            return@composable
                         }
                     }
-                    return@composable
+                    
+                    Log.d("AppNavigation", "Valid navigation parameters, showing DetailScreen for $detailType")
+                    
+                    DetailScreen(
+                        detailType = detailType,
+                        identifier = identifier.trim(),
+                        onNavigateBack = { 
+                            Log.d("AppNavigation", "Navigating back from DetailScreen")
+                            navController.popBackStack() 
+                        },
+                        onNavigateToDetails = { newDetailType, newIdentifier ->
+                            if (newIdentifier.isNotBlank()) {
+                                Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
+                                navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                            } else {
+                                Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                            }
+                        },
+                        onPurgeCache = { tagUid ->
+                            Log.d("AppNavigation", "Cache purge requested for tagUid: $tagUid")
+                            nfcManager?.let { manager ->
+                                manager.invalidateTagCache(tagUid)
+                                Log.d("AppNavigation", "Cache purged for tagUid: $tagUid")
+                            } ?: run {
+                                Log.w("AppNavigation", "NFC not available - cannot purge cache for tagUid: $tagUid")
+                            }
+                        }
+                    )
                 }
             }
-            
-            Log.d("AppNavigation", "Valid navigation parameters, showing DetailScreen for $detailType")
-            
-            DetailScreen(
-                detailType = detailType,
-                identifier = identifier.trim(),
-                onNavigateBack = { 
-                    Log.d("AppNavigation", "Navigating back from DetailScreen")
-                    navController.popBackStack() 
-                },
-                onNavigateToDetails = { newDetailType, newIdentifier ->
-                    if (newIdentifier.isNotBlank()) {
-                        Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
-                        navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
-                    } else {
-                        Log.e("AppNavigation", "Attempted navigation with blank identifier")
-                    }
-                },
-                onPurgeCache = { tagUid ->
-                    Log.d("AppNavigation", "Cache purge requested for tagUid: $tagUid")
-                    nfcManager?.let { manager ->
-                        manager.invalidateTagCache(tagUid)
-                        Log.d("AppNavigation", "Cache purged for tagUid: $tagUid")
-                    } ?: run {
-                        Log.w("AppNavigation", "NFC not available - cannot purge cache for tagUid: $tagUid")
-                    }
-                }
-            )
         }
         }
     }
