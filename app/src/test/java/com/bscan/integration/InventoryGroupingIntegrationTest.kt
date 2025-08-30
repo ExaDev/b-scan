@@ -56,7 +56,7 @@ class InventoryGroupingIntegrationTest {
         mockContext = mock(Context::class.java)
         
         // Mock SharedPreferences chains for all repositories - return mocked SharedPreferences
-        `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
+        `when`(mockContext.getSharedPreferences("scan_history", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)

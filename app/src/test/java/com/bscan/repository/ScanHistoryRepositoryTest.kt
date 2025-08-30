@@ -38,7 +38,7 @@ class ScanHistoryRepositoryTest {
         MockitoAnnotations.openMocks(this)
         
         // Mock SharedPreferences chains for all repositories ScanHistoryRepository needs
-        `when`(mockContext.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE))
+        `when`(mockContext.getSharedPreferences("scan_history", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
         `when`(mockContext.getSharedPreferences("user_data", Context.MODE_PRIVATE))
             .thenReturn(mockSharedPreferences)
@@ -64,7 +64,7 @@ class ScanHistoryRepositoryTest {
         `when`(mockSharedPreferences.getString("encrypted_scans", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("decrypted_scans", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("user_data", null)).thenReturn(null)
-        `when`(mockSharedPreferences.getString("user_data_v1", null)).thenReturn(null)
+        `when`(mockSharedPreferences.getString("user_data", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("components", null)).thenReturn(null)
         `when`(mockSharedPreferences.getString("component_measurements", null)).thenReturn(null)
         
