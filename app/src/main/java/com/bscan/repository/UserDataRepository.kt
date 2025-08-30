@@ -74,7 +74,7 @@ class UserDataRepository(private val context: Context) {
     
     companion object {
         private const val TAG = "UserDataRepository"
-        private const val USER_DATA_KEY = "user_data_v1"
+        private const val USER_DATA_KEY = "user_data"
     }
     
     /**
@@ -255,123 +255,21 @@ class UserDataRepository(private val context: Context) {
     }
     
     /**
-     * Get all interpreted scans from the new data structure
+     * Get all encrypted scan data - modern replacement
      */
-    fun getAllInterpretedScans(): List<com.bscan.repository.InterpretedScan> {
+    fun getAllEncryptedScanData(): List<EncryptedScanData> {
         val userData = getUserData()
-        val results = mutableListOf<com.bscan.repository.InterpretedScan>()
-        
-        // Process each encrypted scan
-        userData.scans.encryptedScans.forEach { (encryptedId, encryptedScan) ->
-            val decryptedScan = userData.scans.decryptedScans[encryptedId]
-            
-            if (decryptedScan != null) {
-                // We have both encrypted and decrypted data
-                val filamentInfo = if (decryptedScan.scanResult == ScanResult.SUCCESS) {
-                    interpreterFactory.interpret(decryptedScan)
-                } else null
-                
-                results.add(com.bscan.repository.InterpretedScan(encryptedScan, decryptedScan, filamentInfo))
-            } else {
-                // Only encrypted data (authentication failed completely)
-                val syntheticDecrypted = createFailedDecryptedScan(encryptedScan)
-                results.add(com.bscan.repository.InterpretedScan(encryptedScan, syntheticDecrypted, null))
-            }
-        }
-        
-        return results.sortedByDescending { it.timestamp }
+        return userData.scans.encryptedScans.values.sortedByDescending { it.timestamp }
     }
     
     /**
-     * Get scans filtered by tag UID from the new data structure
+     * Get scan data filtered by tag UID - modern replacement
      */
-    fun getScansByTagUid(tagUid: String): List<com.bscan.repository.InterpretedScan> {
-        return getAllInterpretedScans().filter { it.uid == tagUid }
+    fun getScanDataByTagUid(tagUid: String): List<EncryptedScanData> {
+        return getAllEncryptedScanData().filter { it.tagUid == tagUid }
     }
     
-    /**
-     * Get detailed information about a filament reel by tray UID or tag UID
-     */
-    fun getFilamentReelDetails(identifier: String): com.bscan.repository.FilamentReelDetails? {
-        Log.d("UserDataRepository", "getFilamentReelDetails called with identifier: '$identifier'")
-        val allScans = getAllInterpretedScans()
-        Log.d("UserDataRepository", "Total scans available: ${allScans.size}")
-        
-        // Debug: Show all available trayUids and tag UIDs
-        allScans.take(10).forEach { scan ->
-            Log.d("UserDataRepository", "Available scan - uid: '${scan.uid}', trayUid: '${scan.filamentInfo?.trayUid}', tagUid: '${scan.filamentInfo?.tagUid}', colorName: '${scan.filamentInfo?.colorName}'")
-        }
-        
-        // Strategy 1: Look for scans with matching tray UID (proper hierarchical approach)
-        var matchingScans = allScans.filter { 
-            it.filamentInfo?.trayUid == identifier 
-        }
-        Log.d("UserDataRepository", "Strategy 1 (tray UID match): Found ${matchingScans.size} scans")
-        
-        // Strategy 2: If none found, try tag UID (for individual tags without tray info)
-        if (matchingScans.isEmpty()) {
-            matchingScans = allScans.filter { it.uid == identifier }
-            Log.d("UserDataRepository", "Strategy 2 (tag UID match): Found ${matchingScans.size} scans")
-        }
-        
-        // Strategy 3: If still nothing, search by the displayed identifier (which might be tray UID shown in UI)
-        if (matchingScans.isEmpty()) {
-            // The identifier might be what's displayed in the UI (like "6E6C3E04B77948F")
-            // Check if any FilamentInfo has this as a tag UID but we need to find all related scans
-            val allScansForThisTag = allScans.filter { scan ->
-                scan.filamentInfo?.tagUid == identifier || scan.uid == identifier
-            }
-            Log.d("UserDataRepository", "Strategy 3 (tagUid/uid fuzzy match): Found ${allScansForThisTag.size} scans")
-            if (allScansForThisTag.isNotEmpty()) {
-                // Found scans by tag UID - now get all scans for the same tray
-                val trayUid = allScansForThisTag.first().filamentInfo?.trayUid
-                Log.d("UserDataRepository", "Strategy 3 found trayUid: '$trayUid' from first matching scan")
-                if (trayUid != null && trayUid.isNotEmpty()) {
-                    matchingScans = allScans.filter { it.filamentInfo?.trayUid == trayUid }
-                    Log.d("UserDataRepository", "Strategy 3 expanded to ${matchingScans.size} scans with same trayUid")
-                } else {
-                    // No tray UID available, just use the individual tag scans
-                    matchingScans = allScansForThisTag
-                    Log.d("UserDataRepository", "Strategy 3 using individual tag scans: ${matchingScans.size}")
-                }
-            }
-        }
-        
-        if (matchingScans.isEmpty()) {
-            Log.w("UserDataRepository", "No scans found for identifier '$identifier'. Searched ${allScans.size} total scans.")
-            return null
-        }
-        
-        Log.d("UserDataRepository", "Found ${matchingScans.size} matching scans for identifier '$identifier'")
-        
-        // Get most recent successful scan for filament info
-        // First try successful scans, then fallback to any scan if no successful ones exist
-        val mostRecentSuccess = matchingScans
-            .filter { it.scanResult == ScanResult.SUCCESS }
-            .maxByOrNull { it.timestamp }
-            ?: matchingScans.maxByOrNull { it.timestamp }
-            ?: return null
-        
-        val filamentInfo = mostRecentSuccess.filamentInfo
-            ?: createUnknownTagFilamentInfo(mostRecentSuccess)
-        
-        val tagUids = matchingScans
-            .map { it.filamentInfo?.tagUid ?: it.uid }
-            .distinct()
-        
-        val scansByTag = matchingScans.groupBy { it.filamentInfo?.tagUid ?: it.uid }
-        
-        return com.bscan.repository.FilamentReelDetails(
-            trayUid = filamentInfo.trayUid,
-            filamentInfo = filamentInfo,
-            tagUids = tagUids,
-            allScans = matchingScans.sortedByDescending { it.timestamp },
-            scansByTag = scansByTag,
-            totalScans = matchingScans.size,
-            successfulScans = matchingScans.count { it.scanResult == ScanResult.SUCCESS },
-            lastScanned = matchingScans.maxByOrNull { it.timestamp }?.timestamp ?: LocalDateTime.now()
-        )
-    }
+    // TODO: Implement component-based filament reel lookup when needed
     
     /**
      * Create synthetic DecryptedScanData for failed authentication
@@ -394,28 +292,7 @@ class UserDataRepository(private val context: Context) {
         )
     }
     
-    /**
-     * Create placeholder FilamentInfo for unknown tags
-     */
-    private fun createUnknownTagFilamentInfo(scan: com.bscan.repository.InterpretedScan): FilamentInfo {
-        return FilamentInfo(
-            tagUid = scan.uid,
-            trayUid = scan.uid,
-            filamentType = "Unknown",
-            detailedFilamentType = "Unknown Tag",
-            colorHex = "#808080",
-            colorName = "Unknown",
-            spoolWeight = 0,
-            filamentDiameter = 1.75f,
-            filamentLength = 0,
-            productionDate = "Unknown",
-            minTemperature = 0,
-            maxTemperature = 0,
-            bedTemperature = 0,
-            dryingTemperature = 0,
-            dryingTime = 0
-        )
-    }
+    // TODO: Implement unknown tag handling for modern component system when needed
     
     /**
      * Export entire user state to a file

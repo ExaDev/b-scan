@@ -126,14 +126,18 @@ class ComponentRepository(private val context: Context) {
      * Find inventory item by unique identifier
      */
     fun findInventoryByUniqueId(uniqueId: String): Component? {
-        return getComponents().find { it.uniqueIdentifier == uniqueId && it.isRootComponent }
+        return getComponents().find { 
+            it.getPrimaryTrackingIdentifier()?.value == uniqueId && it.isRootComponent 
+        }
     }
     
     /**
      * Find component anywhere in hierarchy by unique identifier
      */
     fun findComponentByUniqueId(uniqueId: String): Component? {
-        return getComponents().find { it.uniqueIdentifier == uniqueId }
+        return getComponents().find { 
+            it.getPrimaryTrackingIdentifier()?.value == uniqueId 
+        }
     }
     
     // === Hierarchical Queries ===

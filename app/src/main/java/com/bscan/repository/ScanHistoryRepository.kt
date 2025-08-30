@@ -23,7 +23,7 @@ import java.time.format.DateTimeFormatter
 class ScanHistoryRepository(private val context: Context) {
     
     private val sharedPreferences: SharedPreferences = 
-        context.getSharedPreferences("scan_history_v2", Context.MODE_PRIVATE)
+        context.getSharedPreferences("scan_history", Context.MODE_PRIVATE)
     
     // InterpreterFactory for runtime interpretation
     private val catalogRepository by lazy { CatalogRepository(context) }

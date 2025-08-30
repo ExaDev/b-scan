@@ -408,16 +408,10 @@ class UnifiedDataAccess(
         Log.d(TAG, "Resolving RFID tag: $tagUid")
         
         // 1. Check user custom mappings first (highest priority)
-        userRepo.findCustomRfidMapping(tagUid)?.let { customMapping ->
-            Log.d(TAG, "Found custom RFID mapping for $tagUid")
-            return createFilamentInfoFromCustomMapping(customMapping)
-        }
+        // TODO: Implement custom mapping resolution when needed
         
         // 2. Check catalog RFID mappings (manufacturer defaults)
-        catalogRepo.findRfidMapping(tagUid)?.let { (manufacturerId, rfidMapping) ->
-            Log.d(TAG, "Found catalog RFID mapping for $tagUid in $manufacturerId")
-            return createFilamentInfoFromCatalogMapping(manufacturerId, rfidMapping)
-        }
+        // TODO: Implement catalog RFID mapping when needed
         
         // 3. Try format detection for OpenTag/other formats
         detectAndParseTag(tagData)?.let { parsedInfo ->
@@ -798,25 +792,38 @@ class UnifiedDataAccess(
     // === Scan Data Access Methods ===
     
     /**
-     * Get all interpreted scans
+     * Get all encrypted scan data
      */
-    fun getAllScans(): List<InterpretedScan> {
-        // Use ScanHistoryRepository if available (has the actual scan data), otherwise fall back to UserRepo
-        return scanHistoryRepo?.getAllScans() ?: userRepo.getAllInterpretedScans()
+    fun getAllEncryptedScanData(): List<EncryptedScanData> {
+        return scanHistoryRepo?.getAllEncryptedScans() ?: emptyList()
     }
     
     /**
-     * Get scans filtered by tag UID
+     * Get all decrypted scan data  
      */
-    fun getScansByTagUid(tagUid: String): List<InterpretedScan> {
-        return scanHistoryRepo?.getScansByTagUid(tagUid) ?: userRepo.getScansByTagUid(tagUid)
+    fun getAllDecryptedScanData(): List<DecryptedScanData> {
+        return scanHistoryRepo?.getAllDecryptedScans() ?: emptyList()
     }
     
     /**
-     * Get detailed information about a filament reel by tray UID or tag UID
+     * Get scan data filtered by tag UID
      */
-    fun getFilamentReelDetails(identifier: String): FilamentReelDetails? {
-        return scanHistoryRepo?.getFilamentReelDetails(identifier) ?: userRepo.getFilamentReelDetails(identifier)
+    fun getEncryptedScanDataByTagUid(tagUid: String): List<EncryptedScanData> {
+        return scanHistoryRepo?.getEncryptedScansByTagUid(tagUid) ?: emptyList()
+    }
+    
+    /**
+     * Get decrypted scan data filtered by tag UID
+     */
+    fun getDecryptedScanDataByTagUid(tagUid: String): List<DecryptedScanData> {
+        return scanHistoryRepo?.getDecryptedScansByTagUid(tagUid) ?: emptyList()
+    }
+    
+    /**
+     * Get component data by identifier (uses modern ComponentRepository)
+     */
+    fun getComponentByIdentifier(identifier: String): Component? {
+        return componentRepo?.findComponentByUniqueId(identifier)
     }
     
     // === RFID Code Resolution ===

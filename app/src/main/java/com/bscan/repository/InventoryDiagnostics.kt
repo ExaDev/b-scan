@@ -57,14 +57,17 @@ class InventoryDiagnostics(private val context: Context) {
         val status = MappingsStatus()
         
         try {
-            val mappings = unifiedDataAccess.getCurrentMappings()
-            status.loaded = true
-            status.productCount = mappings.productCatalog.size
-            status.materialMappingCount = mappings.materialMappings.size
-            status.brandMappingCount = mappings.brandMappings.size
-            status.version = mappings.version
+            // Test modern catalog access instead of legacy mappings
+            val bambuProducts = unifiedDataAccess.getProducts("bambu")
+            val allManufacturers = unifiedDataAccess.getAllManufacturers()
             
-            Log.d(TAG, "Mappings loaded: ${status.productCount} products, ${status.materialMappingCount} materials")
+            status.loaded = true
+            status.productCount = bambuProducts.size
+            status.materialMappingCount = allManufacturers.values.sumOf { it.materials.size }
+            status.brandMappingCount = allManufacturers.size
+            status.version = 1 // Modern system version
+            
+            Log.d(TAG, "Catalog loaded: ${status.productCount} products, ${status.materialMappingCount} materials from ${status.brandMappingCount} manufacturers")
             
             if (status.productCount == 0) {
                 status.warnings.add("No products in catalog - SKU lookup will fail")
@@ -255,8 +258,8 @@ class InventoryDiagnostics(private val context: Context) {
      */
     fun quickHealthCheck(): Boolean {
         return try {
-            // Test basic functionality
-            val mappings = unifiedDataAccess.getCurrentMappings()
+            // Test basic functionality with modern catalog system
+            val bambuProducts = unifiedDataAccess.getProducts("bambu")
             val core = physicalComponentRepository.getBambuCoreComponent()
             
             val testFilamentInfo = createMockFilamentInfo("HEALTH_CHECK", "PLA_BASIC", "Black", "#000000")
@@ -265,7 +268,7 @@ class InventoryDiagnostics(private val context: Context) {
             // Clean up test data
             inventoryRepository.deleteInventoryItem(testFilamentInfo.trayUid)
             
-            components.isNotEmpty()
+            components.isNotEmpty() && bambuProducts.isNotEmpty()
         } catch (e: Exception) {
             Log.e(TAG, "Health check failed", e)
             false

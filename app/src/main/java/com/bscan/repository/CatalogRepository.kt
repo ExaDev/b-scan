@@ -52,8 +52,8 @@ class CatalogRepository(private val context: Context) {
     
     companion object {
         private const val TAG = "CatalogRepository"
-        private const val USER_CATALOG_KEY = "user_catalog_skus_v1"
-        private const val USER_CATALOG_STOCK_KEY = "user_catalog_stock_v1"
+        private const val USER_CATALOG_KEY = "user_catalog_skus"
+        private const val USER_CATALOG_STOCK_KEY = "user_catalog_stock"
     }
     
     /**

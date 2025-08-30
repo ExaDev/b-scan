@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.bscan.model.FilamentInfo
 import com.bscan.model.DecryptedScanData
+import com.bscan.model.EncryptedScanData
 import com.bscan.model.ScanResult
 import com.bscan.interpreter.InterpreterFactory
 import com.google.gson.*
@@ -89,7 +90,14 @@ class InventoryTrackingRepository(private val context: Context) {
                 
                 if (trayUid.isNotBlank()) {
                     // Use new component system to create/update hierarchical structure
-                    val trayComponent = bambuFactory.processBambuRfidScan(tagUid, trayUid, filamentInfo)
+                    val encryptedScanData = EncryptedScanData(
+                        tagUid = tagUid,
+                        technology = "MIFARE_CLASSIC",
+                        encryptedData = ByteArray(768), // TODO: Use actual encrypted data if available
+                        timestamp = LocalDateTime.now()
+                    )
+                    
+                    val trayComponent = bambuFactory.processScan(encryptedScanData, decryptedScanData)
                     
                     if (trayComponent != null) {
                         android.util.Log.i(TAG, "Successfully processed RFID scan for tray: $trayUid")
@@ -98,8 +106,6 @@ class InventoryTrackingRepository(private val context: Context) {
                         android.util.Log.e(TAG, "Failed to process RFID scan for tray: $trayUid")
                     }
                     
-                    // Still maintain legacy inventory tracking for compatibility
-                    addTagToInventory(trayUid, tagUid, decryptedScanData.timestamp, filamentInfo)
                 }
             }
         }
@@ -238,56 +244,6 @@ class InventoryTrackingRepository(private val context: Context) {
         refreshFlows() // Notify observers of data changes
     }
     
-    // === Bridge methods for new Component system ===
-    
-    /**
-     * Get inventory items (components with unique identifiers)
-     */
-    fun getInventoryItems(): List<com.bscan.model.Component> {
-        return componentRepository.getInventoryItems()
-    }
-    
-    /**
-     * Find inventory item by tray UID
-     */
-    fun findInventoryByTrayUid(trayUid: String): com.bscan.model.Component? {
-        return componentRepository.findInventoryByUniqueId(trayUid)
-    }
-    
-    /**
-     * Get all components for an inventory item
-     */
-    fun getComponentsForInventory(trayUid: String): List<com.bscan.model.Component> {
-        val inventory = findInventoryByTrayUid(trayUid) ?: return emptyList()
-        return componentRepository.getChildComponents(inventory.id)
-    }
-    
-    /**
-     * Get total mass of an inventory item including all components
-     */
-    fun getInventoryTotalMass(trayUid: String): Float {
-        val inventory = findInventoryByTrayUid(trayUid) ?: return 0f
-        return componentRepository.getTotalMass(inventory.id)
-    }
-    
-    /**
-     * Add a component to an existing inventory item
-     */
-    suspend fun addComponentToInventory(trayUid: String, component: com.bscan.model.Component): Boolean = withContext(Dispatchers.IO) {
-        return@withContext bambuFactory.addComponentToTray(trayUid, component)
-    }
-    
-    /**
-     * Infer and add a component based on total weight measurement
-     */
-    suspend fun inferComponentFromWeight(
-        trayUid: String,
-        componentName: String,
-        componentCategory: String,
-        totalMeasuredMass: Float
-    ): com.bscan.model.Component? = withContext(Dispatchers.IO) {
-        return@withContext bambuFactory.inferAndAddComponent(trayUid, componentName, componentCategory, totalMeasuredMass)
-    }
     
     companion object {
         private const val TAG = "InventoryTrackingRepository"

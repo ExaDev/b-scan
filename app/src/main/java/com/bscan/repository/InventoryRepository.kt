@@ -10,6 +10,7 @@ import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 /**
  * Repository for managing inventory items and their weight tracking data.
@@ -351,35 +352,58 @@ class InventoryRepository(private val context: Context) {
                 android.util.Log.d(TAG, "Using default mass for ${filamentInfo.filamentType}: ${filamentMass}g")
             }
             
-            // Create filament component with resilient data handling
-            val finalFilamentComponent = createFilamentComponent(
-                filamentType = filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC",
-                colorName = filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color",
-                estimatedMass = skuMass ?: filamentMass // Use SKU mass as full mass when available, otherwise use current mass
+            // Create filament component with resilient data handling using BambuComponentFactory
+            val finalFilamentComponent = Component(
+                id = "filament_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}",
+                name = "${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC"} ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color"} Filament",
+                category = "filament",
+                tags = listOf("consumable", "variable-mass", "bambu"),
+                massGrams = filamentMass,
+                fullMassGrams = skuMass ?: filamentMass,
+                variableMass = true,
+                manufacturer = "Bambu Lab",
+                description = "Bambu Lab ${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA_BASIC"} filament in ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown Color"}"
             )
             
             // Save the filament component
             componentRepository.saveComponent(finalFilamentComponent)
             android.util.Log.d(TAG, "Created filament component: ${finalFilamentComponent.id}")
             
-            // Get built-in components (these should always work)
-            val coreComponent = try {
-                getBambuCoreComponent()
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "Error getting core component, creating fallback", e)
-                createBambuCoreComponent().also {
-                    componentRepository.saveComponent(it)
-                }
+            // Get built-in components (create core component directly)
+            val coreComponent = Component(
+                id = "core_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}",
+                name = "Bambu Cardboard Core",
+                category = "core",
+                tags = listOf("reusable", "fixed-mass", "bambu"),
+                massGrams = 33f,
+                variableMass = false,
+                manufacturer = "Bambu Lab",
+                description = "Standard Bambu Lab cardboard core (33g)",
+                metadata = mapOf(
+                    "material" to "cardboard",
+                    "standardWeight" to "33g"
+                )
+            ).also {
+                componentRepository.saveComponent(it)
             }
             
             val spoolComponent = if (includeRefillableSpool) {
-                try {
-                    getBambuSpoolComponent()
-                } catch (e: Exception) {
-                    android.util.Log.e(TAG, "Error getting spool component, creating fallback", e)
-                    createBambuSpoolComponent().also {
-                        componentRepository.saveComponent(it)
-                    }
+                Component(
+                    id = "spool_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}",
+                    name = "Bambu Refillable Spool",
+                    category = "spool",
+                    tags = listOf("reusable", "fixed-mass", "bambu"),
+                    massGrams = 212f,
+                    variableMass = false,
+                    manufacturer = "Bambu Lab",
+                    description = "Standard Bambu Lab refillable spool (212g)",
+                    metadata = mapOf(
+                        "material" to "plastic",
+                        "standardWeight" to "212g",
+                        "type" to "refillable"
+                    )
+                ).also {
+                    componentRepository.saveComponent(it)
                 }
             } else null
             
@@ -454,7 +478,13 @@ class InventoryRepository(private val context: Context) {
             val componentId = "emergency_filament_${System.currentTimeMillis()}"
             val emergencyFilamentComponent = Component(
                 id = componentId,
-                uniqueIdentifier = "emergency_$trayUid",
+                identifiers = listOf(
+                    ComponentIdentifier(
+                        type = IdentifierType.CONSUMABLE_UNIT,
+                        value = "emergency_$trayUid",
+                        purpose = IdentifierPurpose.TRACKING
+                    )
+                ),
                 name = "${filamentInfo.filamentType.takeIf { it.isNotBlank() } ?: "PLA"} - ${filamentInfo.colorName.takeIf { it.isNotBlank() } ?: "Unknown"}",
                 category = "filament",
                 massGrams = 1000f, // Default 1kg
@@ -594,7 +624,7 @@ class InventoryRepository(private val context: Context) {
     ): Float? {
         // Try to get from earliest measurement
         val earliestMeasurement = inventoryItem.measurements.minByOrNull { it.measuredAt }
-        if (earliestMeasurement != null && earliestMeasurement.measurementType == MeasurementType.FULL_WEIGHT) {
+        if (earliestMeasurement != null && earliestMeasurement.measurementType == MeasurementType.TOTAL_MASS) {
             val fixedComponentsMass = components.filter { !it.variableMass }
                 .sumOf { (it.massGrams ?: 0f).toDouble() }.toFloat()
             return earliestMeasurement.measuredMassGrams - fixedComponentsMass
