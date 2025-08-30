@@ -7,6 +7,7 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.MifareClassic
 import android.nfc.tech.NfcA
+import android.os.Build
 import android.util.Log
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.NfcTagData
@@ -60,11 +61,11 @@ class NfcManager(private val activity: Activity) {
         if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
-            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
             } else {
                 @Suppress("DEPRECATION")
-                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag
             }
             return tag?.let { readTagDataSync(it) }
         }
@@ -78,11 +79,11 @@ class NfcManager(private val activity: Activity) {
         if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
-            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
             } else {
                 @Suppress("DEPRECATION")
-                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag
             }
             return@withContext tag?.let { readTagData(it, progressCallback) }
         }
@@ -96,11 +97,11 @@ class NfcManager(private val activity: Activity) {
         if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
             NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             
-            val tag = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
             } else {
                 @Suppress("DEPRECATION")
-                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? Tag
             }
             return@withContext tag?.let { readTagDataFull(it, progressCallback) }
         }
@@ -496,13 +497,13 @@ class NfcManager(private val activity: Activity) {
         val blockData = mutableMapOf<Int, String>()
         val bytes = nfcTagData.bytes
         
-        // The cached bytes contain data from sectors read during authentication
-        // Each sector contributes 48 bytes (3 data blocks * 16 bytes, trailer block excluded)
+        // The cached bytes contain complete data from ALL blocks including trailer blocks
+        // Each sector contributes 64 bytes (4 blocks * 16 bytes, including trailer blocks)
         var byteOffset = 0
-        for (sector in 0 until minOf(16, bytes.size / 48)) { // 16 sectors max for MIFARE Classic 1K
-            // Match the original loop: blocksInSector - 1 (skip trailer block)
+        for (sector in 0 until minOf(16, bytes.size / 64)) { // 16 sectors max for MIFARE Classic 1K, 64 bytes per sector
+            // Match the original loop: ALL blocks in sector (including trailer block)
             val blocksInSector = if (sector < 32) 4 else 16 // Standard MIFARE Classic 1K has 4 blocks per sector
-            for (blockInSector in 0 until blocksInSector - 1) { // Skip trailer block
+            for (blockInSector in 0 until blocksInSector) { // Include ALL blocks (including trailer)
                 if (byteOffset + 16 <= bytes.size) {
                     // Use the same calculation as original: sectorToBlock(sector) + blockInSector
                     val absoluteBlock = (sector * 4) + blockInSector // sectorToBlock equivalent for MIFARE Classic 1K

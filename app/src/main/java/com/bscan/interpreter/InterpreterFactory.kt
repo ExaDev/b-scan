@@ -2,6 +2,7 @@ package com.bscan.interpreter
 
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.FilamentInfo
+import com.bscan.model.FilamentMappings
 import com.bscan.model.TagFormat
 import com.bscan.model.TagFormat.*
 import com.bscan.model.tagFormat
@@ -17,7 +18,7 @@ class InterpreterFactory(
     
     init {
         // Initialize interpreters for each supported format
-        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(unifiedDataAccess.getCurrentMappings(), unifiedDataAccess)
+        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(FilamentMappings.empty(), unifiedDataAccess)
         interpreters[TagFormat.CREALITY_ASCII] = CrealityFormatInterpreter()
         interpreters[TagFormat.OPENTAG_V1] = OpenTagInterpreter()
     }
@@ -54,10 +55,11 @@ class InterpreterFactory(
     
     /**
      * Refresh mappings for interpreters that use them (like Bambu format)
+     * Note: Modern interpreters use UnifiedDataAccess for runtime lookups instead of static mappings
      */
     fun refreshMappings() {
-        val updatedMappings = unifiedDataAccess.getCurrentMappings()
-        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(updatedMappings, unifiedDataAccess)
+        // Modern interpreters use UnifiedDataAccess for runtime lookups, so just recreate with empty mappings
+        interpreters[TagFormat.BAMBU_PROPRIETARY] = BambuFormatInterpreter(FilamentMappings.empty(), unifiedDataAccess)
     }
     
     /**

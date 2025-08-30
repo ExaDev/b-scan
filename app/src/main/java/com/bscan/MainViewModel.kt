@@ -694,7 +694,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // Step 2: Create component based on catalog data
                 val component = Component(
                     id = generateComponentId("catalog"),
-                    uniqueIdentifier = tagUid,
+                    identifiers = listOf(
+                        ComponentIdentifier(
+                            type = IdentifierType.RFID_HARDWARE,
+                            value = tagUid,
+                            purpose = IdentifierPurpose.TRACKING
+                        )
+                    ),
                     name = matchingProduct.productName,
                     category = "filament",
                     tags = listOf(

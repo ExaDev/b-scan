@@ -15,9 +15,11 @@ class HapticFeedbackProvider(private val context: Context) {
             
             vibrator?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    // API 26+ - Use VibrationEffect
                     val effect = VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)
                     it.vibrate(effect)
                 } else {
+                    // API < 26 - Use legacy vibrate method
                     @Suppress("DEPRECATION")
                     it.vibrate(100)
                 }
@@ -29,9 +31,12 @@ class HapticFeedbackProvider(private val context: Context) {
     
     private fun getVibrator(): Vibrator? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // API 31+ - Use VibratorManager
             val vibratorManager = context.getSystemService<VibratorManager>()
             vibratorManager?.defaultVibrator
         } else {
+            // API < 31 - Use legacy Vibrator service
+            @Suppress("DEPRECATION")
             context.getSystemService<Vibrator>()
         }
     }

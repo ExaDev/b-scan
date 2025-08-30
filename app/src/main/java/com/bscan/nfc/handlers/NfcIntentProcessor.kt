@@ -66,7 +66,7 @@ class NfcIntentProcessor(
                 intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, android.nfc.Tag::class.java)
             } else {
                 @Suppress("DEPRECATION")
-                intent.getParcelableExtra<android.nfc.Tag>(NfcAdapter.EXTRA_TAG)
+                intent.getParcelableExtra(NfcAdapter.EXTRA_TAG) as? android.nfc.Tag
             }
             
             tag?.let { 

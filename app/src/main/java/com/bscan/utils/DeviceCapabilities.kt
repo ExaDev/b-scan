@@ -39,13 +39,7 @@ class DeviceCapabilities(private val context: Context) {
             shouldDisable = true
         }
         
-        // Check 4: Old Android version
-        if (isOldAndroidVersion()) {
-            reasons.add("Android < 10")
-            shouldDisable = true
-        }
-        
-        // Check 5: Emulator detection (often have sensor issues)
+        // Check 4: Emulator detection (often have sensor issues)
         if (isEmulator()) {
             reasons.add("emulator detected")
             shouldDisable = true
@@ -70,7 +64,6 @@ class DeviceCapabilities(private val context: Context) {
         if (isLowRamDevice()) reasons.add("Low RAM device")
         if (hasInsufficientHeapMemory()) reasons.add("Limited memory (${getMemoryClassMB()}MB)")
         if (hasLowCpuCores()) reasons.add("Limited CPU (${getCpuCores()} cores)")
-        if (isOldAndroidVersion()) reasons.add("Android ${Build.VERSION.RELEASE}")
         if (isEmulator()) reasons.add("Emulator environment")
         
         return if (reasons.isEmpty()) {
@@ -101,13 +94,6 @@ class DeviceCapabilities(private val context: Context) {
     private fun hasLowCpuCores(): Boolean {
         val cores = Runtime.getRuntime().availableProcessors()
         return cores < MIN_CPU_CORES
-    }
-    
-    /**
-     * Check if Android version is too old for optimal performance
-     */
-    private fun isOldAndroidVersion(): Boolean {
-        return Build.VERSION.SDK_INT < MIN_ANDROID_VERSION
     }
     
     /**
@@ -162,6 +148,5 @@ class DeviceCapabilities(private val context: Context) {
         // Performance thresholds
         private const val MIN_HEAP_SIZE_MB = 128  // Minimum heap size for smooth animations
         private const val MIN_CPU_CORES = 4       // Minimum CPU cores for good performance
-        private const val MIN_ANDROID_VERSION = Build.VERSION_CODES.Q  // Android 10
     }
 }

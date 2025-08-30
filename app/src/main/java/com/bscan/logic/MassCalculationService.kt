@@ -51,7 +51,7 @@ class MassCalculationService {
                     totalMass = totalMeasuredMass
                 )
             }
-            MeasurementType.FULL_WEIGHT -> {
+            MeasurementType.TOTAL_MASS -> {
                 val filamentMass = totalMeasuredMass - fixedComponentMass
                 MassCalculationResult(
                     success = filamentMass >= 0f,
@@ -60,7 +60,7 @@ class MassCalculationService {
                     errorMessage = if (filamentMass < 0f) "Calculated filament mass is negative" else null
                 )
             }
-            MeasurementType.EMPTY_WEIGHT -> {
+            MeasurementType.COMPONENT_ONLY -> {
                 MassCalculationResult(
                     success = true,
                     componentMass = 0f, // No filament
