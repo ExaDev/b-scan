@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -242,28 +243,43 @@ fun DetailScreen(
                                             .padding(vertical = 2.dp),
                                         colors = CardDefaults.cardColors(
                                             containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                        )
+                                        ),
+                                        onClick = {
+                                            // Navigate to child component details
+                                            onNavigateToDetails?.invoke(DetailType.COMPONENT, childComponent.id)
+                                        }
                                     ) {
-                                        Column(
+                                        Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(12.dp)
+                                                .padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(
-                                                text = childComponent.name,
-                                                style = MaterialTheme.typography.titleSmall,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            Text(
-                                                text = "Category: ${childComponent.category}",
-                                                style = MaterialTheme.typography.bodySmall
-                                            )
-                                            childComponent.massGrams?.let { mass ->
+                                            Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
                                                 Text(
-                                                    text = "Mass: ${mass}g",
+                                                    text = childComponent.name,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    text = "Category: ${childComponent.category}",
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
+                                                childComponent.massGrams?.let { mass ->
+                                                    Text(
+                                                        text = "Mass: ${mass}g",
+                                                        style = MaterialTheme.typography.bodySmall
+                                                    )
+                                                }
                                             }
+                                            Icon(
+                                                imageVector = Icons.Default.ChevronRight,
+                                                contentDescription = "View details",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                     }
                                     if (childComponent != uiState.childComponents.last()) {
