@@ -131,30 +131,7 @@ class UserDataRepository(private val context: Context) {
         return getUserData().components
     }
     
-    /**
-     * Save an inventory item
-     */
-    fun saveInventoryItem(item: InventoryItem) {
-        updateUserData { userData ->
-            userData.copy(
-                inventoryItems = userData.inventoryItems + (item.trayUid to item)
-            )
-        }
-    }
-    
-    /**
-     * Get an inventory item by tray UID
-     */
-    fun getInventoryItem(trayUid: String): InventoryItem? {
-        return getUserData().inventoryItems[trayUid]
-    }
-    
-    /**
-     * Get all inventory items
-     */
-    fun getInventoryItems(): Map<String, InventoryItem> {
-        return getUserData().inventoryItems
-    }
+    // Legacy inventory item methods removed - inventory items are now generated on-demand
     
     /**
      * Remove an inventory item

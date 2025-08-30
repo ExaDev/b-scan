@@ -245,17 +245,7 @@ class UnifiedDataAccess(
                 )
             }
             
-            // 2. Check legacy inventory items
-            getInventoryItem(uniqueIdentifier)?.let { inventoryItem ->
-                Log.d(TAG, "Found legacy inventory item")
-                return@withContext InventoryResolutionResult(
-                    success = true,
-                    legacyInventoryItem = inventoryItem,
-                    source = "LegacyRepository"
-                )
-            }
-            
-            // 3. Try RFID resolution if comprehensive fallback enabled
+            // 2. Try RFID resolution if comprehensive fallback enabled
             if (fallbackStrategy == ResolutionStrategy.COMPREHENSIVE) {
                 // Attempt to resolve as RFID tag UID
                 resolveRfidTag(uniqueIdentifier, byteArrayOf())?.let { filamentInfo ->
@@ -523,188 +513,12 @@ class UnifiedDataAccess(
     }
     
     // === Component Management ===
+    // Components are now generated on-demand, not persisted
     
-    /**
-     * Get a physical component by ID
-     */
-    fun getComponent(componentId: String): Component? {
-        return userRepo.getComponent(componentId)
-    }
+    // === Inventory Management ===  
+    // Inventory items are now generated on-demand from scan data
     
-    /**
-     * Get all physical components
-     */
-    fun getComponents(): Map<String, Component> {
-        return userRepo.getComponents()
-    }
     
-    /**
-     * Save a physical component
-     */
-    fun saveComponent(component: Component) {
-        userRepo.saveComponent(component)
-    }
-    
-    /**
-     * Create components automatically from catalog defaults for a manufacturer
-     */
-    fun createDefaultComponents(
-        manufacturerId: String,
-        filamentType: String,
-        trayUid: String
-    ): List<Component> {
-        val manufacturer = catalogRepo.getManufacturer(manufacturerId)
-        val components = mutableListOf<Component>()
-        
-        if (manufacturer != null) {
-            // Create components from catalog data
-            // Create filament component
-            val filamentDefault = manufacturer.componentDefaults["filament_1kg"]
-            if (filamentDefault != null) {
-                val filamentComponent = Component(
-                    id = "${trayUid}_filament",
-                    name = "${manufacturer.materials[filamentType]?.displayName ?: filamentType} Filament",
-                    category = "filament",
-                    massGrams = filamentDefault.massGrams,
-                    fullMassGrams = filamentDefault.massGrams,
-                    variableMass = true,
-                    manufacturer = manufacturerId,
-                    description = filamentDefault.description
-                )
-                components.add(filamentComponent)
-                saveComponent(filamentComponent)
-            }
-            
-            // Create spool component
-            val spoolDefault = manufacturer.componentDefaults["spool_standard"]
-            if (spoolDefault != null) {
-                val spoolComponent = Component(
-                    id = "${trayUid}_spool",
-                    name = spoolDefault.name,
-                    category = "spool",
-                    massGrams = spoolDefault.massGrams,
-                    fullMassGrams = spoolDefault.massGrams,
-                    variableMass = false,
-                    manufacturer = manufacturerId,
-                    description = spoolDefault.description
-                )
-                components.add(spoolComponent)
-                saveComponent(spoolComponent)
-            }
-            
-            // Create core component
-            val coreDefault = manufacturer.componentDefaults["core_cardboard"]
-            if (coreDefault != null) {
-                val coreComponent = Component(
-                    id = "${trayUid}_core",
-                    name = coreDefault.name,
-                    category = "core",
-                    massGrams = coreDefault.massGrams,
-                    fullMassGrams = coreDefault.massGrams,
-                    variableMass = false,
-                    manufacturer = manufacturerId,
-                    description = coreDefault.description
-                )
-                components.add(coreComponent)
-                saveComponent(coreComponent)
-            }
-        } else {
-            // Create basic default components when no catalog data is available
-            Log.w(TAG, "No manufacturer data found for '$manufacturerId', creating basic default components")
-            
-            // Create basic filament component
-            val filamentComponent = Component(
-                id = "${trayUid}_filament",
-                name = "$filamentType Filament",
-                category = "filament",
-                massGrams = 1000f, // Default 1kg filament
-                fullMassGrams = 1000f,
-                variableMass = true,
-                manufacturer = manufacturerId,
-                description = "Default filament component"
-            )
-            components.add(filamentComponent)
-            saveComponent(filamentComponent)
-            
-            // Create basic spool component
-            val spoolComponent = Component(
-                id = "${trayUid}_spool",
-                name = "Standard Spool",
-                category = "spool",
-                massGrams = 212f, // Standard Bambu spool weight
-                fullMassGrams = 212f,
-                variableMass = false,
-                manufacturer = manufacturerId,
-                description = "Default spool component"
-            )
-            components.add(spoolComponent)
-            saveComponent(spoolComponent)
-            
-            // Create basic core component
-            val coreComponent = Component(
-                id = "${trayUid}_core",
-                name = "Cardboard Core",
-                category = "core",
-                massGrams = 33f, // Standard cardboard core weight
-                fullMassGrams = 33f,
-                variableMass = false,
-                manufacturer = manufacturerId,
-                description = "Default core component"
-            )
-            components.add(coreComponent)
-            saveComponent(coreComponent)
-        }
-        
-        Log.i(TAG, "Created ${components.size} default components for $manufacturerId $filamentType")
-        return components
-    }
-    
-    // === Inventory Management ===
-    
-    /**
-     * Get an inventory item by tray UID
-     */
-    fun getInventoryItem(trayUid: String): InventoryItem? {
-        return userRepo.getInventoryItem(trayUid)
-    }
-    
-    /**
-     * Get all inventory items
-     */
-    fun getInventoryItems(): Map<String, InventoryItem> {
-        return userRepo.getInventoryItems()
-    }
-    
-    /**
-     * Save an inventory item
-     */
-    fun saveInventoryItem(item: InventoryItem) {
-        userRepo.saveInventoryItem(item)
-    }
-    
-    /**
-     * Create inventory item with automatic component setup
-     */
-    fun createInventoryItemWithComponents(
-        trayUid: String,
-        manufacturerId: String,
-        filamentType: String
-    ): InventoryItem {
-        val components = createDefaultComponents(manufacturerId, filamentType, trayUid)
-        val componentIds = components.map { it.id }
-        
-        val inventoryItem = InventoryItem(
-            trayUid = trayUid,
-            components = componentIds,
-            totalMeasuredMass = null,
-            measurements = emptyList(),
-            lastUpdated = java.time.LocalDateTime.now(),
-            notes = ""
-        )
-        
-        saveInventoryItem(inventoryItem)
-        return inventoryItem
-    }
     
     // === Scan Management ===
     
@@ -911,7 +725,6 @@ data class StockLevel(
 data class InventoryResolutionResult(
     val success: Boolean,
     val component: Component? = null,
-    val legacyInventoryItem: InventoryItem? = null,
     val filamentInfo: FilamentInfo? = null,
     val source: String? = null,
     val errorMessage: String? = null
