@@ -315,19 +315,24 @@ private fun GenerateButton(
 @Composable
 private fun SampleDataGenerationCardPreview() {
     MaterialTheme {
-        // Create a mock repository for preview
-        val mockRepository = object : ScanHistoryRepository {
-            override suspend fun insert(scanData: EncryptedScanData) {}
-            override suspend fun getAllScans(): List<EncryptedScanData> = emptyList()
-            override suspend fun getScanById(id: Long): EncryptedScanData? = null
-            override suspend fun deleteScan(id: Long) {}
-            override suspend fun deleteAllScans() {}
-            override suspend fun getScansForExport(): List<DecryptedScanData> = emptyList()
+        // Create a simple preview card
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Sample Data Generation",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    text = "Preview - Generate sample scan data for testing",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
-        
-        SampleDataGenerationCard(
-            repository = mockRepository
-        )
     }
 }
 
