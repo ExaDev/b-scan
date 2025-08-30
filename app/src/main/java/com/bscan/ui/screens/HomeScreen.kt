@@ -12,6 +12,7 @@ import com.bscan.ScanState
 import com.bscan.model.ScanProgress
 import com.bscan.model.ScanStage
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.ComponentRepository
 import com.bscan.model.Component
 import com.bscan.model.DecryptedScanData
 import com.bscan.ui.screens.home.*
@@ -32,7 +33,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { ScanHistoryRepository(context) }
+    val repository = remember { ComponentRepository(context) }
+    val scanHistoryRepository = remember { ScanHistoryRepository(context) }
     
     // View state
     var viewMode by remember { mutableStateOf(ViewMode.INVENTORY) }
@@ -52,18 +54,36 @@ fun HomeScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
     
-    // Load data - TODO: Implement modern Component-based data loading
+    // Load data using modern Component-based architecture
     LaunchedEffect(Unit) {
         try {
-            // Modern approach would load from ComponentRepository
-            // For now, keep empty state to prevent compilation errors
-            components = emptyList()
-            scanData = emptyList()
-            availableFilamentTypes = emptySet()
-            availableColors = emptySet()
-            availableBaseMaterials = emptySet()
-            availableMaterialSeries = emptySet()
+            // Load all components from repository
+            val allComponents = repository.getComponents()
+            components = allComponents
+            
+            // Load scan history data
+            val allScanData = scanHistoryRepository.getAllDecryptedScans()
+            scanData = allScanData
+            
+            // Extract filter options from components
+            availableFilamentTypes = allComponents
+                .mapNotNull { component -> component.metadata["materialType"] }
+                .toSet()
+            
+            availableColors = allComponents
+                .mapNotNull { component -> component.metadata["colorName"] }
+                .toSet()
+            
+            availableBaseMaterials = allComponents
+                .mapNotNull { component -> component.metadata["baseMaterial"] }
+                .toSet()
+            
+            availableMaterialSeries = allComponents
+                .mapNotNull { component -> component.metadata["series"] }
+                .toSet()
+                
         } catch (e: Exception) {
+            // Fallback to empty state on error
             components = emptyList()
             scanData = emptyList()
             availableFilamentTypes = emptySet()

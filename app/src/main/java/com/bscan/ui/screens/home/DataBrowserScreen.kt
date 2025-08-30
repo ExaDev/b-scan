@@ -388,18 +388,16 @@ fun DataBrowserScreen(
                         compactPromptHeightDp = compactPromptHeightDp,
                         fullPromptHeightDp = fullPromptHeightDp
                     )
-                    ViewMode.TAGS -> Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Tags view - Under development")
-                    }
-                    ViewMode.SCANS -> Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("Scans view - Under development")
-                    }
+                    ViewMode.TAGS -> TagsBrowser(
+                        allScans = allScans,
+                        lazyListState = lazyListStates[actualPage],
+                        onNavigateToDetails = onNavigateToDetails
+                    )
+                    ViewMode.SCANS -> ScansBrowser(
+                        allScans = allScans,
+                        lazyListState = lazyListStates[actualPage],
+                        onNavigateToDetails = onNavigateToDetails
+                    )
                 }
             }
         }

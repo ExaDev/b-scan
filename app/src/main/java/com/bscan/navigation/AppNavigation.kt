@@ -154,6 +154,7 @@ fun AppNavigation(
             )
         }
         
+        
         composable("details/{type}/{identifier}") { backStackEntry ->
             val typeStr = backStackEntry.arguments?.getString("type")
             val identifier = backStackEntry.arguments?.getString("identifier")
