@@ -229,15 +229,14 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
                     )
                 )
             ),
-            name = "RFID Tag $tagUid",
-            category = "rfid-tag",
-            tags = listOf("bambu", "identifier", "fixed-mass"),
-            massGrams = 0.5f, // Negligible mass for RFID tag
+            name = "${BambuComponentDefinitions.RfidTag.NAME} $tagUid",
+            category = BambuComponentDefinitions.RfidTag.CATEGORY,
+            tags = BambuComponentDefinitions.RfidTag.TAGS,
+            massGrams = BambuComponentDefinitions.RfidTag.MASS_GRAMS,
             variableMass = false,
-            manufacturer = "Bambu Lab",
-            description = "Bambu Lab RFID tag for filament identification",
-            metadata = mapOf(
-                "tagUid" to tagUid,
+            manufacturer = BambuComponentDefinitions.RfidTag.MANUFACTURER,
+            description = BambuComponentDefinitions.RfidTag.DESCRIPTION,
+            metadata = BambuComponentDefinitions.RfidTag.getMetadata(tagUid) + mapOf(
                 "trayUid" to trayUid,
                 "filamentType" to filamentInfo.filamentType,
                 "colorName" to filamentInfo.colorName,
@@ -254,15 +253,15 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         
         return@withContext Component(
             id = generateComponentId("filament"),
-            name = "${filamentInfo.filamentType} ${filamentInfo.colorName} Filament",
-            category = "filament",
-            tags = listOf("consumable", "variable-mass", "bambu"),
+            name = BambuComponentDefinitions.Filament.getName(filamentInfo.filamentType, filamentInfo.colorName),
+            category = BambuComponentDefinitions.Filament.CATEGORY,
+            tags = BambuComponentDefinitions.Filament.TAGS,
             massGrams = filamentMass,
             fullMassGrams = filamentMass,
-            variableMass = true,
-            manufacturer = "Bambu Lab",
-            description = "Bambu Lab ${filamentInfo.filamentType} filament in ${filamentInfo.colorName}",
-            metadata = buildFilamentMetadata(filamentInfo, filamentMass)
+            variableMass = BambuComponentDefinitions.Filament.VARIABLE_MASS,
+            manufacturer = BambuComponentDefinitions.Filament.MANUFACTURER,
+            description = BambuComponentDefinitions.Filament.getDescription(filamentInfo.filamentType, filamentInfo.colorName),
+            metadata = BambuComponentDefinitions.Filament.getMetadata(filamentInfo.filamentType, filamentInfo.colorName, filamentInfo.trayUid)
         )
     }
     
@@ -272,17 +271,14 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
     private suspend fun createCoreComponent(): Component = withContext(Dispatchers.IO) {
         return@withContext Component(
             id = generateComponentId("core"),
-            name = "Bambu Cardboard Core",
-            category = "core",
-            tags = listOf("reusable", "fixed-mass", "bambu"),
-            massGrams = 33f,
+            name = BambuComponentDefinitions.Core.NAME,
+            category = BambuComponentDefinitions.Core.CATEGORY,
+            tags = BambuComponentDefinitions.Core.TAGS,
+            massGrams = BambuComponentDefinitions.Core.MASS_GRAMS,
             variableMass = false,
-            manufacturer = "Bambu Lab",
-            description = "Standard Bambu Lab cardboard core (33g)",
-            metadata = mapOf(
-                "material" to "cardboard",
-                "standardWeight" to "33g"
-            )
+            manufacturer = BambuComponentDefinitions.Core.MANUFACTURER,
+            description = BambuComponentDefinitions.Core.DESCRIPTION,
+            metadata = BambuComponentDefinitions.Core.METADATA
         )
     }
     
@@ -292,18 +288,14 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
     private suspend fun createSpoolComponent(): Component = withContext(Dispatchers.IO) {
         return@withContext Component(
             id = generateComponentId("spool"),
-            name = "Bambu Refillable Spool",
-            category = "spool", 
-            tags = listOf("reusable", "fixed-mass", "bambu"),
-            massGrams = 212f,
+            name = BambuComponentDefinitions.Spool.NAME,
+            category = BambuComponentDefinitions.Spool.CATEGORY,
+            tags = BambuComponentDefinitions.Spool.TAGS,
+            massGrams = BambuComponentDefinitions.Spool.MASS_GRAMS,
             variableMass = false,
-            manufacturer = "Bambu Lab",
-            description = "Standard Bambu Lab refillable spool (212g)",
-            metadata = mapOf(
-                "material" to "plastic",
-                "standardWeight" to "212g",
-                "type" to "refillable"
-            )
+            manufacturer = BambuComponentDefinitions.Spool.MANUFACTURER,
+            description = BambuComponentDefinitions.Spool.DESCRIPTION,
+            metadata = BambuComponentDefinitions.Spool.METADATA
         )
     }
     
@@ -401,12 +393,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
      * Get default mass based on material type
      */
     private fun getDefaultMassByMaterial(filamentType: String): Float {
-        return when (filamentType.uppercase()) {
-            "TPU" -> 500f  // TPU typically comes in 500g spools
-            "PVA", "SUPPORT" -> 500f  // Support materials typically 500g
-            "PC", "PA", "PAHT" -> 1000f  // Engineering materials typically 1kg
-            else -> 1000f  // Standard 1kg for PLA, PETG, ABS, ASA
-        }
+        return BambuComponentDefinitions.DEFAULT_FILAMENT_MASSES[filamentType.uppercase()] ?: 1000f
     }
     
     /**

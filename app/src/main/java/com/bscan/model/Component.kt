@@ -409,6 +409,11 @@ data class MassCalculationResult(
 )
 
 /**
+ * Records a mass measurement (alias for ComponentMeasurement for backward compatibility)
+ */
+typealias MassMeasurement = ComponentMeasurement
+
+/**
  * Request for mass inference operations
  */
 data class MassInferenceRequest(
