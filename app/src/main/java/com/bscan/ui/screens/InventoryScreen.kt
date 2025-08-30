@@ -57,21 +57,10 @@ fun InventoryScreen(
                 val loadedComponents = componentRepository.getComponents()
                 val loadedInventoryItems = componentRepository.getInventoryItems()
                 
-                // Also check legacy data and provide migration option
-                val unifiedDataAccess = viewModel.getUnifiedDataAccess()
-                val legacyInventoryItems = unifiedDataAccess.getInventoryItems()
-                val legacyComponents = unifiedDataAccess.getComponents()
-                
                 withContext(Dispatchers.Main) {
                     allComponents = loadedComponents
                     inventoryItems = loadedInventoryItems
                     isLoading = false
-                    
-                    // If we have legacy data but no new components, suggest migration
-                    if (loadedComponents.isEmpty() && (legacyInventoryItems.isNotEmpty() || legacyComponents.isNotEmpty())) {
-                        // Migration would be handled elsewhere - for now just show empty state
-                        android.util.Log.i("InventoryScreen", "Legacy data detected: ${legacyInventoryItems.size} items, ${legacyComponents.size} components")
-                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
