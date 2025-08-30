@@ -2,6 +2,8 @@ package com.bscan.ui.components
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.material3.MaterialTheme
 import com.bscan.ui.components.scanning.*
 
 // Re-export main components for backward compatibility
@@ -44,3 +46,42 @@ fun SpinningLoader(
     modifier = modifier,
     color = color
 )
+
+// Previews
+@Preview(showBackground = true)
+@Composable
+fun ScanStateIndicatorPreview() {
+    MaterialTheme {
+        ScanStateIndicator(
+            isDetected = true
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AnimatedNfcIconPreview() {
+    MaterialTheme {
+        AnimatedNfcIcon(
+            isActive = true
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PulsingRingsPreview() {
+    MaterialTheme {
+        PulsingRings(
+            isActive = true
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SpinningLoaderPreview() {
+    MaterialTheme {
+        SpinningLoader()
+    }
+}

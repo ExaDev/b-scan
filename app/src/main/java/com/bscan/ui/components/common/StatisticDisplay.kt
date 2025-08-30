@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -93,5 +94,48 @@ fun CollectionStatsCard(
             
             additionalContent()
         }
+    }
+}
+
+// Previews
+@Preview(showBackground = true)
+@Composable
+fun StatisticDisplayPreview() {
+    MaterialTheme {
+        StatisticDisplay(
+            label = "Total Weight",
+            value = "2.5kg"
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun StatisticGridPreview() {
+    MaterialTheme {
+        StatisticGrid(
+            statistics = listOf(
+                "Total Spools" to "12",
+                "Weight" to "2.5kg",
+                "Materials" to "5",
+                "Colors" to "18"
+            )
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun CollectionStatsCardPreview() {
+    MaterialTheme {
+        CollectionStatsCard(
+            title = "Inventory Overview",
+            statistics = listOf(
+                "Total Spools" to "12",
+                "Weight" to "2.5kg",
+                "Materials" to "5",
+                "Colors" to "18"
+            )
+        )
     }
 }

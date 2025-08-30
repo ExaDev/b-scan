@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -72,5 +73,22 @@ fun ProcessingScreen(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+// Previews
+@Preview(showBackground = true)
+@Composable
+fun TagDetectedScreenPreview() {
+    MaterialTheme {
+        TagDetectedScreen()
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun ProcessingScreenPreview() {
+    MaterialTheme {
+        ProcessingScreen()
     }
 }
