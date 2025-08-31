@@ -174,7 +174,9 @@ class GraphComponentFactory(private val context: Context) {
         ).apply {
             timestamp = decryptedScanData.timestamp
             duration = encryptedScanData.scanDurationMs
-            status = if (decryptedScanData.scanResult == ScanResult.SUCCESS) "success" else "failed"
+            setProperty("success", decryptedScanData.scanResult == ScanResult.SUCCESS)
+            setProperty("tagUid", encryptedScanData.tagUid)
+            setProperty("technology", encryptedScanData.technology)
             setProperty("tagFormat", decryptedScanData.tagFormat.name)
             setProperty("authenticatedSectors", decryptedScanData.authenticatedSectors.size)
             setProperty("failedSectors", decryptedScanData.failedSectors.size)
@@ -305,7 +307,9 @@ class GraphComponentFactory(private val context: Context) {
         ).apply {
             timestamp = decryptedScanData.timestamp
             duration = encryptedScanData.scanDurationMs
-            status = if (decryptedScanData.scanResult == ScanResult.SUCCESS) "success" else "failed"
+            setProperty("success", decryptedScanData.scanResult == ScanResult.SUCCESS)
+            setProperty("tagUid", encryptedScanData.tagUid)
+            setProperty("technology", encryptedScanData.technology)
         }
         entities.add(scanActivity)
         
