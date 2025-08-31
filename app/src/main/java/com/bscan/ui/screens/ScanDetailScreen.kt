@@ -5,6 +5,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +15,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
+import com.bscan.model.graph.entities.Activity
+import com.bscan.model.graph.entities.ActivityTypes
+import com.bscan.model.graph.entities.EntityTypes
+import com.bscan.model.graph.Entity
+import com.bscan.repository.GraphRepository
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
@@ -21,6 +27,7 @@ import com.bscan.ui.components.scans.DecryptedDataView
 import com.bscan.ui.components.scans.DecryptedEncodedDataView
 import com.bscan.ui.components.scans.DecryptedDecodedDataView
 import com.bscan.ui.components.scans.DecodedDecryptedDataView
+import com.bscan.ui.screens.DetailType
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,13 +35,17 @@ import kotlinx.coroutines.launch
 fun ScanDetailScreen(
     scanId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { ScanHistoryRepository(context) }
+    val graphRepository = remember { GraphRepository(context) }
+    val scanHistoryRepository = remember { ScanHistoryRepository(context) }
     val scope = rememberCoroutineScope()
     
     // Load scan data based on scanId (format: "timestamp-tagUID")
+    var scanActivity by remember { mutableStateOf<Activity?>(null) }
+    var relatedEntities by remember { mutableStateOf<List<Entity>>(emptyList()) }
     var decryptedScan by remember { mutableStateOf<DecryptedScanData?>(null) }
     var encryptedScan by remember { mutableStateOf<EncryptedScanData?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -42,15 +53,45 @@ fun ScanDetailScreen(
     
     LaunchedEffect(scanId) {
         try {
-            // Parse scanId to find matching scan
-            val allDecryptedScans = repository.getAllDecryptedScans()
-            val foundDecryptedScan = allDecryptedScans.find { scan ->
-                "${scan.timestamp}-${scan.tagUid}" == scanId
+            // Find scan Activity entity from GraphRepository
+            val allScanActivities = graphRepository.getEntitiesByType(EntityTypes.ACTIVITY)
+                .filterIsInstance<Activity>()
+                .filter { it.getProperty<String>("activityType") == ActivityTypes.SCAN }
+            
+            val foundScanActivity = allScanActivities.find { activity ->
+                val timestamp = activity.getProperty<String>("timestamp") ?: ""
+                val tagUid = activity.getProperty<String>("tagUid") ?: ""
+                "$timestamp-$tagUid" == scanId
             }
             
-            if (foundDecryptedScan != null) {
-                decryptedScan = foundDecryptedScan
-                encryptedScan = repository.getEncryptedScanForDecrypted(foundDecryptedScan)
+            if (foundScanActivity != null) {
+                scanActivity = foundScanActivity
+                
+                // Get related entities from the scan
+                try {
+                    relatedEntities = graphRepository.getConnectedEntities(foundScanActivity.id)
+                } catch (e: Exception) {
+                    relatedEntities = emptyList()
+                }
+                
+                // Try to get corresponding legacy scan data for detailed views
+                try {
+                    val timestamp = foundScanActivity.getProperty<String>("timestamp") ?: ""
+                    val tagUid = foundScanActivity.getProperty<String>("tagUid") ?: ""
+                    
+                    val allDecryptedScans = scanHistoryRepository.getAllDecryptedScans()
+                    val foundDecryptedScan = allDecryptedScans.find { scan ->
+                        "${scan.timestamp}-${scan.tagUid}" == scanId
+                    }
+                    
+                    if (foundDecryptedScan != null) {
+                        decryptedScan = foundDecryptedScan
+                        encryptedScan = scanHistoryRepository.getEncryptedScanForDecrypted(foundDecryptedScan)
+                    }
+                } catch (e: Exception) {
+                    // Legacy data may not be available, but we still have the Activity
+                }
+                
                 isLoading = false
             } else {
                 error = "Scan not found"
@@ -117,7 +158,12 @@ fun ScanDetailScreen(
                     .padding(paddingValues)
             ) {
                 // Scan summary header
-                decryptedScan?.let { scan ->
+                scanActivity?.let { activity ->
+                    val tagUid = activity.getProperty<String>("tagUid") ?: "Unknown"
+                    val timestamp = activity.getProperty<String>("timestamp") ?: ""
+                    val success = activity.getProperty<Boolean>("success") ?: false
+                    val technology = activity.getProperty<String>("technology") ?: "NFC"
+                    
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -131,13 +177,13 @@ fun ScanDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = scan.tagUid,
+                                text = tagUid,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "${scan.timestamp} • ${scan.scanResult.name}",
+                                text = "$timestamp • ${if (success) "SUCCESS" else "FAILED"} • $technology",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -171,16 +217,32 @@ fun ScanDetailScreen(
                     when (page) {
                         0 -> {
                             // Encrypted tab with encoded/decoded subtabs
-                            EncryptedTabContent(
-                                encryptedScan = encryptedScan,
-                                decryptedScan = decryptedScan
-                            )
+                            if (encryptedScan != null || decryptedScan != null) {
+                                EncryptedTabContent(
+                                    encryptedScan = encryptedScan,
+                                    decryptedScan = decryptedScan
+                                )
+                            } else {
+                                // Show related entities when legacy data not available
+                                RelatedEntitiesView(
+                                    entities = relatedEntities,
+                                    onNavigateToDetails = onNavigateToDetails
+                                )
+                            }
                         }
                         1 -> {
                             // Decrypted tab with encoded/decoded subtabs  
-                            DecryptedTabContent(
-                                decryptedScan = decryptedScan
-                            )
+                            if (decryptedScan != null) {
+                                DecryptedTabContent(
+                                    decryptedScan = decryptedScan
+                                )
+                            } else {
+                                // Show related entities when legacy data not available
+                                RelatedEntitiesView(
+                                    entities = relatedEntities,
+                                    onNavigateToDetails = onNavigateToDetails
+                                )
+                            }
                         }
                     }
                 }
@@ -301,5 +363,79 @@ private fun DataNotAvailableMessage(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RelatedEntitiesView(
+    entities: List<Entity>,
+    onNavigateToDetails: ((DetailType, String) -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = "Related Entities",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        if (entities.isEmpty()) {
+            Text(
+                text = "No related entities found.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            entities.forEach { entity ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        // Navigate to entity details
+                        when (entity.entityType) {
+                            EntityTypes.PHYSICAL_COMPONENT -> onNavigateToDetails?.invoke(DetailType.COMPONENT, entity.id)
+                            EntityTypes.INVENTORY_ITEM -> onNavigateToDetails?.invoke(DetailType.COMPONENT, entity.id)
+                            else -> {
+                                // For other entity types, show them as components for now
+                                onNavigateToDetails?.invoke(DetailType.COMPONENT, entity.id)
+                            }
+                        }
+                    }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = entity.label,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = entity.entityType,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = "View details",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
     }
 }
