@@ -97,12 +97,7 @@ class CrealityComponentFactory(context: Context) : ComponentFactory(context) {
             
             val rootComponent = components.firstOrNull()
             if (rootComponent != null) {
-                // Create inventory item
-                createInventoryItem(
-                    rootComponent = rootComponent,
-                    notes = "Creality filament spool - ${crealityInfo.material} ${crealityInfo.colorName}"
-                )
-                
+                // Legacy inventory item creation removed - using graph-based system
                 Log.i(factoryType, "Created Creality component: ${rootComponent.name}")
             }
             

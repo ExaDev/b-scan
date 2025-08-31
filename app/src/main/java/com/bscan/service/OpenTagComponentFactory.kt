@@ -122,12 +122,7 @@ class OpenTagComponentFactory(context: Context) : ComponentFactory(context) {
             
             val rootComponent = findRootComponent(components)
             if (rootComponent != null && rootComponent.isInventoryItem) {
-                // Create inventory item for root component
-                createInventoryItem(
-                    rootComponent = rootComponent,
-                    notes = "OpenTag component - ${openTagInfo.componentType} ${openTagInfo.name}"
-                )
-                
+                // Legacy inventory item creation removed - using graph-based system
                 Log.i(factoryType, "Created OpenTag component hierarchy with root: ${rootComponent.name}")
             }
             

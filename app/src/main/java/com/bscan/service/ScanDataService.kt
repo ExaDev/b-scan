@@ -43,10 +43,8 @@ class ScanDataService(
         
         val contentHash = calculateContentHash(rawData)
         
-        val graph = graphRepository.loadGraph()
-        
         // Check if raw data already exists
-        val existingRawData = findExistingRawData(graph, contentHash, scanFormat)
+        val existingRawData = findExistingRawData(contentHash, scanFormat)
         
         val rawScanData = existingRawData ?: run {
             // Create new raw data entity
@@ -59,7 +57,7 @@ class ScanDataService(
                 this.contentHash = contentHash
                 this.encoding = detectEncoding(rawData)
             }.also { newRawData ->
-                graph.addEntity(newRawData)
+                graphRepository.addEntity(newRawData)
             }
         }
         
@@ -73,7 +71,7 @@ class ScanDataService(
             this.userData = userNotes
         }
         
-        graph.addEntity(scanOccurrence)
+        graphRepository.addEntity(scanOccurrence)
         
         // Link scan occurrence to raw data
         val scanEdge = Edge(
@@ -81,9 +79,7 @@ class ScanDataService(
             toEntityId = rawScanData.id,
             relationshipType = ScanDataRelationshipTypes.SCANNED
         )
-        graph.addEdge(scanEdge)
-        
-        graphRepository.persistGraph(graph)
+        graphRepository.addEdge(scanEdge)
         
         ScanRecordResult(
             success = true,
@@ -118,21 +114,7 @@ class ScanDataService(
             ttlMinutes = 60
         )
         
-        // Optionally persist relationship for reference (non-critical)
-        try {
-            val graph = graphRepository.loadGraph()
-            if (!graph.getAllEntities().contains(decodedEncrypted)) {
-                // Note: We're not persisting the ephemeral entity, just noting the relationship exists
-                val edge = Edge(
-                    fromEntityId = rawScanData.id,
-                    toEntityId = decodedEncrypted.id,
-                    relationshipType = ScanDataRelationshipTypes.DECODED_TO
-                )
-                // Don't persist this - it's ephemeral
-            }
-        } catch (e: Exception) {
-            // Non-critical - cache still works
-        }
+        // Note: We don't persist ephemeral entities - they exist only in cache
         
         decodedEncrypted
     }
@@ -239,8 +221,7 @@ class ScanDataService(
      * Get all scan occurrences
      */
     suspend fun getAllScanOccurrences(): List<ScanOccurrence> = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        graph.getEntitiesByType("activity")
+        graphRepository.getEntitiesByType("activity")
             .filterIsInstance<ScanOccurrence>()
             .sortedByDescending { it.timestamp }
     }
@@ -249,8 +230,7 @@ class ScanDataService(
      * Get raw scan data linked to a scan occurrence
      */
     suspend fun getRawScanData(scanOccurrence: ScanOccurrence): RawScanData? = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        val connected = graph.getConnectedEntities(scanOccurrence.id, ScanDataRelationshipTypes.SCANNED)
+        val connected = graphRepository.getConnectedEntities(scanOccurrence.id, ScanDataRelationshipTypes.SCANNED)
         connected.filterIsInstance<RawScanData>().firstOrNull()
     }
     
@@ -258,8 +238,7 @@ class ScanDataService(
      * Get all unique raw scan data (deduplicated)
      */
     suspend fun getAllUniqueRawScanData(): List<RawScanData> = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        graph.getEntitiesByType("information")
+        graphRepository.getEntitiesByType("information")
             .filterIsInstance<RawScanData>()
             .sortedByDescending { it.metadata.created }
     }
@@ -280,8 +259,8 @@ class ScanDataService(
         }
     }
     
-    private fun findExistingRawData(graph: Graph, contentHash: String, scanFormat: String): RawScanData? {
-        return graph.getEntitiesByType("information")
+    private suspend fun findExistingRawData(contentHash: String, scanFormat: String): RawScanData? {
+        return graphRepository.getEntitiesByType("information")
             .filterIsInstance<RawScanData>()
             .find { it.contentHash == contentHash && it.scanFormat == scanFormat }
     }
@@ -381,17 +360,18 @@ class ScanDataService(
         return totalSize
     }
     
-    private fun estimateEntitySize(entity: Entity): Long {
+    private fun estimateEntitySize(entity: com.bscan.model.graph.Entity): Long {
         // Very rough estimation - could be more sophisticated
         return entity.properties.values.sumOf { prop ->
             when (prop) {
-                is PropertyValue.StringValue -> prop.value.length * 2L // UTF-16
-                is PropertyValue.IntValue -> 8L
-                is PropertyValue.LongValue -> 8L
-                is PropertyValue.FloatValue -> 8L
-                is PropertyValue.DoubleValue -> 8L
-                is PropertyValue.BooleanValue -> 1L
-                is PropertyValue.DateTimeValue -> 32L
+                is com.bscan.model.graph.PropertyValue.StringValue -> (prop.rawValue as String).length * 2L // UTF-16
+                is com.bscan.model.graph.PropertyValue.IntValue -> 8L
+                is com.bscan.model.graph.PropertyValue.LongValue -> 8L
+                is com.bscan.model.graph.PropertyValue.FloatValue -> 8L
+                is com.bscan.model.graph.PropertyValue.DoubleValue -> 8L
+                is com.bscan.model.graph.PropertyValue.BooleanValue -> 1L
+                is com.bscan.model.graph.PropertyValue.DateTimeValue -> 32L
+                else -> 0L // Handle any other PropertyValue types
             }
         }
     }

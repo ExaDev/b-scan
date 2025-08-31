@@ -40,20 +40,20 @@ class InventoryService(private val graphRepository: GraphRepository) {
             this.location = location
         }
         
-        val graph = graphRepository.loadGraph()
-        graph.addEntity(inventoryItem)
+        graphRepository.addEntity(inventoryItem)
         
         // Link to tracked component if provided
         component?.let { comp ->
-            if (!graph.getAllEntities().contains(comp)) {
-                graph.addEntity(comp)
+            val existingComponent = graphRepository.getEntity(comp.id)
+            if (existingComponent == null) {
+                graphRepository.addEntity(comp)
             }
             val edge = Edge(
                 fromEntityId = inventoryItem.id,
                 toEntityId = comp.id,
                 relationshipType = InventoryRelationshipTypes.TRACKS
             )
-            graph.addEdge(edge)
+            graphRepository.addEdge(edge)
         }
         
         // Link to SKU virtual entity if provided
@@ -65,16 +65,14 @@ class InventoryService(private val graphRepository: GraphRepository) {
                 setProperty("sku", skuValue)
             }
             
-            graph.addEntity(skuEntity)
+            graphRepository.addEntity(skuEntity)
             val edge = Edge(
                 fromEntityId = inventoryItem.id,
                 toEntityId = skuEntity.id,
                 relationshipType = InventoryRelationshipTypes.TRACKS
             )
-            graph.addEdge(edge)
+            graphRepository.addEdge(edge)
         }
-        
-        graphRepository.persistGraph(graph)
         inventoryItem
     }
     
@@ -107,8 +105,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
             inventoryItem.currentQuantity = knownQuantity
         }
         
-        val graph = graphRepository.loadGraph()
-        graph.addEntity(calibrationActivity)
+        graphRepository.addEntity(calibrationActivity)
         
         // Link calibration to inventory item
         val edge = Edge(
@@ -116,9 +113,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
             toEntityId = calibrationActivity.id,
             relationshipType = InventoryRelationshipTypes.CALIBRATED_BY
         )
-        graph.addEdge(edge)
-        
-        graphRepository.persistGraph(graph)
+        graphRepository.addEdge(edge)
         result
     }
     
@@ -180,8 +175,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
             inventoryItem.currentQuantity = inferenceResult.inferredQuantity
         }
         
-        val graph = graphRepository.loadGraph()
-        graph.addEntity(measurementActivity)
+        graphRepository.addEntity(measurementActivity)
         
         // Link measurement to inventory item
         val edge = Edge(
@@ -189,9 +183,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
             toEntityId = measurementActivity.id,
             relationshipType = InventoryRelationshipTypes.MEASURED_BY
         )
-        graph.addEdge(edge)
-        
-        graphRepository.persistGraph(graph)
+        graphRepository.addEdge(edge)
         
         MeasurementResult(
             success = true,
@@ -255,8 +247,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
         inventoryItem.currentQuantity = newQuantity
         stockMovement.newWeight?.let { inventoryItem.currentWeight = it }
         
-        val graph = graphRepository.loadGraph()
-        graph.addEntity(stockMovement)
+        graphRepository.addEntity(stockMovement)
         
         // Link movement to inventory item
         val edge = Edge(
@@ -264,9 +255,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
             toEntityId = stockMovement.id,
             relationshipType = InventoryRelationshipTypes.HAD_MOVEMENT
         )
-        graph.addEdge(edge)
-        
-        graphRepository.persistGraph(graph)
+        graphRepository.addEdge(edge)
         
         StockMovementResult(
             success = true,
@@ -281,8 +270,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
      * Get all inventory items
      */
     suspend fun getAllInventoryItems(): List<InventoryItem> = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        graph.getEntitiesByType("inventory_item").filterIsInstance<InventoryItem>()
+        graphRepository.getEntitiesByType("inventory_item").filterIsInstance<InventoryItem>()
     }
     
     /**
@@ -299,8 +287,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
      * Get stock movement history for an inventory item
      */
     suspend fun getStockMovementHistory(inventoryItem: InventoryItem): List<StockMovementActivity> = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        val movements = graph.getConnectedEntities(inventoryItem.id, InventoryRelationshipTypes.HAD_MOVEMENT)
+        val movements = graphRepository.getConnectedEntities(inventoryItem.id, InventoryRelationshipTypes.HAD_MOVEMENT)
         movements.filterIsInstance<StockMovementActivity>()
             .sortedByDescending { it.timestamp }
     }
@@ -309,8 +296,7 @@ class InventoryService(private val graphRepository: GraphRepository) {
      * Get measurement history for an inventory item
      */
     suspend fun getMeasurementHistory(inventoryItem: InventoryItem): List<MeasurementActivity> = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        val measurements = graph.getConnectedEntities(inventoryItem.id, InventoryRelationshipTypes.MEASURED_BY)
+        val measurements = graphRepository.getConnectedEntities(inventoryItem.id, InventoryRelationshipTypes.MEASURED_BY)
         measurements.filterIsInstance<MeasurementActivity>()
             .sortedByDescending { it.timestamp }
     }
@@ -318,9 +304,8 @@ class InventoryService(private val graphRepository: GraphRepository) {
     /**
      * Get the component or SKU being tracked by an inventory item
      */
-    suspend fun getTrackedEntity(inventoryItem: InventoryItem): Entity? = withContext(Dispatchers.IO) {
-        val graph = graphRepository.loadGraph()
-        val trackedEntities = graph.getConnectedEntities(inventoryItem.id, InventoryRelationshipTypes.TRACKS)
+    suspend fun getTrackedEntity(inventoryItem: InventoryItem): com.bscan.model.graph.Entity? = withContext(Dispatchers.IO) {
+        val trackedEntities = graphRepository.getConnectedEntities(inventoryItem.id, InventoryRelationshipTypes.TRACKS)
         trackedEntities.firstOrNull()
     }
 }

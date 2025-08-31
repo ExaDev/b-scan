@@ -201,38 +201,7 @@ abstract class ComponentFactory(
         }
     }
     
-    /**
-     * Shared utility: Create inventory item for root component
-     */
-    protected suspend fun createInventoryItem(
-        rootComponent: Component,
-        notes: String = ""
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            if (!rootComponent.isInventoryItem) {
-                Log.w(factoryType, "Component ${rootComponent.id} is not an inventory item")
-                return@withContext false
-            }
-            
-            val uniqueId = rootComponent.identifiers.firstOrNull { it.isUnique }?.value
-                ?: throw IllegalStateException("Root component missing unique identifier")
-            
-            val inventoryItem = InventoryItem(
-                trayUid = uniqueId,
-                components = listOf(rootComponent.id) + rootComponent.childComponents,
-                totalMeasuredMass = null,
-                measurements = emptyList(),
-                lastUpdated = LocalDateTime.now(),
-                notes = notes.ifEmpty { "Auto-created from ${factoryType} scan" }
-            )
-            
-            Log.d(factoryType, "Would have created inventory item for: $uniqueId (now using on-demand generation)")
-            true
-        } catch (e: Exception) {
-            Log.e(factoryType, "Error creating inventory item", e)
-            false
-        }
-    }
+    // Legacy inventory item creation removed - using graph-based system
     
     companion object {
         /**

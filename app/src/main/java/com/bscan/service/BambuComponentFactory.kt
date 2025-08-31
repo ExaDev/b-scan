@@ -163,11 +163,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         // RFID tag parent relationship handled during generation
         // No persistence needed - components generated fresh each time
         
-        // Create inventory item
-        createInventoryItem(
-            rootComponent = trayComponent,
-            notes = "Bambu filament tray - ${filamentInfo.filamentType} ${filamentInfo.colorName}"
-        )
+        // Legacy inventory item creation removed - using graph-based system
         
         return@withContext trayComponent
     }
@@ -423,49 +419,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         return@withContext inferredComponent
     }
     
-    /**
-     * Create an InventoryItem for the tray component
-     */
-    private suspend fun createInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) = withContext(Dispatchers.IO) {
-        try {
-            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value
-                ?: throw IllegalStateException("Tray component missing CONSUMABLE_UNIT identifier")
-            
-            val inventoryItem = InventoryItem(
-                trayUid = trayUid,
-                components = listOf(trayComponent.id) + trayComponent.childComponents,
-                totalMeasuredMass = null, // User hasn't measured yet
-                measurements = emptyList(),
-                lastUpdated = LocalDateTime.now(),
-                notes = "Auto-created from Bambu RFID scan - ${filamentInfo.filamentType} ${filamentInfo.colorName}"
-            )
-            
-            // Note: No longer saving inventory items - using on-demand generation
-            
-            Log.i(factoryType, "Created inventory item for tray: $trayUid")
-            
-        } catch (e: Exception) {
-            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value ?: "unknown"
-            Log.e(factoryType, "Error creating inventory item for tray: $trayUid", e)
-        }
-    }
-    
-    /**
-     * Update existing InventoryItem when new RFID tags are scanned
-     */
-    private suspend fun updateInventoryItemForTray(trayComponent: Component, filamentInfo: FilamentInfo) = withContext(Dispatchers.IO) {
-        try {
-            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value
-                ?: throw IllegalStateException("Tray component missing CONSUMABLE_UNIT identifier")
-                
-            // Note: No longer updating inventory items - using on-demand generation
-            Log.i(factoryType, "Would have updated inventory item for tray: $trayUid (now using on-demand generation)")
-            
-        } catch (e: Exception) {
-            val trayUid = trayComponent.getIdentifierByType(IdentifierType.CONSUMABLE_UNIT)?.value ?: "unknown"
-            Log.e(factoryType, "Error updating inventory item for tray: $trayUid", e)
-        }
-    }
+    // Legacy inventory item creation methods removed - using graph-based system
     
     companion object {
         private const val TAG = "BambuComponentFactory"

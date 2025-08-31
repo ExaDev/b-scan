@@ -60,12 +60,7 @@ class GenericComponentFactory(context: Context) : ComponentFactory(context) {
             
             val rootComponent = components.firstOrNull()
             if (rootComponent != null) {
-                // Create inventory item
-                createInventoryItem(
-                    rootComponent = rootComponent,
-                    notes = "Generic RFID component - ${encryptedScanData.technology} tag"
-                )
-                
+                // Legacy inventory item creation removed - using graph-based system
                 Log.i(factoryType, "Created generic component: ${rootComponent.name}")
             }
             
