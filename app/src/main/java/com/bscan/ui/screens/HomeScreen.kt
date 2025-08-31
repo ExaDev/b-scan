@@ -70,6 +70,7 @@ fun HomeScreen(
             inventoryItems = allInventoryItems
             
             val allActivities = graphRepository.getEntitiesByType(EntityTypes.ACTIVITY)
+                .filterIsInstance<Activity>()
                 .filter { it.getProperty<String>("activityType") == ActivityTypes.SCAN }
             scanActivities = allActivities
             
