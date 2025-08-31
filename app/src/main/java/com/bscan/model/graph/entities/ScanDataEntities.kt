@@ -9,7 +9,7 @@ import java.time.LocalDateTime
  * Scan occurrence entity - represents each individual scan event
  * PERSISTENT: One created for each scan
  */
-class ScanOccurrence(
+open class ScanOccurrence(
     id: String = generateId(),
     label: String,
     properties: MutableMap<String, PropertyValue> = mutableMapOf()
@@ -46,7 +46,7 @@ class ScanOccurrence(
  * PERSISTENT: Shared across multiple scan occurrences via relationships
  * Deduplicated based on content hash
  */
-class RawScanData(
+open class RawScanData(
     id: String = generateId(),
     label: String,
     val scanFormat: String,  // "bambu_rfid", "creality_rfid", "qr_code", "barcode"
@@ -109,7 +109,7 @@ class RawScanData(
  * Decoded encrypted entity - non-encrypted metadata from raw scan
  * EPHEMERAL: Generated on-demand with TTL caching
  */
-class DecodedEncrypted(
+open class DecodedEncrypted(
     id: String = generateId(),
     label: String,
     properties: MutableMap<String, PropertyValue> = mutableMapOf()
@@ -161,7 +161,7 @@ class DecodedEncrypted(
  * Encoded decrypted entity - decrypted but still hex-encoded data  
  * EPHEMERAL: Generated on-demand with TTL caching
  */
-class EncodedDecrypted(
+open class EncodedDecrypted(
     id: String = generateId(),
     label: String,
     properties: MutableMap<String, PropertyValue> = mutableMapOf()
@@ -205,7 +205,7 @@ class EncodedDecrypted(
  * Decoded decrypted entity - fully interpreted structured data
  * EPHEMERAL: Generated on-demand with TTL caching
  */
-class DecodedDecrypted(
+open class DecodedDecrypted(
     id: String = generateId(),
     label: String,
     properties: MutableMap<String, PropertyValue> = mutableMapOf()
