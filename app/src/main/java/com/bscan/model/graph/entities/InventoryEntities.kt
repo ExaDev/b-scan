@@ -429,7 +429,7 @@ class InventoryItem(
         val netWeight = totalWeight - tare
         val inferredQuantity = when (trackingMode) {
             TrackingMode.DISCRETE -> (netWeight / unitWt).toInt().toFloat()
-            TrackingMode.CONTINUOUS -> netWeight
+            TrackingMode.CONTINUOUS -> netWeight / unitWt  // For continuous, divide by unit weight to get quantity
         }
         
         return InferenceResult(
@@ -449,7 +449,7 @@ class InventoryItem(
         
         val netWeight = when (trackingMode) {
             TrackingMode.DISCRETE -> quantity * unitWt
-            TrackingMode.CONTINUOUS -> quantity
+            TrackingMode.CONTINUOUS -> quantity * unitWt  // For continuous, multiply by unit weight to get net weight
         }
         val inferredWeight = netWeight + tare
         
