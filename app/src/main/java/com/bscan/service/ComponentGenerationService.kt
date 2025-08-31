@@ -6,6 +6,7 @@ import com.bscan.detector.TagDetector
 import com.bscan.model.Component
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.TagFormat
+import com.bscan.repository.UserComponentRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
@@ -24,6 +25,10 @@ class ComponentGenerationService(private val context: Context) {
     private val userDataRepository by lazy { com.bscan.repository.UserDataRepository(context) }
     private val unifiedDataAccess by lazy { com.bscan.repository.UnifiedDataAccess(catalogRepository, userDataRepository) }
     private val filamentMappings by lazy { com.bscan.model.FilamentMappings() }
+    
+    // User component system for overlays and user-created components
+    private val userComponentRepository by lazy { UserComponentRepository(context) }
+    private val componentMergerService by lazy { ComponentMergerService() }
     
     // Component factories - these should NOT persist components
     private val bambuFactory by lazy { BambuComponentFactory(context) }
@@ -74,7 +79,13 @@ class ComponentGenerationService(private val context: Context) {
         }
         
         Log.d(TAG, "Generated total of ${allComponents.size} components from ${scans.size} scans")
-        allComponents.toList()
+        
+        // Apply user overlays and user-created components
+        val userOverlays = userComponentRepository.getAllOverlays()
+        val mergedComponents = componentMergerService.mergeComponents(allComponents.toList(), userOverlays)
+        
+        Log.d(TAG, "Applied ${userOverlays.size} user overlays, final component count: ${mergedComponents.size}")
+        mergedComponents
     }
     
     /**
