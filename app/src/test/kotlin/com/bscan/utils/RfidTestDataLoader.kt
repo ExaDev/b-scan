@@ -225,6 +225,13 @@ object RfidTestDataLoader {
         val result = ByteArray(1024) // Mifare Classic 1K
         dump.blocks.forEach { (blockNum, hexData) ->
             val blockIndex = blockNum.toInt() * 16
+            
+            // Skip blocks that would exceed the array bounds (Mifare Classic 1K has only 64 blocks)
+            if (blockIndex + 16 > result.size) {
+                println("Warning: Skipping block $blockNum (index $blockIndex) - exceeds Mifare Classic 1K bounds")
+                return@forEach
+            }
+            
             val blockData = hexStringToByteArray(hexData)
             blockData.copyInto(result, blockIndex, 0, minOf(16, blockData.size))
         }
