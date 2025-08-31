@@ -23,8 +23,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
-import com.bscan.model.Component
-import com.bscan.model.DecryptedScanData
+import com.bscan.model.graph.entities.PhysicalComponent
+import com.bscan.model.graph.entities.InventoryItem
+import com.bscan.model.graph.entities.Activity
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.ScanPromptScreen
 import kotlinx.coroutines.launch
@@ -37,9 +38,9 @@ fun DataBrowserScreen(
     sortDirection: SortDirection,
     groupByOption: GroupByOption,
     filterState: FilterState,
-    filamentReels: List<Component>,
-    individualTags: List<Component>,
-    allScans: List<DecryptedScanData>,
+    filamentComponents: List<PhysicalComponent>,
+    inventoryItems: List<InventoryItem>,
+    allScanActivities: List<Activity>,
     availableFilamentTypes: Set<String>,
     availableColors: Set<String>,
     availableBaseMaterials: Set<String>,
@@ -369,7 +370,7 @@ fun DataBrowserScreen(
                 val actualPage = page % tabCount
                 when (ViewMode.values()[actualPage]) {
                     ViewMode.INVENTORY -> InventoryBrowser(
-                        allComponents = filamentReels + individualTags,
+                        allComponents = filamentComponents,
                         lazyListState = lazyListStates[actualPage],
                         onNavigateToDetails = onNavigateToDetails,
                         scanState = scanState,
@@ -379,7 +380,7 @@ fun DataBrowserScreen(
                         fullPromptHeightDp = fullPromptHeightDp
                     )
                     ViewMode.CATALOG -> CatalogBrowser(
-                        allComponents = filamentReels,
+                        allComponents = filamentComponents,
                         sortProperty = sortProperty,
                         sortDirection = sortDirection,
                         groupByOption = groupByOption,
@@ -393,12 +394,12 @@ fun DataBrowserScreen(
                         fullPromptHeightDp = fullPromptHeightDp
                     )
                     ViewMode.TAGS -> TagsBrowser(
-                        allScans = allScans,
+                        allScans = allScanActivities,
                         lazyListState = lazyListStates[actualPage],
                         onNavigateToDetails = onNavigateToDetails
                     )
                     ViewMode.SCANS -> ScansBrowser(
-                        allScans = allScans,
+                        allScans = allScanActivities,
                         lazyListState = lazyListStates[actualPage],
                         onNavigateToDetails = onNavigateToDetails
                     )
