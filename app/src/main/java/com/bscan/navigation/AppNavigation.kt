@@ -81,31 +81,15 @@ fun AppNavigation(
             // Navigate based on user preference and available identifiers
             when (navigationPreference) {
                 ComponentNavigationPreference.SCANNED_COMPONENT -> {
-                    // Try to navigate to the specific scanned component first
-                    if (tagUid != null) {
-                        navController.navigate("details/${DetailType.TAG.name.lowercase()}/$tagUid")
-                        Log.d("AppNavigation", "Graph: Navigating to scanned tag details for UID: $tagUid")
-                    } else if (trayUid != null) {
-                        // Fallback to tray if no specific tag found
-                        navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/$trayUid")
-                        Log.d("AppNavigation", "Graph: Fallback to tray details for UID: $trayUid")
-                    } else {
-                        Log.e("AppNavigation", "Graph: No identifiers found for navigation")
-                    }
+                    // Navigate to the specific scanned entity
+                    navController.navigate("details/entity/${scannedEntity.id}")
+                    Log.d("AppNavigation", "Graph: Navigating to scanned entity: ${scannedEntity.label} (ID: ${scannedEntity.id})")
                 }
                 
                 ComponentNavigationPreference.ROOT_COMPONENT -> {
-                    // Navigate to root/tray component (inventory view)
-                    if (trayUid != null) {
-                        navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/$trayUid")
-                        Log.d("AppNavigation", "Graph: Navigating to root component (tray) details for UID: $trayUid")
-                    } else if (tagUid != null) {
-                        // Fallback to tag if no tray found
-                        navController.navigate("details/${DetailType.TAG.name.lowercase()}/$tagUid")
-                        Log.d("AppNavigation", "Graph: Fallback to tag details for UID: $tagUid")
-                    } else {
-                        Log.e("AppNavigation", "Graph: No identifiers found for navigation")
-                    }
+                    // Navigate to root/tray component (main inventory item)
+                    navController.navigate("details/entity/${rootEntity.id}")
+                    Log.d("AppNavigation", "Graph: Navigating to root entity: ${rootEntity.label} (ID: ${rootEntity.id})")
                 }
             }
             
@@ -279,6 +263,29 @@ fun AppNavigation(
                             if (newIdentifier.isNotBlank()) {
                                 Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
                                 navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                            } else {
+                                Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                            }
+                        }
+                    )
+                }
+                "entity" -> {
+                    Log.d("AppNavigation", "Showing EntityDetailScreen for entity ID: $identifier")
+                    EntityDetailScreen(
+                        entityId = identifier.trim(),
+                        onNavigateBack = { 
+                            Log.d("AppNavigation", "Navigating back from EntityDetailScreen")
+                            navController.popBackStack() 
+                        },
+                        onNavigateToDetails = { newDetailType, newIdentifier ->
+                            if (newIdentifier.isNotBlank()) {
+                                Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
+                                // Handle entity navigation specially
+                                if (newIdentifier.startsWith("entity/")) {
+                                    navController.navigate("details/$newIdentifier")
+                                } else {
+                                    navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                                }
                             } else {
                                 Log.e("AppNavigation", "Attempted navigation with blank identifier")
                             }
