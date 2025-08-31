@@ -242,6 +242,10 @@ fun AppNavigation(
                         onNavigateBack = { 
                             Log.d("AppNavigation", "Navigating back from ScanDetailScreen")
                             navController.popBackStack() 
+                        },
+                        onNavigateToDetails = { detailType, detailId ->
+                            Log.d("AppNavigation", "Navigating from scan to ${detailType.name.lowercase()}: $detailId")
+                            navController.navigate("details/${detailType.name.lowercase()}/$detailId")
                         }
                     )
                 }
