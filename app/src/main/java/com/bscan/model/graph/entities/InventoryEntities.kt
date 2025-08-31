@@ -260,7 +260,7 @@ open class Activity(
 /**
  * Information entity (documents, specifications, manuals, etc.)
  */
-class Information(
+open class Information(
     id: String = generateId(),
     val informationType: String,
     label: String,

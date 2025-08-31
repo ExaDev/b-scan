@@ -5,14 +5,13 @@ import com.bscan.ui.screens.home.CatalogDisplayMode
 import com.bscan.ui.components.MaterialDisplaySettings
 
 /**
- * Runtime user data that extends the catalog data.
- * Contains user's inventory, scans, custom mappings, and preferences.
+ * Runtime user data for settings and custom mappings.
+ * Contains scans, custom mappings, and preferences.
  * This data is read-write and stored in SharedPreferences.
+ * Note: Inventory and components are now managed through the graph system.
  */
 data class UserData(
     val version: Int,
-    val components: Map<String, Component>,
-    val inventoryItems: Map<String, InventoryItem>,
     val scans: ScanDataContainer,
     val measurements: List<MassMeasurement>,
     val customMappings: CustomMappings,
@@ -124,7 +123,5 @@ enum class AppTheme {
 data class UserDataMetadata(
     val lastModified: LocalDateTime = LocalDateTime.now(),
     val appVersion: String = "1.0.0",
-    val totalScans: Int = 0,
-    val totalComponents: Int = 0,
-    val totalInventoryItems: Int = 0
+    val totalScans: Int = 0
 )
