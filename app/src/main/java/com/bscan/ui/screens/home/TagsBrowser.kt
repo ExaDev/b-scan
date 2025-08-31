@@ -18,9 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bscan.model.DecryptedScanData
-import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.TagStatistics
+import com.bscan.model.graph.entities.Activity
+import com.bscan.model.graph.entities.ActivityTypes
+import com.bscan.repository.GraphRepository
 import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
@@ -31,21 +31,33 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TagsBrowser(
-    allScans: List<DecryptedScanData>,
+    allScans: List<Activity>,
     lazyListState: LazyListState,
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { ScanHistoryRepository(context) }
+    val graphRepository = remember { GraphRepository(context) }
     
-    // Group scans by tag UID
-    val groupedScans by remember(allScans) {
+    // Filter scan activities and group by tag UID
+    val scanActivities = remember(allScans) {
+        allScans.filter { it.getProperty<String>("activityType") == ActivityTypes.SCAN }
+    }
+    
+    val groupedScans by remember(scanActivities) {
         derivedStateOf {
-            repository.getScansGroupedByTagUid()
-                .entries
-                .sortedByDescending { (_, scans) -> 
-                    scans.maxOfOrNull { it.timestamp } ?: java.time.LocalDateTime.MIN
+            scanActivities
+                .groupBy { activity -> 
+                    activity.getProperty<String>("tagUid") ?: "Unknown"
+                }
+                .filter { it.key != "Unknown" }
+                .toList()
+                .sortedByDescending { (_, activities) -> 
+                    activities.maxOfOrNull { activity ->
+                        activity.getProperty<String>("timestamp")?.let { 
+                            java.time.LocalDateTime.parse(it)
+                        } ?: java.time.LocalDateTime.MIN
+                    } ?: java.time.LocalDateTime.MIN
                 }
         }
     }
@@ -67,8 +79,8 @@ fun TagsBrowser(
             item {
                 TagsSummaryCard(
                     totalTags = groupedScans.size,
-                    totalScans = allScans.size,
-                    successRate = repository.getSuccessRate()
+                    totalScans = scanActivities.size,
+                    successRate = calculateSuccessRate(scanActivities)
                 )
             }
         }
@@ -83,7 +95,6 @@ fun TagsBrowser(
                 TagGroupCard(
                     tagUid = tagUid,
                     scans = scans,
-                    statistics = repository.getTagStatistics(tagUid),
                     onNavigateToDetails = onNavigateToDetails
                 )
             }
@@ -169,11 +180,18 @@ private fun TagsSummaryCard(
 @Composable
 private fun TagGroupCard(
     tagUid: String,
-    scans: List<DecryptedScanData>,
-    statistics: TagStatistics,
+    scans: List<Activity>,
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
+    val successfulScans = scans.count { it.getProperty<Boolean>("success") == true }
+    val successRate = if (scans.isNotEmpty()) successfulScans.toFloat() / scans.size else 0f
+    val latestScan = scans.maxByOrNull { activity ->
+        activity.getProperty<String>("timestamp")?.let { 
+            java.time.LocalDateTime.parse(it)
+        } ?: java.time.LocalDateTime.MIN
+    }
+    
     Card(
         modifier = modifier.fillMaxWidth(),
         onClick = { 
@@ -196,17 +214,22 @@ private fun TagGroupCard(
                 )
                 
                 Text(
-                    text = "${statistics.totalScans} scans • ${(statistics.successRate * 100).toInt()}% success",
+                    text = "${scans.size} scans • ${(successRate * 100).toInt()}% success",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
-                statistics.latestScanTimestamp?.let { timestamp ->
-                    Text(
-                        text = "Latest: ${timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                latestScan?.getProperty<String>("timestamp")?.let { timestampStr ->
+                    try {
+                        val timestamp = java.time.LocalDateTime.parse(timestampStr)
+                        Text(
+                            text = "Latest: ${timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } catch (e: Exception) {
+                        // Handle parsing error gracefully
+                    }
                 }
             }
             
@@ -217,6 +240,13 @@ private fun TagGroupCard(
             )
         }
     }
+}
+
+// Helper function to calculate success rate from activities
+private fun calculateSuccessRate(activities: List<Activity>): Float {
+    if (activities.isEmpty()) return 0f
+    val successfulScans = activities.count { it.getProperty<Boolean>("success") == true }
+    return successfulScans.toFloat() / activities.size
 }
 
 @Composable

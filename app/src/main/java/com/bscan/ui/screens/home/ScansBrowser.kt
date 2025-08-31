@@ -16,9 +16,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.bscan.model.DecryptedScanData
-import com.bscan.model.ScanResult
-import com.bscan.repository.ScanHistoryRepository
+import com.bscan.model.graph.entities.Activity
+import com.bscan.model.graph.entities.ActivityTypes
+import com.bscan.repository.GraphRepository
 import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedDataView
@@ -28,26 +28,35 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ScansBrowser(
-    allScans: List<DecryptedScanData>,
+    allScans: List<Activity>,
     lazyListState: LazyListState,
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { ScanHistoryRepository(context) }
+    val graphRepository = remember { GraphRepository(context) }
+    
+    // Filter scan activities
+    val scanActivities = remember(allScans) {
+        allScans.filter { it.getProperty<String>("activityType") == ActivityTypes.SCAN }
+    }
     
     // Filter state
     var selectedFilter by remember { mutableStateOf("All") }
     val filterOptions = listOf("All", "Success", "Failed")
     
     // Filter scans based on selected filter
-    val filteredScans by remember(allScans, selectedFilter) {
+    val filteredScans by remember(scanActivities, selectedFilter) {
         derivedStateOf {
             when (selectedFilter) {
-                "Success" -> allScans.filter { it.scanResult == ScanResult.SUCCESS }
-                "Failed" -> allScans.filter { it.scanResult != ScanResult.SUCCESS }
-                else -> allScans
-            }.sortedByDescending { it.timestamp } // Most recent first
+                "Success" -> scanActivities.filter { it.getProperty<Boolean>("success") == true }
+                "Failed" -> scanActivities.filter { it.getProperty<Boolean>("success") != true }
+                else -> scanActivities
+            }.sortedByDescending { activity ->
+                activity.getProperty<String>("timestamp")?.let { 
+                    java.time.LocalDateTime.parse(it)
+                } ?: java.time.LocalDateTime.MIN
+            } // Most recent first
         }
     }
     
@@ -64,15 +73,15 @@ fun ScansBrowser(
         }
         
         // Statistics and filter section
-        if (allScans.isNotEmpty()) {
+        if (scanActivities.isNotEmpty()) {
             item {
                 ScansSummaryCard(
-                    totalScans = allScans.size,
+                    totalScans = scanActivities.size,
                     filteredScans = filteredScans.size,
                     selectedFilter = selectedFilter,
                     filterOptions = filterOptions,
                     onFilterChanged = { selectedFilter = it },
-                    repository = repository
+                    activities = scanActivities
                 )
             }
         }
@@ -84,7 +93,9 @@ fun ScansBrowser(
             }
         } else {
             items(filteredScans) { scan ->
-                val scanId = "${scan.timestamp}-${scan.tagUid}"
+                val timestamp = scan.getProperty<String>("timestamp") ?: ""
+                val tagUid = scan.getProperty<String>("tagUid") ?: ""
+                val scanId = "$timestamp-$tagUid"
                 ScanCard(
                     scan = scan,
                     onNavigateToDetails = onNavigateToDetails
@@ -101,9 +112,17 @@ private fun ScansSummaryCard(
     selectedFilter: String,
     filterOptions: List<String>,
     onFilterChanged: (String) -> Unit,
-    repository: ScanHistoryRepository,
+    activities: List<Activity>,
     modifier: Modifier = Modifier
 ) {
+    val successRate = if (activities.isNotEmpty()) {
+        activities.count { it.getProperty<Boolean>("success") == true }.toFloat() / activities.size
+    } else 0f
+    
+    val uniqueTagsCount = activities
+        .mapNotNull { it.getProperty<String>("tagUid") }
+        .distinct()
+        .size
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -142,7 +161,7 @@ private fun ScansSummaryCard(
                 
                 Column {
                     Text(
-                        text = "${(repository.getSuccessRate() * 100).toInt()}%",
+                        text = "${(successRate * 100).toInt()}%",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -156,7 +175,7 @@ private fun ScansSummaryCard(
                 
                 Column {
                     Text(
-                        text = repository.getUniqueTagCount().toString(),
+                        text = uniqueTagsCount.toString(),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -181,8 +200,8 @@ private fun ScansSummaryCard(
                             Text(
                                 text = when (filter) {
                                     "All" -> "All ($totalScans)"
-                                    "Success" -> "Success (${totalScans - (totalScans - (repository.getSuccessRate() * totalScans).toInt())})"
-                                    "Failed" -> "Failed (${totalScans - (repository.getSuccessRate() * totalScans).toInt()})"
+                                    "Success" -> "Success (${(successRate * totalScans).toInt()})"
+                                    "Failed" -> "Failed (${totalScans - (successRate * totalScans).toInt()})"
                                     else -> filter
                                 }
                             )
@@ -205,11 +224,15 @@ private fun ScansSummaryCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScanCard(
-    scan: DecryptedScanData,
+    scan: Activity,
     onNavigateToDetails: ((DetailType, String) -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val scanId = "${scan.timestamp}-${scan.tagUid}"
+    val timestamp = scan.getProperty<String>("timestamp") ?: ""
+    val tagUid = scan.getProperty<String>("tagUid") ?: "Unknown"
+    val success = scan.getProperty<Boolean>("success") ?: false
+    val technology = scan.getProperty<String>("technology") ?: "NFC"
+    val scanId = "$timestamp-$tagUid"
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -217,9 +240,10 @@ private fun ScanCard(
             onNavigateToDetails?.invoke(DetailType.SCAN, scanId)
         },
         colors = CardDefaults.cardColors(
-            containerColor = when (scan.scanResult) {
-                ScanResult.SUCCESS -> MaterialTheme.colorScheme.surface
-                else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+            containerColor = if (success) {
+                MaterialTheme.colorScheme.surface
+            } else {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
             }
         )
     ) {
@@ -232,25 +256,34 @@ private fun ScanCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = scan.tagUid,
+                    text = tagUid,
                     style = MaterialTheme.typography.titleMedium,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
                 
-                Text(
-                    text = scan.timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                try {
+                    val parsedTimestamp = java.time.LocalDateTime.parse(timestamp)
+                    Text(
+                        text = parsedTimestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } catch (e: Exception) {
+                    Text(
+                        text = timestamp,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ScanResultChip(scanResult = scan.scanResult)
+                    ScanResultChip(success = success)
                     Text(
-                        text = scan.technology,
+                        text = technology,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -268,39 +301,20 @@ private fun ScanCard(
 
 @Composable
 private fun ScanResultChip(
-    scanResult: ScanResult,
+    success: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val (color, icon, text) = when (scanResult) {
-        ScanResult.SUCCESS -> Triple(
+    val (color, icon, text) = if (success) {
+        Triple(
             MaterialTheme.colorScheme.primary, 
             Icons.Default.CheckCircle, 
             "Success"
         )
-        ScanResult.AUTHENTICATION_FAILED -> Triple(
-            MaterialTheme.colorScheme.error, 
-            Icons.Default.Lock, 
-            "Auth Failed"
-        )
-        ScanResult.INSUFFICIENT_DATA -> Triple(
-            MaterialTheme.colorScheme.secondary, 
-            Icons.Default.Warning, 
-            "No Data"
-        )
-        ScanResult.PARSING_FAILED -> Triple(
+    } else {
+        Triple(
             MaterialTheme.colorScheme.error, 
             Icons.Default.Error, 
-            "Parse Error"
-        )
-        ScanResult.NO_NFC_TAG -> Triple(
-            MaterialTheme.colorScheme.outline, 
-            Icons.Default.Nfc, 
-            "No Tag"
-        )
-        ScanResult.UNKNOWN_ERROR -> Triple(
-            MaterialTheme.colorScheme.error, 
-            Icons.Default.Help, 
-            "Error"
+            "Failed"
         )
     }
     
