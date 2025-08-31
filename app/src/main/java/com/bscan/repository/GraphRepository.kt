@@ -397,6 +397,48 @@ class GraphRepository(private val context: Context) {
                     properties = deserializeProperties(serialized.properties)
                 )
             }
+            "InventoryItem" -> {
+                val trackingModeStr = serialized.properties["trackingMode"] ?: "DISCRETE"
+                val trackingMode = try {
+                    TrackingMode.valueOf(trackingModeStr)
+                } catch (e: IllegalArgumentException) {
+                    TrackingMode.DISCRETE
+                }
+                InventoryItem(
+                    id = serialized.id,
+                    label = serialized.label,
+                    trackingMode = trackingMode,
+                    properties = deserializeProperties(serialized.properties)
+                )
+            }
+            "CalibrationActivity" -> {
+                CalibrationActivity(
+                    id = serialized.id,
+                    label = serialized.label,
+                    properties = deserializeProperties(serialized.properties)
+                )
+            }
+            "MeasurementActivity" -> {
+                MeasurementActivity(
+                    id = serialized.id,
+                    label = serialized.label,
+                    properties = deserializeProperties(serialized.properties)
+                )
+            }
+            "StockMovementActivity" -> {
+                val movementTypeStr = serialized.properties["movementType"] ?: "ADJUSTMENT"
+                val movementType = try {
+                    StockMovementType.valueOf(movementTypeStr)
+                } catch (e: IllegalArgumentException) {
+                    StockMovementType.ADJUSTMENT
+                }
+                StockMovementActivity(
+                    id = serialized.id,
+                    movementType = movementType,
+                    label = serialized.label,
+                    properties = deserializeProperties(serialized.properties)
+                )
+            }
             else -> {
                 Log.w(TAG, "Unknown entity class: ${serialized.className}")
                 null
