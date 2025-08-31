@@ -68,7 +68,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             Log.i(factoryType, "Generated RFID tag component: ${encryptedScanData.tagUid}")
             
             // Generate tray component with all children (fresh each time - no persistence)
-            val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
+            val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id, encryptedScanData.tagUid)
             Log.i(factoryType, "Generated tray component: ${trayComponent.name}")
             
             return@withContext trayComponent
@@ -94,7 +94,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         Log.i(factoryType, "Generated RFID tag component: $tagUid")
         
         // Create complete tray component hierarchy
-        val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id)
+        val trayComponent = createCompleteTrayComponent(filamentInfo.trayUid, filamentInfo, rfidTagComponent.id, tagUid)
         return@withContext listOf(trayComponent)
     }
     
@@ -115,7 +115,8 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
     private suspend fun createCompleteTrayComponent(
         trayUid: String,
         filamentInfo: FilamentInfo,
-        rfidTagComponentId: String
+        rfidTagComponentId: String,
+        scannedTagUid: String
     ): Component = withContext(Dispatchers.IO) {
         
         // Create filament component
@@ -153,7 +154,7 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             massGrams = null, // Will be calculated from children
             manufacturer = "Bambu Lab",
             description = "Bambu filament tray with RFID tags, filament, and core",
-            metadata = buildTrayMetadata(trayUid, filamentInfo),
+            metadata = buildTrayMetadata(trayUid, filamentInfo) + mapOf("scannedTagUid" to scannedTagUid),
             createdAt = System.currentTimeMillis(),
             lastUpdated = LocalDateTime.now()
         )
