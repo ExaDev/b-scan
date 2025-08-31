@@ -96,9 +96,7 @@ class UserDataRepository(private val context: Context) {
         val newData = transform(currentData).copy(
             metadata = currentData.metadata.copy(
                 lastModified = LocalDateTime.now(),
-                totalScans = countScans(currentData),
-                totalComponents = currentData.components.size,
-                totalInventoryItems = currentData.inventoryItems.size
+                totalScans = countScans(currentData)
             )
         )
         cachedUserData = newData
@@ -106,54 +104,8 @@ class UserDataRepository(private val context: Context) {
         _userDataFlow.value = newData
     }
     
-    /**
-     * Save a physical component
-     */
-    fun saveComponent(component: Component) {
-        updateUserData { userData ->
-            userData.copy(
-                components = userData.components + (component.id to component)
-            )
-        }
-    }
-    
-    /**
-     * Get a physical component by ID
-     */
-    fun getComponent(componentId: String): Component? {
-        return getUserData().components[componentId]
-    }
-    
-    /**
-     * Get all physical components
-     */
-    fun getComponents(): Map<String, Component> {
-        return getUserData().components
-    }
-    
-    // Legacy inventory item methods removed - inventory items are now generated on-demand
-    
-    /**
-     * Remove an inventory item
-     */
-    fun removeInventoryItem(trayUid: String) {
-        updateUserData { userData ->
-            userData.copy(
-                inventoryItems = userData.inventoryItems - trayUid
-            )
-        }
-    }
-    
-    /**
-     * Remove a physical component
-     */
-    fun removeComponent(componentId: String) {
-        updateUserData { userData ->
-            userData.copy(
-                components = userData.components - componentId
-            )
-        }
-    }
+    // Legacy component and inventory item methods removed
+    // Components are now managed through the graph system
     
     /**
      * Record a new scan (both encrypted and decrypted data)
@@ -338,8 +290,6 @@ class UserDataRepository(private val context: Context) {
     fun getDataStatistics(): UserDataStatistics {
         val userData = getUserData()
         return UserDataStatistics(
-            totalComponents = userData.components.size,
-            totalInventoryItems = userData.inventoryItems.size,
             totalScans = countScans(userData),
             totalMeasurements = userData.measurements.size,
             customManufacturers = userData.customMappings.manufacturers.size,
@@ -384,8 +334,6 @@ class UserDataRepository(private val context: Context) {
         Log.i(TAG, "Creating default user data")
         return UserData(
             version = 1,
-            components = emptyMap(),
-            inventoryItems = emptyMap(),
             scans = ScanDataContainer(
                 encryptedScans = emptyMap(),
                 decryptedScans = emptyMap()
@@ -420,8 +368,6 @@ class UserDataRepository(private val context: Context) {
  * Statistics about the current user data
  */
 data class UserDataStatistics(
-    val totalComponents: Int,
-    val totalInventoryItems: Int,
     val totalScans: Int,
     val totalMeasurements: Int,
     val customManufacturers: Int,
