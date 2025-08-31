@@ -346,6 +346,7 @@ object EntityTypes {
     const val ACTIVITY = "activity"
     const val INFORMATION = "information"
     const val VIRTUAL = "virtual"
+    const val INVENTORY_ITEM = "inventory_item"
 }
 
 /**
