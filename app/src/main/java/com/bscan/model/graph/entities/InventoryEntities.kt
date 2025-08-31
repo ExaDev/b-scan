@@ -364,6 +364,370 @@ object IdentifierTypes {
 }
 
 /**
+ * Inventory item entity for tracking quantities over time
+ * Links to either unique physical items or fungible product types
+ */
+class InventoryItem(
+    id: String = generateId(),
+    label: String,
+    val trackingMode: TrackingMode = TrackingMode.DISCRETE,
+    properties: MutableMap<String, PropertyValue> = mutableMapOf()
+) : Entity(
+    id = id,
+    entityType = "inventory_item",
+    label = label,
+    properties = properties
+) {
+    
+    init {
+        setProperty("trackingMode", trackingMode.name)
+    }
+    
+    // Current quantity/state
+    var currentQuantity: Float
+        get() = getProperty("currentQuantity") ?: 0f
+        set(value) { setProperty("currentQuantity", value) }
+    
+    var currentWeight: Float?
+        get() = getProperty("currentWeight")
+        set(value) { value?.let { setProperty("currentWeight", it) } }
+    
+    // Reorder management
+    var reorderLevel: Float?
+        get() = getProperty("reorderLevel")
+        set(value) { value?.let { setProperty("reorderLevel", it) } }
+    
+    var reorderQuantity: Float?
+        get() = getProperty("reorderQuantity")
+        set(value) { value?.let { setProperty("reorderQuantity", it) } }
+    
+    // Component weights for inference (e.g., spool tare weight)
+    var tareWeight: Float?
+        get() = getProperty("tareWeight")
+        set(value) { value?.let { setProperty("tareWeight", it) } }
+    
+    var unitWeight: Float?
+        get() = getProperty("unitWeight")
+        set(value) { value?.let { setProperty("unitWeight", it) } }
+    
+    // Storage and location
+    var location: String?
+        get() = getProperty("location")
+        set(value) { value?.let { setProperty("location", it) } }
+    
+    var notes: String?
+        get() = getProperty("notes")
+        set(value) { value?.let { setProperty("notes", it) } }
+    
+    /**
+     * Perform bidirectional inference between weight and quantity
+     */
+    fun inferFromWeight(totalWeight: Float): InferenceResult? {
+        val tare = tareWeight ?: return null
+        val unitWt = unitWeight ?: return null
+        
+        val netWeight = totalWeight - tare
+        val inferredQuantity = when (trackingMode) {
+            TrackingMode.DISCRETE -> (netWeight / unitWt).toInt().toFloat()
+            TrackingMode.CONTINUOUS -> netWeight
+        }
+        
+        return InferenceResult(
+            inferredQuantity = inferredQuantity,
+            inferredWeight = totalWeight,
+            confidence = calculateConfidence(netWeight, unitWt),
+            method = "weight_inference"
+        )
+    }
+    
+    /**
+     * Perform bidirectional inference from quantity to weight
+     */
+    fun inferFromQuantity(quantity: Float): InferenceResult? {
+        val tare = tareWeight ?: return null
+        val unitWt = unitWeight ?: return null
+        
+        val netWeight = when (trackingMode) {
+            TrackingMode.DISCRETE -> quantity * unitWt
+            TrackingMode.CONTINUOUS -> quantity
+        }
+        val inferredWeight = netWeight + tare
+        
+        return InferenceResult(
+            inferredQuantity = quantity,
+            inferredWeight = inferredWeight,
+            confidence = 100f, // Quantity-based inference is exact
+            method = "quantity_inference"
+        )
+    }
+    
+    private fun calculateConfidence(netWeight: Float, unitWeight: Float): Float {
+        // Simple confidence based on how well the division works out
+        val exactUnits = netWeight / unitWeight
+        val roundedUnits = exactUnits.toInt()
+        val error = kotlin.math.abs(exactUnits - roundedUnits)
+        return (100f * (1f - error)).coerceIn(50f, 100f)
+    }
+    
+    override fun copy(newId: String): InventoryItem {
+        return InventoryItem(
+            id = newId,
+            label = label,
+            trackingMode = trackingMode,
+            properties = properties.toMutableMap()
+        )
+    }
+    
+    override fun validate(): ValidationResult {
+        val errors = mutableListOf<String>()
+        
+        if (label.isBlank()) errors.add("Inventory item must have a label")
+        if (currentQuantity < 0) errors.add("Current quantity cannot be negative")
+        
+        return if (errors.isEmpty()) {
+            ValidationResult.valid()
+        } else {
+            ValidationResult.invalid(*errors.toTypedArray())
+        }
+    }
+}
+
+/**
+ * Calibration activity - establishes weight/quantity relationships
+ */
+class CalibrationActivity(
+    id: String = generateId(),
+    label: String,
+    properties: MutableMap<String, PropertyValue> = mutableMapOf()
+) : Activity(
+    id = id,
+    activityType = ActivityTypes.CALIBRATION,
+    label = label,
+    properties = properties
+) {
+    
+    // Calibration inputs
+    var totalWeight: Float
+        get() = getProperty("totalWeight") ?: 0f
+        set(value) { setProperty("totalWeight", value) }
+    
+    var tareWeight: Float?
+        get() = getProperty("tareWeight")
+        set(value) { value?.let { setProperty("tareWeight", it) } }
+    
+    var knownQuantity: Float
+        get() = getProperty("knownQuantity") ?: 0f
+        set(value) { setProperty("knownQuantity", value) }
+    
+    // Calibration results
+    var calculatedUnitWeight: Float?
+        get() = getProperty("calculatedUnitWeight")
+        set(value) { value?.let { setProperty("calculatedUnitWeight", it) } }
+    
+    var calculatedNetWeight: Float?
+        get() = getProperty("calculatedNetWeight")
+        set(value) { value?.let { setProperty("calculatedNetWeight", it) } }
+    
+    var calibrationAccuracy: Float?
+        get() = getProperty("calibrationAccuracy")
+        set(value) { value?.let { setProperty("calibrationAccuracy", it) } }
+    
+    /**
+     * Perform calibration calculation
+     */
+    fun performCalibration(): CalibrationResult {
+        val tare = tareWeight ?: 0f
+        val net = totalWeight - tare
+        
+        if (knownQuantity <= 0) {
+            return CalibrationResult(
+                success = false,
+                error = "Known quantity must be greater than zero"
+            )
+        }
+        
+        val unitWt = net / knownQuantity
+        
+        calculatedNetWeight = net
+        calculatedUnitWeight = unitWt
+        calibrationAccuracy = if (unitWt > 0) 100f else 0f
+        
+        return CalibrationResult(
+            success = true,
+            unitWeight = unitWt,
+            netWeight = net,
+            accuracy = calibrationAccuracy ?: 0f
+        )
+    }
+}
+
+/**
+ * Measurement activity with bidirectional inference
+ */
+class MeasurementActivity(
+    id: String = generateId(),
+    label: String,
+    properties: MutableMap<String, PropertyValue> = mutableMapOf()
+) : Activity(
+    id = id,
+    activityType = ActivityTypes.MEASUREMENT,
+    label = label,
+    properties = properties
+) {
+    
+    // User inputs (either weight OR quantity)
+    var providedWeight: Float?
+        get() = getProperty("providedWeight")
+        set(value) { value?.let { setProperty("providedWeight", it) } }
+    
+    var providedQuantity: Float?
+        get() = getProperty("providedQuantity")
+        set(value) { value?.let { setProperty("providedQuantity", it) } }
+    
+    // Inferred values
+    var inferredWeight: Float?
+        get() = getProperty("inferredWeight")
+        set(value) { value?.let { setProperty("inferredWeight", it) } }
+    
+    var inferredQuantity: Float?
+        get() = getProperty("inferredQuantity")
+        set(value) { value?.let { setProperty("inferredQuantity", it) } }
+    
+    var confidence: Float?
+        get() = getProperty("confidence")
+        set(value) { value?.let { setProperty("confidence", it) } }
+    
+    var inferenceMethod: String?
+        get() = getProperty("inferenceMethod")
+        set(value) { value?.let { setProperty("inferenceMethod", it) } }
+    
+    // Previous values for change calculation
+    var previousWeight: Float?
+        get() = getProperty("previousWeight")
+        set(value) { value?.let { setProperty("previousWeight", it) } }
+    
+    var previousQuantity: Float?
+        get() = getProperty("previousQuantity")
+        set(value) { value?.let { setProperty("previousQuantity", it) } }
+    
+    var weightChange: Float?
+        get() = getProperty("weightChange")
+        set(value) { value?.let { setProperty("weightChange", it) } }
+    
+    var quantityChange: Float?
+        get() = getProperty("quantityChange")
+        set(value) { value?.let { setProperty("quantityChange", it) } }
+}
+
+/**
+ * Stock movement activity - records inventory changes
+ */
+class StockMovementActivity(
+    id: String = generateId(),
+    val movementType: StockMovementType,
+    label: String,
+    properties: MutableMap<String, PropertyValue> = mutableMapOf()
+) : Activity(
+    id = id,
+    activityType = ActivityTypes.STOCK_MOVEMENT,
+    label = label,
+    properties = properties
+) {
+    
+    init {
+        setProperty("movementType", movementType.name)
+    }
+    
+    var quantityChange: Float
+        get() = getProperty("quantityChange") ?: 0f
+        set(value) { setProperty("quantityChange", value) }
+    
+    var weightChange: Float?
+        get() = getProperty("weightChange")
+        set(value) { value?.let { setProperty("weightChange", it) } }
+    
+    var newQuantity: Float
+        get() = getProperty("newQuantity") ?: 0f
+        set(value) { setProperty("newQuantity", value) }
+    
+    var newWeight: Float?
+        get() = getProperty("newWeight")
+        set(value) { value?.let { setProperty("newWeight", it) } }
+    
+    var reason: String?
+        get() = getProperty("reason")
+        set(value) { value?.let { setProperty("reason", it) } }
+    
+    var batchNumber: String?
+        get() = getProperty("batchNumber")
+        set(value) { value?.let { setProperty("batchNumber", it) } }
+    
+    var cost: Float?
+        get() = getProperty("cost")
+        set(value) { value?.let { setProperty("cost", it) } }
+    
+    var supplier: String?
+        get() = getProperty("supplier")
+        set(value) { value?.let { setProperty("supplier", it) } }
+}
+
+/**
+ * Tracking modes for inventory items
+ */
+enum class TrackingMode {
+    DISCRETE,    // Count-based (pieces, units)
+    CONTINUOUS   // Weight/volume-based (grams, milliliters)
+}
+
+/**
+ * Stock movement types
+ */
+enum class StockMovementType {
+    ADDITION,      // Adding stock (purchase, refill)
+    CONSUMPTION,   // Using stock (manufacturing, projects)
+    ADJUSTMENT,    // Corrections (counting errors)
+    TRANSFER,      // Moving between locations
+    WASTE,         // Loss/damage/expiry
+    CALIBRATION    // Setting initial values
+}
+
+/**
+ * Result of inference calculations
+ */
+data class InferenceResult(
+    val inferredQuantity: Float,
+    val inferredWeight: Float,
+    val confidence: Float,
+    val method: String,
+    val uncertainty: Float? = null
+)
+
+/**
+ * Result of calibration calculations
+ */
+data class CalibrationResult(
+    val success: Boolean,
+    val unitWeight: Float? = null,
+    val netWeight: Float? = null,
+    val accuracy: Float? = null,
+    val error: String? = null
+)
+
+/**
+ * Common entity types
+ */
+object EntityTypes {
+    const val PHYSICAL_COMPONENT = "physical_component"
+    const val INVENTORY_ITEM = "inventory_item"
+    const val IDENTIFIER = "identifier"
+    const val LOCATION = "location"
+    const val PERSON = "person"
+    const val ACTIVITY = "activity"
+    const val INFORMATION = "information"
+    const val VIRTUAL = "virtual"
+}
+
+/**
  * Common activity types
  */
 object ActivityTypes {
@@ -374,4 +738,19 @@ object ActivityTypes {
     const val DISPOSAL = "disposal"
     const val CALIBRATION = "calibration"
     const val INSPECTION = "inspection"
+    const val MEASUREMENT = "measurement"
+    const val STOCK_MOVEMENT = "stock_movement"
+}
+
+/**
+ * Common relationship types for inventory
+ */
+object InventoryRelationshipTypes {
+    const val TRACKS = "tracks"                    // InventoryItem -> PhysicalComponent/Virtual
+    const val HAD_MOVEMENT = "had_movement"        // InventoryItem -> StockMovementActivity
+    const val CALIBRATED_BY = "calibrated_by"     // InventoryItem -> CalibrationActivity
+    const val MEASURED_BY = "measured_by"         // InventoryItem -> MeasurementActivity
+    const val HAS_COMPONENT = "has_component"     // InventoryItem -> PhysicalComponent (tare weights)
+    const val STORED_AT = "stored_at"             // InventoryItem -> Location
+    const val SUPPLIED_BY = "supplied_by"         // InventoryItem -> Person (supplier)
 }
