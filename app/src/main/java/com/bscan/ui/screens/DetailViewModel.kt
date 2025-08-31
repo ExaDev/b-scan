@@ -18,7 +18,6 @@ import com.bscan.service.ComponentGroupingService
 import com.bscan.service.ComponentGenerationService
 import com.bscan.service.ComponentMergerService
 import com.bscan.service.MassInferenceService
-import com.bscan.service.ComponentFactory
 import com.bscan.ble.ScaleReading
 import com.bscan.ble.WeightUnit
 import com.bscan.interpreter.InterpreterFactory

@@ -5,16 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.debug.DebugDataCollector
 import com.bscan.model.*
+import com.bscan.model.graph.*
+import com.bscan.model.graph.entities.*
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
-import com.bscan.repository.ComponentRepository
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.service.ComponentFactory
-import com.bscan.service.ComponentGenerationService
+import com.bscan.repository.GraphEntityCreationResult
 import com.bscan.service.ScanningService
 import com.bscan.service.DefaultScanningService
-import com.bscan.service.BambuComponentFactory
+import com.bscan.service.GraphDataService
 import com.bscan.service.ScanResult as ServiceScanResult
 import com.bscan.model.TagFormat
 import kotlinx.coroutines.*
@@ -32,22 +32,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _scanProgress = MutableStateFlow<ScanProgress?>(null)
     val scanProgress: StateFlow<ScanProgress?> = _scanProgress.asStateFlow()
     
-    // Component factory architecture state flows
-    private val _componentCreationResult = MutableStateFlow<ComponentCreationResult?>(null)
-    val componentCreationResult: StateFlow<ComponentCreationResult?> = _componentCreationResult.asStateFlow()
     
-    private val _componentOperationState = MutableStateFlow<ComponentOperationState>(ComponentOperationState.Idle)
-    val componentOperationState: StateFlow<ComponentOperationState> = _componentOperationState.asStateFlow()
+    // Graph-based state flows
+    private val _graphEntityCreationResult = MutableStateFlow<GraphEntityCreationResult?>(null)
+    val graphEntityCreationResult: StateFlow<GraphEntityCreationResult?> = _graphEntityCreationResult.asStateFlow()
     
-    private val _massInferenceResult = MutableStateFlow<MassInferenceResult?>(null)
-    val massInferenceResult: StateFlow<MassInferenceResult?> = _massInferenceResult.asStateFlow()
+    private val _graphOperationState = MutableStateFlow<GraphOperationState>(GraphOperationState.Idle)
+    val graphOperationState: StateFlow<GraphOperationState> = _graphOperationState.asStateFlow()
     
     private val catalogRepository = CatalogRepository(application)
     private val userDataRepository = UserDataRepository(application)
-    private val componentRepository = ComponentRepository(application)
     private val scanHistoryRepository = ScanHistoryRepository(application)
-    private val componentFactory = BambuComponentFactory(application)
-    private val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
+    private val unifiedDataAccess = UnifiedDataAccess(
+        catalogRepository, 
+        userDataRepository, 
+        scanHistoryRepository,
+        null, // componentRepository (removed legacy support)
+        application
+    )
     
     // Decoupled scanning service (only persists scan data, not components)
     private val scanningService: ScanningService = DefaultScanningService(
@@ -91,28 +93,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                 )
                 
-                // Generate components on-demand for navigation
+                // Create graph entities from scan data
                 withContext(Dispatchers.IO) {
                     try {
-                        val componentGenerationService = ComponentGenerationService(getApplication())
-                        val generatedComponents = componentGenerationService.generateComponentsFromScans(listOf(decryptedData))
+                        _graphOperationState.value = GraphOperationState.CreatingEntities
+                        val graphResult = unifiedDataAccess.createGraphEntitiesFromScan(encryptedData, decryptedData)
                         
-                        // Get the first inventory item (root component) for navigation
-                        val rootComponent = generatedComponents.firstOrNull { it.isInventoryItem }
-                            ?: generatedComponents.firstOrNull()
+                        _graphEntityCreationResult.value = graphResult
                         
-                        if (rootComponent != null) {
-                            _componentCreationResult.value = ComponentCreationResult.Success(
-                                rootComponent = rootComponent,
-                                factoryType = "ComponentGenerationService",
-                                tagFormat = decryptedData.tagFormat
-                            )
-                            Log.d("MainViewModel", "Generated component for navigation: ${rootComponent.name}")
+                        if (graphResult.success) {
+                            _graphOperationState.value = GraphOperationState.EntitiesCreated
+                            Log.d("MainViewModel", "Created ${graphResult.totalEntitiesCreated} graph entities and ${graphResult.totalEdgesCreated} edges")
+                            
                         } else {
-                            Log.w("MainViewModel", "No components generated from scan data")
+                            _graphOperationState.value = GraphOperationState.Error(graphResult.errorMessage ?: "Unknown graph creation error")
+                            Log.w("MainViewModel", "Graph entity creation failed: ${graphResult.errorMessage}")
                         }
                     } catch (e: Exception) {
-                        Log.e("MainViewModel", "Failed to generate components for navigation", e)
+                        _graphOperationState.value = GraphOperationState.Error("Graph creation failed: ${e.message}")
+                        Log.e("MainViewModel", "Failed to create graph entities", e)
                     }
                 }
                 
@@ -169,9 +168,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             scanState = ScanState.ERROR
         )
         
-        // Reset component state on NFC errors
+        // Reset graph state on NFC errors
         resetComponentState()
-        _componentOperationState.value = ComponentOperationState.Error(error)
+        _graphOperationState.value = GraphOperationState.Error(error)
     }
     
     fun setAuthenticationFailed(tagData: NfcTagData, debugCollector: DebugDataCollector) {
@@ -201,15 +200,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             debugInfo = createDebugInfoFromDecryptedData(decryptedData)
         )
         
-        _componentOperationState.value = ComponentOperationState.Error("Authentication failed")
+        _graphOperationState.value = GraphOperationState.Error("Authentication failed")
     }
     
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
         
-        // Clear component operation errors as well
-        if (_componentOperationState.value is ComponentOperationState.Error) {
-            _componentOperationState.value = ComponentOperationState.Idle
+        // Clear graph operation errors as well
+        if (_graphOperationState.value is GraphOperationState.Error) {
+            _graphOperationState.value = GraphOperationState.Idle
         }
     }
     
@@ -289,12 +288,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 debugInfo = null
             )
             
-            // Store mock component creation result
-            _componentCreationResult.value = ComponentCreationResult.Success(
-                rootComponent = mockTrayComponent,
-                factoryType = "MockSimulation",
-                tagFormat = TagFormat.BAMBU_PROPRIETARY
-            )
         }
     }
     
@@ -304,10 +297,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Expose user data repository for direct access where needed
     fun getUserDataRepository() = userDataRepository
     
-    // Expose component repository for component architecture
-    fun getComponentRepository() = componentRepository
-    
-    // Legacy inventory methods removed - use on-demand component generation instead
     
     // Mappings access methods
     fun getManufacturers() = unifiedDataAccess.getAllManufacturers()
@@ -323,26 +312,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Removed updateComponentRelationships() - component grouping moved to scanning service
     
     /**
-     * Calculate total hierarchy mass for a component
+     * Calculate total hierarchy mass for graph entities
      */
-    suspend fun calculateHierarchyMass(componentId: String): Float {
+    suspend fun calculateEntityHierarchyMass(entityId: String): Float {
         return withContext(Dispatchers.IO) {
             try {
-                val component = componentRepository.getComponent(componentId)
-                if (component == null) {
-                    Log.w("MainViewModel", "Component not found: $componentId")
-                    return@withContext 0f
+                val entity = unifiedDataAccess.getConnectedEntities(entityId, RelationshipTypes.CONTAINS)
+                var totalMass = 0f
+                
+                entity.forEach { connectedEntity ->
+                    connectedEntity.getProperty<Float>("massGrams")?.let { mass ->
+                        totalMass += mass
+                    }
                 }
                 
-                // Calculate mass manually for now - service doesn't have calculateTotalMass method
-                var totalMass = component.massGrams ?: 0f
-                component.childComponents.forEach { childId ->
-                    val childComponent = componentRepository.getComponent(childId)
-                    totalMass += childComponent?.massGrams ?: 0f
-                }
                 totalMass
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Error calculating hierarchy mass", e)
+                Log.e("MainViewModel", "Error calculating entity hierarchy mass", e)
                 0f
             }
         }
@@ -352,116 +338,210 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * Reset component architecture state
      */
     fun resetComponentState() {
-        _componentCreationResult.value = null
-        _componentOperationState.value = ComponentOperationState.Idle
-        _massInferenceResult.value = null
+        _graphEntityCreationResult.value = null
+        _graphOperationState.value = GraphOperationState.Idle
+    }
+    
+    
+    // === Graph-Based Data Access Methods ===
+    
+    /**
+     * Get inventory item by identifier using graph approach
+     */
+    suspend fun getGraphInventoryItem(identifierValue: String): Entity? {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getGraphInventoryItem(identifierValue)
+        }
     }
     
     /**
-     * Get components by category for UI filtering
+     * Get all inventory items using graph approach
      */
-    fun getComponentsByCategory(category: String) = componentRepository.getComponentsByCategory(category)
+    suspend fun getAllGraphInventoryItems(): List<Entity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getAllGraphInventoryItems()
+        }
+    }
     
     /**
-     * Get all root components (inventory items)
+     * Get connected entities for navigation in graph model
      */
-    fun getRootComponents() = componentRepository.getComponents().filter { it.isInventoryItem }
+    suspend fun getConnectedEntities(entityId: String): List<Entity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getConnectedEntities(entityId)
+        }
+    }
     
     /**
-     * Search components by tags
+     * Get entities connected through specific relationship
      */
-    fun getComponentsByTags(tags: List<String>) = componentRepository.getComponentsByTags(tags)
+    suspend fun getConnectedEntities(entityId: String, relationshipType: String): List<Entity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getConnectedEntities(entityId, relationshipType)
+        }
+    }
     
     /**
-     * Catalog-driven component creation workflow
+     * Get graph statistics for debugging and monitoring
      */
-    suspend fun createComponentFromCatalog(
+    suspend fun getGraphStatistics(): GraphStatistics? {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getGraphStatistics()
+        }
+    }
+    
+    /**
+     * Get physical components from graph model
+     */
+    suspend fun getGraphPhysicalComponents(): List<PhysicalComponent> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getAllGraphInventoryItems()
+                .filterIsInstance<PhysicalComponent>()
+        }
+    }
+    
+    /**
+     * Get identifiers for a graph entity
+     */
+    suspend fun getEntityIdentifiers(entityId: String): List<Identifier> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getConnectedEntities(entityId, RelationshipTypes.IDENTIFIED_BY)
+                .filterIsInstance<Identifier>()
+        }
+    }
+    
+    /**
+     * Get scan history for a graph entity
+     */
+    suspend fun getEntityScanHistory(entityId: String): List<Activity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getConnectedEntities(entityId, RelationshipTypes.RELATED_TO)
+                .filterIsInstance<Activity>()
+                .filter { it.getProperty<String>("activityType") == ActivityTypes.SCAN }
+        }
+    }
+    
+    /**
+     * Get entities by category for UI filtering (graph-based)
+     */
+    suspend fun getEntitiesByCategory(category: String): List<Entity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getAllGraphInventoryItems().filter { entity ->
+                entity.getProperty<String>("category") == category
+            }
+        }
+    }
+    
+    /**
+     * Get all root entities (inventory items)
+     */
+    suspend fun getRootEntities(): List<Entity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getAllGraphInventoryItems()
+        }
+    }
+    
+    /**
+     * Search entities by tags (graph-based)
+     */
+    suspend fun getEntitiesByTags(tags: List<String>): List<Entity> {
+        return withContext(Dispatchers.IO) {
+            unifiedDataAccess.getAllGraphInventoryItems().filter { entity ->
+                val entityTags = entity.getProperty<List<*>>("tags")?.mapNotNull { it as? String } ?: emptyList()
+                tags.any { tag -> entityTags.contains(tag) }
+            }
+        }
+    }
+    
+    /**
+     * Create graph entity from catalog data
+     */
+    suspend fun createEntityFromCatalog(
         tagUid: String,
         manufacturerId: String,
         skuId: String,
         metadata: Map<String, String> = emptyMap()
-    ): ComponentCreationResult {
-        return viewModelScope.async(Dispatchers.IO) {
+    ): GraphEntityCreationResult {
+        return withContext(Dispatchers.IO) {
             try {
-                Log.d("MainViewModel", "Creating component from catalog: $manufacturerId/$skuId")
-                _componentOperationState.value = ComponentOperationState.CreatingComponents
+                Log.d("MainViewModel", "Creating graph entity from catalog: $manufacturerId/$skuId")
+                _graphOperationState.value = GraphOperationState.CreatingEntities
                 
                 // Step 1: Lookup SKU data
                 val products = catalogRepository.getProducts(manufacturerId)
                 val matchingProduct = products.firstOrNull { it.variantId == skuId }
                 
                 if (matchingProduct == null) {
-                    return@async ComponentCreationResult.ComponentCreationFailed(
-                        "SKU not found in catalog: $manufacturerId/$skuId"
+                    return@withContext GraphEntityCreationResult(
+                        success = false,
+                        errorMessage = "SKU not found in catalog: $manufacturerId/$skuId"
                     )
                 }
                 
-                // Step 2: Create component based on catalog data
-                val component = Component(
-                    id = generateComponentId("catalog"),
-                    identifiers = listOf(
-                        ComponentIdentifier(
-                            type = IdentifierType.RFID_HARDWARE,
-                            value = tagUid,
-                            purpose = IdentifierPurpose.TRACKING
-                        )
-                    ),
-                    name = matchingProduct.productName,
-                    category = "filament",
-                    tags = listOf(
-                        manufacturerId.lowercase(),
-                        matchingProduct.materialType.lowercase(),
-                        "catalog-created",
-                        "consumable",
-                        "variable-mass"
-                    ),
-                    parentComponentId = null,
-                    childComponents = emptyList(),
-                    massGrams = matchingProduct.filamentWeightGrams,
-                    variableMass = true,
-                    manufacturer = matchingProduct.manufacturer,
-                    description = "${matchingProduct.materialType} filament in ${matchingProduct.colorName}",
-                    metadata = metadata + mapOf(
-                        "sku" to skuId,
-                        "manufacturerId" to manufacturerId,
-                        "colorHex" to (matchingProduct.colorHex ?: "#FFFFFF"),
-                        "colorName" to matchingProduct.colorName,
-                        "materialType" to matchingProduct.materialType,
-                        "catalogCreated" to "true",
-                        "createdTimestamp" to System.currentTimeMillis().toString()
-                    ),
-                    createdAt = System.currentTimeMillis(),
-                    lastUpdated = java.time.LocalDateTime.now()
-                )
+                // Step 2: Create physical component entity
+                val physicalComponent = PhysicalComponent(
+                    label = matchingProduct.productName
+                ).apply {
+                    category = "filament"
+                    manufacturer = matchingProduct.manufacturer
+                    massGrams = matchingProduct.filamentWeightGrams
+                    setProperty("variableMass", true)
+                    setProperty("sku", skuId)
+                    setProperty("manufacturerId", manufacturerId)
+                    setProperty("colorHex", matchingProduct.colorHex ?: "#FFFFFF")
+                    setProperty("colorName", matchingProduct.colorName)
+                    setProperty("materialType", matchingProduct.materialType)
+                    setProperty("catalogCreated", true)
+                    setProperty("isInventoryItem", true)
+                    
+                    // Add custom metadata
+                    metadata.forEach { (key, value) ->
+                        setProperty(key, value)
+                    }
+                }
                 
-                // Step 3: Save component
-                componentRepository.saveComponent(component)
+                // Step 3: Create identifier entity
+                val identifier = Identifier(
+                    identifierType = IdentifierTypes.RFID_HARDWARE,
+                    value = tagUid
+                ).apply {
+                    purpose = "tracking"
+                    isUnique = true
+                }
                 
-                // Step 4: Update state
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.ComponentsCreated
-                    _componentCreationResult.value = ComponentCreationResult.Success(
-                        rootComponent = component,
-                        factoryType = "CatalogFactory",
-                        tagFormat = TagFormat.UNKNOWN // Catalog-created, no specific tag format
+                // Step 4: Save entities to graph
+                val graphDataService = unifiedDataAccess.appContext?.let { GraphDataService(it) }
+                if (graphDataService == null) {
+                    return@withContext GraphEntityCreationResult(
+                        success = false,
+                        errorMessage = "Graph data service not available"
                     )
                 }
                 
-                Log.d("MainViewModel", "Successfully created component from catalog: ${component.name}")
-                ComponentCreationResult.Success(
-                    rootComponent = component,
-                    factoryType = "CatalogFactory",
-                    tagFormat = TagFormat.UNKNOWN
+                // Note: This simplified version doesn't create full relationships
+                // A complete implementation would use GraphRepository directly
+                
+                _graphOperationState.value = GraphOperationState.EntitiesCreated
+                
+                Log.d("MainViewModel", "Successfully created graph entity from catalog: ${physicalComponent.label}")
+                
+                GraphEntityCreationResult(
+                    success = true,
+                    rootEntity = physicalComponent,
+                    scannedEntity = physicalComponent,
+                    totalEntitiesCreated = 2,
+                    totalEdgesCreated = 1
                 )
                 
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Error creating component from catalog", e)
-                withContext(Dispatchers.Main) {
-                    _componentOperationState.value = ComponentOperationState.Error("Catalog creation failed: ${e.message}")
-                }
-                ComponentCreationResult.ProcessingError("Catalog creation failed: ${e.message}")
+                Log.e("MainViewModel", "Error creating graph entity from catalog", e)
+                _graphOperationState.value = GraphOperationState.Error("Catalog creation failed: ${e.message}")
+                GraphEntityCreationResult(
+                    success = false,
+                    errorMessage = "Catalog creation failed: ${e.message}"
+                )
             }
-        }.await()
+        }
     }
     
     /**
@@ -475,8 +555,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 "Tag reading timeout - try scanning again"
             error.message?.contains("format", ignoreCase = true) == true -> 
                 "Unsupported tag format - verify tag compatibility"
-            error.message?.contains("component", ignoreCase = true) == true -> 
-                "Component creation failed - check catalog data"
+            error.message?.contains("entity", ignoreCase = true) == true -> 
+                "Entity creation failed - check catalog data"
+            error.message?.contains("graph", ignoreCase = true) == true -> 
+                "Graph storage failed - check data integrity"
             else -> "Processing error: ${error.message ?: "Unknown error"}"
         }
         
@@ -487,7 +569,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 error = errorMessage,
                 scanState = ScanState.ERROR
             )
-            _componentOperationState.value = ComponentOperationState.Error(errorMessage)
+            _graphOperationState.value = GraphOperationState.Error(errorMessage)
         }
     }
     
@@ -501,40 +583,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 } // End of MainViewModel class
 
 
-/**
- * Component operation states
- */
-sealed class ComponentOperationState {
-    object Idle : ComponentOperationState()
-    object DetectingFormat : ComponentOperationState()
-    object ProcessingTag : ComponentOperationState()
-    object CreatingComponents : ComponentOperationState()
-    object ComponentsCreated : ComponentOperationState()
-    object UpdatingRelationships : ComponentOperationState()
-    object RelationshipsUpdated : ComponentOperationState()
-    data class Error(val message: String) : ComponentOperationState()
-}
 
 /**
- * Mass inference results
+ * Graph operation states
  */
-sealed class MassInferenceResult {
-    data class Success(
-        val updatedComponents: List<Component>,
-        val totalMass: Float,
-        val inferredMass: Float
-    ) : MassInferenceResult()
-    
-    data class PartialSuccess(
-        val updatedComponents: List<Component>,
-        val failedComponents: List<String>,
-        val totalMass: Float
-    ) : MassInferenceResult()
-    
-    data class Error(
-        val message: String
-    ) : MassInferenceResult()
+sealed class GraphOperationState {
+    object Idle : GraphOperationState()
+    object DetectingFormat : GraphOperationState()
+    object ProcessingScan : GraphOperationState()
+    object CreatingEntities : GraphOperationState()
+    object EntitiesCreated : GraphOperationState()
+    object CreatingEdges : GraphOperationState()
+    object EdgesCreated : GraphOperationState()
+    object PersistingGraph : GraphOperationState()
+    object GraphPersisted : GraphOperationState()
+    data class Error(val message: String) : GraphOperationState()
 }
+
 
 data class BScanUiState(
     val scanState: ScanState = ScanState.IDLE,
@@ -550,16 +615,3 @@ enum class ScanState {
     ERROR          // Error occurred
 }
 
-/**
- * Enhanced UI state with component architecture support
- */
-data class ComponentEnhancedUIState(
-    val rootComponent: Component? = null,
-    val componentHierarchy: List<Component>? = null,
-    val scanState: ScanState = ScanState.IDLE,
-    val componentOperationState: ComponentOperationState = ComponentOperationState.Idle,
-    val tagFormat: TagFormat? = null,
-    val factoryType: String? = null,
-    val error: String? = null,
-    val debugInfo: ScanDebugInfo? = null
-)

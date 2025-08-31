@@ -16,12 +16,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.bscan.MainViewModel
 import com.bscan.model.UpdateStatus
-import com.bscan.model.ComponentCreationResult
 import com.bscan.model.IdentifierType
 import com.bscan.model.ComponentNavigationPreference
+import com.bscan.model.graph.entities.*
+import com.bscan.model.graph.Entity
+import com.bscan.repository.GraphEntityCreationResult
 import com.bscan.nfc.NfcManager
 import com.bscan.repository.UserDataRepository
-import com.bscan.repository.ComponentRepository
 import com.bscan.ui.ScanHistoryScreen
 import com.bscan.ui.UpdateDialog
 import com.bscan.ui.screens.*
@@ -40,45 +41,42 @@ fun AppNavigation(
     navController: NavHostController = rememberNavController()
 ) {
     val updateUiState by updateViewModel.uiState.collectAsStateWithLifecycle()
-    val componentCreationResult by viewModel.componentCreationResult.collectAsStateWithLifecycle()
+    val graphEntityCreationResult by viewModel.graphEntityCreationResult.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     
     /**
-     * Search for tag UID in component hierarchy (for child tag components)
+     * Extract identifier from graph entity
      */
-    fun findTagUidInComponentHierarchy(component: com.bscan.model.Component): String? {
-        // Check the component itself
-        val directTagUid = component.identifiers
-            .find { it.type == IdentifierType.RFID_HARDWARE }
+    suspend fun findIdentifierInEntity(entity: Entity, identifierType: String): String? {
+        return viewModel.getEntityIdentifiers(entity.id)
+            .find { it.identifierType == identifierType }
             ?.value
-        if (directTagUid != null) return directTagUid
-        
-        // For Bambu components, the tag UID might be in child components
-        // This is a simplified check - in a full implementation, you'd recursively search children
-        return null
     }
     
-    // Handle navigation after successful scan with sophisticated component navigation
-    LaunchedEffect(componentCreationResult) {
-        val result = componentCreationResult
-        if (result is ComponentCreationResult.Success) {
-            val scannedComponent = result.rootComponent
+    // Handle navigation after successful graph entity creation
+    LaunchedEffect(graphEntityCreationResult) {
+        val result = graphEntityCreationResult
+        if (result != null && result.success) {
+            val rootEntity = result.rootEntity
+            val scannedEntity = result.scannedEntity
+            
+            if (rootEntity == null || scannedEntity == null) {
+                Log.e("AppNavigation", "Missing root or scanned entity in graph result")
+                return@LaunchedEffect
+            }
             
             // Get user's navigation preference
             val userDataRepository = UserDataRepository(context)
             val navigationPreference = userDataRepository.getUserData().preferences.componentNavigationPreference
             
-            Log.d("AppNavigation", "Navigation preference: $navigationPreference")
+            Log.d("AppNavigation", "Graph navigation preference: $navigationPreference")
             
-            // Extract both identifiers for Bambu components
-            // The tag UID comes from the scan metadata in the tray component
-            val tagUid = scannedComponent.metadata["scannedTagUid"] ?: findTagUidInComponentHierarchy(scannedComponent)
-            val trayUid = scannedComponent.identifiers
-                .find { it.type == IdentifierType.CONSUMABLE_UNIT }
-                ?.value
+            // Extract identifiers from graph entities
+            val tagUid = findIdentifierInEntity(scannedEntity, IdentifierTypes.RFID_HARDWARE)
+            val trayUid = findIdentifierInEntity(rootEntity, IdentifierTypes.CONSUMABLE_UNIT)
             
-            Log.d("AppNavigation", "Found identifiers - Tag UID: $tagUid, Tray UID: $trayUid")
+            Log.d("AppNavigation", "Graph identifiers - Tag UID: $tagUid, Tray UID: $trayUid")
             
             // Navigate based on user preference and available identifiers
             when (navigationPreference) {
@@ -86,13 +84,13 @@ fun AppNavigation(
                     // Try to navigate to the specific scanned component first
                     if (tagUid != null) {
                         navController.navigate("details/${DetailType.TAG.name.lowercase()}/$tagUid")
-                        Log.d("AppNavigation", "Navigating to scanned tag details for UID: $tagUid")
+                        Log.d("AppNavigation", "Graph: Navigating to scanned tag details for UID: $tagUid")
                     } else if (trayUid != null) {
                         // Fallback to tray if no specific tag found
                         navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/$trayUid")
-                        Log.d("AppNavigation", "Fallback: Navigating to tray details for UID: $trayUid")
+                        Log.d("AppNavigation", "Graph: Fallback to tray details for UID: $trayUid")
                     } else {
-                        Log.e("AppNavigation", "No identifiers found for navigation")
+                        Log.e("AppNavigation", "Graph: No identifiers found for navigation")
                     }
                 }
                 
@@ -100,21 +98,22 @@ fun AppNavigation(
                     // Navigate to root/tray component (inventory view)
                     if (trayUid != null) {
                         navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/$trayUid")
-                        Log.d("AppNavigation", "Navigating to root component (tray) details for UID: $trayUid")
+                        Log.d("AppNavigation", "Graph: Navigating to root component (tray) details for UID: $trayUid")
                     } else if (tagUid != null) {
                         // Fallback to tag if no tray found
                         navController.navigate("details/${DetailType.TAG.name.lowercase()}/$tagUid")
-                        Log.d("AppNavigation", "Fallback: Navigating to tag details for UID: $tagUid")
+                        Log.d("AppNavigation", "Graph: Fallback to tag details for UID: $tagUid")
                     } else {
-                        Log.e("AppNavigation", "No identifiers found for navigation")
+                        Log.e("AppNavigation", "Graph: No identifiers found for navigation")
                     }
                 }
             }
             
-            // Reset the component creation result so future scans will trigger navigation
+            // Reset the graph creation result so future scans will trigger navigation
             viewModel.resetComponentState()
         }
     }
+    
     
     // Update dialog
     if (updateUiState.status == UpdateStatus.AVAILABLE || 

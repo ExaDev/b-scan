@@ -2,8 +2,11 @@ package com.bscan.repository
 
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.model.graph.*
+import com.bscan.model.graph.entities.*
 import com.bscan.interpreter.InterpreterFactory
-import com.bscan.service.ComponentFactory
+import com.bscan.service.GraphDataService
+import com.bscan.service.GraphScanResult
 import com.bscan.detector.TagDetector
 import com.bscan.service.ProductLookupService
 import kotlinx.coroutines.Dispatchers
@@ -32,54 +35,85 @@ class UnifiedDataAccess(
      */
     val appContext: Context? get() = context
     
-    // === Component Creation Workflow ===
+    /**
+     * Graph data service for graph-based operations
+     */
+    private val graphDataService: GraphDataService? by lazy {
+        context?.let { GraphDataService(it) }
+    }
+    
+    // === Graph-Based Data Operations ===
     
     /**
-     * Complete component creation workflow from RFID scan.
-     * Integrates with ComponentFactory pattern for different tag formats.
+     * Process scan data using graph-based approach
      */
-    suspend fun createComponentsFromScan(
-        encryptedScanData: EncryptedScanData, 
+    suspend fun createGraphEntitiesFromScan(
+        encryptedScanData: EncryptedScanData,
         decryptedScanData: DecryptedScanData
-    ): ComponentCreationResult = withContext(Dispatchers.IO) {
-        try {
-            Log.d(TAG, "Starting component creation workflow for tag: ${encryptedScanData.tagUid}")
-            
-            // Detect tag format and create appropriate factory
-            val factory = createFactorySafely(encryptedScanData)
-            if (factory == null) {
-                return@withContext ComponentCreationResult(
+    ): GraphEntityCreationResult = withContext(Dispatchers.IO) {
+        return@withContext graphDataService?.let { service ->
+            try {
+                when (val result = service.processScanData(encryptedScanData, decryptedScanData)) {
+                    is GraphScanResult.Success -> GraphEntityCreationResult(
+                        success = true,
+                        rootEntity = result.rootEntity,
+                        scannedEntity = result.scannedEntity,
+                        totalEntitiesCreated = result.allEntities.size,
+                        totalEdgesCreated = result.allEdges.size
+                    )
+                    is GraphScanResult.Failure -> GraphEntityCreationResult(
+                        success = false,
+                        errorMessage = result.error
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating graph entities from scan", e)
+                GraphEntityCreationResult(
                     success = false,
-                    errorMessage = "Unable to create appropriate component factory"
+                    errorMessage = "Graph entity creation failed: ${e.message}"
                 )
             }
-            Log.d(TAG, "Using factory: ${factory.factoryType}")
-            
-            // Process the scan to create components
-            val rootComponent = factory.processScan(encryptedScanData, decryptedScanData)
-            if (rootComponent == null) {
-                Log.e(TAG, "Factory failed to create components")
-                return@withContext ComponentCreationResult(
-                    success = false,
-                    errorMessage = "Failed to create components from scan data"
-                )
-            }
-            
-            Log.i(TAG, "Successfully created component hierarchy: ${rootComponent.name}")
-            return@withContext ComponentCreationResult(
-                success = true,
-                rootComponent = rootComponent,
-                totalComponentsCreated = countHierarchyComponents(rootComponent.id)
-            )
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in component creation workflow", e)
-            ComponentCreationResult(
-                success = false,
-                errorMessage = "Unexpected error: ${e.message}"
-            )
-        }
+        } ?: GraphEntityCreationResult(
+            success = false,
+            errorMessage = "Graph data service not available"
+        )
     }
+    
+    /**
+     * Get inventory item by identifier using graph approach
+     */
+    suspend fun getGraphInventoryItem(identifierValue: String): Entity? {
+        return graphDataService?.getInventoryItemByIdentifier(identifierValue)
+    }
+    
+    /**
+     * Get all inventory items using graph approach
+     */
+    suspend fun getAllGraphInventoryItems(): List<Entity> {
+        return graphDataService?.getAllInventoryItems() ?: emptyList()
+    }
+    
+    /**
+     * Get connected entities for navigation
+     */
+    suspend fun getConnectedEntities(entityId: String): List<Entity> {
+        return graphDataService?.getConnectedEntities(entityId) ?: emptyList()
+    }
+    
+    /**
+     * Get entities connected through specific relationship
+     */
+    suspend fun getConnectedEntities(entityId: String, relationshipType: String): List<Entity> {
+        return graphDataService?.getConnectedEntities(entityId, relationshipType) ?: emptyList()
+    }
+    
+    /**
+     * Get graph statistics
+     */
+    suspend fun getGraphStatistics(): GraphStatistics? {
+        return graphDataService?.getGraphStatistics()
+    }
+    
     
     /**
      * Find best product match from FilamentInfo for SKU lookup
@@ -297,30 +331,6 @@ class UnifiedDataAccess(
         }
     }
     
-    // === Batch Operations ===
-    
-    /**
-     * Create multiple components from batch scan data
-     */
-    suspend fun createComponentsBatch(
-        scanDataList: List<Pair<EncryptedScanData, DecryptedScanData>>
-    ): BatchComponentCreationResult = withContext(Dispatchers.IO) {
-        val results = mutableListOf<ComponentCreationResult>()
-        var successCount = 0
-        
-        scanDataList.forEach { (encrypted, decrypted) ->
-            val result = createComponentsFromScan(encrypted, decrypted)
-            results.add(result)
-            if (result.success) successCount++
-        }
-        
-        BatchComponentCreationResult(
-            totalProcessed = scanDataList.size,
-            successCount = successCount,
-            failureCount = scanDataList.size - successCount,
-            results = results
-        )
-    }
     
     /**
      * Update stock levels for multiple SKUs
@@ -667,18 +677,6 @@ class UnifiedDataAccess(
     
     // === Private Helper Methods (continued) ===
     
-    /**
-     * Safe factory creation with context check
-     */
-    private fun createFactorySafely(encryptedScanData: EncryptedScanData): ComponentFactory? {
-        return try {
-            val contextToUse = context ?: throw IllegalStateException("Context required for component factory operations")
-            ComponentFactory.createFactory(contextToUse, encryptedScanData)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creating component factory", e)
-            null
-        }
-    }
 }
 
 /**
@@ -757,6 +755,18 @@ data class BatchComponentCreationResult(
     val successCount: Int,
     val failureCount: Int,
     val results: List<ComponentCreationResult>
+)
+
+/**
+ * Result of graph-based entity creation
+ */
+data class GraphEntityCreationResult(
+    val success: Boolean,
+    val rootEntity: Entity? = null,
+    val scannedEntity: Entity? = null,
+    val totalEntitiesCreated: Int = 0,
+    val totalEdgesCreated: Int = 0,
+    val errorMessage: String? = null
 )
 
 /**
