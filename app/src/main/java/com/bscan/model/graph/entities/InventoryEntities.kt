@@ -201,7 +201,7 @@ class Person(
 /**
  * Activity/Event entity (scans, maintenance, usage, etc.)
  */
-class Activity(
+open class Activity(
     id: String = generateId(),
     val activityType: String,
     label: String,
@@ -495,7 +495,7 @@ class InventoryItem(
 /**
  * Calibration activity - establishes weight/quantity relationships
  */
-class CalibrationActivity(
+open class CalibrationActivity(
     id: String = generateId(),
     label: String,
     properties: MutableMap<String, PropertyValue> = mutableMapOf()
@@ -564,7 +564,7 @@ class CalibrationActivity(
 /**
  * Measurement activity with bidirectional inference
  */
-class MeasurementActivity(
+open class MeasurementActivity(
     id: String = generateId(),
     label: String,
     properties: MutableMap<String, PropertyValue> = mutableMapOf()
@@ -622,7 +622,7 @@ class MeasurementActivity(
 /**
  * Stock movement activity - records inventory changes
  */
-class StockMovementActivity(
+open class StockMovementActivity(
     id: String = generateId(),
     val movementType: StockMovementType,
     label: String,
@@ -713,19 +713,6 @@ data class CalibrationResult(
     val error: String? = null
 )
 
-/**
- * Common entity types
- */
-object EntityTypes {
-    const val PHYSICAL_COMPONENT = "physical_component"
-    const val INVENTORY_ITEM = "inventory_item"
-    const val IDENTIFIER = "identifier"
-    const val LOCATION = "location"
-    const val PERSON = "person"
-    const val ACTIVITY = "activity"
-    const val INFORMATION = "information"
-    const val VIRTUAL = "virtual"
-}
 
 /**
  * Common activity types
