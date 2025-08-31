@@ -18,10 +18,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bscan.ScanState
 import com.bscan.model.ScanProgress
-import com.bscan.model.Component
-import com.bscan.repository.ComponentRepository
+import com.bscan.model.graph.entities.PhysicalComponent
+import com.bscan.model.graph.entities.InventoryItem
+import com.bscan.model.graph.Entity
+import com.bscan.repository.GraphRepository
 import com.bscan.ui.screens.DetailType
-import com.bscan.ui.screens.InventoryViewModel
 import com.bscan.ui.screens.InventoryViewMode
 import com.bscan.ui.components.inventory.InventoryItemCard
 import com.bscan.ui.components.inventory.InventoryCompactListView
@@ -34,7 +35,7 @@ import java.time.LocalDateTime
  */
 @Composable
 fun InventoryBrowser(
-    allComponents: List<Component>,
+    allComponents: List<PhysicalComponent>,
     lazyListState: LazyListState = rememberLazyListState(),
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     scanState: ScanState = ScanState.IDLE,
@@ -45,12 +46,26 @@ fun InventoryBrowser(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val inventoryViewModel = remember { InventoryViewModel(context) }
-    val uiState by inventoryViewModel.uiState.collectAsStateWithLifecycle()
+    val graphRepository = remember { GraphRepository(context) }
+    
+    // Load inventory items (entities marked as inventory items)
+    var inventoryItems by remember { mutableStateOf(listOf<InventoryItem>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(Unit) {
+        try {
+            inventoryItems = graphRepository.getEntitiesByType(com.bscan.model.graph.entities.EntityTypes.INVENTORY_ITEM)
+                .filterIsInstance<InventoryItem>()
+        } catch (e: Exception) {
+            inventoryItems = emptyList()
+        } finally {
+            isLoading = false
+        }
+    }
     
     Column(modifier = modifier.fillMaxSize()) {
         // Inventory content
-        if (uiState.isLoading) {
+        if (isLoading) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -59,7 +74,7 @@ fun InventoryBrowser(
             ) {
                 CircularProgressIndicator()
             }
-        } else if (uiState.filteredComponents.isEmpty()) {
+        } else if (inventoryItems.isEmpty()) {
             // Empty state
             LazyColumn(
                 state = lazyListState,
@@ -81,8 +96,8 @@ fun InventoryBrowser(
                 // Summary header
                 item {
                     InventorySummaryCard(
-                        totalItems = uiState.filteredComponents.size,
-                        allItems = uiState.inventoryItems.size,
+                        totalItems = inventoryItems.size,
+                        allItems = inventoryItems.size,
                         onViewFullInventory = { 
                             // TODO: Navigate to full inventory screen
                         }
@@ -90,20 +105,20 @@ fun InventoryBrowser(
                 }
                 
                 // Inventory items (up to 10 items in tab view)
-                val itemsToShow = uiState.filteredComponents.take(10)
+                val itemsToShow = inventoryItems.take(10)
                 items(itemsToShow, key = { it.id }) { inventoryItem ->
                     CompactInventoryCard(
                         inventoryItem = inventoryItem,
-                        allComponents = uiState.allComponents,
+                        allComponents = allComponents,
                         onNavigateToDetails = onNavigateToDetails,
                         onDeleteComponent = { 
-                            inventoryViewModel.deleteComponent(it)
+                            // TODO: Implement entity deletion
                         }
                     )
                 }
                 
                 // Show "View All" if there are more items
-                if (uiState.filteredComponents.size > 10) {
+                if (inventoryItems.size > 10) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -119,7 +134,7 @@ fun InventoryBrowser(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Showing 10 of ${uiState.filteredComponents.size} items",
+                                    text = "Showing 10 of ${inventoryItems.size} items",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
@@ -196,14 +211,17 @@ private fun InventorySummaryCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactInventoryCard(
-    inventoryItem: Component,
-    allComponents: List<Component>,
+    inventoryItem: InventoryItem,
+    allComponents: List<PhysicalComponent>,
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
-    onDeleteComponent: ((Component) -> Unit)? = null,
+    onDeleteComponent: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val childCount = allComponents.count { it.parentComponentId == inventoryItem.id }
-    val primaryIdentifier = inventoryItem.getPrimaryTrackingIdentifier()
+    val entityType = inventoryItem.getProperty<String>("category") ?: "inventory-item"
+    val label = inventoryItem.label
+    val manufacturer = inventoryItem.getProperty<String>("manufacturer") ?: "Unknown"
+    val currentQuantity = inventoryItem.getProperty<Double>("currentQuantity") ?: 0.0
+    val quantityUnit = inventoryItem.getProperty<String>("quantityUnit") ?: "units"
     
     Card(
         modifier = modifier
@@ -213,9 +231,7 @@ private fun CompactInventoryCard(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         onClick = {
-            primaryIdentifier?.let { identifier ->
-                onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, identifier.value)
-            }
+            onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, inventoryItem.id)
         }
     ) {
         Row(
@@ -227,7 +243,7 @@ private fun CompactInventoryCard(
         ) {
             // Component icon
             Icon(
-                imageVector = getComponentIcon(inventoryItem.category),
+                imageVector = getComponentIcon(entityType),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
@@ -239,7 +255,7 @@ private fun CompactInventoryCard(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(
-                    text = inventoryItem.name,
+                    text = label,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1
@@ -250,7 +266,7 @@ private fun CompactInventoryCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = inventoryItem.category,
+                        text = entityType,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -262,37 +278,17 @@ private fun CompactInventoryCard(
                     )
                     
                     Text(
-                        text = inventoryItem.manufacturer,
+                        text = manufacturer,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
-                    if (childCount > 0) {
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.extraSmall
-                        ) {
-                            Text(
-                                text = "$childCount",
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
                 }
             }
             
-            // Mass if available
-            inventoryItem.massGrams?.let { mass ->
+            // Quantity if available
+            if (currentQuantity > 0.0) {
                 Text(
-                    text = "${String.format("%.1f", mass)}g",
+                    text = "${String.format("%.1f", currentQuantity)} $quantityUnit",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
@@ -332,9 +328,9 @@ private fun InventoryBrowserPreview() {
     MaterialTheme {
         InventoryBrowser(
             allComponents = listOf(
-                createMockInventoryItem("1", "PLA Orange"),
-                createMockInventoryItem("2", "PETG Black"),
-                createMockInventoryItem("3", "ABS White")
+                createMockPhysicalComponent("1", "PLA Orange"),
+                createMockPhysicalComponent("2", "PETG Black"),
+                createMockPhysicalComponent("3", "ABS White")
             ),
             onNavigateToDetails = { _, _ -> },
             onSimulateScan = { }
@@ -356,23 +352,27 @@ private fun CompactInventoryCardPreview() {
 }
 
 // Mock data for previews
-private fun createMockInventoryItem(id: String, name: String): Component {
-    return Component(
+private fun createMockPhysicalComponent(id: String, name: String): PhysicalComponent {
+    return PhysicalComponent(
+        id = "component_$id",
+        label = name,
+        properties = mutableMapOf<String, com.bscan.model.graph.PropertyValue>().apply {
+            put("category", com.bscan.model.graph.PropertyValue.create("filament"))
+            put("manufacturer", com.bscan.model.graph.PropertyValue.create("Bambu Lab"))
+        }
+    )
+}
+
+private fun createMockInventoryItem(id: String, name: String): InventoryItem {
+    return InventoryItem(
         id = "inventory_$id",
-        identifiers = listOf(
-            com.bscan.model.ComponentIdentifier(
-                type = com.bscan.model.IdentifierType.CONSUMABLE_UNIT,
-                value = "01008023456789AB",
-                purpose = com.bscan.model.IdentifierPurpose.TRACKING
-            )
-        ),
-        name = name,
-        category = "filament-tray",
-        tags = listOf("PLA", "Orange", "1.75mm"),
-        parentComponentId = null,
-        massGrams = 578.5f,
-        manufacturer = "Bambu Lab",
-        description = "Premium PLA filament",
-        lastUpdated = LocalDateTime.now().minusHours(2)
+        label = name,
+        trackingMode = com.bscan.model.graph.entities.TrackingMode.DISCRETE,
+        properties = mutableMapOf<String, com.bscan.model.graph.PropertyValue>().apply {
+            put("category", com.bscan.model.graph.PropertyValue.create("filament-tray"))
+            put("manufacturer", com.bscan.model.graph.PropertyValue.create("Bambu Lab"))
+            put("currentQuantity", com.bscan.model.graph.PropertyValue.create(578.5))
+            put("quantityUnit", com.bscan.model.graph.PropertyValue.create("grams"))
+        }
     )
 }
