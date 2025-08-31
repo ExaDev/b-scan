@@ -220,15 +220,20 @@ private fun TagGroupCard(
                 )
                 
                 latestScan?.getProperty<String>("timestamp")?.let { timestampStr ->
-                    try {
-                        val timestamp = java.time.LocalDateTime.parse(timestampStr)
+                    val displayTimestamp = remember(timestampStr) {
+                        try {
+                            val timestamp = java.time.LocalDateTime.parse(timestampStr)
+                            "Latest: ${timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}"
+                        } catch (e: Exception) {
+                            null // Handle parsing error gracefully
+                        }
+                    }
+                    displayTimestamp?.let { displayText ->
                         Text(
-                            text = "Latest: ${timestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))}",
+                            text = displayText,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    } catch (e: Exception) {
-                        // Handle parsing error gracefully
                     }
                 }
             }

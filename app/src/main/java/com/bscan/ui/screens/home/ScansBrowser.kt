@@ -262,20 +262,19 @@ private fun ScanCard(
                     fontWeight = FontWeight.Bold
                 )
                 
-                try {
-                    val parsedTimestamp = java.time.LocalDateTime.parse(timestamp)
-                    Text(
-                        text = parsedTimestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss")),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } catch (e: Exception) {
-                    Text(
-                        text = timestamp,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                val displayTimestamp = remember(timestamp) {
+                    try {
+                        val parsedTimestamp = java.time.LocalDateTime.parse(timestamp)
+                        parsedTimestamp.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm:ss"))
+                    } catch (e: Exception) {
+                        timestamp
+                    }
                 }
+                Text(
+                    text = displayTimestamp,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
