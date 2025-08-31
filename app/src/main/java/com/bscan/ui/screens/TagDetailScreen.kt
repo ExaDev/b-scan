@@ -5,6 +5,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +16,11 @@ import androidx.compose.ui.unit.dp
 import com.bscan.model.DecryptedScanData
 import com.bscan.model.EncryptedScanData
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.interpreter.BambuFormatInterpreter
+import com.bscan.model.FilamentMappings
+import com.bscan.repository.CatalogRepository
+import com.bscan.repository.UserDataRepository
+import com.bscan.repository.UnifiedDataAccess
 import com.bscan.ui.components.scans.EncodedDataView
 import com.bscan.ui.components.scans.DecodedDataView
 import com.bscan.ui.components.scans.DecryptedEncodedDataView
@@ -26,6 +32,7 @@ import kotlinx.coroutines.launch
 fun TagDetailScreen(
     tagUid: String,
     onNavigateBack: () -> Unit,
+    onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -35,6 +42,7 @@ fun TagDetailScreen(
     // Load the most recent scan data for this tag UID
     var decryptedScan by remember { mutableStateOf<DecryptedScanData?>(null) }
     var encryptedScan by remember { mutableStateOf<EncryptedScanData?>(null) }
+    var trayUid by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     
@@ -50,6 +58,19 @@ fun TagDetailScreen(
                 if (latestScan != null) {
                     decryptedScan = latestScan
                     encryptedScan = repository.getEncryptedScanForDecrypted(latestScan)
+                    
+                    // Extract tray UID for navigation to inventory
+                    try {
+                        val catalogRepository = CatalogRepository(context)
+                        val userDataRepository = UserDataRepository(context)
+                        val unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
+                        val interpreter = BambuFormatInterpreter(FilamentMappings(), unifiedDataAccess)
+                        val filamentInfo = interpreter.interpret(latestScan)
+                        trayUid = filamentInfo?.trayUid
+                    } catch (e: Exception) {
+                        // If interpretation fails, that's okay - just no tray navigation
+                    }
+                    
                     isLoading = false
                 } else {
                     error = "No scans found for this tag"
@@ -85,6 +106,22 @@ fun TagDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    // Navigation to tray/inventory component
+                    if (trayUid != null && onNavigateToDetails != null) {
+                        IconButton(
+                            onClick = {
+                                onNavigateToDetails.invoke(DetailType.INVENTORY_STOCK, trayUid!!)
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Inventory, 
+                                contentDescription = "View Inventory Item",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             )
