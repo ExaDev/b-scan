@@ -16,6 +16,7 @@ import androidx.navigation.compose.rememberNavController
 import com.bscan.MainViewModel
 import com.bscan.model.UpdateStatus
 import com.bscan.model.ComponentCreationResult
+import com.bscan.model.IdentifierType
 import com.bscan.nfc.NfcManager
 import com.bscan.repository.ComponentRepository
 import com.bscan.ui.ScanHistoryScreen
@@ -39,32 +40,41 @@ fun AppNavigation(
     val componentCreationResult by viewModel.componentCreationResult.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     
-    // Handle navigation after successful component creation
+    // Handle navigation after successful scan - navigate to tag details
     LaunchedEffect(componentCreationResult) {
         val result = componentCreationResult
         if (result is ComponentCreationResult.Success) {
             val scannedComponent = result.rootComponent
             
-            // Find the inventory item that contains this component (could be the component itself or its parent)
-            val inventoryItem = if (scannedComponent.isInventoryItem) {
-                // Component is already an inventory item
-                scannedComponent
-            } else {
-                // Find the root component (inventory item) that contains this component
-                val componentRepository = ComponentRepository(viewModel.getApplication())
-                componentRepository.getRootComponent(scannedComponent.id)
-            }
-            
-            inventoryItem?.let { item ->
-                // Navigate to the inventory item details
-                navController.navigate("details/${DetailType.COMPONENT.name.lowercase()}/${item.id}") {
+            // Get the tag UID from the component's identifiers
+            val tagUid = scannedComponent.identifiers
+                .find { it.type == IdentifierType.RFID_HARDWARE }
+                ?.value
+                
+            if (tagUid != null) {
+                // Navigate to tag details using the tag UID
+                navController.navigate("details/${DetailType.TAG.name.lowercase()}/$tagUid") {
                     // Optional: clear the back stack to prevent going back to scanning state
                     // popUpTo("main") { inclusive = false }
                 }
                 
-                // Reset the component creation result so future scans will trigger navigation
-                viewModel.resetComponentState()
+                Log.d("AppNavigation", "Navigating to tag details for UID: $tagUid")
+            } else {
+                Log.w("AppNavigation", "No RFID_HARDWARE identifier found in scanned component")
+                // Fallback to inventory item navigation if no tag UID found
+                val inventoryItem = if (scannedComponent.isInventoryItem) {
+                    scannedComponent
+                } else {
+                    null // Removed ComponentRepository lookup since components are now generated on-demand
+                }
+                
+                inventoryItem?.let { item ->
+                    navController.navigate("details/${DetailType.INVENTORY_STOCK.name.lowercase()}/${item.id}")
+                }
             }
+            
+            // Reset the component creation result so future scans will trigger navigation
+            viewModel.resetComponentState()
         }
     }
     
