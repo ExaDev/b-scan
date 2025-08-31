@@ -78,8 +78,17 @@ data class UserPreferences(
     val defaultExportFormat: String = "JSON",
     val catalogDisplayMode: CatalogDisplayMode = CatalogDisplayMode.COMPLETE_TITLE,
     val materialDisplaySettings: MaterialDisplaySettings = MaterialDisplaySettings.DEFAULT,
+    val componentNavigationPreference: ComponentNavigationPreference = ComponentNavigationPreference.ROOT_COMPONENT,
     val lastBackupDate: LocalDateTime? = null
 )
+
+/**
+ * Component navigation preference for scan results
+ */
+enum class ComponentNavigationPreference {
+    ROOT_COMPONENT,     // Navigate to the root/tray component (default)
+    SCANNED_COMPONENT   // Navigate to the exact scanned component (tag)
+}
 
 /**
  * Weight units for mass display
