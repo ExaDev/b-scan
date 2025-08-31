@@ -11,6 +11,7 @@ import com.bscan.repository.UserDataRepository
 import com.bscan.repository.ComponentRepository
 import com.bscan.repository.ScanHistoryRepository
 import com.bscan.service.ComponentFactory
+import com.bscan.service.ComponentGenerationService
 import com.bscan.service.ScanningService
 import com.bscan.service.DefaultScanningService
 import com.bscan.service.BambuComponentFactory
@@ -81,7 +82,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun processScanData(encryptedData: EncryptedScanData, decryptedData: DecryptedScanData) {
         viewModelScope.launch {
             try {
-                // Use the decoupled scanning service
+                // Use the decoupled scanning service to persist scan data
                 val scanResult = scanningService.processScanData(encryptedData, decryptedData)
                 
                 // Update UI state based on scan result
@@ -90,14 +91,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     debugInfo = createDebugInfoFromDecryptedData(decryptedData)
                 )
                 
-                // Store component creation result for UI access
-                val firstComponent = scanResult.components.firstOrNull()
-                if (firstComponent != null) {
-                    _componentCreationResult.value = ComponentCreationResult.Success(
-                        rootComponent = firstComponent,
-                        factoryType = "ScanningService",
-                        tagFormat = TagFormat.BAMBU_PROPRIETARY // Default for now
-                    )
+                // Generate components on-demand for navigation
+                withContext(Dispatchers.IO) {
+                    try {
+                        val componentGenerationService = ComponentGenerationService(getApplication())
+                        val generatedComponents = componentGenerationService.generateComponentsFromScans(listOf(decryptedData))
+                        
+                        // Get the first inventory item (root component) for navigation
+                        val rootComponent = generatedComponents.firstOrNull { it.isInventoryItem }
+                            ?: generatedComponents.firstOrNull()
+                        
+                        if (rootComponent != null) {
+                            _componentCreationResult.value = ComponentCreationResult.Success(
+                                rootComponent = rootComponent,
+                                factoryType = "ComponentGenerationService",
+                                tagFormat = decryptedData.tagFormat
+                            )
+                            Log.d("MainViewModel", "Generated component for navigation: ${rootComponent.name}")
+                        } else {
+                            Log.w("MainViewModel", "No components generated from scan data")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MainViewModel", "Failed to generate components for navigation", e)
+                    }
                 }
                 
             } catch (e: Exception) {
