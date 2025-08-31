@@ -12,12 +12,11 @@ import com.bscan.ScanState
 import com.bscan.model.ScanProgress
 import com.bscan.model.ScanStage
 import com.bscan.repository.ScanHistoryRepository
-import com.bscan.repository.ComponentRepository
-import com.bscan.repository.UserComponentRepository
-import com.bscan.model.Component
+import com.bscan.repository.GraphRepository
+import com.bscan.model.graph.entities.*
+import com.bscan.model.graph.Entity
 import com.bscan.model.DecryptedScanData
-import com.bscan.service.ComponentGenerationService
-import com.bscan.service.ComponentMergerService
+import com.bscan.service.GraphDataService
 import com.bscan.ui.screens.home.*
 import com.bscan.ui.screens.home.ViewMode
 import com.bscan.ui.screens.home.SortProperty
@@ -36,7 +35,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val repository = remember { ComponentRepository(context) }
+    val graphRepository = remember { GraphRepository(context) }
     val scanHistoryRepository = remember { ScanHistoryRepository(context) }
     
     // View state
@@ -47,9 +46,10 @@ fun HomeScreen(
     var isLoading by remember { mutableStateOf(true) }
     var filterState by remember { mutableStateOf(FilterState()) }
     
-    // Data state - modernized to use Component-based architecture
-    var components by remember { mutableStateOf(listOf<Component>()) }
-    var scanData by remember { mutableStateOf(listOf<DecryptedScanData>()) }
+    // Data state - modernized to use Entity-based graph architecture
+    var physicalComponents by remember { mutableStateOf(listOf<PhysicalComponent>()) }
+    var inventoryItems by remember { mutableStateOf(listOf<InventoryItem>()) }
+    var scanActivities by remember { mutableStateOf(listOf<Activity>()) }
     var availableFilamentTypes by remember { mutableStateOf(setOf<String>()) }
     var availableColors by remember { mutableStateOf(setOf<String>()) }
     var availableBaseMaterials by remember { mutableStateOf(setOf<String>()) }
@@ -57,49 +57,44 @@ fun HomeScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     var showFilterMenu by remember { mutableStateOf(false) }
     
-    // Load data using on-demand component generation + user overlay system
+    // Load data using graph-based entity system
     LaunchedEffect(Unit) {
         try {
-            // Initialize services
-            val componentGenerationService = ComponentGenerationService(context)
-            val userComponentRepository = UserComponentRepository(context)
-            val componentMergerService = ComponentMergerService()
+            // Load entities from graph
+            val allPhysicalComponents = graphRepository.getEntitiesByType(EntityTypes.PHYSICAL_COMPONENT)
+                .filterIsInstance<PhysicalComponent>()
+            physicalComponents = allPhysicalComponents
             
-            // Load scan data (source of truth)
-            val allScanData = scanHistoryRepository.getAllDecryptedScans()
-            scanData = allScanData
+            val allInventoryItems = graphRepository.getEntitiesByType(EntityTypes.INVENTORY_ITEM)
+                .filterIsInstance<InventoryItem>()
+            inventoryItems = allInventoryItems
             
-            // Generate components from scan data (on-demand, not persisted)
-            val generatedComponents = componentGenerationService.generateComponentsFromScans(allScanData)
+            val allActivities = graphRepository.getEntitiesByType(EntityTypes.ACTIVITY)
+                .filter { it.getProperty<String>("activityType") == ActivityTypes.SCAN }
+            scanActivities = allActivities
             
-            // Load user overlays (persisted user customisations)
-            val userOverlays = userComponentRepository.getActiveOverlays()
-            
-            // Merge generated components with user customisations
-            val mergedComponents = componentMergerService.mergeComponents(generatedComponents, userOverlays)
-            components = mergedComponents
-            
-            // Extract filter options from final merged components
-            availableFilamentTypes = mergedComponents
-                .mapNotNull { component -> component.metadata["materialType"] }
+            // Extract filter options from physical components
+            availableFilamentTypes = allPhysicalComponents
+                .mapNotNull { component -> component.getProperty<String>("materialType") }
                 .toSet()
             
-            availableColors = mergedComponents
-                .mapNotNull { component -> component.metadata["colorName"] }
+            availableColors = allPhysicalComponents
+                .mapNotNull { component -> component.getProperty<String>("colorName") }
                 .toSet()
             
-            availableBaseMaterials = mergedComponents
-                .mapNotNull { component -> component.metadata["baseMaterial"] }
+            availableBaseMaterials = allPhysicalComponents
+                .mapNotNull { component -> component.getProperty<String>("baseMaterial") }
                 .toSet()
             
-            availableMaterialSeries = mergedComponents
-                .mapNotNull { component -> component.metadata["series"] }
+            availableMaterialSeries = allPhysicalComponents
+                .mapNotNull { component -> component.getProperty<String>("series") }
                 .toSet()
                 
         } catch (e: Exception) {
             // Fallback to empty state on error
-            components = emptyList()
-            scanData = emptyList()
+            physicalComponents = emptyList()
+            inventoryItems = emptyList()
+            scanActivities = emptyList()
             availableFilamentTypes = emptySet()
             availableColors = emptySet()
             availableBaseMaterials = emptySet()
@@ -126,9 +121,9 @@ fun HomeScreen(
             sortDirection = sortDirection,
             groupByOption = groupByOption,
             filterState = filterState,
-            filamentReels = components.filter { it.category == "filament" },
-            individualTags = components.filter { it.category == "rfid-tag" },
-            allScans = scanData,
+            filamentComponents = physicalComponents.filter { it.getProperty<String>("category") == "filament" },
+            inventoryItems = inventoryItems,
+            allScanActivities = scanActivities,
             availableFilamentTypes = availableFilamentTypes,
             availableColors = availableColors,
             availableBaseMaterials = availableBaseMaterials,
