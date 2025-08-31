@@ -49,8 +49,6 @@ class JsonExportInterpreterTest {
         `when`(mockUserDataRepository.getUserData()).thenReturn(
             UserData(
                 version = 1,
-                components = emptyMap(),
-                inventoryItems = emptyMap(),
                 scans = ScanDataContainer(emptyMap(), emptyMap()),
                 measurements = emptyList(),
                 customMappings = CustomMappings(emptyMap(), emptyMap()),

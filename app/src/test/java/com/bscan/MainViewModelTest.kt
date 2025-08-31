@@ -59,10 +59,10 @@ class MainViewModelTest {
         // Then
         val initialState = viewModel.uiState.value
         assertEquals("Should start in IDLE state", ScanState.IDLE, initialState.scanState)
-        assertNull("Should have no filament info initially", initialState.filamentInfo)
         assertNull("Should have no error initially", initialState.error)
         assertNull("Should have no debug info initially", initialState.debugInfo)
         assertNull("Should have no scan progress initially", viewModel.scanProgress.value)
+        assertNull("Should have no graph entity creation result initially", viewModel.graphEntityCreationResult.value)
     }
 
     @Test
@@ -130,7 +130,7 @@ class MainViewModelTest {
         // Then
         val state = viewModel.uiState.value
         assertEquals("Should return to IDLE", ScanState.IDLE, state.scanState)
-        assertNull("Should clear filament info", state.filamentInfo)
+        assertNull("Should clear graph entity creation result", viewModel.graphEntityCreationResult.value)
         assertNull("Should clear error", state.error)
         assertNull("Should clear debug info", state.debugInfo)
         assertNull("Should clear scan progress", viewModel.scanProgress.value)
@@ -186,31 +186,9 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `getInventoryItems should return inventory items`() {
-        // When
-        val inventoryItems = viewModel.getInventoryItems()
-        
+    fun `graph operation state should start as idle`() {
         // Then
-        assertNotNull("Should return inventory items map", inventoryItems)
-        assertTrue("Inventory items should be a map", inventoryItems is Map<*, *>)
-    }
-
-    @Test
-    fun `getManufacturers should return manufacturers`() {
-        // When
-        val manufacturers = viewModel.getManufacturers()
-        
-        // Then
-        assertNotNull("Should return manufacturers map", manufacturers)
-        assertTrue("Manufacturers should be a map", manufacturers is Map<*, *>)
-    }
-
-    @Test
-    fun `refreshMappings should update interpreter factory`() {
-        // When
-        viewModel.refreshMappings()
-        
-        // Then - should not throw exception
-        // This method refreshes internal state but has no observable effects to test
+        val initialGraphState = viewModel.graphOperationState.value
+        assertTrue("Graph operation should start as idle", initialGraphState is GraphOperationState.Idle)
     }
 }

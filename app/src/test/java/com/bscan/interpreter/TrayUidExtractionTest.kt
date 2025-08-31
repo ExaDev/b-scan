@@ -120,8 +120,6 @@ class TrayUidExtractionTest {
         `when`(mockUserDataRepository.getUserData()).thenReturn(
             UserData(
                 version = 1,
-                components = emptyMap(),
-                inventoryItems = emptyMap(),
                 scans = ScanDataContainer(emptyMap(), emptyMap()),
                 measurements = emptyList(),
                 customMappings = CustomMappings(emptyMap(), emptyMap()),
@@ -331,6 +329,7 @@ class TrayUidExtractionTest {
             tagUid = tagUid,
             technology = "MifareClassic",
             scanResult = scanResult,
+            tagFormat = tagFormat,
             decryptedBlocks = completeBlocks,
             authenticatedSectors = if (scanResult == ScanResult.SUCCESS) listOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15) else emptyList(),
             failedSectors = if (scanResult != ScanResult.SUCCESS) listOf(1, 2, 3) else emptyList(),

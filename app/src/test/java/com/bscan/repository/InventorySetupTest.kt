@@ -2,9 +2,12 @@ package com.bscan.repository
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.bscan.model.FilamentInfo
-import com.bscan.model.TagFormat
-import com.bscan.model.Component
+import com.bscan.model.*
+import com.bscan.model.graph.*
+import com.bscan.model.graph.entities.*
+import com.bscan.service.ScanDataService
+import com.bscan.service.InventoryService
+import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,261 +18,257 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Test cases for the improved inventory setup pipeline
+ * Test cases for the graph-based inventory system
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29])
-class InventorySetupTest {
+class GraphInventoryTest {
     
     private lateinit var context: Context
-    private lateinit var inventoryRepository: InventoryRepository
-    private lateinit var catalogRepository: CatalogRepository
+    private lateinit var graphRepository: GraphRepository
+    private lateinit var scanDataService: ScanDataService
+    private lateinit var inventoryService: InventoryService
     private lateinit var unifiedDataAccess: UnifiedDataAccess
-    private lateinit var userDataRepository: UserDataRepository
-    private lateinit var diagnostics: InventoryDiagnostics
     
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
-        catalogRepository = CatalogRepository(context)
-        userDataRepository = UserDataRepository(context)
-        unifiedDataAccess = UnifiedDataAccess(catalogRepository, userDataRepository)
-        inventoryRepository = InventoryRepository(context)
-        diagnostics = InventoryDiagnostics(context)
+        graphRepository = GraphRepository(context)
+        scanDataService = ScanDataService(graphRepository)
+        inventoryService = InventoryService(graphRepository)
+        
+        val catalogRepository = CatalogRepository(context)
+        val userDataRepository = UserDataRepository(context)
+        val scanHistoryRepository = ScanHistoryRepository(context)
+        
+        unifiedDataAccess = UnifiedDataAccess(
+            catalogRepository, 
+            userDataRepository, 
+            scanHistoryRepository,
+            null,
+            context
+        )
         
         // Clear any existing test data
-        userDataRepository.clearUserData()
-    }
-    
-    @Test
-    fun testMappingsLoading() {
-        // Test that manufacturers can be loaded from catalog
-        val manufacturers = unifiedDataAccess.getAllManufacturers()
-        assertNotNull(manufacturers)
-        
-        // Since we removed catalog_data.json, manufacturers should be empty by default
-        // This is expected behavior after removing the asset catalog
-        assertTrue(manufacturers.isEmpty() || manufacturers.isNotEmpty(), "Manufacturers loading should not crash")
-    }
-    
-    @Test
-    fun testSkuLookupWithValidData() {
-        // Test SKU lookup with common materials using UnifiedDataAccess
-        val plaMatch = unifiedDataAccess.findBestProductMatch("PLA_BASIC", "Black")
-        // Should either find exact match or return null (but not crash)
-        // The key is that the method doesn't throw exceptions
-        
-        val petgMatch = unifiedDataAccess.findBestProductMatch("PETG", "Clear")
-        // Same as above - should handle gracefully
-        
-        // Test should pass as long as no exceptions are thrown
-        assertTrue(true, "SKU lookup completed without exceptions")
-    }
-    
-    @Test
-    fun testComponentCreation() {
-        // Test basic component creation using UnifiedDataAccess
-        val components = unifiedDataAccess.createDefaultComponents(
-            manufacturerId = "bambu",
-            filamentType = "PLA_BASIC",
-            trayUid = "TEST_TRAY_001"
-        )
-        
-        assertTrue(components.isNotEmpty(), "Should create at least one component")
-        
-        // Find filament component
-        val filamentComponent = components.find { it.category == "filament" }
-        assertNotNull(filamentComponent, "Should have filament component")
-        assertTrue(filamentComponent.variableMass, "Filament should have variable mass")
-        
-        // Find core component
-        val coreComponent = components.find { it.category == "core" }
-        if (coreComponent != null) {
-            assertTrue(!coreComponent.variableMass, "Core should have fixed mass")
-        }
-        
-        // Find spool component
-        val spoolComponent = components.find { it.category == "spool" }
-        if (spoolComponent != null) {
-            assertTrue(!spoolComponent.variableMass, "Spool should have fixed mass")
+        runTest {
+            graphRepository.clearAll()
         }
     }
     
     @Test
-    fun testSetupBambuComponentsWithValidData() {
-        val filamentInfo = createTestFilamentInfo(
-            trayUid = "TEST_TRAY_001",
-            filamentType = "PLA_BASIC",
-            colorName = "Black",
-            colorHex = "#000000"
-        )
-        
-        val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
-            trayUid = filamentInfo.trayUid,
-            manufacturerId = "bambu",
-            filamentType = filamentInfo.filamentType
-        )
-        val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
-        
-        // Should always create at least one component (emergency fallback if needed)
-        assertTrue(components.isNotEmpty(), "At least one component should be created")
-        
-        // Check that inventory item was created
-        val retrievedItem = unifiedDataAccess.getInventoryItem(filamentInfo.trayUid)
-        assertNotNull(retrievedItem, "Inventory item should be created")
-        assertEquals(components.size, retrievedItem.components.size)
-        
-        // Clean up - remove components and inventory item
-        components.forEach { component ->
-            userDataRepository.removeComponent(component.id)
-        }
-        userDataRepository.removeInventoryItem(filamentInfo.trayUid)
+    fun testGraphRepositoryInitialization() = runTest {
+        // Test basic graph repository functionality
+        val statistics = graphRepository.getStatistics()
+        assertNotNull(statistics, "Graph statistics should be available")
+        assertEquals(0, statistics.entityCount, "Graph should start empty")
+        assertEquals(0, statistics.edgeCount, "Graph should start with no edges")
     }
     
     @Test
-    fun testSetupBambuComponentsWithMissingData() {
-        // Test with incomplete/missing data to ensure resilience
-        val filamentInfo = createTestFilamentInfo(
-            trayUid = "TEST_TRAY_002",
-            filamentType = "", // Empty type
-            colorName = "", // Empty color
-            colorHex = ""  // Empty hex
+    fun testScanDataService() = runTest {
+        // Test scan data persistence and deduplication
+        val scanResult = scanDataService.recordScan(
+            rawData = "0011223344556677",
+            scanFormat = "bambu_rfid",
+            deviceInfo = "Test Device",
+            scanLocation = "Test Location",
+            userNotes = "Test scan"
         )
         
-        val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
-            trayUid = filamentInfo.trayUid,
-            manufacturerId = "bambu",
-            filamentType = if (filamentInfo.filamentType.isBlank()) "PLA_BASIC" else filamentInfo.filamentType
+        assertTrue(scanResult.success, "Scan should be recorded successfully")
+        assertNotNull(scanResult.scanOccurrence, "Scan occurrence should be created")
+        assertNotNull(scanResult.rawScanData, "Raw scan data should be created")
+        
+        // Test deduplication by scanning same data again
+        val duplicateScanResult = scanDataService.recordScan(
+            rawData = "0011223344556677",
+            scanFormat = "bambu_rfid",
+            deviceInfo = "Another Device",
+            userNotes = "Duplicate scan"
         )
-        val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
         
-        // Should still create components (using defaults/fallbacks)
-        assertTrue(components.isNotEmpty(), "Components should be created even with missing data")
-        
-        // Check that inventory item was created
-        val retrievedItem = unifiedDataAccess.getInventoryItem(filamentInfo.trayUid)
-        assertNotNull(retrievedItem, "Inventory item should be created even with missing data")
-        
-        // Clean up
-        components.forEach { component ->
-            userDataRepository.removeComponent(component.id)
-        }
-        userDataRepository.removeInventoryItem(filamentInfo.trayUid)
+        assertTrue(duplicateScanResult.success, "Duplicate scan should be recorded successfully")
+        assertTrue(duplicateScanResult.wasRawDataDeduplicated, "Raw data should be deduplicated")
+        assertEquals(
+            scanResult.rawScanData?.id, 
+            duplicateScanResult.rawScanData?.id,
+            "Same raw data should reference same entity"
+        )
     }
     
     @Test
-    fun testSetupBambuComponentsWithUnknownMaterial() {
-        val filamentInfo = createTestFilamentInfo(
-            trayUid = "TEST_TRAY_003",
-            filamentType = "UNKNOWN_MATERIAL_TYPE",
-            colorName = "Unknown Color",
-            colorHex = "#808080"
+    fun testInventoryItemCreation() = runTest {
+        // Test inventory item creation using new inventory service
+        val component = PhysicalComponent(label = "Test Component")
+        
+        val inventoryItem = inventoryService.createInventoryItem(
+            component = component,
+            sku = "TEST-SKU-001",
+            label = "Test Inventory Item",
+            trackingMode = TrackingMode.DISCRETE,
+            initialQuantity = 10.0f,
+            location = "Test Location"
         )
         
-        val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
-            trayUid = filamentInfo.trayUid,
-            manufacturerId = "bambu",
-            filamentType = "PLA_BASIC" // Use default for unknown material
-        )
-        val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
+        assertNotNull(inventoryItem, "Inventory item should be created")
+        assertEquals("Test Inventory Item", inventoryItem.label)
+        assertEquals(10.0f, inventoryItem.currentQuantity)
+        assertEquals(TrackingMode.DISCRETE, inventoryItem.trackingMode)
         
-        // Should still create components with default values
-        assertTrue(components.isNotEmpty(), "Components should be created for unknown materials")
-        
-        // Should have at least filament component
-        val filamentComponent = components.find { it.variableMass }
-        assertNotNull(filamentComponent, "Should have at least one filament component")
-        
-        // Clean up
-        components.forEach { component ->
-            userDataRepository.removeComponent(component.id)
-        }
-        userDataRepository.removeInventoryItem(filamentInfo.trayUid)
+        // Verify it exists in the graph
+        val retrievedItem = graphRepository.getEntity(inventoryItem.id)
+        assertNotNull(retrievedItem, "Inventory item should exist in graph")
+        assertTrue(retrievedItem is com.bscan.model.graph.entities.InventoryItem, "Retrieved entity should be InventoryItem")
     }
     
     @Test
-    fun testInventoryDiagnostics() {
-        // Test the diagnostic system
-        val healthCheck = diagnostics.quickHealthCheck()
-        assertTrue(healthCheck, "Basic health check should pass")
+    fun testInventoryCalibration() = runTest {
+        // Test inventory calibration functionality
+        val inventoryItem = inventoryService.createInventoryItem(
+            component = null,
+            sku = "CAL-TEST-001",
+            label = "Calibration Test Item",
+            trackingMode = TrackingMode.CONTINUOUS,
+            initialQuantity = 0.0f
+        )
         
-        val mappingsStatus = diagnostics.testMappingsLoading()
-        assertTrue(mappingsStatus.loaded, "Mappings should load successfully")
+        val calibrationResult = inventoryService.calibrateInventoryItem(
+            inventoryItem = inventoryItem,
+            totalWeight = 250.0f,
+            tareWeight = 50.0f,
+            knownQuantity = 200.0f,
+            notes = "Test calibration"
+        )
         
-        val componentTests = diagnostics.testComponentCreation()
-        assertTrue(componentTests.all { it.success }, "All component creation tests should pass")
+        assertTrue(calibrationResult.success, "Calibration should succeed")
+        assertNotNull(calibrationResult.unitWeight, "Unit weight should be calculated")
+        assertEquals(1.0f, calibrationResult.unitWeight!!, 0.01f) // (250-50)/200 = 1.0
+        
+        // Verify inventory item was updated
+        assertEquals(50.0f, inventoryItem.tareWeight)
+        assertEquals(1.0f, inventoryItem.unitWeight)
+        assertEquals(250.0f, inventoryItem.currentWeight)
+        assertEquals(200.0f, inventoryItem.currentQuantity)
     }
     
     @Test
-    fun testMultipleInventoryItems() {
-        // Test creating multiple inventory items to ensure no conflicts
-        val filamentInfos = listOf(
-            createTestFilamentInfo("MULTI_001", "PLA_BASIC", "Black", "#000000"),
-            createTestFilamentInfo("MULTI_002", "PETG", "Clear", "#FFFFFF"),
-            createTestFilamentInfo("MULTI_003", "ABS", "Red", "#FF0000")
+    fun testBidirectionalInference() = runTest {
+        // Test weight ↔ quantity inference
+        val inventoryItem = inventoryService.createInventoryItem(
+            component = null,
+            sku = "INF-TEST-001",
+            label = "Inference Test Item",
+            trackingMode = TrackingMode.CONTINUOUS,
+            initialQuantity = 0.0f,
+            unitWeight = 2.5f,
+            tareWeight = 100.0f
         )
         
-        val allComponents = mutableListOf<String>()
+        // Test weight → quantity inference
+        val weightMeasurement = inventoryService.recordMeasurement(
+            inventoryItem = inventoryItem,
+            providedWeight = 150.0f,
+            notes = "Weight measurement"
+        )
         
-        filamentInfos.forEach { filamentInfo ->
-            val inventoryItem = unifiedDataAccess.createInventoryItemWithComponents(
-                trayUid = filamentInfo.trayUid,
-                manufacturerId = "bambu",
-                filamentType = filamentInfo.filamentType
-            )
-            val components = inventoryItem.components.mapNotNull { unifiedDataAccess.getComponent(it) }
-            
-            assertTrue(components.isNotEmpty(), "Components should be created for ${filamentInfo.trayUid}")
-            
-            // Check for unique filament component IDs (shared components like core/spool are expected to be reused)
-            val filamentComponents = components.filter { it.variableMass }
-            val filamentComponentIds = filamentComponents.map { it.id }
-            filamentComponentIds.forEach { id ->
-                assertTrue(!allComponents.contains(id), "Filament component ID $id should be unique")
-                allComponents.add(id)
-            }
-        }
+        assertTrue(weightMeasurement.success, "Weight measurement should succeed")
+        assertEquals(20.0f, weightMeasurement.newQuantity!!, 0.01f) // (150-100)/2.5 = 20
         
-        // Verify all inventory items exist
-        val inventoryItems = unifiedDataAccess.getInventoryItems()
-        assertTrue(inventoryItems.size >= 3, "Should have at least 3 inventory items")
+        // Test quantity → weight inference
+        val quantityMeasurement = inventoryService.recordMeasurement(
+            inventoryItem = inventoryItem,
+            providedQuantity = 30.0f,
+            notes = "Quantity measurement"
+        )
         
-        // Clean up
-        filamentInfos.forEach { filamentInfo ->
-            val inventoryItem = unifiedDataAccess.getInventoryItem(filamentInfo.trayUid)
-            inventoryItem?.let { item ->
-                item.components.forEach { componentId ->
-                    userDataRepository.removeComponent(componentId)
-                }
-                userDataRepository.removeInventoryItem(filamentInfo.trayUid)
-            }
-        }
+        assertTrue(quantityMeasurement.success, "Quantity measurement should succeed")
+        assertEquals(175.0f, quantityMeasurement.newWeight!!, 0.01f) // 30*2.5+100 = 175
     }
     
-    private fun createTestFilamentInfo(
-        trayUid: String,
-        filamentType: String,
-        colorName: String,
-        colorHex: String
-    ): FilamentInfo {
-        return FilamentInfo(
-            tagUid = "TEST_TAG_${System.currentTimeMillis()}",
-            trayUid = trayUid,
-            tagFormat = TagFormat.BAMBU_PROPRIETARY,
-            manufacturerName = "Bambu Lab",
-            filamentType = filamentType,
-            detailedFilamentType = filamentType,
-            colorHex = colorHex,
-            colorName = colorName,
-            spoolWeight = 1000,
-            filamentDiameter = 1.75f,
-            filamentLength = 330000,
-            productionDate = "2025-01-01",
-            minTemperature = 190,
-            maxTemperature = 220,
-            bedTemperature = 60,
-            dryingTemperature = 45,
-            dryingTime = 8
+    @Test
+    fun testStockMovements() = runTest {
+        // Test stock movement tracking
+        val inventoryItem = inventoryService.createInventoryItem(
+            component = null,
+            sku = "STOCK-TEST-001",
+            label = "Stock Test Item",
+            trackingMode = TrackingMode.DISCRETE,
+            initialQuantity = 100.0f
         )
+        
+        // Test consumption
+        val consumptionResult = inventoryService.recordStockMovement(
+            inventoryItem = inventoryItem,
+            movementType = StockMovementType.CONSUMPTION,
+            quantityChange = -25.0f,
+            reason = "Used in production"
+        )
+        
+        assertTrue(consumptionResult.success, "Consumption should succeed")
+        assertEquals(75.0f, consumptionResult.newQuantity!!, 0.01f)
+        
+        // Test addition
+        val additionResult = inventoryService.recordStockMovement(
+            inventoryItem = inventoryItem,
+            movementType = StockMovementType.ADDITION,
+            quantityChange = 50.0f,
+            reason = "Restocked"
+        )
+        
+        assertTrue(additionResult.success, "Addition should succeed")
+        assertEquals(125.0f, additionResult.newQuantity!!, 0.01f)
+        
+        // Test insufficient stock protection
+        val insufficientResult = inventoryService.recordStockMovement(
+            inventoryItem = inventoryItem,
+            movementType = StockMovementType.CONSUMPTION,
+            quantityChange = -200.0f,
+            reason = "Attempt to overconsume"
+        )
+        
+        assertTrue(!insufficientResult.success, "Insufficient stock should be prevented")
+        assertNotNull(insufficientResult.error, "Error message should be provided")
+    }
+    
+    @Test
+    fun testGraphDataPersistence() = runTest {
+        // Test that graph data persists across repository instances
+        val entity1 = PhysicalComponent(label = "Persistent Test Entity")
+        
+        // Add entity to first repository instance
+        val added = graphRepository.addEntity(entity1)
+        assertTrue(added, "Entity should be added successfully")
+        
+        // Create new repository instance
+        val newGraphRepository = GraphRepository(context)
+        val retrievedEntity = newGraphRepository.getEntity(entity1.id)
+        
+        assertNotNull(retrievedEntity, "Entity should persist across repository instances")
+        assertEquals(entity1.label, retrievedEntity.label)
+    }
+    
+    @Test
+    fun testCacheStatistics() = runTest {
+        // Test ephemeral entity caching
+        val scanResult = scanDataService.recordScan(
+            rawData = "AABBCCDDEEFF0011",
+            scanFormat = "bambu_rfid"
+        )
+        
+        assertTrue(scanResult.success, "Scan should be recorded")
+        
+        // Generate ephemeral entities to populate cache
+        val decodedEncrypted = scanDataService.getDecodedEncrypted(scanResult.rawScanData!!)
+        val encodedDecrypted = scanDataService.getEncodedDecrypted(scanResult.rawScanData!!)
+        val decodedDecrypted = scanDataService.getDecodedDecrypted(scanResult.rawScanData!!)
+        
+        assertNotNull(decodedEncrypted, "Decoded encrypted should be generated")
+        assertNotNull(encodedDecrypted, "Encoded decrypted should be generated")
+        assertNotNull(decodedDecrypted, "Decoded decrypted should be generated")
+        
+        // Check cache statistics
+        val stats = scanDataService.getCacheStatistics()
+        assertTrue(stats.totalEntries > 0, "Cache should contain entries")
+        assertTrue(stats.hitRate >= 0.0f, "Hit rate should be non-negative")
     }
 }
