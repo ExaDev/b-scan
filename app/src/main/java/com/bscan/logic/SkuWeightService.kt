@@ -1,6 +1,7 @@
 package com.bscan.logic
 
 import com.bscan.model.*
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.ComponentRepository
 import java.time.LocalDateTime
@@ -22,12 +23,21 @@ class SkuWeightService(
      * Get filament mass from SKU data with fallback defaults
      */
     fun getFilamentMassFromSku(filamentType: String, colorName: String): Float {
-        val bestMatch = unifiedDataAccess.findBestProductMatch(filamentType, colorName)
-        return if (bestMatch?.filamentWeightGrams != null) {
-            bestMatch.filamentWeightGrams
-        } else {
-            getDefaultMassByMaterial(filamentType)
+        // Try to find matching stock definition for this material/color
+        val matchingStockDefinitions = unifiedDataAccess.findStockDefinitions(
+            BAMBU_LAB_MANUFACTURER_ID, 
+            materialType = filamentType
+        ).filter { stockDef ->
+            val stockColorName = stockDef.getProperty<String>("colorName") ?: ""
+            stockColorName.equals(colorName, ignoreCase = true)
         }
+        
+        if (matchingStockDefinitions.isNotEmpty()) {
+            val stockDef = matchingStockDefinitions.first()
+            stockDef.getProperty<Float>("filamentWeightGrams")?.let { return it }
+        }
+        
+        return getDefaultMassByMaterial(filamentType)
     }
     
     /**
@@ -46,8 +56,21 @@ class SkuWeightService(
      * Get suggested spool type from SKU data
      */
     fun getSuggestedSpoolType(filamentType: String, colorName: String): SpoolPackaging? {
-        val bestMatch = unifiedDataAccess.findBestProductMatch(filamentType, colorName)
-        return bestMatch?.spoolType
+        // Try to find matching stock definition for this material/color
+        val matchingStockDefinitions = unifiedDataAccess.findStockDefinitions(
+            BAMBU_LAB_MANUFACTURER_ID, 
+            materialType = filamentType
+        ).filter { stockDef ->
+            val stockColorName = stockDef.getProperty<String>("colorName") ?: ""
+            stockColorName.equals(colorName, ignoreCase = true)
+        }
+        
+        if (matchingStockDefinitions.isNotEmpty()) {
+            val stockDef = matchingStockDefinitions.first()
+            return stockDef.getProperty<SpoolPackaging>("spoolType")
+        }
+        
+        return null
     }
     
     /**

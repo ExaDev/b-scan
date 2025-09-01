@@ -4,6 +4,7 @@ import android.util.Log
 import com.bscan.model.*
 import com.bscan.model.TagFormat
 import com.bscan.model.TagFormat.*
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.repository.UnifiedDataAccess
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -337,9 +338,9 @@ class BambuFormatInterpreter(
         Log.d(TAG, "Looking up colour name for hex: $hexColor, material: $materialType")
         
         // Try exact hex match first
-        val exactMatchingProducts = unifiedDataAccess.findProducts("bambu", hex = hexColor, materialType = materialType)
-        if (exactMatchingProducts.isNotEmpty()) {
-            val colorName = exactMatchingProducts.first().getDisplayColorName()
+        val exactMatchingStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", hex = hexColor, materialType = materialType)
+        if (exactMatchingStockDefinitions.isNotEmpty()) {
+            val colorName = exactMatchingStockDefinitions.first().getProperty<String>("colorName") ?: "Unknown"
             Log.d(TAG, "Found exact colour match: '$colorName' for hex $hexColor")
             return colorName
         }
@@ -347,9 +348,9 @@ class BambuFormatInterpreter(
         // Try with base material type for exact match
         val baseMaterialType = materialType.split("_").firstOrNull() ?: materialType
         if (baseMaterialType != materialType) {
-            val baseExactProducts = unifiedDataAccess.findProducts("bambu", hex = hexColor, materialType = baseMaterialType)
-            if (baseExactProducts.isNotEmpty()) {
-                val colorName = baseExactProducts.first().getDisplayColorName()
+            val baseExactStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", hex = hexColor, materialType = baseMaterialType)
+            if (baseExactStockDefinitions.isNotEmpty()) {
+                val colorName = baseExactStockDefinitions.first().getProperty<String>("colorName") ?: "Unknown"
                 Log.d(TAG, "Found exact base material match: '$colorName' for hex $hexColor")
                 return colorName
             }
@@ -357,15 +358,18 @@ class BambuFormatInterpreter(
         
         // If no exact match, try colour similarity matching
         Log.d(TAG, "No exact hex match found, trying colour similarity matching")
-        val allProducts = unifiedDataAccess.getProducts("bambu").filter { product ->
-            product.materialType.equals(materialType, ignoreCase = true) || 
-            product.getBaseMaterialType().equals(baseMaterialType, ignoreCase = true)
+        val allStockDefinitions = unifiedDataAccess.getStockDefinitions("bambu").filter { stockDef ->
+            val stockMaterialType = stockDef.getProperty<String>("materialType") ?: ""
+            stockMaterialType.equals(materialType, ignoreCase = true) || 
+            stockMaterialType.split("_").firstOrNull()?.equals(baseMaterialType, ignoreCase = true) == true
         }
         
-        val bestMatch = findBestColorMatch(hexColor, allProducts)
+        val bestMatch = findBestColorMatch(hexColor, allStockDefinitions)
         if (bestMatch != null) {
-            Log.d(TAG, "Found similar colour match: '${bestMatch.getDisplayColorName()}' (${bestMatch.colorHex}) for hex $hexColor")
-            return bestMatch.getDisplayColorName()
+            val colorName = bestMatch.getProperty<String>("colorName") ?: "Unknown"
+            val colorHex = bestMatch.getProperty<String>("colorHex") ?: ""
+            Log.d(TAG, "Found similar colour match: '$colorName' ($colorHex) for hex $hexColor")
+            return colorName
         }
         
         Log.d(TAG, "No products found for hex $hexColor and material $materialType")
@@ -375,21 +379,21 @@ class BambuFormatInterpreter(
     /**
      * Find the best colour match using colour distance
      */
-    private fun findBestColorMatch(targetHex: String, products: List<ProductEntry>): ProductEntry? {
-        if (products.isEmpty()) return null
+    private fun findBestColorMatch(targetHex: String, stockDefinitions: List<StockDefinition>): StockDefinition? {
+        if (stockDefinitions.isEmpty()) return null
         
         val targetRgb = hexToRgb(targetHex) ?: return null
-        var bestMatch: ProductEntry? = null
+        var bestMatch: StockDefinition? = null
         var bestDistance = Double.MAX_VALUE
         
-        for (product in products) {
-            product.colorHex?.let { productHex ->
+        for (stockDef in stockDefinitions) {
+            stockDef.getProperty<String>("colorHex")?.let { productHex ->
                 val productRgb = hexToRgb(productHex)
                 if (productRgb != null) {
                     val distance = colorDistance(targetRgb, productRgb)
                     if (distance < bestDistance && distance < 100.0) { // Only accept reasonably close colours
                         bestDistance = distance
-                        bestMatch = product
+                        bestMatch = stockDef
                     }
                 }
             }
@@ -405,32 +409,39 @@ class BambuFormatInterpreter(
         Log.d(TAG, "Finding BambuProduct for hex: $colorHex, material: $materialType, color: $colorName")
         
         // Try to find exact match by hex and material type
-        val matchingProducts = unifiedDataAccess.findProducts("bambu", hex = colorHex, materialType = materialType)
-        if (matchingProducts.isNotEmpty()) {
-            val product = matchingProducts.first()
-            Log.d(TAG, "Found exact product match: ${product.productName} - ${product.colorName}")
-            return convertProductToBambuProduct(product)
+        val matchingStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", hex = colorHex, materialType = materialType)
+        if (matchingStockDefinitions.isNotEmpty()) {
+            val stockDef = matchingStockDefinitions.first()
+            val productName = stockDef.getProperty<String>("displayName") ?: stockDef.label
+            val stockColorName = stockDef.getProperty<String>("colorName") ?: "Unknown"
+            Log.d(TAG, "Found exact stock definition match: $productName - $stockColorName")
+            return convertStockDefinitionToBambuProduct(stockDef)
         }
         
         // Try with base material type
         val baseMaterialType = materialType.split("_").firstOrNull() ?: materialType
         if (baseMaterialType != materialType) {
-            val baseProducts = unifiedDataAccess.findProducts("bambu", hex = colorHex, materialType = baseMaterialType)
-            if (baseProducts.isNotEmpty()) {
-                val product = baseProducts.first()
-                Log.d(TAG, "Found base material product match: ${product.productName} - ${product.colorName}")
-                return convertProductToBambuProduct(product)
+            val baseStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", hex = colorHex, materialType = baseMaterialType)
+            if (baseStockDefinitions.isNotEmpty()) {
+                val stockDef = baseStockDefinitions.first()
+                val productName = stockDef.getProperty<String>("displayName") ?: stockDef.label
+                val stockColorName = stockDef.getProperty<String>("colorName") ?: "Unknown"
+                Log.d(TAG, "Found base material stock definition match: $productName - $stockColorName")
+                return convertStockDefinitionToBambuProduct(stockDef)
             }
         }
         
         // Try color name matching if hex matching failed
-        val colorNameProducts = unifiedDataAccess.findProducts("bambu", materialType = materialType).filter { product ->
-            product.getDisplayColorName().equals(colorName, ignoreCase = true)
+        val colorNameStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", materialType = materialType).filter { stockDef ->
+            val stockColorName = stockDef.getProperty<String>("colorName") ?: ""
+            stockColorName.equals(colorName, ignoreCase = true)
         }
-        if (colorNameProducts.isNotEmpty()) {
-            val product = colorNameProducts.first()
-            Log.d(TAG, "Found color name product match: ${product.productName} - ${product.colorName}")
-            return convertProductToBambuProduct(product)
+        if (colorNameStockDefinitions.isNotEmpty()) {
+            val stockDef = colorNameStockDefinitions.first()
+            val productName = stockDef.getProperty<String>("displayName") ?: stockDef.label
+            val stockColorName = stockDef.getProperty<String>("colorName") ?: "Unknown"
+            Log.d(TAG, "Found color name stock definition match: $productName - $stockColorName")
+            return convertStockDefinitionToBambuProduct(stockDef)
         }
         
         Log.d(TAG, "No matching BambuProduct found")
@@ -438,18 +449,18 @@ class BambuFormatInterpreter(
     }
     
     /**
-     * Convert ProductEntry to BambuProduct
+     * Convert StockDefinition to BambuProduct
      */
-    private fun convertProductToBambuProduct(product: ProductEntry): BambuProduct {
+    private fun convertStockDefinitionToBambuProduct(stockDef: StockDefinition): BambuProduct {
         return BambuProduct(
-            productLine = product.productName,
-            colorName = product.getDisplayColorName(),
-            internalCode = product.colorCode ?: "",
-            retailSku = product.variantId,
-            colorHex = product.colorHex ?: "",
-            spoolUrl = product.url,
-            refillUrl = null, // For now, we only have the one URL from the catalog
-            mass = "1kg" // Default, could be enhanced from product name parsing
+            productLine = stockDef.getProperty<String>("displayName") ?: stockDef.label,
+            colorName = stockDef.getProperty<String>("colorName") ?: "Unknown",
+            internalCode = stockDef.getProperty<String>("materialType") ?: "",
+            retailSku = stockDef.getProperty<String>("sku") ?: "",
+            colorHex = stockDef.getProperty<String>("colorHex") ?: "",
+            spoolUrl = "", // Could be enhanced if we store URLs in stock definitions
+            refillUrl = null,
+            mass = "1kg" // Could be extracted from weight property if needed
         )
     }
     
