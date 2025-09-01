@@ -446,9 +446,11 @@ class UnifiedDataAccess(
     fun getProducts(manufacturerId: String): List<ProductEntry> {
         val products = mutableListOf<ProductEntry>()
         
-        // For Bambu Lab, use mapper-based product lookup service
+        // For Bambu Lab, use both mapper-based products and catalog-generated products
         if (manufacturerId == "bambu") {
             products.addAll(ProductLookupService.getAllProducts())
+            // Also add catalog-generated products (components like spools and cores)
+            products.addAll(catalogRepo.getProducts(manufacturerId))
         } else {
             // Add catalog products for non-Bambu manufacturers
             products.addAll(catalogRepo.getProducts(manufacturerId))
