@@ -168,6 +168,7 @@ class GraphComponentFactory(
             "material" to filamentInfo.filamentType
         )
         
+        var stockDefinition: StockDefinition? = null
         val filament = runBlocking { graphRepository.getExistingEntity(filamentId) } as? PhysicalComponent ?: PhysicalComponent(
             id = filamentId,
             label = "${filamentInfo.filamentType} Filament - ${filamentInfo.colorName}"
@@ -179,10 +180,10 @@ class GraphComponentFactory(
             setProperty("colorHex", filamentInfo.colorHex)
             setProperty("variableMass", true)
             
-            // Try to get mass from catalog
+            // Try to get mass from catalog and store the StockDefinition for relationship creation
             try {
-                val stockDef = unifiedDataAccess.findBestStockDefinitionMatch(filamentInfo.filamentType, filamentInfo.colorName)
-                stockDef?.weight?.let { quantity ->
+                stockDefinition = unifiedDataAccess.findBestStockDefinitionMatch(filamentInfo.filamentType, filamentInfo.colorName)
+                stockDefinition?.weight?.let { quantity ->
                     if (quantity.unit == "g") {
                         val weight = quantity.value.toFloat()
                         massGrams = weight
@@ -194,6 +195,39 @@ class GraphComponentFactory(
             }
         }
         entities.add(filament)
+        
+        // Add StockDefinition to entities if found
+        stockDefinition?.let { stockDef ->
+            // Ensure StockDefinition is in the graph (it should be from catalog initialization)
+            runBlocking { 
+                if (graphRepository.getExistingEntity(stockDef.id) == null) {
+                    entities.add(stockDef)
+                }
+            }
+        }
+        
+        // 5a. Create InventoryItem to track this filament with compound key
+        val inventoryItemId = createCompoundId(
+            "type" to "inventory",
+            "tracks" to filament.id
+        )
+        
+        val inventoryItem = runBlocking { graphRepository.getExistingEntity(inventoryItemId) } as? InventoryItem ?: InventoryItem(
+            id = inventoryItemId,
+            label = "Inventory: ${filament.label}",
+            trackingMode = TrackingMode.CONTINUOUS  // Filament is measured by weight
+        ).apply {
+            // Initialize with catalog data if available
+            stockDefinition?.let { stockDef ->
+                val catalogWeight = stockDef.weight
+                if (catalogWeight?.unit == "g") {
+                    currentQuantity = catalogWeight.value.toFloat()
+                    unitWeight = 1.0f  // 1 gram per unit for continuous tracking
+                    notes = "Auto-created from scan, initialized with catalog weight"
+                }
+            }
+        }
+        entities.add(inventoryItem)
         
         // 6. Create Core entity with compound key
         val coreId = createCompoundId(
@@ -302,6 +336,28 @@ class GraphComponentFactory(
             setProperty("action", "scanned")
             setProperty("result", decryptedScanData.scanResult.name)
         })
+        
+        // Link filament to its StockDefinition (catalog specification)
+        stockDefinition?.let { stockDef ->
+            if (!runBlocking { graphRepository.edgeExists(filament.id, stockDef.id, RelationshipTypes.DEFINED_BY) }) {
+                edges.add(Edge(
+                    fromEntityId = filament.id,
+                    toEntityId = stockDef.id,
+                    relationshipType = RelationshipTypes.DEFINED_BY,
+                    directional = true
+                ))
+            }
+        }
+        
+        // Link InventoryItem to PhysicalComponent it tracks
+        if (!runBlocking { graphRepository.edgeExists(inventoryItem.id, filament.id, InventoryRelationshipTypes.TRACKS) }) {
+            edges.add(Edge(
+                fromEntityId = inventoryItem.id,
+                toEntityId = filament.id,
+                relationshipType = InventoryRelationshipTypes.TRACKS,
+                directional = true
+            ))
+        }
         
         Log.d(TAG, "Created ${entities.size} entities and ${edges.size} relationships for Bambu scan")
         
