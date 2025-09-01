@@ -249,6 +249,7 @@ fun AppNavigation(
                 onSimulateScan = { /* Development feature: simulate scan functionality */ },
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToHistory = { navController.navigate("history") },
+                onNavigateToGraph = { navController.navigate("graph") },
                 onNavigateToDetails = { detailType, identifier ->
                     // Handle entity navigation specially
                     if (identifier.startsWith("entity/")) {
@@ -303,6 +304,11 @@ fun AppNavigation(
             )
         }
         
+        composable("graph") {
+            GraphVisualizationScreen(
+                navController = navController
+            )
+        }
         
         composable("details/{type}/{identifier}") { backStackEntry ->
             val typeStr = backStackEntry.arguments?.getString("type")

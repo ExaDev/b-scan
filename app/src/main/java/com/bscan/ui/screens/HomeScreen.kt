@@ -31,6 +31,7 @@ fun HomeScreen(
     onSimulateScan: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToGraph: () -> Unit = {},
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -147,6 +148,7 @@ fun HomeScreen(
             onShowFilterMenu = { showFilterMenu = it },
             onNavigateToSettings = onNavigateToSettings,
             onNavigateToHistory = onNavigateToHistory,
+            onNavigateToGraph = onNavigateToGraph,
             onNavigateToDetails = onNavigateToDetails,
             modifier = modifier
         )
@@ -161,6 +163,7 @@ fun HomeScreenPreview() {
         onSimulateScan = {},
         onNavigateToSettings = {},
         onNavigateToHistory = {},
+        onNavigateToGraph = {},
         onNavigateToDetails = { _, _ -> }
     )
 }

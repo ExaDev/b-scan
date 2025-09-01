@@ -59,6 +59,7 @@ fun DataBrowserScreen(
     onShowFilterMenu: (Boolean) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToHistory: () -> Unit = {},
+    onNavigateToGraph: () -> Unit = {},
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -128,6 +129,12 @@ fun DataBrowserScreen(
                         Icon(
                             Icons.Default.History,
                             contentDescription = "Scan History"
+                        )
+                    }
+                    IconButton(onClick = onNavigateToGraph) {
+                        Icon(
+                            Icons.Default.AccountTree,
+                            contentDescription = "Graph View"
                         )
                     }
                     IconButton(onClick = onNavigateToSettings) {
