@@ -1,5 +1,6 @@
 package com.bscan.model
 
+import com.bscan.model.graph.entities.StockDefinition
 import java.time.LocalDateTime
 
 /**
@@ -102,7 +103,7 @@ data class SkuStockInfo(
  * Combined product information that includes both build-time catalog and user-created SKUs
  */
 data class CombinedProductInfo(
-    val productEntry: ProductEntry?,
+    val stockDefinition: StockDefinition?,
     val userSku: UserCatalogSku?,
     val source: ProductSource,
     val stockInfo: SkuStockInfo?
@@ -112,7 +113,7 @@ data class CombinedProductInfo(
      */
     fun getDisplayName(): String {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.productName ?: "Unknown Product"
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<String>("displayName") ?: stockDefinition?.label ?: "Unknown Product"
             ProductSource.USER_CREATED -> userSku?.name ?: "Unknown SKU"
         }
     }
@@ -122,7 +123,7 @@ data class CombinedProductInfo(
      */
     fun getColorName(): String {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.getDisplayColorName() ?: "Unknown"
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<String>("colorName") ?: "Unknown"
             ProductSource.USER_CREATED -> userSku?.colorName ?: "Unknown"
         }
     }
@@ -132,7 +133,7 @@ data class CombinedProductInfo(
      */
     fun getColorHex(): String? {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.colorHex
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<String>("colorHex")
             ProductSource.USER_CREATED -> userSku?.colorHex
         }
     }
@@ -142,7 +143,7 @@ data class CombinedProductInfo(
      */
     fun getMaterialType(): String {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.materialType ?: "Unknown"
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<String>("materialType") ?: "Unknown"
             ProductSource.USER_CREATED -> userSku?.materialType ?: "Unknown"
         }
     }
@@ -152,7 +153,7 @@ data class CombinedProductInfo(
      */
     fun getManufacturerId(): String {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.manufacturer ?: "unknown"
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<String>("manufacturer") ?: "unknown"
             ProductSource.USER_CREATED -> userSku?.manufacturerId ?: "unknown"
         }
     }
@@ -162,7 +163,7 @@ data class CombinedProductInfo(
      */
     fun getSkuId(): String {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> "catalog_${productEntry?.variantId ?: "unknown"}"
+            ProductSource.BUILD_TIME_CATALOG -> "catalog_${stockDefinition?.getProperty<String>("sku") ?: "unknown"}"
             ProductSource.USER_CREATED -> userSku?.skuId ?: "unknown"
         }
     }
@@ -172,7 +173,7 @@ data class CombinedProductInfo(
      */
     fun isAvailable(): Boolean {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.available ?: false
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<Boolean>("available") ?: false
             ProductSource.USER_CREATED -> userSku?.available ?: false
         }
     }
@@ -182,7 +183,7 @@ data class CombinedProductInfo(
      */
     fun getPrice(): Double? {
         return when (source) {
-            ProductSource.BUILD_TIME_CATALOG -> productEntry?.price
+            ProductSource.BUILD_TIME_CATALOG -> stockDefinition?.getProperty<Double>("price")
             ProductSource.USER_CREATED -> userSku?.price
         }
     }

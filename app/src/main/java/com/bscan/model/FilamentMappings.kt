@@ -1,5 +1,6 @@
 package com.bscan.model
 
+import com.bscan.model.graph.entities.StockDefinition
 import java.time.LocalDateTime
 
 /**
@@ -13,15 +14,23 @@ data class FilamentMappings(
     val materialMappings: Map<String, String> = emptyMap(),
     val brandMappings: Map<String, String> = emptyMap(),
     val temperatureMappings: Map<String, TemperatureRange> = emptyMap(),
-    val productCatalog: List<ProductEntry> = emptyList() // SKU-specific product entries with embedded color information
+    val stockDefinitions: List<StockDefinition> = emptyList() // SKU-specific stock definitions with embedded color information
 ) {
     
     /**
-     * Find products matching the given hex color and material type
+     * Find stock definitions matching the given hex color and material type
      */
-    fun findProductsByColor(hex: String, materialType: String? = null): List<ProductEntry> {
-        return productCatalog.filter { product ->
-            product.matchesColorAndMaterial(hex, materialType)
+    fun findStockDefinitionsByColor(hex: String, materialType: String? = null): List<StockDefinition> {
+        return stockDefinitions.filter { stockDef ->
+            val stockColorHex = stockDef.getProperty<String>("colorHex")
+            val stockMaterialType = stockDef.getProperty<String>("materialType")
+            
+            val hexMatches = stockColorHex?.equals(hex, ignoreCase = true) ?: false
+            val materialMatches = materialType?.let { 
+                stockMaterialType?.equals(it, ignoreCase = true) ?: false
+            } ?: true
+            
+            hexMatches && materialMatches
         }
     }
     
@@ -57,7 +66,7 @@ data class FilamentMappings(
          * Check if mappings are populated (not empty)
          */
         fun FilamentMappings.isPopulated(): Boolean {
-            return productCatalog.isNotEmpty() || 
+            return stockDefinitions.isNotEmpty() || 
                    materialMappings.isNotEmpty() || 
                    brandMappings.isNotEmpty() || 
                    temperatureMappings.isNotEmpty()

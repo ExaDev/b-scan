@@ -1,5 +1,7 @@
 package com.bscan.model
 
+import com.bscan.model.graph.entities.StockDefinition
+
 /**
  * Build-time catalog data that ships with the app.
  * Contains manufacturer definitions, product catalogs, and default mappings.
@@ -15,12 +17,12 @@ data class CatalogData(
 data class ManufacturerCatalog(
     val name: String,
     val displayName: String,
-    val materials: Map<String, MaterialDefinition>,
+    val materials: Map<String, MaterialDefinition>, // DEPRECATED: Use stockDefinitions instead
     val temperatureProfiles: Map<String, TemperatureProfile>,
     val colorPalette: Map<String, String>,
     val rfidMappings: Map<String, RfidMapping>,
-    val componentDefaults: Map<String, ComponentDefault>,
-    val products: List<ProductEntry>,
+    val componentDefaults: Map<String, ComponentDefault>, // DEPRECATED: Use stockDefinitions instead
+    val stockDefinitions: List<StockDefinition> = emptyList(), // NEW: Unified stock definitions
     val tagFormat: TagFormat = TagFormat.PROPRIETARY
 )
 
