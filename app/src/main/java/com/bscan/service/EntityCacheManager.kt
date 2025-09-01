@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Uses result fingerprinting to detect when derived entities need regeneration,
  * regardless of what caused the change (parser updates, config changes, etc.).
  */
-class EntityCacheManager(
+open class EntityCacheManager(
     private val graphRepository: GraphRepository
 ) {
     
@@ -34,12 +34,12 @@ class EntityCacheManager(
     // Thread-safe cache storage
     private val cache = ConcurrentHashMap<String, FingerprintedCacheEntry<Entity>>()
     
-    // Cache statistics
-    private var cacheHits = 0L
-    private var cacheMisses = 0L
-    private var contentChanges = 0L
-    private var dependencyChanges = 0L
-    private var expirations = 0L
+    // Cache statistics - use @Volatile for thread safety
+    @Volatile private var cacheHits = 0L
+    @Volatile private var cacheMisses = 0L
+    @Volatile private var contentChanges = 0L
+    @Volatile private var dependencyChanges = 0L
+    @Volatile private var expirations = 0L
     
     /**
      * Get or generate derived entity with content-based validation
@@ -61,25 +61,27 @@ class EntityCacheManager(
             val currentFingerprint = generateMinimalFingerprint(sourceEntity, derivationType)
             
             if (cached.contentFingerprint == currentFingerprint) {
-                cacheHits++
+                synchronized(this@EntityCacheManager) { cacheHits++ }
                 Log.v(TAG, "Cache HIT for $derivationType from ${sourceEntity.id}")
                 @Suppress("UNCHECKED_CAST")
                 return@withContext cached.entity as T
             } else {
-                contentChanges++
+                synchronized(this@EntityCacheManager) { contentChanges++ }
                 Log.d(TAG, "Content changed for $derivationType from ${sourceEntity.id}")
             }
         } else if (cached != null) {
-            expirations++
+            synchronized(this@EntityCacheManager) { expirations++ }
             Log.v(TAG, "Cache expired for $derivationType from ${sourceEntity.id}")
         }
         
         // Generate fresh entity
-        cacheMisses++
+        synchronized(this@EntityCacheManager) { cacheMisses++ }
         Log.d(TAG, "Cache MISS - generating $derivationType from ${sourceEntity.id}")
         
         val freshEntity = generator(sourceEntity)
-        val fingerprint = generateFullFingerprint(freshEntity)
+        
+        // Use minimal fingerprint for consistency (not full entity fingerprint)
+        val fingerprint = generateMinimalFingerprint(sourceEntity, derivationType)
         val dependencies = extractDependencies(freshEntity, sourceEntity)
         
         // Cache with fingerprint
@@ -274,7 +276,7 @@ class EntityCacheManager(
         return dependencies
     }
     
-    private fun getTTLForType(derivationType: String): Int {
+    protected open fun getTTLForType(derivationType: String): Int {
         return when (derivationType) {
             "decoded_encrypted" -> DECODED_ENCRYPTED_TTL
             "encoded_decrypted" -> ENCODED_DECRYPTED_TTL
@@ -358,6 +360,10 @@ data class FingerprintedCacheEntry<T : Entity>(
     val ttlMinutes: Int
 ) {
     fun isExpired(): Boolean {
+        // Handle immediate expiration (TTL = 0) as special case for testing
+        if (ttlMinutes == 0) {
+            return true
+        }
         return LocalDateTime.now().isAfter(timestamp.plusMinutes(ttlMinutes.toLong()))
     }
     
