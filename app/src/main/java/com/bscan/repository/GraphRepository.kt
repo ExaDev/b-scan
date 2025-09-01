@@ -375,6 +375,20 @@ class GraphRepository(private val context: Context) {
     }
     
     /**
+     * Get all entities from the graph
+     */
+    suspend fun getAllEntities(): List<Entity> = withContext(Dispatchers.IO) {
+        graph.getAllEntities().toList()
+    }
+    
+    /**
+     * Get all edges from the graph
+     */
+    suspend fun getAllEdges(): List<Edge> = withContext(Dispatchers.IO) {
+        graph.getAllEdges().toList()
+    }
+    
+    /**
      * Get all inventory items (entities marked as inventory items)
      */
     suspend fun getAllInventoryItems(): List<Entity> = withContext(Dispatchers.IO) {
