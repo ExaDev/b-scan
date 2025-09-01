@@ -125,9 +125,6 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         // Create core component
         val coreComponent = createCoreComponent()
         
-        // Create spool component
-        val spoolComponent = createSpoolComponent()
-        
         // Create tray component containing all others
         val trayComponent = Component(
             id = generateComponentId("tray"),
@@ -148,12 +145,11 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
             childComponents = listOf(
                 rfidTagComponentId,
                 filamentComponent.id,
-                coreComponent.id,
-                spoolComponent.id
+                coreComponent.id
             ),
             massGrams = null, // Will be calculated from children
             manufacturer = "Bambu Lab",
-            description = "Bambu filament tray with RFID tags, filament, and core",
+            description = "Bambu filament tray with RFID tag, filament, and core",
             metadata = buildTrayMetadata(trayUid, filamentInfo) + mapOf("scannedTagUid" to scannedTagUid),
             createdAt = System.currentTimeMillis(),
             lastUpdated = LocalDateTime.now()
@@ -243,22 +239,6 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         )
     }
     
-    /**
-     * Create a refillable spool component
-     */
-    private suspend fun createSpoolComponent(): Component = withContext(Dispatchers.IO) {
-        return@withContext Component(
-            id = generateComponentId("spool"),
-            name = BambuComponentDefinitions.Spool.NAME,
-            category = BambuComponentDefinitions.Spool.CATEGORY,
-            tags = BambuComponentDefinitions.Spool.TAGS,
-            massGrams = BambuComponentDefinitions.Spool.MASS_GRAMS,
-            variableMass = false,
-            manufacturer = BambuComponentDefinitions.Spool.MANUFACTURER,
-            description = BambuComponentDefinitions.Spool.DESCRIPTION,
-            metadata = BambuComponentDefinitions.Spool.METADATA
-        )
-    }
     
     /**
      * Get filament mass from SKU data with fallback to defaults
