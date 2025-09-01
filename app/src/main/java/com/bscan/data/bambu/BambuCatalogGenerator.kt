@@ -332,7 +332,7 @@ object BambuCatalogGenerator {
         
         val colorName = completeView.color.colorName
         val materialType = completeView.materialType
-        val colorHex = ColorUtils.getHexColorForName(colorName)
+        val colorHex = completeView.color.colorHex ?: ColorUtils.getHexColorForName(colorName)
         val colorCode = normalizedProduct.colorCode
         
         // Create alternative identifiers set including alphanumeric variant ID
