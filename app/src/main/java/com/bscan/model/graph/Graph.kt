@@ -258,6 +258,30 @@ class Graph {
     }
     
     /**
+     * Find root entities that represent unique subgraphs for inventory tracking.
+     * These are entities that represent the main trackable items in inventory.
+     */
+    fun findInventoryRootEntities(): List<Entity> {
+        val rootEntities = mutableListOf<Entity>()
+        
+        // Find Virtual entities with virtualType="filament_tray" (Bambu inventory items)
+        val filamentTrays = getEntitiesByType("virtual")
+            .filter { entity ->
+                entity.getProperty<String>("virtualType") == "filament_tray"
+            }
+        rootEntities.addAll(filamentTrays)
+        
+        // Find PhysicalComponent entities that have no incoming edges (Creality and other root items)
+        val physicalComponents = getEntitiesByType("physical_component")
+            .filter { entity ->
+                getIncomingEdges(entity.id).isEmpty()
+            }
+        rootEntities.addAll(physicalComponents)
+        
+        return rootEntities.distinctBy { it.id }
+    }
+    
+    /**
      * Clear all data from the graph
      */
     fun clear() {
