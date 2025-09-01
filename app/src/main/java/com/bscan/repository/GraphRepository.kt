@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.bscan.model.graph.*
 import com.bscan.model.graph.entities.*
+import com.bscan.service.EntityCacheManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.google.gson.Gson
@@ -23,6 +24,9 @@ class GraphRepository(private val context: Context) {
     }
     
     private val gson = Gson()
+    
+    // Entity cache manager for dynamic relationship caching
+    private val entityCacheManager by lazy { EntityCacheManager(this) }
     
     // In-memory graph for fast queries
     private var _graph: Graph? = null
@@ -139,17 +143,192 @@ class GraphRepository(private val context: Context) {
     }
     
     /**
-     * Get entities connected to a specific entity
+     * Get entities connected to a specific entity (includes dynamic relationships)
      */
     suspend fun getConnectedEntities(entityId: String): List<Entity> = withContext(Dispatchers.IO) {
-        graph.getConnectedEntities(entityId)
+        val storedConnections = graph.getConnectedEntities(entityId)
+        val dynamicConnections = entityCacheManager.getOrGenerateDynamicRelationships(entityId) { id ->
+            resolveDynamicRelationships(id)
+        }
+        
+        // Combine and deduplicate
+        (storedConnections + dynamicConnections.mapNotNull { edge ->
+            graph.getEntity(edge.toEntityId) ?: graph.getEntity(edge.fromEntityId)
+        }).distinctBy { it.id }
     }
     
     /**
-     * Get entities connected through a specific relationship type
+     * Get entities connected through a specific relationship type (includes dynamic relationships)
      */
     suspend fun getConnectedEntities(entityId: String, relationshipType: String): List<Entity> = withContext(Dispatchers.IO) {
-        graph.getConnectedEntities(entityId, relationshipType)
+        val storedConnections = graph.getConnectedEntities(entityId, relationshipType)
+        val dynamicConnections = entityCacheManager.getOrGenerateDynamicRelationships(entityId) { id ->
+            resolveDynamicRelationships(id)
+        }.filter { it.relationshipType == relationshipType }
+         .mapNotNull { edge ->
+             graph.getEntity(edge.toEntityId) ?: graph.getEntity(edge.fromEntityId)
+         }
+        
+        // Combine and deduplicate
+        (storedConnections + dynamicConnections).distinctBy { it.id }
+    }
+    
+    /**
+     * Resolve dynamic relationships for an entity based on its properties and type
+     */
+    private suspend fun resolveDynamicRelationships(entityId: String): List<Edge> {
+        val entity = graph.getEntity(entityId) ?: return emptyList()
+        val relationships = mutableListOf<Edge>()
+        
+        when (entity) {
+            is PhysicalComponent -> {
+                // Resolve DEFINED_BY relationship to StockDefinition
+                relationships.addAll(resolveCatalogRelationships(entity))
+                
+                // Resolve TRACKED_BY relationship to InventoryItem (virtual)
+                relationships.addAll(resolveInventoryItemRelationships(entity))
+            }
+            is InventoryItem -> {
+                // Resolve TRACKS relationship to PhysicalComponent
+                relationships.addAll(resolveTrackedComponentRelationships(entity))
+            }
+            is StockDefinition -> {
+                // Resolve DEFINES relationship to PhysicalComponents
+                relationships.addAll(resolveDefinedComponentRelationships(entity))
+            }
+        }
+        
+        return relationships
+    }
+    
+    /**
+     * Resolve catalog relationships (PhysicalComponent -> StockDefinition)
+     */
+    private suspend fun resolveCatalogRelationships(component: PhysicalComponent): List<Edge> {
+        val relationships = mutableListOf<Edge>()
+        
+        // Use catalog lookup properties if available
+        val materialType = component.getProperty<String>("catalogLookupMaterial")
+            ?: component.getProperty<String>("material")
+        val colorName = component.getProperty<String>("catalogLookupColor")
+            ?: component.getProperty<String>("color")
+        val manufacturer = component.getProperty<String>("catalogLookupManufacturer")
+            ?: component.manufacturer
+            
+        if (materialType != null && colorName != null && manufacturer != null) {
+            // Find matching StockDefinition
+            val stockDefinitions = graph.getEntitiesByType("stock_definition")
+                .filterIsInstance<StockDefinition>()
+                .filter { stockDef ->
+                    stockDef.manufacturer == manufacturer &&
+                    stockDef.materialType == materialType &&
+                    (stockDef.colorName?.equals(colorName, ignoreCase = true) == true)
+                }
+            
+            stockDefinitions.forEach { stockDef ->
+                relationships.add(Edge(
+                    fromEntityId = component.id,
+                    toEntityId = stockDef.id,
+                    relationshipType = RelationshipTypes.DEFINED_BY,
+                    directional = true
+                ).apply {
+                    setProperty("dynamicallyResolved", true)
+                    setProperty("resolvedBy", "catalogLookup")
+                })
+            }
+        }
+        
+        return relationships
+    }
+    
+    /**
+     * Resolve virtual InventoryItem relationships (PhysicalComponent <- TRACKED_BY - InventoryItem)
+     */
+    private suspend fun resolveInventoryItemRelationships(component: PhysicalComponent): List<Edge> {
+        val relationships = mutableListOf<Edge>()
+        
+        // Check if there's already an InventoryItem tracking this component
+        val existingInventoryItems = graph.getEntitiesByType("inventory_item")
+            .filterIsInstance<InventoryItem>()
+            .filter { inventoryItem ->
+                // Check if this inventory item should track this component
+                inventoryItem.getProperty<String>("tracksComponent") == component.id
+            }
+        
+        existingInventoryItems.forEach { inventoryItem ->
+            relationships.add(Edge(
+                fromEntityId = inventoryItem.id,
+                toEntityId = component.id,
+                relationshipType = InventoryRelationshipTypes.TRACKS,
+                directional = true
+            ).apply {
+                setProperty("dynamicallyResolved", true)
+                setProperty("resolvedBy", "inventoryTracking")
+            })
+        }
+        
+        return relationships
+    }
+    
+    /**
+     * Resolve tracked component relationships (InventoryItem -> PhysicalComponent)
+     */
+    private suspend fun resolveTrackedComponentRelationships(inventoryItem: InventoryItem): List<Edge> {
+        val relationships = mutableListOf<Edge>()
+        
+        val trackedComponentId = inventoryItem.getProperty<String>("tracksComponent")
+        if (trackedComponentId != null) {
+            graph.getEntity(trackedComponentId)?.let { component ->
+                relationships.add(Edge(
+                    fromEntityId = inventoryItem.id,
+                    toEntityId = component.id,
+                    relationshipType = InventoryRelationshipTypes.TRACKS,
+                    directional = true
+                ).apply {
+                    setProperty("dynamicallyResolved", true)
+                    setProperty("resolvedBy", "inventoryTracking")
+                })
+            }
+        }
+        
+        return relationships
+    }
+    
+    /**
+     * Resolve defined component relationships (StockDefinition <- DEFINED_BY - PhysicalComponent)
+     */
+    private suspend fun resolveDefinedComponentRelationships(stockDef: StockDefinition): List<Edge> {
+        val relationships = mutableListOf<Edge>()
+        
+        // Find all PhysicalComponents that should be defined by this StockDefinition
+        val matchingComponents = graph.getEntitiesByType("physical_component")
+            .filterIsInstance<PhysicalComponent>()
+            .filter { component ->
+                val materialType = component.getProperty<String>("catalogLookupMaterial")
+                    ?: component.getProperty<String>("material")
+                val colorName = component.getProperty<String>("catalogLookupColor")
+                    ?: component.getProperty<String>("color")
+                val manufacturer = component.getProperty<String>("catalogLookupManufacturer")
+                    ?: component.manufacturer
+                    
+                stockDef.manufacturer == manufacturer &&
+                stockDef.materialType == materialType &&
+                (stockDef.colorName?.equals(colorName, ignoreCase = true) == true)
+            }
+        
+        matchingComponents.forEach { component ->
+            relationships.add(Edge(
+                fromEntityId = component.id,
+                toEntityId = stockDef.id,
+                relationshipType = RelationshipTypes.DEFINED_BY,
+                directional = true
+            ).apply {
+                setProperty("dynamicallyResolved", true)
+                setProperty("resolvedBy", "catalogLookup")
+            })
+        }
+        
+        return relationships
     }
     
     /**
