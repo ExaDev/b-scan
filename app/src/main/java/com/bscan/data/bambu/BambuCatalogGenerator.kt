@@ -201,8 +201,54 @@ object BambuCatalogGenerator {
             }
         }
 
-        Log.i(TAG, "Generated ${products.size} product entries from BambuVariantSkuMapper")
+        // Add component defaults as catalog entries
+        products.addAll(generateComponentProductEntries())
+
+        Log.i(TAG, "Generated ${products.size} product entries from BambuVariantSkuMapper and component defaults")
         return products
+    }
+
+    /**
+     * Generate ProductEntry objects from component defaults for catalog display
+     */
+    private fun generateComponentProductEntries(): List<ProductEntry> {
+        val componentDefaults = generateComponentDefaults()
+        return componentDefaults.map { (key, componentDefault) ->
+            ProductEntry(
+                variantId = "component_$key",
+                productHandle = "bambu-$key",
+                productName = componentDefault.name,
+                colorName = when(key) {
+                    "spool_standard" -> "Natural"
+                    "core_cardboard" -> "Brown"
+                    else -> "Default"
+                },
+                colorHex = when(key) {
+                    "spool_standard" -> "#F5F5DC" // Beige/natural plastic color
+                    "core_cardboard" -> "#8B4513" // Brown cardboard color
+                    else -> "#808080"
+                },
+                colorCode = when(key) {
+                    "spool_standard" -> "NAT"
+                    "core_cardboard" -> "BRN"
+                    else -> "DEF"
+                },
+                price = 0.0, // Components are not sold separately
+                available = true,
+                url = "https://store.bambulab.com/",
+                manufacturer = "Bambu Lab",
+                materialType = componentDefault.category.replaceFirstChar { it.uppercase() }, // "spool" -> "Spool"
+                internalCode = key,
+                lastUpdated = "2025-01-16T00:00:00Z",
+                filamentWeightGrams = componentDefault.massGrams,
+                spoolType = when(key) {
+                    "spool_standard" -> SpoolPackaging.WITH_SPOOL
+                    "core_cardboard" -> SpoolPackaging.REFILL
+                    else -> null
+                },
+                alternativeIds = emptySet()
+            )
+        }
     }
 
     /**
