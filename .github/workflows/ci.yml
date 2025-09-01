@@ -16,20 +16,18 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: read
 
 env:
   GRADLE_OPTS: >-
     -Dorg.gradle.daemon=true
     -Dorg.gradle.parallel=true
-    -Dorg.gradle.workers.max=4
-    -Dorg.gradle.configuration-cache=true
+    -Dorg.gradle.workers.max=2
     -Dorg.gradle.caching=true
-    -Dorg.gradle.vfs.watch=true
     -Dkotlin.incremental=true
-    -Dkotlin.incremental.useClasspathSnapshot=true
-    -Xmx4g
+    -Xmx3g
     -XX:+UseG1GC
-    -XX:MaxMetaspaceSize=1g
+    -XX:MaxMetaspaceSize=512m
   KOTLIN_INCREMENTAL: true
 
 jobs:
@@ -70,7 +68,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: true
+        fetch-depth: 1
+        
+    - name: Verify submodules
+      run: |
+        echo "Checking submodule status..."
+        git submodule status || echo "No submodules or submodule command failed"
+        ls -la test-data/rfid-library/ || echo "RFID library not found, continuing..."
       
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
@@ -118,7 +123,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: true
+        fetch-depth: 1
       
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
@@ -149,7 +155,7 @@ jobs:
       with:
         fetch-depth: 0  # Fetch full history for semantic-release
         token: ${{ secrets.GITHUB_TOKEN }}
-        submodules: recursive
+        submodules: true
         
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
