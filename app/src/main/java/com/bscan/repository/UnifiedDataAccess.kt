@@ -445,14 +445,24 @@ class UnifiedDataAccess(
      */
     fun getProducts(manufacturerId: String): List<ProductEntry> {
         val products = mutableListOf<ProductEntry>()
-        
-        // For Bambu Lab, use both mapper-based products and catalog-generated products
+
         if (manufacturerId == "bambu") {
-            products.addAll(ProductLookupService.getAllProducts())
-            // Also add catalog-generated products (components like spools and cores)
-            products.addAll(catalogRepo.getProducts(manufacturerId))
+            // Start with the products from the lookup service
+            val lookupProducts = ProductLookupService.getAllProducts()
+            products.addAll(lookupProducts)
+
+            // Get the catalog products to identify which lookup products are RFID-mapped variants
+            val catalogProducts = catalogRepo.getProducts(manufacturerId)
+            val primarySkuIds = catalogProducts.map { it.variantId }.toSet()
+
+            // Remove lookup products that are primary SKUs in the catalog, to avoid duplication
+            products.removeAll { it.variantId in primarySkuIds }
+
+            // Add the catalog products, which are the primary entries
+            products.addAll(catalogProducts)
+
         } else {
-            // Add catalog products for non-Bambu manufacturers
+            // For other manufacturers, just add their catalog products
             products.addAll(catalogRepo.getProducts(manufacturerId))
         }
         
