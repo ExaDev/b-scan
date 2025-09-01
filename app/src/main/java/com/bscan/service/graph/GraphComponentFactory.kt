@@ -9,15 +9,21 @@ import com.bscan.model.graph.entities.*
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.UnifiedDataAccess
+import com.bscan.repository.GraphRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runBlocking
 import java.time.LocalDateTime
+import java.security.MessageDigest
 
 /**
  * Graph-based factory that converts scan data into graph entities and relationships.
  * Replaces the hierarchical component factory with a flexible graph structure.
  */
-class GraphComponentFactory(private val context: Context) {
+class GraphComponentFactory(
+    private val context: Context,
+    private val graphRepository: GraphRepository
+) {
     
     private val unifiedDataAccess by lazy {
         UnifiedDataAccess(
@@ -32,6 +38,17 @@ class GraphComponentFactory(private val context: Context) {
     
     companion object {
         private const val TAG = "GraphComponentFactory"
+        
+        /**
+         * Create deterministic compound key ID from multiple components
+         */
+        fun createCompoundId(vararg components: Pair<String, String>): String {
+            val keyString = components.joinToString("|") { "${it.first}:${it.second}" }
+            return MessageDigest.getInstance("SHA-256")
+                .digest(keyString.toByteArray())
+                .fold("") { str, it -> str + "%02x".format(it) }
+                .take(16) // 16-char hex string for readability
+        }
     }
     
     /**
@@ -73,8 +90,14 @@ class GraphComponentFactory(private val context: Context) {
         val entities = mutableListOf<Entity>()
         val edges = mutableListOf<Edge>()
         
-        // 1. Create RFID Tag entity
-        val rfidTag = PhysicalComponent(
+        // 1. Create RFID Tag entity with compound key
+        val rfidTagId = createCompoundId(
+            "type" to "tag",
+            "tagUid" to encryptedScanData.tagUid
+        )
+        
+        val rfidTag = runBlocking { graphRepository.getExistingEntity(rfidTagId) } ?: PhysicalComponent(
+            id = rfidTagId,
             label = "Bambu RFID Tag ${encryptedScanData.tagUid}",
         ).apply {
             category = "rfid_tag"
@@ -85,8 +108,14 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(rfidTag)
         
-        // 2. Create Tag UID identifier
-        val tagIdentifier = Identifier(
+        // 2. Create Tag UID identifier with compound key
+        val tagIdentifierId = createCompoundId(
+            "idType" to IdentifierTypes.RFID_HARDWARE,
+            "value" to encryptedScanData.tagUid
+        )
+        
+        val tagIdentifier = runBlocking { graphRepository.getExistingEntity(tagIdentifierId) } as? Identifier ?: Identifier(
+            id = tagIdentifierId,
             identifierType = IdentifierTypes.RFID_HARDWARE,
             value = encryptedScanData.tagUid
         ).apply {
@@ -96,8 +125,14 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(tagIdentifier)
         
-        // 3. Create Tray UID identifier  
-        val trayIdentifier = Identifier(
+        // 3. Create Tray UID identifier with compound key
+        val trayIdentifierId = createCompoundId(
+            "idType" to IdentifierTypes.CONSUMABLE_UNIT,
+            "value" to filamentInfo.trayUid
+        )
+        
+        val trayIdentifier = runBlocking { graphRepository.getExistingEntity(trayIdentifierId) } as? Identifier ?: Identifier(
+            id = trayIdentifierId,
             identifierType = IdentifierTypes.CONSUMABLE_UNIT,
             value = filamentInfo.trayUid
         ).apply {
@@ -107,8 +142,14 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(trayIdentifier)
         
-        // 4. Create Tray entity (virtual container)
-        val tray = Virtual(
+        // 4. Create Tray entity (virtual container) with compound key  
+        val trayId = createCompoundId(
+            "type" to "tray",
+            "trayUid" to filamentInfo.trayUid
+        )
+        
+        val tray = runBlocking { graphRepository.getExistingEntity(trayId) } as? Virtual ?: Virtual(
+            id = trayId,
             virtualType = "filament_tray",
             label = "Bambu ${filamentInfo.filamentType} - ${filamentInfo.colorName}"
         ).apply {
@@ -120,8 +161,15 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(tray)
         
-        // 5. Create Filament entity
-        val filament = PhysicalComponent(
+        // 5. Create Filament entity with compound key
+        val filamentId = createCompoundId(
+            "type" to "filament",
+            "trayUid" to filamentInfo.trayUid,
+            "material" to filamentInfo.filamentType
+        )
+        
+        val filament = runBlocking { graphRepository.getExistingEntity(filamentId) } as? PhysicalComponent ?: PhysicalComponent(
+            id = filamentId,
             label = "${filamentInfo.filamentType} Filament - ${filamentInfo.colorName}"
         ).apply {
             category = "filament"
@@ -144,8 +192,14 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(filament)
         
-        // 6. Create Core entity
-        val core = PhysicalComponent(
+        // 6. Create Core entity with compound key
+        val coreId = createCompoundId(
+            "type" to "core",
+            "trayUid" to filamentInfo.trayUid
+        )
+        
+        val core = runBlocking { graphRepository.getExistingEntity(coreId) } as? PhysicalComponent ?: PhysicalComponent(
+            id = coreId,
             label = "Cardboard Core"
         ).apply {
             category = "core"
@@ -155,8 +209,14 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(core)
         
-        // 7. Create Spool entity
-        val spool = PhysicalComponent(
+        // 7. Create Spool entity with compound key
+        val spoolId = createCompoundId(
+            "type" to "spool",
+            "trayUid" to filamentInfo.trayUid
+        )
+        
+        val spool = runBlocking { graphRepository.getExistingEntity(spoolId) } as? PhysicalComponent ?: PhysicalComponent(
+            id = spoolId,
             label = "Refillable Spool"
         ).apply {
             category = "spool"
@@ -183,69 +243,85 @@ class GraphComponentFactory(private val context: Context) {
         }
         entities.add(scanActivity)
         
-        // Create relationships
+        // Create relationships (only if they don't exist)
         
         // RFID tag is identified by tag UID
-        edges.add(Edge(
-            fromEntityId = rfidTag.id,
-            toEntityId = tagIdentifier.id,
-            relationshipType = RelationshipTypes.IDENTIFIED_BY,
-            directional = true
-        ))
+        if (!runBlocking { graphRepository.edgeExists(rfidTag.id, tagIdentifier.id, RelationshipTypes.IDENTIFIED_BY) }) {
+            edges.add(Edge(
+                fromEntityId = rfidTag.id,
+                toEntityId = tagIdentifier.id,
+                relationshipType = RelationshipTypes.IDENTIFIED_BY,
+                directional = true
+            ))
+        }
         
         // Tray is identified by tray UID  
-        edges.add(Edge(
-            fromEntityId = tray.id,
-            toEntityId = trayIdentifier.id,
-            relationshipType = RelationshipTypes.IDENTIFIED_BY,
-            directional = true
-        ))
+        if (!runBlocking { graphRepository.edgeExists(tray.id, trayIdentifier.id, RelationshipTypes.IDENTIFIED_BY) }) {
+            edges.add(Edge(
+                fromEntityId = tray.id,
+                toEntityId = trayIdentifier.id,
+                relationshipType = RelationshipTypes.IDENTIFIED_BY,
+                directional = true
+            ))
+        }
         
         // RFID tag is attached to tray
-        edges.add(Edge(
-            fromEntityId = rfidTag.id,
-            toEntityId = tray.id,
-            relationshipType = RelationshipTypes.ATTACHED_TO,
-            directional = false
-        ))
+        if (!runBlocking { graphRepository.edgeExists(rfidTag.id, tray.id, RelationshipTypes.ATTACHED_TO) }) {
+            edges.add(Edge(
+                fromEntityId = rfidTag.id,
+                toEntityId = tray.id,
+                relationshipType = RelationshipTypes.ATTACHED_TO,
+                directional = false
+            ))
+        }
         
         // Tray contains filament, core, and spool
-        edges.add(Edge(
-            fromEntityId = tray.id,
-            toEntityId = filament.id,
-            relationshipType = RelationshipTypes.CONTAINS,
-            directional = true
-        ))
+        if (!runBlocking { graphRepository.edgeExists(tray.id, filament.id, RelationshipTypes.CONTAINS) }) {
+            edges.add(Edge(
+                fromEntityId = tray.id,
+                toEntityId = filament.id,
+                relationshipType = RelationshipTypes.CONTAINS,
+                directional = true
+            ))
+        }
         
-        edges.add(Edge(
-            fromEntityId = tray.id,
-            toEntityId = core.id,
-            relationshipType = RelationshipTypes.CONTAINS,
-            directional = true
-        ))
+        if (!runBlocking { graphRepository.edgeExists(tray.id, core.id, RelationshipTypes.CONTAINS) }) {
+            edges.add(Edge(
+                fromEntityId = tray.id,
+                toEntityId = core.id,
+                relationshipType = RelationshipTypes.CONTAINS,
+                directional = true
+            ))
+        }
         
-        edges.add(Edge(
-            fromEntityId = tray.id,
-            toEntityId = spool.id,
-            relationshipType = RelationshipTypes.CONTAINS,
-            directional = true
-        ))
+        if (!runBlocking { graphRepository.edgeExists(tray.id, spool.id, RelationshipTypes.CONTAINS) }) {
+            edges.add(Edge(
+                fromEntityId = tray.id,
+                toEntityId = spool.id,
+                relationshipType = RelationshipTypes.CONTAINS,
+                directional = true
+            ))
+        }
         
         // Filament is attached to core
-        edges.add(Edge(
-            fromEntityId = filament.id,
-            toEntityId = core.id,
-            relationshipType = RelationshipTypes.ATTACHED_TO,
-            directional = false
-        ))
+        if (!runBlocking { graphRepository.edgeExists(filament.id, core.id, RelationshipTypes.ATTACHED_TO) }) {
+            edges.add(Edge(
+                fromEntityId = filament.id,
+                toEntityId = core.id,
+                relationshipType = RelationshipTypes.ATTACHED_TO,
+                directional = false
+            ))
+        }
         
         // Core is attached to spool
-        edges.add(Edge(
-            fromEntityId = core.id,
-            toEntityId = spool.id,
-            relationshipType = RelationshipTypes.ATTACHED_TO,
-            directional = false
-        ))
+        if (!runBlocking { graphRepository.edgeExists(core.id, spool.id, RelationshipTypes.ATTACHED_TO) }) {
+            edges.add(Edge(
+                fromEntityId = core.id,
+                toEntityId = spool.id,
+                relationshipType = RelationshipTypes.ATTACHED_TO,
+                directional = false
+            ))
+        }
         
         // Scan activity scanned the RFID tag
         edges.add(Edge(

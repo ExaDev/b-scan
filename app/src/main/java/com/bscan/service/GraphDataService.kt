@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 class GraphDataService(private val context: Context) {
     
     private val graphRepository by lazy { GraphRepository(context) }
-    private val graphComponentFactory by lazy { GraphComponentFactory(context) }
+    private val graphComponentFactory by lazy { GraphComponentFactory(context, graphRepository) }
     
     companion object {
         private const val TAG = "GraphDataService"
