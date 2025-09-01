@@ -21,6 +21,7 @@ import com.bscan.repository.GraphRepository
 import com.bscan.ui.components.visual.parseColorWithAlpha
 import com.bscan.ui.components.visual.MaterialDisplayBox
 import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.PropertyRow
 import kotlinx.coroutines.launch
 
 // EntityType constants
@@ -220,23 +221,11 @@ private fun EntityPropertiesCard(
                 )
                 
                 entity.properties.forEach { (key, value) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = key,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            text = value.toString(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    PropertyRow(
+                        key = key,
+                        value = value,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
                 }
             }
         }
