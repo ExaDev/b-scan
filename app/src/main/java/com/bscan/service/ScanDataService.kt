@@ -1,9 +1,12 @@
 package com.bscan.service
 
+import android.content.Context
 import com.bscan.model.graph.Edge
+import com.bscan.model.graph.Entity
 import com.bscan.model.graph.Graph
 import com.bscan.model.graph.entities.*
 import com.bscan.repository.GraphRepository
+import com.bscan.repository.CatalogRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
@@ -13,20 +16,21 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Service for managing scan data with ephemeral entity caching.
  * Implements the pattern: persist only scan occurrences and unique raw data,
- * generate derived interpretations on-demand with TTL caching.
+ * generate derived interpretations on-demand with content-based caching.
  */
 class ScanDataService(
+    private val context: Context,
     private val graphRepository: GraphRepository
 ) {
     
-    // In-memory cache for ephemeral entities
-    private val decodedEncryptedCache = ConcurrentHashMap<String, CacheEntry<DecodedEncrypted>>()
-    private val encodedDecryptedCache = ConcurrentHashMap<String, CacheEntry<EncodedDecrypted>>()
-    private val decodedDecryptedCache = ConcurrentHashMap<String, CacheEntry<DecodedDecrypted>>()
+    // Enhanced caching system with content-based validation
+    private val entityCacheManager by lazy { 
+        EntityCacheManager(graphRepository) 
+    }
     
-    // Cache statistics
-    private var cacheHits = 0L
-    private var cacheMisses = 0L
+    private val dependencyTracker by lazy {
+        DependencyTracker(context, CatalogRepository(context))
+    }
     
     /**
      * Record a new scan occurrence with raw data
@@ -91,130 +95,83 @@ class ScanDataService(
     
     /**
      * Get or generate decoded encrypted data (metadata extraction)
-     * Returns cached version if available and not expired
+     * Uses content-based validation to ensure cache consistency
      */
     suspend fun getDecodedEncrypted(rawScanData: RawScanData): DecodedEncrypted = withContext(Dispatchers.IO) {
-        
-        val cacheKey = rawScanData.id
-        val cached = decodedEncryptedCache[cacheKey]
-        
-        if (cached != null && !cached.isExpired()) {
-            cacheHits++
-            return@withContext cached.entity
+        return@withContext entityCacheManager.getOrGenerate(
+            sourceEntity = rawScanData,
+            derivationType = "decoded_encrypted"
+        ) { source ->
+            generateDecodedEncrypted(source as RawScanData)
         }
-        
-        cacheMisses++
-        
-        // Generate new decoded encrypted entity
-        val decodedEncrypted = generateDecodedEncrypted(rawScanData)
-        
-        // Cache with TTL
-        decodedEncryptedCache[cacheKey] = CacheEntry(
-            entity = decodedEncrypted,
-            ttlMinutes = 60
-        )
-        
-        // Note: We don't persist ephemeral entities - they exist only in cache
-        
-        decodedEncrypted
     }
     
     /**
      * Get or generate encoded decrypted data (decryption without interpretation)
-     * Returns cached version if available and not expired
+     * Uses content-based validation to ensure cache consistency
      */
     suspend fun getEncodedDecrypted(rawScanData: RawScanData): EncodedDecrypted = withContext(Dispatchers.IO) {
-        
-        val cacheKey = rawScanData.id
-        val cached = encodedDecryptedCache[cacheKey]
-        
-        if (cached != null && !cached.isExpired()) {
-            cacheHits++
-            return@withContext cached.entity
+        return@withContext entityCacheManager.getOrGenerate(
+            sourceEntity = rawScanData,
+            derivationType = "encoded_decrypted"
+        ) { source ->
+            generateEncodedDecrypted(source as RawScanData)
         }
-        
-        cacheMisses++
-        
-        // Generate new encoded decrypted entity
-        val encodedDecrypted = generateEncodedDecrypted(rawScanData)
-        
-        // Cache with TTL
-        encodedDecryptedCache[cacheKey] = CacheEntry(
-            entity = encodedDecrypted,
-            ttlMinutes = 30
-        )
-        
-        encodedDecrypted
     }
     
     /**
      * Get or generate decoded decrypted data (full interpretation)
-     * Returns cached version if available and not expired
+     * Uses content-based validation with dependency tracking
      */
     suspend fun getDecodedDecrypted(rawScanData: RawScanData): DecodedDecrypted = withContext(Dispatchers.IO) {
-        
-        val cacheKey = rawScanData.id
-        val cached = decodedDecryptedCache[cacheKey]
-        
-        if (cached != null && !cached.isExpired()) {
-            cacheHits++
-            return@withContext cached.entity
+        return@withContext entityCacheManager.getOrGenerate(
+            sourceEntity = rawScanData,
+            derivationType = "decoded_decrypted"
+        ) { source ->
+            generateDecodedDecrypted(source as RawScanData)
         }
-        
-        cacheMisses++
-        
-        // Generate new decoded decrypted entity
-        val decodedDecrypted = generateDecodedDecrypted(rawScanData)
-        
-        // Cache with shorter TTL (most expensive to compute)
-        decodedDecryptedCache[cacheKey] = CacheEntry(
-            entity = decodedDecrypted,
-            ttlMinutes = 15
-        )
-        
-        decodedDecrypted
+    }
+    
+    /**
+     * Get all derived entities for a source (batch operation)
+     */
+    suspend fun getAllDerivedEntities(rawScanData: RawScanData): Map<String, Entity> {
+        return entityCacheManager.getDerivedEntities(rawScanData)
+    }
+    
+    /**
+     * Invalidate cached entities for specific source
+     */
+    fun invalidateCacheForSource(sourceEntityId: String) {
+        entityCacheManager.invalidateSource(sourceEntityId)
+    }
+    
+    /**
+     * Invalidate all cached entities of specific type
+     */
+    fun invalidateCacheForType(derivationType: String) {
+        entityCacheManager.invalidateType(derivationType)
     }
     
     /**
      * Clear expired cache entries
      */
     fun cleanupExpiredCache() {
-        decodedEncryptedCache.entries.removeAll { it.value.isExpired() }
-        encodedDecryptedCache.entries.removeAll { it.value.isExpired() }
-        decodedDecryptedCache.entries.removeAll { it.value.isExpired() }
+        entityCacheManager.cleanupExpired()
     }
     
     /**
      * Clear all caches
      */
     fun clearAllCaches() {
-        decodedEncryptedCache.clear()
-        encodedDecryptedCache.clear()
-        decodedDecryptedCache.clear()
-        cacheHits = 0
-        cacheMisses = 0
+        entityCacheManager.clearAll()
     }
     
     /**
-     * Get cache statistics
+     * Get enhanced cache statistics with content change tracking
      */
-    fun getCacheStatistics(): CacheStatistics {
-        val totalEntries = decodedEncryptedCache.size + encodedDecryptedCache.size + decodedDecryptedCache.size
-        val expiredEntries = decodedEncryptedCache.values.count { it.isExpired() } +
-                           encodedDecryptedCache.values.count { it.isExpired() } +
-                           decodedDecryptedCache.values.count { it.isExpired() }
-        
-        val totalRequests = cacheHits + cacheMisses
-        val hitRate = if (totalRequests > 0) cacheHits.toFloat() / totalRequests else 0f
-        
-        return CacheStatistics(
-            totalEntries = totalEntries,
-            expiredEntries = expiredEntries,
-            hitRate = hitRate,
-            memoryUsageBytes = estimateMemoryUsage(),
-            oldestEntryAge = getOldestEntryAge(),
-            averageTtl = calculateAverageTtl()
-        )
+    fun getCacheStatistics(): EntityCacheStatistics {
+        return entityCacheManager.getStatistics()
     }
     
     /**
@@ -349,48 +306,6 @@ class ScanDataService(
         }
         
         return decodedDecrypted
-    }
-    
-    private fun estimateMemoryUsage(): Long {
-        // Rough estimation
-        var totalSize = 0L
-        decodedEncryptedCache.values.forEach { totalSize += estimateEntitySize(it.entity) }
-        encodedDecryptedCache.values.forEach { totalSize += estimateEntitySize(it.entity) }
-        decodedDecryptedCache.values.forEach { totalSize += estimateEntitySize(it.entity) }
-        return totalSize
-    }
-    
-    private fun estimateEntitySize(entity: com.bscan.model.graph.Entity): Long {
-        // Very rough estimation - could be more sophisticated
-        return entity.properties.values.sumOf { prop ->
-            when (prop) {
-                is com.bscan.model.graph.PropertyValue.StringValue -> (prop.rawValue as String).length * 2L // UTF-16
-                is com.bscan.model.graph.PropertyValue.IntValue -> 8L
-                is com.bscan.model.graph.PropertyValue.LongValue -> 8L
-                is com.bscan.model.graph.PropertyValue.FloatValue -> 8L
-                is com.bscan.model.graph.PropertyValue.DoubleValue -> 8L
-                is com.bscan.model.graph.PropertyValue.BooleanValue -> 1L
-                is com.bscan.model.graph.PropertyValue.DateTimeValue -> 32L
-                else -> 0L // Handle any other PropertyValue types
-            }
-        }
-    }
-    
-    private fun getOldestEntryAge(): Long {
-        val allEntries = decodedEncryptedCache.values + encodedDecryptedCache.values + decodedDecryptedCache.values
-        val oldest = allEntries.minByOrNull { it.timestamp }
-        return oldest?.let { 
-            java.time.Duration.between(it.timestamp, LocalDateTime.now()).toMinutes() 
-        } ?: 0L
-    }
-    
-    private fun calculateAverageTtl(): Int {
-        val allEntries = decodedEncryptedCache.values + encodedDecryptedCache.values + decodedDecryptedCache.values
-        return if (allEntries.isNotEmpty()) {
-            allEntries.sumOf { it.ttlMinutes } / allEntries.size
-        } else {
-            0
-        }
     }
 }
 
