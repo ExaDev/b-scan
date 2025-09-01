@@ -3,6 +3,8 @@ package com.bscan.data.bambu
 import com.bscan.data.bambu.rfid.BambuMaterialIdMapper
 import com.bscan.util.ColorUtils
 import com.bscan.model.*
+import com.bscan.model.graph.entities.StockDefinition
+import com.bscan.model.graph.*
 import android.util.Log
 
 /**
@@ -24,30 +26,30 @@ object BambuCatalogGenerator {
     fun generateBambuCatalog(): ManufacturerCatalog {
         Log.i(TAG, "Generating Bambu Lab catalog from runtime data")
 
-        val products = generateProductEntries()
-        val materials = generateMaterialDefinitions(products)
+        val stockDefinitions = generateStockDefinitions()
+        
 
         return ManufacturerCatalog(
             name = "bambu",
             displayName = "Bambu Lab",
-            materials = materials,
+            materials = emptyMap(), // Materials are now CatalogItems
             temperatureProfiles = NormalizedBambuData.temperatureProfiles,
-            colorPalette = generateColorPalette(products),
-            rfidMappings = generateRfidMappings(products),
-            componentDefaults = generateComponentDefaults(),
-            products = products,
+            colorPalette = generateColorPalette(stockDefinitions),
+            rfidMappings = generateRfidMappings(stockDefinitions),
+            componentDefaults = emptyMap(), // Components are now CatalogItems
+            stockDefinitions = stockDefinitions, // Add new unified stock definitions
             tagFormat = TagFormat.BAMBU_PROPRIETARY
         )
     }
 
     /**
-     * Generate material definitions from product list
+     * Generate material definitions from stock definition list
      */
-    private fun generateMaterialDefinitions(products: List<ProductEntry>): Map<String, MaterialDefinition> {
+    private fun generateMaterialDefinitions(stockDefinitions: List<StockDefinition>): Map<String, MaterialDefinition> {
         val materials = mutableMapOf<String, MaterialDefinition>()
 
-        products.forEach { product ->
-            val materialType = product.materialType
+        stockDefinitions.forEach { stockDef ->
+            val materialType = stockDef.getProperty<String>("materialType") ?: ""
             if (!materials.containsKey(materialType)) {
                 val temperatureProfile = getTemperatureProfileForMaterial(materialType)
                 val properties = getMaterialProperties(materialType)
@@ -139,20 +141,23 @@ object BambuCatalogGenerator {
     }
 
     /**
-     * Generate color palette from product list
+     * Generate color palette from stock definitions list
      */
-    private fun generateColorPalette(products: List<ProductEntry>): Map<String, String> {
-        val colorPalette = products.mapNotNull { product ->
-            product.colorHex?.let { hex -> hex to product.colorName }
+    private fun generateColorPalette(stockDefinitions: List<StockDefinition>): Map<String, String> {
+        val colorPalette = stockDefinitions.mapNotNull { stockDef ->
+            stockDef.getProperty<String>("colorHex")?.let { hex -> 
+                val colorName = stockDef.getProperty<String>("colorName") ?: ""
+                hex to colorName 
+            }
         }.toMap()
         Log.i(TAG, "Generated color palette with ${colorPalette.size} colors")
         return colorPalette
     }
 
     /**
-     * Generate RFID mappings only for products that have valid material ID mappings
+     * Generate RFID mappings only for stock definitions that have valid material ID mappings
      */
-    private fun generateRfidMappings(products: List<ProductEntry>): Map<String, RfidMapping> {
+    private fun generateRfidMappings(stockDefinitions: List<StockDefinition>): Map<String, RfidMapping> {
         val mappings = mutableMapOf<String, RfidMapping>()
         
         // Material ID mappings from BambuVariantSkuMapper
@@ -173,12 +178,14 @@ object BambuCatalogGenerator {
             ("SUPPORT" to "Basic") to "GFS01"
         )
 
-        products.forEach { product ->
+        stockDefinitions.forEach { stockDef ->
+            val sku = stockDef.getProperty<String>("sku") ?: ""
             // Skip component products (they don't have RFID mappings)
-            if (product.variantId.startsWith("component_")) return@forEach
+            if (sku.startsWith("component_")) return@forEach
             
-            // Extract material and variant from internal code
-            val internalParts = product.internalCode.split("_")
+            // Extract material and variant from internal code if available
+            val internalCode = stockDef.getProperty<String>("internalCode") ?: ""
+            val internalParts = internalCode.split("_")
             if (internalParts.size == 2) {
                 val materialName = internalParts[0]
                 val variantName = internalParts[1]
@@ -186,19 +193,18 @@ object BambuCatalogGenerator {
                 
                 // Only create RFID mapping if this material+variant combination has an RFID material ID
                 materialIdMap[materialCombo]?.let { materialId ->
-                    // Find alphanumeric variant ID from alternative identifiers
-                    val alphanumericVariantId = product.alternativeIds.firstOrNull { altId ->
-                        altId.matches(Regex("[A-Z]\\d{2}-[A-Z]\\d"))
-                    }
+                    // Find alphanumeric variant ID from alternative identifiers if available
+                    val alphanumericVariantId = stockDef.getProperty<String>("alternativeId")
+                        ?.takeIf { it.matches(Regex("[A-Z]\\d{2}-[A-Z]\\d")) }
                     
                     if (alphanumericVariantId != null) {
                         val rfidKey = "$materialId:$alphanumericVariantId"
                         val rfidMapping = RfidMapping(
                             rfidCode = rfidKey,
-                            sku = product.variantId, // Use numeric SKU as target
-                            material = product.materialType,
-                            color = product.colorName,
-                            hex = product.colorHex,
+                            sku = sku, // Use SKU as target
+                            material = stockDef.getProperty<String>("materialType") ?: "",
+                            color = stockDef.getProperty<String>("colorName") ?: "",
+                            hex = stockDef.getProperty<String>("colorHex"),
                             sampleCount = 1
                         )
                         mappings[rfidKey] = rfidMapping
@@ -207,7 +213,7 @@ object BambuCatalogGenerator {
             }
         }
 
-        Log.i(TAG, "Generated ${mappings.size} RFID mappings from ${products.size} products")
+        Log.i(TAG, "Generated ${mappings.size} RFID mappings from ${stockDefinitions.size} stock definitions")
         return mappings
     }
 
@@ -241,117 +247,85 @@ object BambuCatalogGenerator {
     }
 
     /**
-     * Generate product entries from all normalized products (not just RFID-mapped ones)
+     * Generate stock definitions from all normalized products and components
      */
-     private fun generateProductEntries(): List<ProductEntry> {
-        val products = mutableListOf<ProductEntry>()
+    private fun generateStockDefinitions(): List<StockDefinition> {
+        val stockDefinitions = mutableListOf<StockDefinition>()
 
-        // Generate products from ALL normalized products, using numeric SKU as primary identifier
+        // Generate stock definitions from ALL normalized products, using numeric SKU as primary identifier
         NormalizedBambuData.getAllNormalizedProducts().forEach { normalizedProduct ->
-            val productEntry = createProductEntryFromNormalizedProduct(normalizedProduct)
-            products.add(productEntry)
+            val stockDefinition = createStockDefinitionFromNormalizedProduct(normalizedProduct)
+            stockDefinitions.add(stockDefinition)
         }
 
-        // Add component defaults as catalog entries
-        products.addAll(generateComponentProductEntries())
+        // Add component defaults as stock definitions
+        stockDefinitions.addAll(generateComponentStockDefinitions())
 
-        Log.i(TAG, "Generated ${products.size} product entries from all normalized products and component defaults")
-        return products
+        Log.i(TAG, "Generated ${stockDefinitions.size} stock definitions from all normalized products and component defaults")
+        return stockDefinitions
     }
 
     /**
-     * Generate ProductEntry objects from component defaults for catalog display
+     * Generate StockDefinition entities from component defaults
      */
-    private fun generateComponentProductEntries(): List<ProductEntry> {
+    private fun generateComponentStockDefinitions(): List<StockDefinition> {
         val componentDefaults = generateComponentDefaults()
         return componentDefaults.map { (key, componentDefault) ->
-            ProductEntry(
-                variantId = "component_$key",
-                productHandle = "bambu-$key",
-                productName = componentDefault.name,
+            StockDefinition(
+                id = "bambu_component_$key",
+                label = componentDefault.name
+            ).apply {
+                sku = "component_$key"
+                manufacturer = "Bambu Lab"
+                displayName = componentDefault.name
+                description = componentDefault.description
+                category = componentDefault.category
+                productUrl = "https://store.bambulab.com/"
+                
+                // Set weight using new Quantity system
+                weight = ContinuousQuantity(componentDefault.massGrams.toDouble(), "g")
+                
+                // Usage characteristics - these are reusable packaging components
+                consumable = false  // Spools and cores are reusable
+                reusable = true
+                recyclable = when(key) {
+                    "spool_standard" -> true  // Plastic spool is recyclable
+                    "core_cardboard" -> true  // Cardboard core is recyclable
+                    else -> false
+                }
+                
+                // Color properties
                 colorName = when(key) {
                     "spool_standard" -> "Natural"
                     "core_cardboard" -> "Brown"
                     else -> "Default"
-                },
+                }
                 colorHex = when(key) {
                     "spool_standard" -> "#F5F5DC" // Beige/natural plastic color
                     "core_cardboard" -> "#8B4513" // Brown cardboard color
                     else -> "#808080"
-                },
+                }
                 colorCode = when(key) {
                     "spool_standard" -> "NAT"
                     "core_cardboard" -> "BRN"
                     else -> "DEF"
-                },
-                price = 0.0, // Components are not sold separately
-                available = true,
-                url = "https://store.bambulab.com/",
-                manufacturer = "Bambu Lab",
-                materialType = componentDefault.category.replaceFirstChar { it.uppercase() }, // "spool" -> "Spool"
-                internalCode = key,
-                lastUpdated = "2025-01-16T00:00:00Z",
-                filamentWeightGrams = componentDefault.massGrams,
-                spoolType = when(key) {
-                    "spool_standard" -> SpoolPackaging.WITH_SPOOL
-                    "core_cardboard" -> SpoolPackaging.REFILL
-                    else -> null
-                },
+                }
+                
+                // No temperature properties for packaging components
+                // price = 0.0 // Components are not sold separately (don't set if 0)
+                available = true
                 alternativeIds = emptySet()
-            )
+            }
         }
     }
 
-    /**
-     * Create ProductEntry from SkuInfo using verified mapping data
-     */
-    private fun createProductEntryFromSkuInfo(
-        materialId: String,
-        variantId: String,
-        skuInfo: SkuInfo
-    ): ProductEntry {
-        // Get enhanced product data for accurate color names and material types
-        val product = BambuProductCatalog.getProductBySku(skuInfo.sku)
-        val colorName = product?.colorName ?: skuInfo.colorName
-        val materialType = product?.materialType ?: skuInfo.materialType
-        val colorHex = product?.colorHex ?: ColorUtils.getHexColorForName(colorName)
-        val colorCode = variantId.split("-").getOrNull(1) ?: ""
-
-        // Create alternative identifiers set including the numeric SKU ID
-        val alternativeIds = mutableSetOf<String>()
-        
-        // Add the numeric SKU ID as an alternative identifier
-        alternativeIds.add(skuInfo.sku)
-        
-        // Add other potential identifiers
-        product?.let { alternativeIds.add("${materialType}_${colorName}".replace(" ", "_")) }
-
-        return ProductEntry(
-            variantId = variantId,
-            productHandle = "bambu-${materialType.lowercase().replace(" ", "-")}-${colorName.lowercase().replace(" ", "-")}",
-            productName = "Bambu ${materialType} ${colorName}",
-            colorName = colorName,
-            colorHex = colorHex,
-            colorCode = colorCode,
-            price = 29.99,
-            available = true,
-            url = "https://bambulab.com/en/filament/${materialType.lowercase().replace(" ", "-")}",
-            manufacturer = "Bambu Lab",
-            materialType = materialType.replace(" ", "_").uppercase(),
-            internalCode = materialId,
-            lastUpdated = "2025-01-16T00:00:00Z",
-            filamentWeightGrams = 1000f,
-            spoolType = SpoolPackaging.WITH_SPOOL,
-            alternativeIds = alternativeIds
-        )
-    }
 
     /**
-     * Create ProductEntry from normalized product using numeric SKU as primary identifier
+     * Create StockDefinition from normalized product using numeric SKU as primary identifier
      */
-    private fun createProductEntryFromNormalizedProduct(
+    private fun createStockDefinitionFromNormalizedProduct(
         normalizedProduct: NormalizedBambuData.NormalizedProduct
-    ): ProductEntry {
+    ): StockDefinition {
         // Get complete product view for additional information
         val completeView = NormalizedBambuData.getCompleteProductView(normalizedProduct.sku)
             ?: throw IllegalStateException("No complete view found for SKU: ${normalizedProduct.sku}")
@@ -374,24 +348,49 @@ object BambuCatalogGenerator {
         // Add material+color identifier
         alternativeIds.add("${materialType}_${colorName}".replace(" ", "_"))
         
-        return ProductEntry(
-            variantId = normalizedProduct.sku, // Use numeric SKU as primary identifier
-            productHandle = "bambu-${materialType.lowercase().replace(" ", "-")}-${colorName.lowercase().replace(" ", "-")}",
-            productName = "Bambu ${materialType} ${colorName}",
-            colorName = colorName,
-            colorHex = colorHex,
-            colorCode = colorCode,
-            price = 29.99,
-            available = true,
-            url = "https://bambulab.com/en/filament/${materialType.lowercase().replace(" ", "-")}",
-            manufacturer = "Bambu Lab",
-            materialType = materialType.replace(" ", "_").uppercase(),
-            internalCode = "${normalizedProduct.materialName}_${normalizedProduct.variantName}",
-            lastUpdated = "2025-01-16T00:00:00Z",
-            filamentWeightGrams = 1000f,
-            spoolType = SpoolPackaging.WITH_SPOOL,
-            alternativeIds = alternativeIds
-        )
+        return StockDefinition(
+            id = "bambu_material_${normalizedProduct.sku}",
+            label = "Bambu ${materialType} ${colorName}"
+        ).apply {
+            sku = normalizedProduct.sku // Use numeric SKU as primary identifier
+            manufacturer = "Bambu Lab"
+            displayName = "Bambu ${materialType} ${colorName}"
+            description = "${materialType} filament in ${colorName}"
+            category = "filament"
+            productUrl = "https://bambulab.com/en/filament/${materialType.lowercase().replace(" ", "-")}"
+            
+            // Set weight using new Quantity system (1kg filament)
+            weight = ContinuousQuantity(1000.0, "g")
+            
+            // Usage characteristics - materials are consumable
+            consumable = true
+            reusable = false
+            recyclable = true
+            
+            // Material-specific properties
+            this.materialType = materialType.replace(" ", "_").uppercase()
+            this.colorName = colorName
+            this.colorHex = colorHex
+            this.colorCode = colorCode
+            
+            // Only set temperature properties if we have temperature profile data
+            val temperatureProfile = getTemperatureProfileForMaterial(materialType.replace(" ", "_").uppercase())
+            if (temperatureProfile != "generic_standard") {
+                val tempData = NormalizedBambuData.temperatureProfiles[temperatureProfile]
+                tempData?.let { temp ->
+                    minNozzleTemp = temp.minNozzle
+                    maxNozzleTemp = temp.maxNozzle
+                    bedTemp = temp.bed
+                    temp.enclosure?.let { enclosureTemp = it }
+                }
+            }
+            // If no temperature data exists, don't set any temperature properties
+            
+            price = 29.99
+            currency = "USD"
+            available = true
+            this.alternativeIds = alternativeIds
+        }
     }
 
     /**

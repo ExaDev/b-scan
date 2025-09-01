@@ -3,6 +3,7 @@ package com.bscan.service
 import android.content.Context
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.repository.ComponentRepository
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
@@ -137,19 +138,23 @@ abstract class ComponentFactory(
             if (material != null && color != null) {
                 // Try to find exact match in catalog
                 val manufacturerId = manufacturer?.lowercase() ?: "bambu"
-                val products = catalogRepository.findProducts(manufacturerId, null, material)
-                val bestMatch = products.firstOrNull { it.colorName.equals(color, ignoreCase = true) }
+                val stockDefinitions = catalogRepository.findStockDefinitionsByMaterial(manufacturerId, material)
+                val bestMatch = stockDefinitions.firstOrNull { stockDef ->
+                    val stockColorName = stockDef.getProperty<String>("colorName") ?: ""
+                    stockColorName.equals(color, ignoreCase = true)
+                }
                 
                 if (bestMatch != null) {
-                    Log.d(factoryType, "Found catalog match for $material/$color: ${bestMatch.variantId}")
+                    val sku = bestMatch.getProperty<String>("sku") ?: ""
+                    Log.d(factoryType, "Found catalog match for $material/$color: $sku")
                     return@withContext SkuData(
-                        sku = bestMatch.variantId,
-                        productName = bestMatch.productName,
-                        filamentWeightGrams = bestMatch.filamentWeightGrams,
-                        manufacturer = bestMatch.manufacturer,
-                        material = bestMatch.materialType,
-                        colorName = bestMatch.colorName,
-                        colorHex = bestMatch.colorHex
+                        sku = sku,
+                        productName = bestMatch.getProperty<String>("displayName") ?: bestMatch.label,
+                        filamentWeightGrams = bestMatch.getProperty<Float>("filamentWeightGrams"),
+                        manufacturer = manufacturerId,
+                        material = bestMatch.getProperty<String>("materialType"),
+                        colorName = bestMatch.getProperty<String>("colorName"),
+                        colorHex = bestMatch.getProperty<String>("colorHex")
                     )
                 }
             }

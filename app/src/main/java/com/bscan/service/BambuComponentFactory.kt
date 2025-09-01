@@ -3,6 +3,7 @@ package com.bscan.service
 import android.content.Context
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.repository.ComponentRepository
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
@@ -245,15 +246,23 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
      */
     private suspend fun getFilamentMassFromSku(filamentType: String, colorName: String): Float = withContext(Dispatchers.IO) {
         try {
-            val bestMatch = unifiedDataAccess.findBestProductMatch(filamentType, colorName)
-            if (bestMatch?.filamentWeightGrams != null) {
-                Log.d(factoryType, "Found SKU mass for $filamentType/$colorName: ${bestMatch.filamentWeightGrams}g")
-                bestMatch.filamentWeightGrams
-            } else {
-                val defaultMass = getDefaultMassByMaterial(filamentType)
-                Log.d(factoryType, "Using default mass for $filamentType: ${defaultMass}g")
-                defaultMass
+            val matchingStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", materialType = filamentType)
+                .filter { stockDef ->
+                    val stockColorName = stockDef.getProperty<String>("colorName") ?: ""
+                    stockColorName.equals(colorName, ignoreCase = true)
+                }
+            
+            if (matchingStockDefinitions.isNotEmpty()) {
+                val bestMatch = matchingStockDefinitions.first()
+                bestMatch.getProperty<Float>("filamentWeightGrams")?.let { weightGrams ->
+                    Log.d(factoryType, "Found SKU mass for $filamentType/$colorName: ${weightGrams}g")
+                    return@withContext weightGrams
+                }
             }
+            
+            val defaultMass = getDefaultMassByMaterial(filamentType)
+            Log.d(factoryType, "Using default mass for $filamentType: ${defaultMass}g")
+            defaultMass
         } catch (e: Exception) {
             Log.e(factoryType, "Error looking up SKU mass for $filamentType/$colorName", e)
             getDefaultMassByMaterial(filamentType)
@@ -274,17 +283,24 @@ class BambuComponentFactory(context: Context) : ComponentFactory(context) {
         
         // Add SKU information if available
         try {
-            val bestMatch = unifiedDataAccess.findBestProductMatch(filamentInfo.filamentType, filamentInfo.colorName)
-            if (bestMatch != null) {
-                metadata["linkedSku"] = bestMatch.variantId
-                metadata["productName"] = bestMatch.productName
-                metadata["internalCode"] = bestMatch.internalCode
+            val matchingStockDefinitions = unifiedDataAccess.findStockDefinitions("bambu", materialType = filamentInfo.filamentType)
+                .filter { stockDef ->
+                    val stockColorName = stockDef.getProperty<String>("colorName") ?: ""
+                    stockColorName.equals(filamentInfo.colorName, ignoreCase = true)
+                }
+            
+            if (matchingStockDefinitions.isNotEmpty()) {
+                val bestMatch = matchingStockDefinitions.first()
+                val linkedSku = bestMatch.getProperty<String>("sku") ?: ""
+                metadata["linkedSku"] = linkedSku
+                metadata["productName"] = bestMatch.getProperty<String>("displayName") ?: bestMatch.label
+                metadata["internalCode"] = bestMatch.getProperty<String>("materialType") ?: ""
                 metadata["skuSource"] = "automatic-match"
-                metadata["purchaseUrl"] = bestMatch.url
-                bestMatch.filamentWeightGrams?.let {
+                
+                bestMatch.getProperty<Float>("filamentWeightGrams")?.let {
                     metadata["expectedWeightGrams"] = it.toString()
                 }
-                Log.i(factoryType, "Auto-linked tray $trayUid to SKU: ${bestMatch.variantId}")
+                Log.i(factoryType, "Auto-linked tray $trayUid to SKU: $linkedSku")
             } else {
                 metadata["skuLinkStatus"] = "no-match-found"
                 Log.d(factoryType, "No SKU match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")

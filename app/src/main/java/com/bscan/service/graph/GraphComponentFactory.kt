@@ -181,10 +181,13 @@ class GraphComponentFactory(
             
             // Try to get mass from catalog
             try {
-                val product = unifiedDataAccess.findBestProductMatch(filamentInfo.filamentType, filamentInfo.colorName)
-                product?.filamentWeightGrams?.let { weight ->
-                    massGrams = weight
-                    setProperty("catalogMass", weight)
+                val stockDef = unifiedDataAccess.findBestStockDefinitionMatch(filamentInfo.filamentType, filamentInfo.colorName)
+                stockDef?.weight?.let { quantity ->
+                    if (quantity.unit == "g") {
+                        val weight = quantity.value.toFloat()
+                        massGrams = weight
+                        setProperty("catalogMass", weight)
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Could not get catalog mass for filament", e)
