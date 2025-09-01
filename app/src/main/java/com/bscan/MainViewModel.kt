@@ -12,6 +12,7 @@ import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
 import com.bscan.repository.ScanHistoryRepository
+import com.bscan.repository.GraphRepository
 import com.bscan.repository.GraphEntityCreationResult
 import com.bscan.service.ScanningService
 import com.bscan.service.DefaultScanningService
@@ -44,6 +45,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val catalogRepository = CatalogRepository(application)
     private val userDataRepository = UserDataRepository(application)
     private val scanHistoryRepository = ScanHistoryRepository(application)
+    private val graphRepository = GraphRepository(application)
     private val unifiedDataAccess = UnifiedDataAccess(
         catalogRepository, 
         userDataRepository, 
@@ -51,6 +53,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         null, // componentRepository (removed legacy support)
         application
     )
+    
+    init {
+        // Initialize catalog entities in the graph on app startup
+        viewModelScope.launch {
+            try {
+                Log.i("MainViewModel", "Initializing catalog entities on app startup")
+                graphRepository.initializeCatalogEntities()
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to initialize catalog entities", e)
+            }
+        }
+    }
     
     // Decoupled scanning service (only persists scan data, not components)
     private val scanningService: ScanningService = DefaultScanningService(
