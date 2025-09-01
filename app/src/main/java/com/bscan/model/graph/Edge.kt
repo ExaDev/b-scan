@@ -158,6 +158,7 @@ object RelationshipTypes {
     // Logical relationships  
     const val INSTANCE_OF = "instanceOf"
     const val DERIVED_FROM = "derivedFrom"
+    const val DEFINED_BY = "definedBy"  // PhysicalComponent -> StockDefinition (catalog spec)
     const val RELATED_TO = "relatedTo"
     const val SAME_AS = "sameAs"
     
