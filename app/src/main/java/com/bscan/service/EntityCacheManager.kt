@@ -33,6 +33,7 @@ open class EntityCacheManager(
     
     // Thread-safe cache storage
     private val cache = ConcurrentHashMap<String, FingerprintedCacheEntry<Entity>>()
+    private val relationshipCache = ConcurrentHashMap<String, RelationshipCacheEntry>()
     
     // Cache statistics - use @Volatile for thread safety
     @Volatile private var cacheHits = 0L
@@ -40,6 +41,8 @@ open class EntityCacheManager(
     @Volatile private var contentChanges = 0L
     @Volatile private var dependencyChanges = 0L
     @Volatile private var expirations = 0L
+    @Volatile private var relationshipCacheHits = 0L
+    @Volatile private var relationshipCacheMisses = 0L
     
     /**
      * Get or generate derived entity with content-based validation
@@ -345,6 +348,99 @@ open class EntityCacheManager(
             }
         }
     }
+    
+    /**
+     * Get or generate dynamic relationships with caching
+     */
+    suspend fun getOrGenerateDynamicRelationships(
+        entityId: String,
+        generator: suspend (String) -> List<Edge>
+    ): List<Edge> = withContext(Dispatchers.IO) {
+        
+        val cacheKey = "relationships:$entityId"
+        val currentEntry = relationshipCache[cacheKey]
+        
+        // Check if we have a valid cached entry
+        if (currentEntry != null && !currentEntry.isExpired()) {
+            relationshipCacheHits++
+            Log.d(TAG, "Relationship cache HIT for $entityId")
+            return@withContext currentEntry.relationships
+        }
+        
+        // Generate fresh relationships
+        relationshipCacheMisses++
+        Log.d(TAG, "Relationship cache MISS for $entityId - generating")
+        
+        val relationships = generator(entityId)
+        
+        // Create cache entry with TTL
+        val entry = RelationshipCacheEntry(
+            relationships = relationships,
+            sourceEntityId = entityId,
+            contentFingerprint = generateRelationshipFingerprint(relationships),
+            dependencies = extractRelationshipDependencies(entityId, relationships),
+            timestamp = LocalDateTime.now(),
+            ttlMinutes = 30 // Shorter TTL for dynamic relationships
+        )
+        
+        relationshipCache[cacheKey] = entry
+        
+        relationships
+    }
+    
+    /**
+     * Invalidate relationship cache for specific entity
+     */
+    fun invalidateRelationshipCache(entityId: String) {
+        val cacheKey = "relationships:$entityId"
+        relationshipCache.remove(cacheKey)
+        Log.d(TAG, "Invalidated relationship cache for $entityId")
+    }
+    
+    /**
+     * Clear all relationship cache entries
+     */
+    fun clearRelationshipCache() {
+        relationshipCache.clear()
+        relationshipCacheHits = 0L
+        relationshipCacheMisses = 0L
+        Log.d(TAG, "Cleared all relationship cache entries")
+    }
+    
+    /**
+     * Generate fingerprint for relationship list
+     */
+    private fun generateRelationshipFingerprint(relationships: List<Edge>): String {
+        val contentString = relationships
+            .sortedBy { "${it.fromEntityId}-${it.toEntityId}-${it.relationshipType}" }
+            .joinToString("|") { edge ->
+                "${edge.fromEntityId}->${edge.toEntityId}:${edge.relationshipType}"
+            }
+        return hashString(contentString).take(16)
+    }
+    
+    /**
+     * Extract dependencies for relationship caching
+     */
+    private fun extractRelationshipDependencies(entityId: String, relationships: List<Edge>): Set<String> {
+        val dependencies = mutableSetOf<String>()
+        
+        // Relationships depend on the source entity
+        dependencies.add("entity:$entityId")
+        
+        // Relationships depend on target entities
+        relationships.forEach { edge ->
+            dependencies.add("entity:${edge.toEntityId}")
+            dependencies.add("entity:${edge.fromEntityId}")
+        }
+        
+        // Relationships depend on catalog data for DEFINED_BY relationships
+        if (relationships.any { it.relationshipType == RelationshipTypes.DEFINED_BY }) {
+            dependencies.add("catalog_data")
+        }
+        
+        return dependencies
+    }
 }
 
 /**
@@ -379,6 +475,25 @@ data class FingerprintedCacheEntry<T : Entity>(
 }
 
 /**
+ * Cache entry specifically for relationship lists
+ */
+data class RelationshipCacheEntry(
+    val relationships: List<Edge>,
+    val sourceEntityId: String,
+    val contentFingerprint: String,
+    val dependencies: Set<String>,
+    val timestamp: LocalDateTime,
+    val ttlMinutes: Int
+) {
+    fun isExpired(): Boolean {
+        if (ttlMinutes == 0) {
+            return true
+        }
+        return LocalDateTime.now().isAfter(timestamp.plusMinutes(ttlMinutes.toLong()))
+    }
+}
+
+/**
  * Cache performance statistics
  */
 data class EntityCacheStatistics(
@@ -390,5 +505,7 @@ data class EntityCacheStatistics(
     val contentChanges: Long,
     val dependencyChanges: Long,
     val expirations: Long,
-    val memoryUsageBytes: Long
+    val memoryUsageBytes: Long,
+    val relationshipCacheHits: Long = 0L,
+    val relationshipCacheMisses: Long = 0L
 )
