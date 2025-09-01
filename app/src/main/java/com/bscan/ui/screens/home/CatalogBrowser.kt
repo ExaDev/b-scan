@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import com.bscan.repository.UserDataRepository
+import com.bscan.repository.GraphRepository
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.ui.components.list.OverscrollListWrapper
 import androidx.compose.ui.platform.LocalContext
@@ -26,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import com.bscan.ScanState
 import com.bscan.model.*
-import com.bscan.repository.CatalogRepository
 import com.bscan.model.graph.entities.PhysicalComponent
 import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.ui.components.FilamentColorBox
@@ -55,40 +55,37 @@ fun CatalogBrowser(
     fullPromptHeightDp: Dp = 400.dp
 ) {
     val context = LocalContext.current
-    val catalogRepository = remember { CatalogRepository(context) }
+    val graphRepository = remember { GraphRepository(context) }
     val userDataRepository = remember { UserDataRepository(context) }
-    val unifiedDataAccess = remember { UnifiedDataAccess(catalogRepository, userDataRepository) }
     
     // Get user preferences for catalog display mode and material display settings
     val userData by remember { derivedStateOf { userDataRepository.getUserData() } }
     val catalogDisplayMode = userData?.preferences?.catalogDisplayMode ?: CatalogDisplayMode.COMPLETE_TITLE
     val materialDisplaySettings = userData?.preferences?.materialDisplaySettings ?: MaterialDisplaySettings.DEFAULT
     
+    // Get all StockDefinition entities from GraphRepository
+    var allStockItems by remember { mutableStateOf<List<StockDefinitionWithManufacturer>>(emptyList()) }
     
-    // Get catalog data
-    val catalog by remember { derivedStateOf { catalogRepository.getCatalog() } }
-    
-    // Get all stock definitions across manufacturers
-    val allStockItems = remember(catalog) {
-        catalog.manufacturers.flatMap { (manufacturerId, manufacturerCatalog) ->
-            // Get stock definitions from catalog repository
-            val stockDefinitions = catalogRepository.getStockDefinitions(manufacturerId)
-            
-            stockDefinitions.map { stockDefinition ->
+    LaunchedEffect(Unit) {
+        val stockDefinitions = graphRepository.getEntitiesByType("stock_definition")
+        android.util.Log.d("CatalogBrowser", "Found ${stockDefinitions.size} stock definition entities")
+        
+        allStockItems = stockDefinitions.mapNotNull { entity ->
+            if (entity is StockDefinition) {
+                val manufacturerId = entity.getProperty<String>("manufacturerId") ?: entity.getProperty<String>("catalogSource") ?: "unknown"
+                val manufacturerName = when (manufacturerId.lowercase()) {
+                    "bambu" -> "Bambu Lab"
+                    else -> manufacturerId.replaceFirstChar { it.uppercase() }
+                }
+                
                 StockDefinitionWithManufacturer(
-                    stockDefinition = stockDefinition,
+                    stockDefinition = entity,
                     manufacturerId = manufacturerId,
-                    manufacturerName = manufacturerCatalog.displayName,
-                    hasRfidMapping = manufacturerCatalog.rfidMappings.values.any { 
-                        it.sku == stockDefinition.getProperty<String>("sku") 
-                    },
-                    temperatureProfile = stockDefinition.getProperty<String>("materialType")?.let { materialType ->
-                        manufacturerCatalog.materials[materialType]?.let { materialDef ->
-                            manufacturerCatalog.temperatureProfiles[materialDef.temperatureProfile]
-                        }
-                    }
+                    manufacturerName = manufacturerName,
+                    hasRfidMapping = entity.getProperty<String>("rfidMappingKey") != null,
+                    temperatureProfile = null // We'll simplify this for now
                 )
-            }
+            } else null
         }.sortedWith(
             compareBy<StockDefinitionWithManufacturer> { it.manufacturerName }
                 .thenBy { it.stockDefinition.getProperty<String>("materialType") }
@@ -141,16 +138,28 @@ fun CatalogBrowser(
                 // Add each stock item as individual items
                 groupStockItems.forEach { stockItemInfo ->
                     val sku = stockItemInfo.stockDefinition.getProperty<String>("sku")
-                    item(key = "${stockItemInfo.manufacturerId}_${sku}") {
+                    // Use entity ID as fallback to ensure unique keys even when SKU is null
+                    val uniqueKey = if (sku != null) {
+                        "${stockItemInfo.manufacturerId}_${sku}"
+                    } else {
+                        "${stockItemInfo.manufacturerId}_${stockItemInfo.stockDefinition.id}"
+                    }
+                    item(key = uniqueKey) {
                         StockDefinitionCard(
                             stockItemInfo = stockItemInfo,
                             catalogDisplayMode = catalogDisplayMode,
                             materialDisplaySettings = materialDisplaySettings,
                             onClick = {
-                                sku?.let {
+                                if (sku != null) {
                                     onNavigateToDetails?.invoke(
                                         DetailType.SKU, 
-                                        "${stockItemInfo.manufacturerId}:${it}"
+                                        "${stockItemInfo.manufacturerId}:${sku}"
+                                    )
+                                } else {
+                                    // Fallback to entity ID if no SKU
+                                    onNavigateToDetails?.invoke(
+                                        DetailType.COMPONENT, 
+                                        stockItemInfo.stockDefinition.id
                                     )
                                 }
                             }
