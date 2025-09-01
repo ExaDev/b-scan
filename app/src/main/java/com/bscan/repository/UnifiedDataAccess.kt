@@ -4,11 +4,12 @@ import android.util.Log
 import com.bscan.model.*
 import com.bscan.model.graph.*
 import com.bscan.model.graph.entities.*
+import com.bscan.model.graph.PropertyValue
+import com.bscan.model.graph.ContinuousQuantity
 import com.bscan.interpreter.InterpreterFactory
 import com.bscan.service.GraphDataService
 import com.bscan.service.GraphScanResult
 import com.bscan.detector.TagDetector
-import com.bscan.service.ProductLookupService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.content.Context
@@ -118,54 +119,28 @@ class UnifiedDataAccess(
     /**
      * Find best product match from FilamentInfo for SKU lookup
      */
-    suspend fun findBestProductMatch(filamentInfo: FilamentInfo): CatalogSku? = withContext(Dispatchers.IO) {
+    // TODO: Reimplement with StockDefinitions
+    suspend fun findBestStockDefinitionMatch(filamentInfo: FilamentInfo): StockDefinition? = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Looking up SKU for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
+            Log.d(TAG, "Looking up stock definition for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
             
             // First try exact match by material type and color name
             val manufacturerId = determineManufacturer(filamentInfo)
-            val products = findProducts(manufacturerId, null, filamentInfo.filamentType)
+            val stockDefinitions = findStockDefinitions(manufacturerId, null, filamentInfo.filamentType)
             
-            val exactMatch = products.firstOrNull { product ->
-                product.colorName.equals(filamentInfo.colorName, ignoreCase = true)
+            val exactMatch = stockDefinitions.firstOrNull { stockDef ->
+                stockDef.getProperty<String>("colorName")?.equals(filamentInfo.colorName, ignoreCase = true) == true
             }
             
             if (exactMatch != null) {
-                Log.d(TAG, "Found exact product match: ${exactMatch.variantId}")
-                return@withContext CatalogSku(
-                    sku = exactMatch.variantId,
-                    productName = exactMatch.productName,
-                    manufacturer = exactMatch.manufacturer,
-                    materialType = exactMatch.materialType,
-                    colorName = exactMatch.colorName,
-                    colorHex = exactMatch.colorHex,
-                    filamentWeightGrams = exactMatch.filamentWeightGrams,
-                    url = exactMatch.url,
-                    componentDefaults = getComponentDefaultsForSku(manufacturerId, exactMatch.variantId)
-                )
+                Log.d(TAG, "Found exact stock definition match: ${exactMatch.getProperty<String>("sku")}")
+                return@withContext exactMatch
             }
             
-            // Try fuzzy color matching
-            val fuzzyMatch = findFuzzyColorMatch(products, filamentInfo.colorName)
-            if (fuzzyMatch != null) {
-                Log.d(TAG, "Found fuzzy product match: ${fuzzyMatch.variantId}")
-                return@withContext CatalogSku(
-                    sku = fuzzyMatch.variantId,
-                    productName = fuzzyMatch.productName,
-                    manufacturer = fuzzyMatch.manufacturer,
-                    materialType = fuzzyMatch.materialType,
-                    colorName = fuzzyMatch.colorName,
-                    colorHex = fuzzyMatch.colorHex,
-                    filamentWeightGrams = fuzzyMatch.filamentWeightGrams,
-                    url = fuzzyMatch.url,
-                    componentDefaults = getComponentDefaultsForSku(manufacturerId, fuzzyMatch.variantId)
-                )
-            }
-            
-            Log.d(TAG, "No SKU match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
+            Log.d(TAG, "No stock definition match found for ${filamentInfo.filamentType}/${filamentInfo.colorName}")
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Error finding product match", e)
+            Log.e(TAG, "Error finding stock definition match", e)
             null
         }
     }
@@ -240,10 +215,10 @@ class UnifiedDataAccess(
     // === Enhanced Resolution Methods ===
     
     /**
-     * Find a product by SKU ID for a specific manufacturer
+     * Find a stock definition by SKU ID for a specific manufacturer
      */
-    fun findProductBySku(manufacturerId: String, skuId: String): ProductEntry? {
-        return catalogRepo.findProductBySku(manufacturerId, skuId)
+    fun findStockDefinitionBySku(manufacturerId: String, skuId: String): StockDefinition? {
+        return catalogRepo.findStockDefinitionBySku(manufacturerId, skuId)
     }
     
     /**
@@ -358,21 +333,6 @@ class UnifiedDataAccess(
     /**
      * Find fuzzy color match for similar color names
      */
-    private fun findFuzzyColorMatch(products: List<ProductEntry>, targetColor: String): ProductEntry? {
-        val normalizedTarget = targetColor.lowercase().trim()
-        
-        return products.find { product ->
-            val normalizedProductColor = product.colorName.lowercase().trim()
-            
-            // Check for partial matches or common variations
-            when {
-                normalizedProductColor.contains(normalizedTarget) -> true
-                normalizedTarget.contains(normalizedProductColor) -> true
-                normalizedTarget.replace(" ", "") == normalizedProductColor.replace(" ", "") -> true
-                else -> false
-            }
-        }
-    }
     
     /**
      * Get component defaults for a specific SKU
@@ -440,81 +400,74 @@ class UnifiedDataAccess(
     // === Product/SKU Management ===
     
     /**
-     * Get all products for a manufacturer
-     * Combines catalog data with user-added products
+     * Get all stock definitions for a manufacturer
+     * Combines catalog data with user-added stock definitions
      */
-    fun getProducts(manufacturerId: String): List<ProductEntry> {
-        val products = mutableListOf<ProductEntry>()
-
-        if (manufacturerId == "bambu") {
-            // The catalog repository is the source of truth for all products, including components.
-            products.addAll(catalogRepo.getProducts(manufacturerId))
-        } else {
-            // For other manufacturers, just add their catalog products
-            products.addAll(catalogRepo.getProducts(manufacturerId))
-        }
-
-        // Add user-added products from custom manufacturers
+    fun getStockDefinitions(manufacturerId: String): List<StockDefinition> {
+        val stockDefinitions = mutableListOf<StockDefinition>()
+        
+        // Get catalog stock definitions
+        stockDefinitions.addAll(catalogRepo.getStockDefinitions(manufacturerId))
+        
+        // Add user-added stock definitions from custom manufacturers
         val customManufacturer = userRepo.getUserData().customMappings.manufacturers[manufacturerId]
-        if (customManufacturer != null) {
-            // Convert custom manufacturer products to ProductEntry format
-            customManufacturer.materials.forEach { (materialId, material) ->
-                customManufacturer.colorPalette.forEach { (hex, colorName) ->
-                    val productEntry = ProductEntry(
-                        variantId = "${manufacturerId}_${materialId}_${hex.replace("#", "")}",
-                        productHandle = material.displayName.lowercase().replace(" ", "-"),
-                        productName = material.displayName,
-                        colorName = colorName,
-                        colorHex = hex,
-                        colorCode = materialId,
-                        price = 0.0, // Custom products don't have pricing
-                        available = true,
-                        url = "", // Custom products don't have store URLs
-                        manufacturer = customManufacturer.displayName,
-                        materialType = materialId.uppercase(),
-                        internalCode = materialId,
-                        lastUpdated = java.time.LocalDateTime.now().toString(),
-                        filamentWeightGrams = 1000f, // Default 1kg for custom materials
-                        spoolType = SpoolPackaging.REFILL // Default for custom products
+        customManufacturer?.materials?.forEach { (materialId, material) ->
+            customManufacturer.colorPalette.forEach { (hex, colorName) ->
+                val stockDefinition = StockDefinition(
+                    label = material.displayName,
+                    properties = mutableMapOf(
+                        "sku" to PropertyValue.StringValue("${manufacturerId}_${materialId}_${hex.replace("#", "")}"),
+                        "displayName" to PropertyValue.StringValue(material.displayName),
+                        "materialType" to PropertyValue.StringValue(materialId.uppercase()),
+                        "colorName" to PropertyValue.StringValue(colorName),
+                        "colorHex" to PropertyValue.StringValue(hex),
+                        "weight" to PropertyValue.create(ContinuousQuantity(1000.0, "g")),
+                        "manufacturer" to PropertyValue.StringValue(customManufacturer.displayName),
+                        "consumable" to PropertyValue.BooleanValue(true),
+                        "reusable" to PropertyValue.BooleanValue(false)
                     )
-                    products.add(productEntry)
-                }
+                )
+                stockDefinitions.add(stockDefinition)
             }
         }
-
-        return products
+        
+        return stockDefinitions
     }
     
     /**
-     * Find products by color and material for a manufacturer
+     * Find stock definitions by color and material for a manufacturer
      */
-    fun findProducts(
+    fun findStockDefinitions(
         manufacturerId: String,
         hex: String? = null,
         materialType: String? = null
-    ): List<ProductEntry> {
-        val products = getProducts(manufacturerId)
-        return products.filter { product ->
-            val hexMatches = hex?.let { product.colorHex?.equals(it, ignoreCase = true) } ?: true
-            val materialMatches = materialType?.let { product.materialType.equals(it, ignoreCase = true) } ?: true
+    ): List<StockDefinition> {
+        val stockDefinitions = getStockDefinitions(manufacturerId)
+        return stockDefinitions.filter { stockDefinition ->
+            val hexMatches = hex?.let { 
+                stockDefinition.getProperty<String>("colorHex")?.equals(it, ignoreCase = true) 
+            } ?: true
+            val materialMatches = materialType?.let { 
+                stockDefinition.getProperty<String>("materialType")?.equals(it, ignoreCase = true) 
+            } ?: true
             hexMatches && materialMatches
         }
     }
     
     /**
-     * Find best product match by material type and color name
+     * Find best stock definition match by material type and color name
      */
-    fun findBestProductMatch(filamentType: String, colorName: String): ProductEntry? {
+    fun findBestStockDefinitionMatch(filamentType: String, colorName: String): StockDefinition? {
         // First try Bambu Lab (most common case)
-        findProducts("bambu", materialType = filamentType).find { 
-            it.colorName.equals(colorName, ignoreCase = true) 
+        findStockDefinitions("bambu", materialType = filamentType).find { stockDef ->
+            stockDef.getProperty<String>("colorName")?.equals(colorName, ignoreCase = true) == true
         }?.let { return it }
         
         // Try other manufacturers
         catalogRepo.getManufacturers().keys.forEach { manufacturerId ->
             if (manufacturerId != "bambu") {
-                findProducts(manufacturerId, materialType = filamentType).find { product ->
-                    product.colorName.equals(colorName, ignoreCase = true)
+                findStockDefinitions(manufacturerId, materialType = filamentType).find { stockDef ->
+                    stockDef.getProperty<String>("colorName")?.equals(colorName, ignoreCase = true) == true
                 }?.let { return it }
             }
         }

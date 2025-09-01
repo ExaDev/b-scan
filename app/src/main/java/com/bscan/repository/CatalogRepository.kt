@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.bscan.model.*
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.data.bambu.BambuCatalogGenerator
 import com.google.gson.*
 import com.google.gson.reflect.TypeToken
@@ -150,49 +151,99 @@ class CatalogRepository(private val context: Context) {
         return getCatalog().manufacturers.containsKey(manufacturerId)
     }
     
+    
+
+    // ===== NEW STOCK DEFINITION METHODS =====
+    
     /**
-     * Get all products for a manufacturer from catalog only
+     * Get all stock definitions for a manufacturer
      */
-    fun getProducts(manufacturerId: String): List<ProductEntry> {
-        return getManufacturer(manufacturerId)?.products ?: emptyList()
+    fun getStockDefinitions(manufacturerId: String): List<StockDefinition> {
+        return getManufacturer(manufacturerId)?.stockDefinitions ?: emptyList()
     }
     
     /**
-     * Find products by color and material for a manufacturer
+     * Find stock definitions by category for a manufacturer
      */
-    fun findProducts(
+    fun findStockDefinitionsByCategory(
         manufacturerId: String,
-        hex: String? = null,
-        materialType: String? = null
-    ): List<ProductEntry> {
-        val products = getProducts(manufacturerId)
-        return products.filter { product ->
-            val hexMatches = hex?.let { product.colorHex?.equals(it, ignoreCase = true) } ?: true
-            val materialMatches = materialType?.let { product.materialType.equals(it, ignoreCase = true) } ?: true
-            hexMatches && materialMatches
+        category: String
+    ): List<StockDefinition> {
+        return getStockDefinitions(manufacturerId).filter { 
+            it.category?.equals(category, ignoreCase = true) == true
         }
     }
     
     /**
-     * Find a product by identifier across all manufacturers
-     * Searches both primary variantId and alternative identifiers
+     * Find stock definitions by material type for a manufacturer
      */
-    fun findProductBySku(skuId: String): ProductEntry? {
+    fun findStockDefinitionsByMaterial(
+        manufacturerId: String,
+        materialType: String
+    ): List<StockDefinition> {
+        return getStockDefinitions(manufacturerId).filter { 
+            it.materialType?.equals(materialType, ignoreCase = true) == true
+        }
+    }
+    
+    /**
+     * Find stock definitions by usage characteristics
+     */
+    fun findStockDefinitionsByUsage(
+        manufacturerId: String,
+        consumable: Boolean? = null,
+        reusable: Boolean? = null
+    ): List<StockDefinition> {
+        return getStockDefinitions(manufacturerId).filter { stockDef ->
+            val consumableMatches = consumable?.let { it == stockDef.consumable } ?: true
+            val reusableMatches = reusable?.let { it == stockDef.reusable } ?: true
+            consumableMatches && reusableMatches
+        }
+    }
+    
+    /**
+     * Find a stock definition by SKU identifier across all manufacturers
+     */
+    fun findStockDefinitionBySku(skuId: String): StockDefinition? {
         getCatalog().manufacturers.forEach { (_, catalog) ->
-            val product = catalog.products.find { it.matchesIdentifier(skuId) }
-            if (product != null) {
-                return product
+            val stockDef = catalog.stockDefinitions.find { 
+                it.sku == skuId || it.alternativeIds.contains(skuId) 
+            }
+            if (stockDef != null) {
+                return stockDef
             }
         }
         return null
     }
     
     /**
-     * Find a product by identifier for a specific manufacturer
-     * Searches both primary variantId and alternative identifiers
+     * Find a stock definition by SKU identifier for a specific manufacturer
      */
-    fun findProductBySku(manufacturerId: String, skuId: String): ProductEntry? {
-        return getProducts(manufacturerId).find { it.matchesIdentifier(skuId) }
+    fun findStockDefinitionBySku(manufacturerId: String, skuId: String): StockDefinition? {
+        return getStockDefinitions(manufacturerId).find { 
+            it.sku == skuId || it.alternativeIds.contains(skuId) 
+        }
+    }
+    
+    /**
+     * Find stock definitions with temperature properties defined
+     */
+    fun findStockDefinitionsWithTemperature(manufacturerId: String): List<StockDefinition> {
+        return getStockDefinitions(manufacturerId).filter { it.hasTemperatureProperties() }
+    }
+    
+    /**
+     * Find material stock definitions (vs packaging/components)
+     */
+    fun findMaterialStockDefinitions(manufacturerId: String): List<StockDefinition> {
+        return getStockDefinitions(manufacturerId).filter { it.isMaterial() }
+    }
+    
+    /**
+     * Find packaging stock definitions (vs materials)
+     */
+    fun findPackagingStockDefinitions(manufacturerId: String): List<StockDefinition> {
+        return getStockDefinitions(manufacturerId).filter { it.isPackaging() }
     }
 
     /**
@@ -295,90 +346,7 @@ class CatalogRepository(private val context: Context) {
         return@withContext getUserSkusCache()[skuId]
     }
     
-    /**
-     * Get all products (both build-time and user-created) for a manufacturer
-     */
-    suspend fun getAllProducts(manufacturerId: String): List<CombinedProductInfo> = withContext(Dispatchers.IO) {
-        val results = mutableListOf<CombinedProductInfo>()
-        
-        // Add build-time catalog products
-        getProducts(manufacturerId).forEach { product ->
-            results.add(CombinedProductInfo(
-                productEntry = product,
-                userSku = null,
-                source = ProductSource.BUILD_TIME_CATALOG,
-                stockInfo = getSkuStockInfo("catalog_${product.variantId}")
-            ))
-        }
-        
-        // Add user-created SKUs for this manufacturer
-        getUserSkus().filter { it.manufacturerId == manufacturerId }.forEach { userSku ->
-            results.add(CombinedProductInfo(
-                productEntry = null,
-                userSku = userSku,
-                source = ProductSource.USER_CREATED,
-                stockInfo = getSkuStockInfo(userSku.skuId)
-            ))
-        }
-        
-        return@withContext results.sortedBy { it.getDisplayName() }
-    }
     
-    /**
-     * Enhanced search across both build-time and user catalogs with priority system
-     */
-    suspend fun searchProducts(
-        manufacturerId: String? = null,
-        hex: String? = null,
-        materialType: String? = null,
-        query: String? = null
-    ): List<CombinedProductInfo> = withContext(Dispatchers.IO) {
-        val userResults = mutableListOf<CombinedProductInfo>()
-        val catalogResults = mutableListOf<CombinedProductInfo>()
-        
-        // Search user-created SKUs (higher priority)
-        getUserSkus().forEach { userSku ->
-            if (matchesCriteria(userSku, manufacturerId, hex, materialType, query)) {
-                userResults.add(CombinedProductInfo(
-                    productEntry = null,
-                    userSku = userSku,
-                    source = ProductSource.USER_CREATED,
-                    stockInfo = getSkuStockInfo(userSku.skuId)
-                ))
-            }
-        }
-        
-        // Search build-time catalog products
-        if (manufacturerId != null) {
-            findProducts(manufacturerId, hex, materialType).forEach { product ->
-                if (query == null || matchesQuery(product, query)) {
-                    catalogResults.add(CombinedProductInfo(
-                        productEntry = product,
-                        userSku = null,
-                        source = ProductSource.BUILD_TIME_CATALOG,
-                        stockInfo = getSkuStockInfo("catalog_${product.variantId}")
-                    ))
-                }
-            }
-        } else {
-            // Search all manufacturers if none specified
-            getCatalog().manufacturers.forEach { (mfgId, _) ->
-                findProducts(mfgId, hex, materialType).forEach { product ->
-                    if (query == null || matchesQuery(product, query)) {
-                        catalogResults.add(CombinedProductInfo(
-                            productEntry = product,
-                            userSku = null,
-                            source = ProductSource.BUILD_TIME_CATALOG,
-                            stockInfo = getSkuStockInfo("catalog_${product.variantId}")
-                        ))
-                    }
-                }
-            }
-        }
-        
-        // Return user results first (priority), then catalog results
-        return@withContext userResults + catalogResults
-    }
     
     // === Stock Tracking Integration ===
     
@@ -671,11 +639,6 @@ class CatalogRepository(private val context: Context) {
         return manufacturerMatches && hexMatches && materialMatches && queryMatches
     }
     
-    private fun matchesQuery(product: ProductEntry, query: String): Boolean {
-        return product.productName.contains(query, ignoreCase = true) ||
-               product.colorName.contains(query, ignoreCase = true) ||
-               product.materialType.contains(query, ignoreCase = true)
-    }
     
     /**
      * Get content fingerprint for dependency tracking
@@ -693,12 +656,15 @@ class CatalogRepository(private val context: Context) {
                 catalog.manufacturers.entries
                     .sortedBy { it.key }
                     .forEach { (key, manufacturer) ->
-                        append("mfg:$key:${manufacturer.name}:${manufacturer.products.size}")
-                        // Include product count per manufacturer
-                        manufacturer.products
-                            .sortedBy { it.variantId }
-                            .forEach { product ->
-                                append("sku:${product.variantId}:${product.productName}:${product.materialType}")
+                        append("mfg:$key:${manufacturer.name}:${manufacturer.stockDefinitions.size}")
+                        // Include stock definitions per manufacturer
+                        manufacturer.stockDefinitions
+                            .sortedBy { it.sku }
+                            .forEach { stockDef ->
+                                val sku = stockDef.getProperty<String>("sku") ?: "unknown"
+                                val name = stockDef.getProperty<String>("displayName") ?: stockDef.label
+                                val materialType = stockDef.getProperty<String>("materialType") ?: "unknown"
+                                append("sku:$sku:$name:$materialType")
                             }
                     }
                 
