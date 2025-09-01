@@ -112,7 +112,7 @@ class TrayUidExtractionTest {
             colorPalette = mapOf("#FF0000" to "Red"),
             rfidMappings = mapOf("GFA00:A00-K0" to testRfidMapping),
             componentDefaults = emptyMap(),
-            products = emptyList()
+            stockDefinitions = emptyList()
         )
         `when`(mockCatalogRepository.getManufacturers()).thenReturn(mapOf("bambu" to testManufacturer))
         
