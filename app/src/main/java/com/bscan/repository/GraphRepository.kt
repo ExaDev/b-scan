@@ -151,9 +151,13 @@ class GraphRepository(private val context: Context) {
             resolveDynamicRelationships(id)
         }
         
-        // Combine and deduplicate
+        // Combine and deduplicate - only return the OTHER entity, not the queried entity
         (storedConnections + dynamicConnections.mapNotNull { edge ->
-            graph.getEntity(edge.toEntityId) ?: graph.getEntity(edge.fromEntityId)
+            when (entityId) {
+                edge.fromEntityId -> graph.getEntity(edge.toEntityId)
+                edge.toEntityId -> graph.getEntity(edge.fromEntityId)
+                else -> null // Edge doesn't involve the queried entity
+            }
         }).distinctBy { it.id }
     }
     
@@ -166,7 +170,11 @@ class GraphRepository(private val context: Context) {
             resolveDynamicRelationships(id)
         }.filter { it.relationshipType == relationshipType }
          .mapNotNull { edge ->
-             graph.getEntity(edge.toEntityId) ?: graph.getEntity(edge.fromEntityId)
+             when (entityId) {
+                 edge.fromEntityId -> graph.getEntity(edge.toEntityId)
+                 edge.toEntityId -> graph.getEntity(edge.fromEntityId)
+                 else -> null // Edge doesn't involve the queried entity
+             }
          }
         
         // Combine and deduplicate
