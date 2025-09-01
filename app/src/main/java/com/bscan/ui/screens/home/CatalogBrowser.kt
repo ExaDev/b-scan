@@ -169,14 +169,14 @@ data class ProductWithManufacturer private constructor(
     val hasRfidMapping: Boolean,
     val materialDefinition: MaterialDefinition?,
     val temperatureProfile: TemperatureProfile?,
-    val normalizedProduct: com.bscan.data.bambu.NormalizedBambuData.NormalizedProduct,
-    val materialColor: com.bscan.data.bambu.NormalizedBambuData.MaterialColor,
+    val normalizedProduct: com.bscan.data.bambu.NormalizedBambuData.NormalizedProduct?,
+    val materialColor: com.bscan.data.bambu.NormalizedBambuData.MaterialColor?,
     val alternateProducts: List<ProductEntry> = emptyList()
 ) {
     companion object {
         /**
-         * Create ProductWithManufacturer only if complete normalized data exists
-         * Returns null if any required data is missing
+         * Create ProductWithManufacturer with optional normalized data
+         * Handles both filament products (with normalized data) and component products (without)
          */
         fun create(
             product: ProductEntry,
@@ -187,16 +187,33 @@ data class ProductWithManufacturer private constructor(
             temperatureProfile: TemperatureProfile?,
             alternateProducts: List<ProductEntry> = emptyList()
         ): ProductWithManufacturer? {
+            // For component products, create without normalized data
+            if (product.variantId.startsWith("component_")) {
+                return ProductWithManufacturer(
+                    product = product,
+                    manufacturerId = manufacturerId,
+                    manufacturerName = manufacturerName,
+                    hasRfidMapping = false, // Components don't have RFID mappings
+                    materialDefinition = materialDefinition,
+                    temperatureProfile = temperatureProfile,
+                    normalizedProduct = null,
+                    materialColor = null,
+                    alternateProducts = alternateProducts
+                )
+            }
+            
+            // For filament products, try to get normalized data
             val normalizedProduct = com.bscan.data.bambu.NormalizedBambuData.getNormalizedProductBySku(product.variantId)
-                ?: return null
+            val materialColor = if (normalizedProduct != null) {
+                com.bscan.data.bambu.NormalizedBambuData.getAllMaterialColors()
+                    .find { 
+                        it.colorCode == normalizedProduct.colorCode && 
+                        it.materialName == normalizedProduct.materialName && 
+                        it.variantName == normalizedProduct.variantName 
+                    }
+            } else null
             
-            val materialColor = com.bscan.data.bambu.NormalizedBambuData.getAllMaterialColors()
-                .find { 
-                    it.colorCode == normalizedProduct.colorCode && 
-                    it.materialName == normalizedProduct.materialName && 
-                    it.variantName == normalizedProduct.variantName 
-                } ?: return null
-            
+            // Return product even if normalized data is missing (more flexible)
             return ProductWithManufacturer(
                 product = product,
                 manufacturerId = manufacturerId,
@@ -254,13 +271,18 @@ fun ProductCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Title based on catalog display mode
+                // Title based on catalog display mode and available data
                 Text(
-                    text = when (catalogDisplayMode) {
-                        CatalogDisplayMode.COMPLETE_TITLE -> 
-                            "${productInfo.normalizedProduct.variantName} ${productInfo.materialColor.colorName} ${productInfo.normalizedProduct.materialName}"
-                        CatalogDisplayMode.COLOR_FOCUSED -> 
-                            productInfo.materialColor.colorName
+                    text = if (productInfo.normalizedProduct != null && productInfo.materialColor != null) {
+                        when (catalogDisplayMode) {
+                            CatalogDisplayMode.COMPLETE_TITLE -> 
+                                "${productInfo.normalizedProduct.variantName} ${productInfo.materialColor.colorName} ${productInfo.normalizedProduct.materialName}"
+                            CatalogDisplayMode.COLOR_FOCUSED -> 
+                                productInfo.materialColor.colorName
+                        }
+                    } else {
+                        // Fallback for components and products without normalized data
+                        product.productName
                     },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
@@ -278,8 +300,13 @@ fun ProductCard(
                         )
                     }
                     CatalogDisplayMode.COLOR_FOCUSED -> {
+                        val subtitleText = if (productInfo.normalizedProduct != null) {
+                            "${productInfo.normalizedProduct.materialName} ${productInfo.normalizedProduct.variantName} • SKU: ${product.variantId}"
+                        } else {
+                            "SKU: ${product.variantId}"
+                        }
                         Text(
-                            text = "${productInfo.normalizedProduct.materialName} ${productInfo.normalizedProduct.variantName} • SKU: ${product.variantId}",
+                            text = subtitleText,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
