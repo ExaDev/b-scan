@@ -140,7 +140,12 @@ fun AppNavigation(
                 onNavigateToSettings = { navController.navigate("settings") },
                 onNavigateToHistory = { navController.navigate("history") },
                 onNavigateToDetails = { detailType, identifier ->
-                    navController.navigate("details/${detailType.name.lowercase()}/$identifier")
+                    // Handle entity navigation specially
+                    if (identifier.startsWith("entity/")) {
+                        navController.navigate("details/$identifier")
+                    } else {
+                        navController.navigate("details/${detailType.name.lowercase()}/$identifier")
+                    }
                 }
             )
         }
