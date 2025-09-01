@@ -1,5 +1,6 @@
 package com.bscan.model.graph
 
+import com.bscan.model.graph.entities.TrackingMode
 import java.time.LocalDateTime
 import java.time.LocalDate
 
@@ -65,6 +66,10 @@ sealed class PropertyValue {
         override fun hashCode(): Int = rawValue.contentHashCode()
     }
     
+    data class QuantityValue(override val rawValue: Quantity) : PropertyValue() {
+        override val type = PropertyType.QUANTITY
+    }
+    
     object NullValue : PropertyValue() {
         override val type = PropertyType.NULL
         override val rawValue: Nothing? = null
@@ -86,6 +91,7 @@ sealed class PropertyValue {
             List::class -> if (type == PropertyType.LIST) rawValue as T else null
             Map::class -> if (type == PropertyType.MAP) rawValue as T else null
             ByteArray::class -> if (type == PropertyType.BYTES) rawValue as T else null
+            Quantity::class -> if (type == PropertyType.QUANTITY) rawValue as T else null
             else -> null
         }
     }
@@ -106,6 +112,7 @@ sealed class PropertyValue {
             is ListValue -> rawValue.toString()
             is MapValue -> rawValue.toString()
             is BytesValue -> rawValue.joinToString("") { "%02x".format(it) }
+            is QuantityValue -> rawValue.toString()
             is NullValue -> "null"
         }
     }
@@ -128,6 +135,7 @@ sealed class PropertyValue {
                 is List<*> -> ListValue(value)
                 is Map<*, *> -> MapValue(value as Map<String, *>)
                 is ByteArray -> BytesValue(value)
+                is Quantity -> QuantityValue(value)
                 else -> StringValue(value.toString())
             }
         }
@@ -146,6 +154,7 @@ sealed class PropertyValue {
                 PropertyType.DATETIME -> DateTimeValue(LocalDateTime.parse(value))
                 PropertyType.DATE -> DateValue(LocalDate.parse(value))
                 PropertyType.BYTES -> BytesValue(value.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+                PropertyType.QUANTITY -> QuantityValue(Quantity.fromString(value))
                 PropertyType.LIST -> StringValue(value)  // JSON parsing would go here
                 PropertyType.MAP -> StringValue(value)   // JSON parsing would go here
                 PropertyType.NULL -> NullValue
@@ -169,6 +178,7 @@ enum class PropertyType {
     LIST,
     MAP,
     BYTES,
+    QUANTITY,
     NULL
 }
 
@@ -200,3 +210,114 @@ data class PropertyValidation(
     val allowedValues: Set<String>? = null,
     val customValidator: ((PropertyValue) -> ValidationResult)? = null
 )
+
+/**
+ * Interface for quantities with units and discrete/continuous tracking modes
+ */
+interface Quantity {
+    val value: Number
+    val unit: String
+    val trackingMode: TrackingMode
+    
+    override fun toString(): String
+    
+    companion object {
+        /**
+         * Parse a quantity from string representation (e.g., "1000g", "212.5g-discrete")
+         */
+        fun fromString(str: String): Quantity {
+            val parts = str.split("-")
+            val quantityPart = parts[0]
+            val trackingMode = if (parts.size > 1) {
+                when (parts[1].lowercase()) {
+                    "discrete" -> TrackingMode.DISCRETE
+                    "continuous" -> TrackingMode.CONTINUOUS
+                    else -> TrackingMode.CONTINUOUS
+                }
+            } else TrackingMode.CONTINUOUS
+            
+            // Extract numeric value and unit
+            val numericPart = quantityPart.takeWhile { it.isDigit() || it == '.' }
+            val unitPart = quantityPart.drop(numericPart.length)
+            
+            val value = numericPart.toDoubleOrNull() ?: 0.0
+            
+            return if (trackingMode == TrackingMode.DISCRETE) {
+                DiscreteQuantity(value.toInt(), unitPart.ifEmpty { "units" })
+            } else {
+                ContinuousQuantity(value, unitPart.ifEmpty { "units" })
+            }
+        }
+    }
+}
+
+/**
+ * Discrete quantity for countable items
+ */
+data class DiscreteQuantity(
+    override val value: Int,
+    override val unit: String
+) : Quantity {
+    override val trackingMode = TrackingMode.DISCRETE
+    
+    override fun toString(): String = "${value}${unit}-discrete"
+    
+    /**
+     * Add discrete quantities
+     */
+    operator fun plus(other: DiscreteQuantity): DiscreteQuantity {
+        require(unit == other.unit) { "Cannot add quantities with different units: $unit vs ${other.unit}" }
+        return copy(value = value + other.value)
+    }
+    
+    /**
+     * Subtract discrete quantities
+     */
+    operator fun minus(other: DiscreteQuantity): DiscreteQuantity {
+        require(unit == other.unit) { "Cannot subtract quantities with different units: $unit vs ${other.unit}" }
+        return copy(value = value - other.value)
+    }
+}
+
+/**
+ * Continuous quantity for measurable values
+ */
+data class ContinuousQuantity(
+    override val value: Double,
+    override val unit: String
+) : Quantity {
+    override val trackingMode = TrackingMode.CONTINUOUS
+    
+    override fun toString(): String = "${value}${unit}"
+    
+    /**
+     * Add continuous quantities
+     */
+    operator fun plus(other: ContinuousQuantity): ContinuousQuantity {
+        require(unit == other.unit) { "Cannot add quantities with different units: $unit vs ${other.unit}" }
+        return copy(value = value + other.value)
+    }
+    
+    /**
+     * Subtract continuous quantities
+     */
+    operator fun minus(other: ContinuousQuantity): ContinuousQuantity {
+        require(unit == other.unit) { "Cannot subtract quantities with different units: $unit vs ${other.unit}" }
+        return copy(value = value - other.value)
+    }
+    
+    /**
+     * Multiply by scalar
+     */
+    operator fun times(factor: Double): ContinuousQuantity {
+        return copy(value = value * factor)
+    }
+    
+    /**
+     * Divide by scalar
+     */
+    operator fun div(divisor: Double): ContinuousQuantity {
+        require(divisor != 0.0) { "Cannot divide by zero" }
+        return copy(value = value / divisor)
+    }
+}

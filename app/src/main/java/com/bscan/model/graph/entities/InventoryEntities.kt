@@ -1,8 +1,6 @@
 package com.bscan.model.graph.entities
 
-import com.bscan.model.graph.Entity
-import com.bscan.model.graph.PropertyValue
-import com.bscan.model.graph.ValidationResult
+import com.bscan.model.graph.*
 import java.time.LocalDateTime
 
 /**
@@ -336,6 +334,174 @@ class Virtual(
 }
 
 /**
+ * Stock definition entity for describing types of items that can be stocked
+ * Generic specifications of materials, components, tools, etc. that can exist in inventory
+ * Actual inventory items reference these stock definitions via TRACKS relationships
+ */
+class StockDefinition(
+    id: String = generateId(),
+    label: String,
+    properties: MutableMap<String, PropertyValue> = mutableMapOf()
+) : Entity(
+    id = id,
+    entityType = "stock_definition",
+    label = label,
+    properties = properties
+) {
+    
+    // Core catalog properties
+    var sku: String?
+        get() = getProperty("sku")
+        set(value) { value?.let { setProperty("sku", it) } }
+    
+    var manufacturer: String?
+        get() = getProperty("manufacturer")
+        set(value) { value?.let { setProperty("manufacturer", it) } }
+    
+    var displayName: String?
+        get() = getProperty("displayName")
+        set(value) { value?.let { setProperty("displayName", it) } }
+    
+    var description: String?
+        get() = getProperty("description")
+        set(value) { value?.let { setProperty("description", it) } }
+    
+    var category: String?
+        get() = getProperty("category")
+        set(value) { value?.let { setProperty("category", it) } }
+    
+    var productUrl: String?
+        get() = getProperty("productUrl")
+        set(value) { value?.let { setProperty("productUrl", it) } }
+    
+    // Physical properties using Quantity types
+    var weight: Quantity?
+        get() = getProperty("weight")
+        set(value) { value?.let { setProperty("weight", it) } }
+    
+    var dimensions: String?
+        get() = getProperty("dimensions")
+        set(value) { value?.let { setProperty("dimensions", it) } }
+    
+    // Usage characteristics
+    var consumable: Boolean
+        get() = getProperty("consumable") ?: true  // Default to consumable for materials
+        set(value) { setProperty("consumable", value) }
+    
+    var reusable: Boolean
+        get() = getProperty("reusable") ?: false  // Default to not reusable
+        set(value) { setProperty("reusable", value) }
+    
+    var recyclable: Boolean
+        get() = getProperty("recyclable") ?: false
+        set(value) { setProperty("recyclable", value) }
+    
+    // Material-specific properties (only set if applicable)
+    var materialType: String?
+        get() = getProperty("materialType")
+        set(value) { value?.let { setProperty("materialType", it) } }
+    
+    var colorName: String?
+        get() = getProperty("colorName")
+        set(value) { value?.let { setProperty("colorName", it) } }
+    
+    var colorHex: String?
+        get() = getProperty("colorHex")
+        set(value) { value?.let { setProperty("colorHex", it) } }
+    
+    var colorCode: String?
+        get() = getProperty("colorCode")
+        set(value) { value?.let { setProperty("colorCode", it) } }
+    
+    // Temperature properties (only set if data exists - no defaults)
+    var minNozzleTemp: Int?
+        get() = getProperty("minNozzleTemp")
+        set(value) { value?.let { setProperty("minNozzleTemp", it) } }
+    
+    var maxNozzleTemp: Int?
+        get() = getProperty("maxNozzleTemp")
+        set(value) { value?.let { setProperty("maxNozzleTemp", it) } }
+    
+    var bedTemp: Int?
+        get() = getProperty("bedTemp")
+        set(value) { value?.let { setProperty("bedTemp", it) } }
+    
+    var enclosureTemp: Int?
+        get() = getProperty("enclosureTemp")
+        set(value) { value?.let { setProperty("enclosureTemp", it) } }
+    
+    // Availability and pricing
+    var available: Boolean
+        get() = getProperty("available") ?: true
+        set(value) { setProperty("available", value) }
+    
+    var price: Double?
+        get() = getProperty("price")
+        set(value) { value?.let { setProperty("price", it) } }
+    
+    var currency: String?
+        get() = getProperty("currency")
+        set(value) { value?.let { setProperty("currency", it) } }
+    
+    // Alternative identifiers
+    var alternativeIds: Set<String>
+        get() = getProperty<List<String>>("alternativeIds")?.toSet() ?: emptySet()
+        set(value) { setProperty("alternativeIds", value.toList()) }
+    
+    /**
+     * Check if this item has temperature properties defined
+     */
+    fun hasTemperatureProperties(): Boolean {
+        return minNozzleTemp != null || maxNozzleTemp != null || bedTemp != null || enclosureTemp != null
+    }
+    
+    /**
+     * Check if this item is a material (vs packaging/component)
+     */
+    fun isMaterial(): Boolean {
+        return materialType != null
+    }
+    
+    /**
+     * Check if this item is packaging/component (vs material)
+     */
+    fun isPackaging(): Boolean {
+        return !isMaterial() && (category?.contains("spool", ignoreCase = true) == true ||
+                                 category?.contains("core", ignoreCase = true) == true ||
+                                 category?.contains("packaging", ignoreCase = true) == true)
+    }
+    
+    override fun copy(newId: String): StockDefinition {
+        return StockDefinition(
+            id = newId,
+            label = label,
+            properties = properties.toMutableMap()
+        )
+    }
+    
+    override fun validate(): ValidationResult {
+        val errors = mutableListOf<String>()
+        
+        if (label.isBlank()) errors.add("Catalog item must have a label")
+        if (sku.isNullOrBlank()) errors.add("Catalog item must have a SKU")
+        if (manufacturer.isNullOrBlank()) errors.add("Catalog item must have a manufacturer")
+        
+        // Validate temperature ranges if provided
+        val minTemp = minNozzleTemp
+        val maxTemp = maxNozzleTemp
+        if (minTemp != null && maxTemp != null && minTemp > maxTemp) {
+            errors.add("Minimum nozzle temperature cannot be greater than maximum")
+        }
+        
+        return if (errors.isEmpty()) {
+            ValidationResult.valid()
+        } else {
+            ValidationResult.invalid(*errors.toTypedArray())
+        }
+    }
+}
+
+/**
  * Common entity types
  */
 object EntityTypes {
@@ -346,6 +512,7 @@ object EntityTypes {
     const val ACTIVITY = "activity"
     const val INFORMATION = "information"
     const val VIRTUAL = "virtual"
+    const val STOCK_DEFINITION = "stock_definition"
 }
 
 /**

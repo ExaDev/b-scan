@@ -1,6 +1,14 @@
 package com.bscan.model
 
 /**
+ * Spool packaging types for filament products
+ */
+enum class SpoolPackaging {
+    WITH_SPOOL,     // Comes with plastic spool
+    REFILL          // Refill only (cardboard core)
+}
+
+/**
  * SKU information for Bambu Lab filament products
  * Contains the 5-digit filament code, display name, and material type
  */
