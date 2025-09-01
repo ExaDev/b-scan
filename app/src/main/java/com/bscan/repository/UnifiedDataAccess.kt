@@ -447,25 +447,13 @@ class UnifiedDataAccess(
         val products = mutableListOf<ProductEntry>()
 
         if (manufacturerId == "bambu") {
-            // Start with the products from the lookup service
-            val lookupProducts = ProductLookupService.getAllProducts()
-            products.addAll(lookupProducts)
-
-            // Get the catalog products to identify which lookup products are RFID-mapped variants
-            val catalogProducts = catalogRepo.getProducts(manufacturerId)
-            val primarySkuIds = catalogProducts.map { it.variantId }.toSet()
-
-            // Remove lookup products that are primary SKUs in the catalog, to avoid duplication
-            products.removeAll { it.variantId in primarySkuIds }
-
-            // Add the catalog products, which are the primary entries
-            products.addAll(catalogProducts)
-
+            // The catalog repository is the source of truth for all products, including components.
+            products.addAll(catalogRepo.getProducts(manufacturerId))
         } else {
             // For other manufacturers, just add their catalog products
             products.addAll(catalogRepo.getProducts(manufacturerId))
         }
-        
+
         // Add user-added products from custom manufacturers
         val customManufacturer = userRepo.getUserData().customMappings.manufacturers[manufacturerId]
         if (customManufacturer != null) {
@@ -493,7 +481,7 @@ class UnifiedDataAccess(
                 }
             }
         }
-        
+
         return products
     }
     
