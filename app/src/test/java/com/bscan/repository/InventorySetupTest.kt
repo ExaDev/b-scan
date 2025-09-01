@@ -34,7 +34,7 @@ class GraphInventoryTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         graphRepository = GraphRepository(context)
-        scanDataService = ScanDataService(graphRepository)
+        scanDataService = ScanDataService(context, graphRepository)
         inventoryService = InventoryService(graphRepository)
         
         val catalogRepository = CatalogRepository(context)
