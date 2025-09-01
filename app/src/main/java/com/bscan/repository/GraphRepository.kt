@@ -152,6 +152,13 @@ class GraphRepository(private val context: Context) {
     }
     
     /**
+     * Find root entities that represent unique subgraphs for inventory tracking
+     */
+    suspend fun findInventoryRootEntities(): List<Entity> = withContext(Dispatchers.IO) {
+        graph.findInventoryRootEntities()
+    }
+    
+    /**
      * Find shortest path between two entities
      */
     suspend fun findShortestPath(fromEntityId: String, toEntityId: String): List<String>? = withContext(Dispatchers.IO) {
@@ -185,6 +192,31 @@ class GraphRepository(private val context: Context) {
     suspend fun getAllInventoryItems(): List<Entity> = withContext(Dispatchers.IO) {
         graph.getAllEntities().filter { entity ->
             entity.getProperty<Boolean>("isInventoryItem") == true
+        }
+    }
+    
+    /**
+     * Check if entity exists by compound ID
+     */
+    suspend fun entityExists(compoundId: String): Boolean = withContext(Dispatchers.IO) {
+        graph.getEntity(compoundId) != null
+    }
+    
+    /**
+     * Get existing entity by compound ID or return null
+     */
+    suspend fun getExistingEntity(compoundId: String): Entity? = withContext(Dispatchers.IO) {
+        graph.getEntity(compoundId)
+    }
+    
+    /**
+     * Check if edge exists between two entities with specific relationship
+     */
+    suspend fun edgeExists(fromEntityId: String, toEntityId: String, relationshipType: String): Boolean = withContext(Dispatchers.IO) {
+        graph.getAllEdges().any { edge ->
+            edge.fromEntityId == fromEntityId && 
+            edge.toEntityId == toEntityId && 
+            edge.relationshipType == relationshipType
         }
     }
     
