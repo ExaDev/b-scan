@@ -73,7 +73,6 @@ jobs:
     - name: Initialize submodules
       run: |
         git submodule update --init --depth 1 test-data/rfid-library
-        git submodule update --init --depth 1 wiki
         
     - name: Verify submodules
       run: |
