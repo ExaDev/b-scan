@@ -7,6 +7,7 @@ import com.bscan.debug.DebugDataCollector
 import com.bscan.model.*
 import com.bscan.model.graph.*
 import com.bscan.model.graph.entities.*
+import com.bscan.model.graph.ContinuousQuantity
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.repository.CatalogRepository
 import com.bscan.repository.UserDataRepository
@@ -303,7 +304,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     
     fun getManufacturer(manufacturerId: String) = unifiedDataAccess.getManufacturer(manufacturerId)
     
-    fun getProducts(manufacturerId: String) = unifiedDataAccess.getProducts(manufacturerId)
+    fun getStockDefinitions(manufacturerId: String) = unifiedDataAccess.getStockDefinitions(manufacturerId)
     
     // Removed refreshMappings() - no longer using interpreterFactory
     
@@ -468,10 +469,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _graphOperationState.value = GraphOperationState.CreatingEntities
                 
                 // Step 1: Lookup SKU data
-                val products = catalogRepository.getProducts(manufacturerId)
-                val matchingProduct = products.firstOrNull { it.variantId == skuId }
+                val stockDefinitions = catalogRepository.getStockDefinitions(manufacturerId)
+                val matchingStockDefinition = stockDefinitions.firstOrNull { 
+                    it.getProperty<String>("sku") == skuId 
+                }
                 
-                if (matchingProduct == null) {
+                if (matchingStockDefinition == null) {
                     return@withContext GraphEntityCreationResult(
                         success = false,
                         errorMessage = "SKU not found in catalog: $manufacturerId/$skuId"
@@ -480,17 +483,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 
                 // Step 2: Create physical component entity
                 val physicalComponent = PhysicalComponent(
-                    label = matchingProduct.productName
+                    label = matchingStockDefinition.getProperty<String>("displayName") 
+                        ?: matchingStockDefinition.label
                 ).apply {
                     category = "filament"
-                    manufacturer = matchingProduct.manufacturer
-                    massGrams = matchingProduct.filamentWeightGrams
+                    manufacturer = matchingStockDefinition.getProperty<String>("manufacturer") ?: manufacturerId
+                    val weight = matchingStockDefinition.getProperty<ContinuousQuantity>("weight")
+                    massGrams = weight?.value?.toFloat() ?: 1000f
                     setProperty("variableMass", true)
                     setProperty("sku", skuId)
                     setProperty("manufacturerId", manufacturerId)
-                    setProperty("colorHex", matchingProduct.colorHex ?: "#FFFFFF")
-                    setProperty("colorName", matchingProduct.colorName)
-                    setProperty("materialType", matchingProduct.materialType)
+                    setProperty("colorHex", matchingStockDefinition.getProperty<String>("colorHex") ?: "#FFFFFF")
+                    setProperty("colorName", matchingStockDefinition.getProperty<String>("colorName"))
+                    setProperty("materialType", matchingStockDefinition.getProperty<String>("materialType"))
                     setProperty("catalogCreated", true)
                     setProperty("isInventoryItem", true)
                     

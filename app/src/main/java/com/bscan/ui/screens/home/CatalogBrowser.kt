@@ -28,6 +28,7 @@ import com.bscan.ScanState
 import com.bscan.model.*
 import com.bscan.repository.CatalogRepository
 import com.bscan.model.graph.entities.PhysicalComponent
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
@@ -67,48 +68,48 @@ fun CatalogBrowser(
     // Get catalog data
     val catalog by remember { derivedStateOf { catalogRepository.getCatalog() } }
     
-    // Get all products across manufacturers using UnifiedDataAccess
-    // Group by unique filament SKU to avoid duplicates (multiple Shopify products per filament)
-    val allProducts = remember(catalog) {
+    // Get all stock definitions across manufacturers
+    val allStockItems = remember(catalog) {
         catalog.manufacturers.flatMap { (manufacturerId, manufacturerCatalog) ->
-            // Get products from UnifiedDataAccess (includes catalog + user products)
-            val products = unifiedDataAccess.getProducts(manufacturerId)
+            // Get stock definitions from catalog repository
+            val stockDefinitions = catalogRepository.getStockDefinitions(manufacturerId)
             
-            // Group by variantId (filament SKU) and take the first product from each group
-            products.groupBy { it.variantId }.values.mapNotNull { productGroup ->
-                val product = productGroup.first() // Take first product for each unique filament
-                
-                ProductWithManufacturer.create(
-                    product = product,
+            stockDefinitions.map { stockDefinition ->
+                StockDefinitionWithManufacturer(
+                    stockDefinition = stockDefinition,
                     manufacturerId = manufacturerId,
                     manufacturerName = manufacturerCatalog.displayName,
                     hasRfidMapping = manufacturerCatalog.rfidMappings.values.any { 
-                        it.sku == product.variantId 
+                        it.sku == stockDefinition.getProperty<String>("sku") 
                     },
-                    materialDefinition = manufacturerCatalog.materials[product.materialType],
-                    temperatureProfile = manufacturerCatalog.materials[product.materialType]?.let {
-                        manufacturerCatalog.temperatureProfiles[it.temperatureProfile]
-                    },
-                    alternateProducts = productGroup.drop(1) // Store alternate Shopify products for details page
+                    temperatureProfile = stockDefinition.getProperty<String>("materialType")?.let { materialType ->
+                        manufacturerCatalog.materials[materialType]?.let { materialDef ->
+                            manufacturerCatalog.temperatureProfiles[materialDef.temperatureProfile]
+                        }
+                    }
                 )
             }
         }.sortedWith(
-            compareBy<ProductWithManufacturer> { it.manufacturerName }
-                .thenBy { it.product.materialType }
-                .thenBy { it.product.colorName }
+            compareBy<StockDefinitionWithManufacturer> { it.manufacturerName }
+                .thenBy { it.stockDefinition.getProperty<String>("materialType") }
+                .thenBy { it.stockDefinition.getProperty<String>("displayName") }
         )
     }
     
-    // Group products based on groupByOption (following pattern from ListComponents.kt)
-    val filteredGroupedAndSortedProducts = remember(allProducts, groupByOption) {
+    // Group stock items based on groupByOption
+    val filteredGroupedAndSortedStockItems = remember(allStockItems, groupByOption) {
         when (groupByOption) {
-            GroupByOption.NONE -> allProducts.map { "ungrouped" to listOf(it) }
-            GroupByOption.COLOR -> allProducts.groupBy { it.product.colorName }.toList()
-            GroupByOption.BASE_MATERIAL -> allProducts.groupBy { 
-                it.product.materialType.split(" ").firstOrNull() ?: "Unknown"
+            GroupByOption.NONE -> allStockItems.map { "ungrouped" to listOf(it) }
+            GroupByOption.COLOR -> allStockItems.groupBy { 
+                it.stockDefinition.getProperty<String>("colorName") ?: "Unknown Color"
             }.toList()
-            GroupByOption.MATERIAL_SERIES -> allProducts.groupBy { 
-                val parts = it.product.materialType.split(" ")
+            GroupByOption.BASE_MATERIAL -> allStockItems.groupBy { 
+                val materialType = it.stockDefinition.getProperty<String>("materialType") ?: "Unknown"
+                materialType.split(" ").firstOrNull() ?: "Unknown"
+            }.toList()
+            GroupByOption.MATERIAL_SERIES -> allStockItems.groupBy { 
+                val materialType = it.stockDefinition.getProperty<String>("materialType") ?: "Unknown"
+                val parts = materialType.split(" ")
                 if (parts.size >= 2) parts.drop(1).joinToString(" ") else "Basic"
             }.toList()
         }
@@ -128,27 +129,30 @@ fun CatalogBrowser(
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Flatten the grouped products into a single list with headers and items
-            filteredGroupedAndSortedProducts.forEach { (groupKey, groupProducts) ->
+            // Flatten the grouped stock items into a single list with headers and items
+            filteredGroupedAndSortedStockItems.forEach { (groupKey, groupStockItems) ->
                 // Show group header if grouping is enabled
                 if (groupByOption != GroupByOption.NONE) {
                     item(key = "header_$groupKey") {
-                        GroupHeader(title = groupKey, itemCount = groupProducts.size)
+                        GroupHeader(title = groupKey, itemCount = groupStockItems.size)
                     }
                 }
                 
-                // Add each product as individual items (not nested items() call)
-                groupProducts.forEach { productInfo ->
-                    item(key = "${productInfo.manufacturerId}_${productInfo.product.variantId}") {
-                        ProductCard(
-                            productInfo = productInfo,
+                // Add each stock item as individual items
+                groupStockItems.forEach { stockItemInfo ->
+                    val sku = stockItemInfo.stockDefinition.getProperty<String>("sku")
+                    item(key = "${stockItemInfo.manufacturerId}_${sku}") {
+                        StockDefinitionCard(
+                            stockItemInfo = stockItemInfo,
                             catalogDisplayMode = catalogDisplayMode,
                             materialDisplaySettings = materialDisplaySettings,
                             onClick = {
-                                onNavigateToDetails?.invoke(
-                                    DetailType.SKU, 
-                                    "${productInfo.manufacturerId}:${productInfo.product.variantId}"
-                                )
+                                sku?.let {
+                                    onNavigateToDetails?.invoke(
+                                        DetailType.SKU, 
+                                        "${stockItemInfo.manufacturerId}:${it}"
+                                    )
+                                }
                             }
                         )
                     }
@@ -159,75 +163,15 @@ fun CatalogBrowser(
 }
 
 /**
- * Product information combined with manufacturer details
+ * Stock definition information combined with manufacturer details
  */
-@ConsistentCopyVisibility
-data class ProductWithManufacturer private constructor(
-    val product: ProductEntry,
+data class StockDefinitionWithManufacturer(
+    val stockDefinition: StockDefinition,
     val manufacturerId: String,
     val manufacturerName: String,
     val hasRfidMapping: Boolean,
-    val materialDefinition: MaterialDefinition?,
-    val temperatureProfile: TemperatureProfile?,
-    val normalizedProduct: com.bscan.data.bambu.NormalizedBambuData.NormalizedProduct?,
-    val materialColor: com.bscan.data.bambu.NormalizedBambuData.MaterialColor?,
-    val alternateProducts: List<ProductEntry> = emptyList()
-) {
-    companion object {
-        /**
-         * Create ProductWithManufacturer with optional normalized data
-         * Handles both filament products (with normalized data) and component products (without)
-         */
-        fun create(
-            product: ProductEntry,
-            manufacturerId: String,
-            manufacturerName: String,
-            hasRfidMapping: Boolean,
-            materialDefinition: MaterialDefinition?,
-            temperatureProfile: TemperatureProfile?,
-            alternateProducts: List<ProductEntry> = emptyList()
-        ): ProductWithManufacturer? {
-            // For component products, create without normalized data
-            if (product.variantId.startsWith("component_")) {
-                return ProductWithManufacturer(
-                    product = product,
-                    manufacturerId = manufacturerId,
-                    manufacturerName = manufacturerName,
-                    hasRfidMapping = false, // Components don't have RFID mappings
-                    materialDefinition = materialDefinition,
-                    temperatureProfile = temperatureProfile,
-                    normalizedProduct = null,
-                    materialColor = null,
-                    alternateProducts = alternateProducts
-                )
-            }
-            
-            // For filament products, try to get normalized data
-            val normalizedProduct = com.bscan.data.bambu.NormalizedBambuData.getNormalizedProductBySku(product.variantId)
-            val materialColor = if (normalizedProduct != null) {
-                com.bscan.data.bambu.NormalizedBambuData.getAllMaterialColors()
-                    .find { 
-                        it.colorCode == normalizedProduct.colorCode && 
-                        it.materialName == normalizedProduct.materialName && 
-                        it.variantName == normalizedProduct.variantName 
-                    }
-            } else null
-            
-            // Return product even if normalized data is missing (more flexible)
-            return ProductWithManufacturer(
-                product = product,
-                manufacturerId = manufacturerId,
-                manufacturerName = manufacturerName,
-                hasRfidMapping = hasRfidMapping,
-                materialDefinition = materialDefinition,
-                temperatureProfile = temperatureProfile,
-                normalizedProduct = normalizedProduct,
-                materialColor = materialColor,
-                alternateProducts = alternateProducts
-            )
-        }
-    }
-}
+    val temperatureProfile: TemperatureProfile?
+)
 
 
 
@@ -235,16 +179,16 @@ data class ProductWithManufacturer private constructor(
 
 
 /**
- * Individual product card
+ * Individual stock definition card
  */
 @Composable
-fun ProductCard(
-    productInfo: ProductWithManufacturer,
+fun StockDefinitionCard(
+    stockItemInfo: StockDefinitionWithManufacturer,
     catalogDisplayMode: CatalogDisplayMode,
     materialDisplaySettings: MaterialDisplaySettings,
     onClick: () -> Unit
 ) {
-    val product = productInfo.product
+    val stockDefinition = stockItemInfo.stockDefinition
     
     Card(
         modifier = Modifier
@@ -260,29 +204,24 @@ fun ProductCard(
         ) {
             // Color preview
             FilamentColorBox(
-                colorHex = product.colorHex ?: "#808080", // ProductLookupService should now provide proper colors
-                filamentType = product.materialType,
+                colorHex = stockDefinition.getProperty<String>("colorHex") ?: "#808080",
+                filamentType = stockDefinition.getProperty<String>("materialType") ?: "Unknown",
                 materialDisplaySettings = materialDisplaySettings,
                 modifier = Modifier.size(40.dp)
             )
             
-            // Product information
+            // Stock definition information
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Title based on catalog display mode and available data
+                // Title based on catalog display mode
                 Text(
-                    text = if (productInfo.normalizedProduct != null && productInfo.materialColor != null) {
-                        when (catalogDisplayMode) {
-                            CatalogDisplayMode.COMPLETE_TITLE -> 
-                                "${productInfo.normalizedProduct.variantName} ${productInfo.materialColor.colorName} ${productInfo.normalizedProduct.materialName}"
-                            CatalogDisplayMode.COLOR_FOCUSED -> 
-                                productInfo.materialColor.colorName
-                        }
-                    } else {
-                        // Fallback for components and products without normalized data
-                        product.productName
+                    text = when (catalogDisplayMode) {
+                        CatalogDisplayMode.COMPLETE_TITLE -> 
+                            stockDefinition.getProperty<String>("displayName") ?: stockDefinition.label
+                        CatalogDisplayMode.COLOR_FOCUSED -> 
+                            stockDefinition.getProperty<String>("colorName") ?: "Unknown Color"
                     },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
@@ -293,17 +232,23 @@ fun ProductCard(
                 // Properties based on display mode
                 when (catalogDisplayMode) {
                     CatalogDisplayMode.COMPLETE_TITLE -> {
-                        Text(
-                            text = "SKU: ${product.variantId}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        stockDefinition.getProperty<String>("sku")?.let { sku ->
+                            Text(
+                                text = "SKU: $sku",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     CatalogDisplayMode.COLOR_FOCUSED -> {
-                        val subtitleText = if (productInfo.normalizedProduct != null) {
-                            "${productInfo.normalizedProduct.materialName} ${productInfo.normalizedProduct.variantName} • SKU: ${product.variantId}"
+                        val materialType = stockDefinition.getProperty<String>("materialType")
+                        val sku = stockDefinition.getProperty<String>("sku")
+                        val subtitleText = if (materialType != null && sku != null) {
+                            "$materialType • SKU: $sku"
+                        } else if (sku != null) {
+                            "SKU: $sku"
                         } else {
-                            "SKU: ${product.variantId}"
+                            "No SKU"
                         }
                         Text(
                             text = subtitleText,
@@ -314,7 +259,7 @@ fun ProductCard(
                 }
                 
                 // Temperature info if available
-                productInfo.temperatureProfile?.let { profile ->
+                stockItemInfo.temperatureProfile?.let { profile ->
                     Text(
                         text = "${profile.minNozzle}-${profile.maxNozzle}°C • Bed: ${profile.bed}°C",
                         style = MaterialTheme.typography.bodySmall,
@@ -330,17 +275,17 @@ fun ProductCard(
             ) {
                 // RFID mapping status
                 Icon(
-                    imageVector = if (productInfo.hasRfidMapping) {
+                    imageVector = if (stockItemInfo.hasRfidMapping) {
                         Icons.Outlined.CheckCircle
                     } else {
                         Icons.Outlined.Error
                     },
-                    contentDescription = if (productInfo.hasRfidMapping) {
+                    contentDescription = if (stockItemInfo.hasRfidMapping) {
                         "Has RFID mapping"
                     } else {
                         "No RFID mapping"
                     },
-                    tint = if (productInfo.hasRfidMapping) {
+                    tint = if (stockItemInfo.hasRfidMapping) {
                         MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.outline
@@ -349,12 +294,16 @@ fun ProductCard(
                 )
                 
                 // Material category badge
-                productInfo.materialDefinition?.properties?.category?.let { category ->
+                stockDefinition.getProperty<Boolean>("consumable")?.let { isConsumable ->
                     Badge(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        containerColor = if (isConsumable) {
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        }
                     ) {
                         Text(
-                            text = category.name,
+                            text = if (isConsumable) "CONSUMABLE" else "REUSABLE",
                             style = MaterialTheme.typography.labelSmall
                         )
                     }

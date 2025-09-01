@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bscan.repository.UnifiedDataAccess
 import com.bscan.model.DecryptedScanData
+import com.bscan.model.graph.entities.StockDefinition
 import com.bscan.repository.ComponentRepository
 import com.bscan.ui.screens.home.SkuInfo
 import com.bscan.model.Component
@@ -425,11 +426,11 @@ class DetailViewModel(
         
         // Look up the product in the catalog
         Log.d("DetailViewModel", "Looking up SKU: manufacturerId='$manufacturerId', skuId='$skuId'")
-        val product = unifiedDataAccess.findProductBySku(manufacturerId, skuId)
-        Log.d("DetailViewModel", "Product lookup result: $product")
+        val stockDef = unifiedDataAccess.findStockDefinitionBySku(manufacturerId, skuId)
+        Log.d("DetailViewModel", "StockDefinition lookup result: $stockDef")
         
-        if (product == null) {
-            Log.w("DetailViewModel", "No catalog product found for SKU: $manufacturerId:$skuId")
+        if (stockDef == null) {
+            Log.w("DetailViewModel", "No catalog stock definition found for SKU: $manufacturerId:$skuId")
             // No catalog product found, create a synthetic entry
             val syntheticFilamentInfo = createSyntheticFilamentInfo(skuKey, "Unknown")
             val primarySku = SkuInfo(
@@ -453,14 +454,14 @@ class DetailViewModel(
             return
         }
         
-        // Convert ProductEntry to FilamentInfo for SkuInfo
+        // Convert StockDefinition to FilamentInfo for SkuInfo
         val filamentInfo = com.bscan.model.FilamentInfo(
             tagUid = "catalog",
             trayUid = skuKey,
-            filamentType = product.materialType,
-            detailedFilamentType = product.productName,
-            colorHex = product.colorHex ?: "#808080",
-            colorName = product.colorName,
+            filamentType = stockDef.getProperty<String>("materialType") ?: "Unknown",
+            detailedFilamentType = stockDef.getProperty<String>("displayName") ?: stockDef.label,
+            colorHex = stockDef.getProperty<String>("colorHex") ?: "#808080",
+            colorName = stockDef.getProperty<String>("colorName") ?: "Unknown",
             spoolWeight = 0, // Not available in catalog
             filamentDiameter = 1.75f, // Default diameter
             filamentLength = 0, // Not available in catalog
@@ -475,10 +476,12 @@ class DetailViewModel(
         // Find related scans for this product
         val allScans = unifiedDataAccess.getAllDecryptedScanData()
         val relatedScans = allScans.filter { scan ->
-            // Try to match scans that might be for this product
+            // Try to match scans that might be for this stock definition
             interpretScan(scan)?.let { info ->
-                info.filamentType.contains(product.materialType, ignoreCase = true) &&
-                (product.colorName.isBlank() || info.colorName.contains(product.colorName, ignoreCase = true))
+                val materialType = stockDef.getProperty<String>("materialType") ?: ""
+                val colorName = stockDef.getProperty<String>("colorName") ?: ""
+                info.filamentType.contains(materialType, ignoreCase = true) &&
+                (colorName.isBlank() || info.colorName.contains(colorName, ignoreCase = true))
             } ?: false
         }
         
