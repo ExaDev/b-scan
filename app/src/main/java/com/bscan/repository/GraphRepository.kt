@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.time.LocalDateTime
+import com.bscan.data.bambu.BambuCatalogGenerator
 
 /**
  * Repository for managing graph-based data persistence.
@@ -471,6 +472,13 @@ class GraphRepository(private val context: Context) {
                     properties = deserializeProperties(serialized.properties)
                 )
             }
+            "StockDefinition" -> {
+                StockDefinition(
+                    id = serialized.id,
+                    label = serialized.label,
+                    properties = deserializeProperties(serialized.properties)
+                )
+            }
             else -> {
                 Log.w(TAG, "Unknown entity class: ${serialized.className}")
                 null
@@ -528,6 +536,49 @@ class GraphRepository(private val context: Context) {
         }
         
         return properties
+    }
+    
+    /**
+     * Initialize catalog entities in the graph if they don't exist yet.
+     * This populates StockDefinition entities from BambuCatalogGenerator on first run.
+     */
+    suspend fun initializeCatalogEntities(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Check if catalog entities are already initialized
+            val existingStockDefs = getEntitiesByType("stock_definition")
+            if (existingStockDefs.isNotEmpty()) {
+                Log.i(TAG, "Catalog entities already initialized (${existingStockDefs.size} stock definitions found)")
+                return@withContext true
+            }
+            
+            Log.i(TAG, "Initializing catalog entities from BambuCatalogGenerator")
+            
+            // Generate catalog data
+            val catalog = BambuCatalogGenerator.generateBambuCatalog()
+            val stockDefinitions = catalog.stockDefinitions
+            
+            // Add all StockDefinitions to the graph
+            var addedCount = 0
+            stockDefinitions.forEach { stockDef ->
+                // Mark as catalog entity
+                stockDef.setProperty("isCatalogEntity", true)
+                stockDef.setProperty("catalogSource", "bambu")
+                
+                if (graph.addEntity(stockDef)) {
+                    addedCount++
+                }
+            }
+            
+            if (addedCount > 0) {
+                persistGraph()
+                Log.i(TAG, "Successfully initialized $addedCount catalog entities")
+            }
+            
+            return@withContext true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize catalog entities", e)
+            return@withContext false
+        }
     }
 }
 
