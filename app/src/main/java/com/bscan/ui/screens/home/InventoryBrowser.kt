@@ -48,14 +48,13 @@ fun InventoryBrowser(
     val context = LocalContext.current
     val graphRepository = remember { GraphRepository(context) }
     
-    // Load inventory items (entities marked as inventory items)
-    var inventoryItems by remember { mutableStateOf(listOf<InventoryItem>()) }
+    // Load inventory root entities (main trackable items from each subgraph)
+    var inventoryItems by remember { mutableStateOf(listOf<Entity>()) }
     var isLoading by remember { mutableStateOf(true) }
     
     LaunchedEffect(Unit) {
         try {
-            inventoryItems = graphRepository.getEntitiesByType(com.bscan.model.graph.entities.EntityTypes.INVENTORY_ITEM)
-                .filterIsInstance<InventoryItem>()
+            inventoryItems = graphRepository.findInventoryRootEntities()
         } catch (e: Exception) {
             inventoryItems = emptyList()
         } finally {
@@ -211,13 +210,15 @@ private fun InventorySummaryCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactInventoryCard(
-    inventoryItem: InventoryItem,
+    inventoryItem: Entity,
     allComponents: List<PhysicalComponent>,
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     onDeleteComponent: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val entityType = inventoryItem.getProperty<String>("category") ?: "inventory-item"
+    val entityType = inventoryItem.getProperty<String>("category") 
+        ?: inventoryItem.getProperty<String>("virtualType")
+        ?: "inventory-item"
     val label = inventoryItem.label
     val manufacturer = inventoryItem.getProperty<String>("manufacturer") ?: "Unknown"
     val currentQuantity = inventoryItem.getProperty<Double>("currentQuantity") ?: 0.0
@@ -231,7 +232,8 @@ private fun CompactInventoryCard(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         onClick = {
-            onNavigateToDetails?.invoke(DetailType.INVENTORY_STOCK, inventoryItem.id)
+            // Navigate to entity details - the "entity/" prefix will be handled by AppNavigation
+            onNavigateToDetails?.invoke(DetailType.COMPONENT, "entity/${inventoryItem.id}")
         }
     ) {
         Row(
@@ -343,7 +345,7 @@ private fun InventoryBrowserPreview() {
 private fun CompactInventoryCardPreview() {
     MaterialTheme {
         CompactInventoryCard(
-            inventoryItem = createMockInventoryItem("1", "PLA Orange"),
+            inventoryItem = createMockVirtualEntity("1", "PLA Orange"),
             allComponents = emptyList(),
             onNavigateToDetails = { _, _ -> },
             onDeleteComponent = { }
@@ -363,16 +365,17 @@ private fun createMockPhysicalComponent(id: String, name: String): PhysicalCompo
     )
 }
 
-private fun createMockInventoryItem(id: String, name: String): InventoryItem {
-    return InventoryItem(
-        id = "inventory_$id",
+private fun createMockVirtualEntity(id: String, name: String): com.bscan.model.graph.entities.Virtual {
+    return com.bscan.model.graph.entities.Virtual(
+        id = "virtual_$id",
+        virtualType = "filament_tray",
         label = name,
-        trackingMode = com.bscan.model.graph.entities.TrackingMode.DISCRETE,
         properties = mutableMapOf<String, com.bscan.model.graph.PropertyValue>().apply {
-            put("category", com.bscan.model.graph.PropertyValue.create("filament-tray"))
             put("manufacturer", com.bscan.model.graph.PropertyValue.create("Bambu Lab"))
             put("currentQuantity", com.bscan.model.graph.PropertyValue.create(578.5))
             put("quantityUnit", com.bscan.model.graph.PropertyValue.create("grams"))
+            put("filamentType", com.bscan.model.graph.PropertyValue.create("PLA"))
+            put("colorName", com.bscan.model.graph.PropertyValue.create("Orange"))
         }
     )
 }

@@ -65,9 +65,8 @@ fun HomeScreen(
                 .filterIsInstance<PhysicalComponent>()
             physicalComponents = allPhysicalComponents
             
-            val allInventoryItems = graphRepository.getEntitiesByType(EntityTypes.INVENTORY_ITEM)
-                .filterIsInstance<InventoryItem>()
-            inventoryItems = allInventoryItems
+            val allInventoryItems = graphRepository.findInventoryRootEntities()
+            inventoryItems = allInventoryItems.filterIsInstance<InventoryItem>()
             
             val allActivities = graphRepository.getEntitiesByType(EntityTypes.ACTIVITY)
                 .filterIsInstance<Activity>()

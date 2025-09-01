@@ -80,7 +80,7 @@ fun ComponentsScreen(
             
             val matchesViewMode = when (selectedViewMode) {
                 ViewMode.ALL -> true
-                ViewMode.INVENTORY_ITEMS -> component.isInventoryItem
+                ViewMode.INVENTORY_ITEMS -> false // Legacy mode - disabled
                 ViewMode.CHILD_COMPONENTS -> !component.isInventoryItem
                 ViewMode.VARIABLE_MASS -> component.variableMass
                 ViewMode.FIXED_MASS -> !component.variableMass
@@ -377,7 +377,7 @@ fun ComponentsScreen(
 
 enum class ViewMode(val displayName: String) {
     ALL("All Components"),
-    INVENTORY_ITEMS("Inventory Items"),
+    INVENTORY_ITEMS("Inventory Items (Legacy)"),
     CHILD_COMPONENTS("Parts & Components"),
     VARIABLE_MASS("Variable Mass"),
     FIXED_MASS("Fixed Mass")

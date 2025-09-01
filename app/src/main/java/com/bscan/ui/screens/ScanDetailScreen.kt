@@ -398,14 +398,8 @@ private fun RelatedEntitiesView(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         // Navigate to entity details
-                        when (entity.entityType) {
-                            EntityTypes.PHYSICAL_COMPONENT -> onNavigateToDetails?.invoke(DetailType.COMPONENT, entity.id)
-                            EntityTypes.INVENTORY_ITEM -> onNavigateToDetails?.invoke(DetailType.COMPONENT, entity.id)
-                            else -> {
-                                // For other entity types, show them as components for now
-                                onNavigateToDetails?.invoke(DetailType.COMPONENT, entity.id)
-                            }
-                        }
+                        // Navigate to entity details using entity navigation
+                        onNavigateToDetails?.invoke(DetailType.COMPONENT, "entity/${entity.id}")
                     }
                 ) {
                     Row(
