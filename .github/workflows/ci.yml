@@ -68,8 +68,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: true
         fetch-depth: 1
+        
+    - name: Initialize submodules
+      run: |
+        git submodule update --init --depth 1 test-data/rfid-library
+        git submodule update --init --depth 1 wiki
         
     - name: Verify submodules
       run: |
@@ -123,8 +127,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: true
         fetch-depth: 1
+        
+    - name: Initialize submodules  
+      run: |
+        git submodule update --init --depth 1 test-data/rfid-library
       
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
@@ -155,7 +162,10 @@ jobs:
       with:
         fetch-depth: 0  # Fetch full history for semantic-release
         token: ${{ secrets.GITHUB_TOKEN }}
-        submodules: true
+        
+    - name: Initialize submodules  
+      run: |
+        git submodule update --init --depth 1 test-data/rfid-library
         
     - name: Setup Android environment
       uses: ./.github/actions/setup-android
