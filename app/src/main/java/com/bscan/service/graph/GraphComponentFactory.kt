@@ -209,23 +209,6 @@ class GraphComponentFactory(
         }
         entities.add(core)
         
-        // 7. Create Spool entity with compound key
-        val spoolId = createCompoundId(
-            "type" to "spool",
-            "trayUid" to filamentInfo.trayUid
-        )
-        
-        val spool = runBlocking { graphRepository.getExistingEntity(spoolId) } as? PhysicalComponent ?: PhysicalComponent(
-            id = spoolId,
-            label = "Refillable Spool"
-        ).apply {
-            category = "spool"
-            manufacturer = "Bambu Lab"
-            massGrams = 212.0f  // Standard spool mass
-            setProperty("material", "plastic")
-            setProperty("reusable", true)
-        }
-        entities.add(spool)
         
         // 8. Create Scan Activity
         val scanActivity = Activity(
@@ -275,7 +258,7 @@ class GraphComponentFactory(
             ))
         }
         
-        // Tray contains filament, core, and spool
+        // Tray contains filament and core
         if (!runBlocking { graphRepository.edgeExists(tray.id, filament.id, RelationshipTypes.CONTAINS) }) {
             edges.add(Edge(
                 fromEntityId = tray.id,
@@ -294,14 +277,6 @@ class GraphComponentFactory(
             ))
         }
         
-        if (!runBlocking { graphRepository.edgeExists(tray.id, spool.id, RelationshipTypes.CONTAINS) }) {
-            edges.add(Edge(
-                fromEntityId = tray.id,
-                toEntityId = spool.id,
-                relationshipType = RelationshipTypes.CONTAINS,
-                directional = true
-            ))
-        }
         
         // Filament is attached to core
         if (!runBlocking { graphRepository.edgeExists(filament.id, core.id, RelationshipTypes.ATTACHED_TO) }) {
@@ -313,15 +288,6 @@ class GraphComponentFactory(
             ))
         }
         
-        // Core is attached to spool
-        if (!runBlocking { graphRepository.edgeExists(core.id, spool.id, RelationshipTypes.ATTACHED_TO) }) {
-            edges.add(Edge(
-                fromEntityId = core.id,
-                toEntityId = spool.id,
-                relationshipType = RelationshipTypes.ATTACHED_TO,
-                directional = false
-            ))
-        }
         
         // Scan activity scanned the RFID tag
         edges.add(Edge(
