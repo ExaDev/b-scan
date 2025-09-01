@@ -19,6 +19,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.model.*
+import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -36,6 +38,7 @@ fun InventoryCompactListView(
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     onToggleSelection: ((String) -> Unit)? = null,
     onDeleteComponent: ((Component) -> Unit)? = null,
+    materialDisplaySettings: MaterialDisplaySettings = MaterialDisplaySettings.DEFAULT,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -51,7 +54,8 @@ fun InventoryCompactListView(
                 isBulkSelectionMode = isBulkSelectionMode,
                 onNavigateToDetails = onNavigateToDetails,
                 onToggleSelection = onToggleSelection,
-                onDeleteComponent = onDeleteComponent
+                onDeleteComponent = onDeleteComponent,
+                materialDisplaySettings = materialDisplaySettings
             )
         }
     }
@@ -70,6 +74,7 @@ private fun CompactInventoryItemRow(
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     onToggleSelection: ((String) -> Unit)? = null,
     onDeleteComponent: ((Component) -> Unit)? = null,
+    materialDisplaySettings: MaterialDisplaySettings = MaterialDisplaySettings.DEFAULT,
     modifier: Modifier = Modifier
 ) {
     val haptics = LocalHapticFeedback.current
@@ -125,12 +130,17 @@ private fun CompactInventoryItemRow(
                 )
             }
             
-            // Component icon
-            Icon(
-                imageVector = getComponentIcon(inventoryItem.category),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
+            // Material/Color display box (smaller for compact view)
+            val colorHex = inventoryItem.metadata["colorHex"] ?: "#808080"
+            val materialType = inventoryItem.metadata["filamentType"] ?: inventoryItem.tags.find { tag ->
+                tag.uppercase() in listOf("PLA", "ABS", "PETG", "ASA", "NYLON", "PC", "PLA+", "ABS+")
+            } ?: "Material"
+            
+            FilamentColorBox(
+                colorHex = colorHex,
+                filamentType = materialType,
+                materialDisplaySettings = materialDisplaySettings,
+                modifier = Modifier.size(28.dp)
             )
             
             // Main content area
@@ -175,11 +185,39 @@ private fun CompactInventoryItemRow(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Category and manufacturer
+                    // Category, material, and manufacturer
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Show material and color if available
+                        if (materialType != "Material" || colorHex != "#808080") {
+                            val colorName = inventoryItem.tags.find { tag ->
+                                !tag.uppercase().contains(materialType.uppercase()) && 
+                                tag.length > 2
+                            }
+                            val materialText = listOfNotNull(
+                                if (materialType != "Material") materialType else null,
+                                colorName
+                            ).joinToString(" ")
+                            
+                            if (materialText.isNotBlank()) {
+                                Text(
+                                    text = materialText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                
+                                Text(
+                                    text = "•",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        
                         Text(
                             text = inventoryItem.category,
                             style = MaterialTheme.typography.labelSmall,
@@ -464,7 +502,8 @@ private fun InventoryCompactListViewPreview() {
             allComponents = createMockAllComponents(),
             onNavigateToDetails = { _, _ -> },
             onToggleSelection = { },
-            onDeleteComponent = { }
+            onDeleteComponent = { },
+            materialDisplaySettings = MaterialDisplaySettings.DEFAULT
         )
     }
 }
@@ -500,6 +539,10 @@ private fun createMockInventoryItem(): Component {
         massGrams = 578.5f,
         manufacturer = "Bambu Lab",
         description = "Premium PLA filament",
+        metadata = mapOf(
+            "colorHex" to "#FF8B42",
+            "filamentType" to "PLA"
+        ),
         lastUpdated = LocalDateTime.now().minusHours(2)
     )
 }

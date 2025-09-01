@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.bscan.model.*
+import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -32,6 +34,7 @@ fun InventoryItemCard(
     onToggleExpanded: (String) -> Unit,
     onDeleteComponent: (Component) -> Unit,
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
+    materialDisplaySettings: MaterialDisplaySettings = MaterialDisplaySettings.DEFAULT,
     modifier: Modifier = Modifier
 ) {
     val dateFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")
@@ -62,13 +65,24 @@ fun InventoryItemCard(
                 Row(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(
-                        getComponentIcon(inventoryItem.category),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                    // Material/Color display box (same as catalog items)
+                    val colorHex = inventoryItem.metadata["colorHex"] ?: "#808080"
+                    val materialType = inventoryItem.metadata["filamentType"] ?: inventoryItem.tags.find { tag ->
+                        tag.uppercase() in listOf("PLA", "ABS", "PETG", "ASA", "NYLON", "PC", "PLA+", "ABS+")
+                    } ?: "Material"
+                    
+                    // Debug logging
+                    android.util.Log.d("InventoryItemCard", "Item: ${inventoryItem.name}")
+                    android.util.Log.d("InventoryItemCard", "Metadata keys: ${inventoryItem.metadata.keys}")
+                    android.util.Log.d("InventoryItemCard", "ColorHex: $colorHex, MaterialType: $materialType")
+                    
+                    FilamentColorBox(
+                        colorHex = colorHex,
+                        filamentType = materialType,
+                        materialDisplaySettings = materialDisplaySettings,
+                        modifier = Modifier.size(40.dp)
                     )
                     
                     Column {
@@ -77,6 +91,26 @@ fun InventoryItemCard(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
+                        
+                        // Show material and color information if available
+                        if (materialType != "Material" || colorHex != "#808080") {
+                            val colorName = inventoryItem.tags.find { tag ->
+                                !tag.uppercase().contains(materialType.uppercase()) && 
+                                tag.length > 2
+                            }
+                            val displayText = listOfNotNull(
+                                if (materialType != "Material") materialType else null,
+                                colorName
+                            ).joinToString(" • ")
+                            
+                            if (displayText.isNotBlank()) {
+                                Text(
+                                    text = displayText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         
                         // Show primary identifier
                         inventoryItem.getPrimaryTrackingIdentifier()?.let { identifier ->
@@ -266,7 +300,8 @@ private fun InventoryItemCardCollapsedPreview() {
             isExpanded = false,
             onToggleExpanded = { },
             onDeleteComponent = { },
-            onNavigateToDetails = null
+            onNavigateToDetails = null,
+            materialDisplaySettings = MaterialDisplaySettings.DEFAULT
         )
     }
 }
@@ -281,7 +316,8 @@ private fun InventoryItemCardExpandedPreview() {
             isExpanded = true,
             onToggleExpanded = { },
             onDeleteComponent = { },
-            onNavigateToDetails = null
+            onNavigateToDetails = null,
+            materialDisplaySettings = MaterialDisplaySettings.DEFAULT
         )
     }
 }
@@ -313,7 +349,8 @@ private fun createMockInventoryItem(): Component {
         manufacturer = "Bambu Lab",
         description = "Premium PLA filament with consistent quality",
         metadata = mapOf(
-            "color" to "#FF8B42",
+            "colorHex" to "#FF8B42",
+            "filamentType" to "PLA",
             "diameter" to "1.75mm",
             "length" to "330m"
         ),

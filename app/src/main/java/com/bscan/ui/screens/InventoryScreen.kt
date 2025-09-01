@@ -22,6 +22,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bscan.MainViewModel
 import com.bscan.model.*
+import com.bscan.repository.UserDataRepository
+import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.components.common.ConfirmationDialog
 import com.bscan.ui.components.inventory.*
@@ -37,6 +39,11 @@ fun InventoryScreen(
     val context = LocalContext.current
     val inventoryViewModel = remember { InventoryViewModel(context) }
     val uiState by inventoryViewModel.uiState.collectAsStateWithLifecycle()
+    
+    // Get user preferences for material display settings
+    val userDataRepository = remember { UserDataRepository(context) }
+    val userData by remember { derivedStateOf { userDataRepository.getUserData() } }
+    val materialDisplaySettings = userData?.preferences?.materialDisplaySettings ?: MaterialDisplaySettings.DEFAULT
     
     // Show delete confirmation dialog
     var componentToDelete by remember { mutableStateOf<Component?>(null) }
@@ -268,7 +275,8 @@ fun InventoryScreen(
                                         inventoryViewModel.toggleComponentExpansion(componentId)
                                     },
                                     onDeleteComponent = { componentToDelete = it },
-                                    onNavigateToDetails = onNavigateToDetails
+                                    onNavigateToDetails = onNavigateToDetails,
+                                    materialDisplaySettings = materialDisplaySettings
                                 )
                             }
                         }
@@ -283,6 +291,7 @@ fun InventoryScreen(
                             onNavigateToDetails = onNavigateToDetails,
                             onToggleSelection = { inventoryViewModel.toggleComponentSelection(it) },
                             onDeleteComponent = { componentToDelete = it },
+                            materialDisplaySettings = materialDisplaySettings,
                             modifier = Modifier.weight(1f)
                         )
                     }

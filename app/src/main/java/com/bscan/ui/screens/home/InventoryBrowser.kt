@@ -22,6 +22,9 @@ import com.bscan.model.graph.entities.PhysicalComponent
 import com.bscan.model.graph.entities.InventoryItem
 import com.bscan.model.graph.Entity
 import com.bscan.repository.GraphRepository
+import com.bscan.repository.UserDataRepository
+import com.bscan.ui.components.FilamentColorBox
+import com.bscan.ui.components.MaterialDisplaySettings
 import com.bscan.ui.screens.DetailType
 import com.bscan.ui.screens.InventoryViewMode
 import com.bscan.ui.components.inventory.InventoryItemCard
@@ -47,6 +50,11 @@ fun InventoryBrowser(
 ) {
     val context = LocalContext.current
     val graphRepository = remember { GraphRepository(context) }
+    
+    // Get user preferences for material display settings
+    val userDataRepository = remember { UserDataRepository(context) }
+    val userData by remember { derivedStateOf { userDataRepository.getUserData() } }
+    val materialDisplaySettings = userData?.preferences?.materialDisplaySettings ?: MaterialDisplaySettings.DEFAULT
     
     // Load inventory root entities (main trackable items from each subgraph)
     var inventoryItems by remember { mutableStateOf(listOf<Entity>()) }
@@ -109,6 +117,7 @@ fun InventoryBrowser(
                     CompactInventoryCard(
                         inventoryItem = inventoryItem,
                         allComponents = allComponents,
+                        materialDisplaySettings = materialDisplaySettings,
                         onNavigateToDetails = onNavigateToDetails,
                         onDeleteComponent = { 
                             // TODO: Implement entity deletion
@@ -212,6 +221,7 @@ private fun InventorySummaryCard(
 private fun CompactInventoryCard(
     inventoryItem: Entity,
     allComponents: List<PhysicalComponent>,
+    materialDisplaySettings: MaterialDisplaySettings = MaterialDisplaySettings.DEFAULT,
     onNavigateToDetails: ((DetailType, String) -> Unit)? = null,
     onDeleteComponent: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -223,6 +233,20 @@ private fun CompactInventoryCard(
     val manufacturer = inventoryItem.getProperty<String>("manufacturer") ?: "Unknown"
     val currentQuantity = inventoryItem.getProperty<Double>("currentQuantity") ?: 0.0
     val quantityUnit = inventoryItem.getProperty<String>("quantityUnit") ?: "units"
+    
+    // Extract material and color information from entity properties
+    val colorHex = inventoryItem.getProperty<String>("colorHex") 
+        ?: inventoryItem.getProperty<String>("color") 
+        ?: "#808080"
+    val materialType = inventoryItem.getProperty<String>("filamentType") 
+        ?: inventoryItem.getProperty<String>("material")
+        ?: inventoryItem.getProperty<String>("materialType") 
+        ?: "Material"
+    
+    // Debug logging for entity properties
+    android.util.Log.d("CompactInventoryCard", "Entity: $label")
+    android.util.Log.d("CompactInventoryCard", "Property keys: ${inventoryItem.getPropertyKeys()}")
+    android.util.Log.d("CompactInventoryCard", "ColorHex: $colorHex, MaterialType: $materialType")
     
     Card(
         modifier = modifier
@@ -249,6 +273,14 @@ private fun CompactInventoryCard(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
+            )
+            
+            // Material/Color display box
+            FilamentColorBox(
+                colorHex = colorHex,
+                filamentType = materialType,
+                materialDisplaySettings = materialDisplaySettings,
+                modifier = Modifier.size(28.dp)
             )
             
             // Component info
