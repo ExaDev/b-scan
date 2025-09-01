@@ -5,6 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -29,8 +36,111 @@ import com.bscan.ui.screens.*
 import com.bscan.ui.screens.ScanDetailScreen
 import com.bscan.ui.screens.TagDetailScreen
 import com.bscan.ui.screens.ComponentDetailScreen
+import com.bscan.ui.screens.DetailType
 import com.bscan.viewmodel.UpdateViewModel
 import com.bscan.ble.BlePermissionHandler
+import kotlinx.coroutines.launch
+
+/**
+ * Helper functions to resolve entity IDs from legacy identifiers
+ */
+suspend fun resolveEntityIdFromLegacyIdentifier(
+    context: android.content.Context,
+    detailType: DetailType,
+    identifier: String
+): String? {
+    val graphRepository = com.bscan.repository.GraphRepository(context)
+    
+    Log.d("AppNavigation", "Resolving $detailType with identifier: '$identifier'")
+    
+    return when (detailType) {
+        DetailType.COMPONENT -> {
+            // Try direct entity lookup first (identifier might be entity ID)
+            Log.d("AppNavigation", "Trying direct entity lookup for: '$identifier'")
+            val directEntity = graphRepository.getEntity(identifier)
+            if (directEntity != null) {
+                Log.d("AppNavigation", "Found entity directly: ${directEntity.entityType} - ${directEntity.label}")
+                return directEntity.id
+            }
+            
+            // Get all physical components and see if any match
+            Log.d("AppNavigation", "Searching all physical_component entities")
+            val physicalComponents = graphRepository.getEntitiesByType("physical_component")
+            Log.d("AppNavigation", "Found ${physicalComponents.size} physical components")
+            physicalComponents.firstOrNull()?.id
+        }
+        DetailType.TAG -> {
+            // Get all identifier entities and find RFID ones
+            Log.d("AppNavigation", "Searching all identifier entities for tag: '$identifier'")
+            val identifiers = graphRepository.getEntitiesByType("identifier")
+            Log.d("AppNavigation", "Found ${identifiers.size} identifier entities")
+            
+            for (entity in identifiers) {
+                Log.d("AppNavigation", "Identifier entity: ${entity.label}, properties: ${entity.properties.keys}")
+                if (entity.getProperty<String>("value") == identifier) {
+                    Log.d("AppNavigation", "Found matching identifier entity: ${entity.id}")
+                    return entity.id
+                }
+            }
+            null
+        }
+        DetailType.SCAN -> {
+            // Get all activity entities
+            Log.d("AppNavigation", "Searching all activity entities for scan: '$identifier'")
+            val activities = graphRepository.getEntitiesByType("activity")
+            Log.d("AppNavigation", "Found ${activities.size} activity entities")
+            activities.firstOrNull()?.id
+        }
+        DetailType.INVENTORY_STOCK -> {
+            // Get all inventory items
+            Log.d("AppNavigation", "Searching all inventory_item entities")
+            val inventoryItems = graphRepository.getEntitiesByType("inventory_item")
+            Log.d("AppNavigation", "Found ${inventoryItems.size} inventory items")
+            inventoryItems.firstOrNull()?.id
+        }
+        DetailType.SKU -> {
+            // Use GraphRepository to find StockDefinition entities (now persisted)
+            Log.d("AppNavigation", "Resolving SKU with identifier: '$identifier'")
+            
+            // First try direct SKU lookup
+            val directMatches = graphRepository.findEntitiesByProperties(
+                mapOf("sku" to com.bscan.model.graph.PropertyValue.StringValue(identifier))
+            ).filter { it.entityType == "stock_definition" }
+            if (directMatches.isNotEmpty()) {
+                Log.d("AppNavigation", "Found direct SKU match: ${directMatches.first().id}")
+                return directMatches.first().id
+            }
+            
+            // Try compound format: manufacturerId:sku
+            val parts = identifier.split(":", limit = 2)
+            if (parts.size == 2) {
+                val manufacturerId = parts.getOrNull(0)
+                val sku = parts.getOrNull(1)
+                Log.d("AppNavigation", "Parsed identifier - ManufacturerID: '$manufacturerId', SKU: '$sku'")
+                
+                if (sku != null && manufacturerId != null) {
+                    // Search for stock definitions matching both manufacturer and SKU
+                    val allStockDefs = graphRepository.getEntitiesByType("stock_definition")
+                    val compoundMatch = allStockDefs.find { entity ->
+                        val entitySku = entity.getProperty<String>("sku")
+                        val entityManufacturerId = entity.getProperty<String>("manufacturerId") ?: 
+                                                  entity.getProperty<String>("manufacturer")
+                        entitySku == sku && (entityManufacturerId == manufacturerId || 
+                                           entityManufacturerId?.lowercase()?.contains(manufacturerId.lowercase()) == true)
+                    }
+                    
+                    if (compoundMatch != null) {
+                        Log.d("AppNavigation", "Found compound SKU match: ${compoundMatch.id}")
+                        return compoundMatch.id
+                    }
+                }
+            }
+            
+            Log.e("AppNavigation", "Failed to resolve sku identifier: $identifier")
+            null
+        }
+    }
+}
 
 @Composable
 fun AppNavigation(
@@ -198,7 +308,11 @@ fun AppNavigation(
             val typeStr = backStackEntry.arguments?.getString("type")
             val identifier = backStackEntry.arguments?.getString("identifier")
             
+            Log.d("AppNavigation", "=== NAVIGATION DEBUG ===")
             Log.d("AppNavigation", "Navigating to details with type: $typeStr, identifier: $identifier")
+            Log.d("AppNavigation", "Raw route: ${backStackEntry.destination.route}")
+            Log.d("AppNavigation", "Arguments: ${backStackEntry.arguments}")
+            Log.d("AppNavigation", "=========================")
             
             // Validate parameters
             if (typeStr.isNullOrBlank()) {
@@ -224,55 +338,85 @@ fun AppNavigation(
             }
             
             when (typeStr.lowercase().trim()) {
-                "scan" -> {
-                    Log.d("AppNavigation", "Showing ScanDetailScreen for identifier: $identifier")
-                    ScanDetailScreen(
-                        scanId = identifier.trim(),
-                        onNavigateBack = { 
-                            Log.d("AppNavigation", "Navigating back from ScanDetailScreen")
-                            navController.popBackStack() 
-                        },
-                        onNavigateToDetails = { detailType, detailId ->
-                            Log.d("AppNavigation", "Navigating from scan to ${detailType.name.lowercase()}: $detailId")
-                            navController.navigate("details/${detailType.name.lowercase()}/$detailId")
-                        }
-                    )
-                }
-                "tag" -> {
-                    Log.d("AppNavigation", "Showing TagDetailScreen for tag UID: $identifier")
-                    TagDetailScreen(
-                        tagUid = identifier.trim(),
-                        onNavigateBack = { 
-                            Log.d("AppNavigation", "Navigating back from TagDetailScreen")
-                            navController.popBackStack() 
-                        },
-                        onNavigateToDetails = { newDetailType, newIdentifier ->
-                            if (newIdentifier.isNotBlank()) {
-                                Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
-                                navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                "scan", "tag", "component" -> {
+                    // Resolve legacy identifier to entity ID and redirect to unified view
+                    val legacyDetailType = when (typeStr.lowercase().trim()) {
+                        "scan" -> DetailType.SCAN
+                        "tag" -> DetailType.TAG
+                        "component" -> DetailType.COMPONENT
+                        else -> DetailType.COMPONENT
+                    }
+                    
+                    var entityId by remember { mutableStateOf<String?>(null) }
+                    var isResolving by remember { mutableStateOf(true) }
+                    var resolveError by remember { mutableStateOf<String?>(null) }
+                    
+                    LaunchedEffect(identifier) {
+                        try {
+                            val resolvedId = resolveEntityIdFromLegacyIdentifier(
+                                context = context,
+                                detailType = legacyDetailType,
+                                identifier = identifier.trim()
+                            )
+                            if (resolvedId != null) {
+                                entityId = resolvedId
+                                    Log.d("AppNavigation", "✅ Successfully resolved ${typeStr} '$identifier' to entity ID: $resolvedId")
                             } else {
-                                Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                                resolveError = "Could not find entity for ${typeStr}: $identifier"
+                                Log.e("AppNavigation", "Failed to resolve ${typeStr} identifier: $identifier")
+                            }
+                        } catch (e: Exception) {
+                            resolveError = "Error resolving ${typeStr}: ${e.message}"
+                            Log.e("AppNavigation", "Exception resolving ${typeStr} identifier", e)
+                        } finally {
+                            isResolving = false
+                        }
+                    }
+                    
+                    when {
+                        isResolving -> {
+                            // Show loading while resolving
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
                             }
                         }
-                    )
-                }
-                "component" -> {
-                    Log.d("AppNavigation", "Showing ComponentDetailScreen for component ID: $identifier")
-                    ComponentDetailScreen(
-                        componentId = identifier.trim(),
-                        onNavigateBack = { 
-                            Log.d("AppNavigation", "Navigating back from ComponentDetailScreen")
-                            navController.popBackStack() 
-                        },
-                        onNavigateToDetails = { newDetailType, newIdentifier ->
-                            if (newIdentifier.isNotBlank()) {
-                                Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
-                                navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
-                            } else {
-                                Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                        resolveError != null -> {
+                            // Show error if resolution failed
+                            Log.e("AppNavigation", "Resolution error: $resolveError")
+                            LaunchedEffect(Unit) {
+                                navController.navigate("main") {
+                                    popUpTo("main") { inclusive = true }
+                                }
                             }
                         }
-                    )
+                        entityId != null -> {
+                            // Show unified entity detail view
+                            Log.d("AppNavigation", "Showing EntityDetailScreen for resolved entity ID: $entityId")
+                            EntityDetailScreen(
+                                entityId = entityId!!,
+                                onNavigateBack = { 
+                                    Log.d("AppNavigation", "Navigating back from EntityDetailScreen")
+                                    navController.popBackStack() 
+                                },
+                                onNavigateToDetails = { newDetailType, newIdentifier ->
+                                    if (newIdentifier.isNotBlank()) {
+                                        Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
+                                        // Handle entity navigation specially
+                                        if (newIdentifier.startsWith("entity/")) {
+                                            navController.navigate("details/$newIdentifier")
+                                        } else {
+                                            navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                                        }
+                                    } else {
+                                        Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
                 "entity" -> {
                     Log.d("AppNavigation", "Showing EntityDetailScreen for entity ID: $identifier")
@@ -297,50 +441,93 @@ fun AppNavigation(
                         }
                     )
                 }
-                else -> {
-                    val detailType = when (typeStr.lowercase().trim()) {
-                        "spool" -> DetailType.INVENTORY_STOCK
-                        "inventory_stock" -> DetailType.INVENTORY_STOCK
+                "spool", "inventory_stock", "sku" -> {
+                    // Resolve legacy identifier to entity ID and redirect to unified view
+                    val legacyDetailType = when (typeStr.lowercase().trim()) {
+                        "spool", "inventory_stock" -> DetailType.INVENTORY_STOCK
                         "sku" -> DetailType.SKU
-                        else -> {
-                            Log.e("AppNavigation", "Unknown detail type: $typeStr")
-                            // Navigate back to main screen on unknown type
+                        else -> DetailType.INVENTORY_STOCK
+                    }
+                    
+                    var entityId by remember { mutableStateOf<String?>(null) }
+                    var isResolving by remember { mutableStateOf(true) }
+                    var resolveError by remember { mutableStateOf<String?>(null) }
+                    
+                    LaunchedEffect(identifier) {
+                        try {
+                            val resolvedId = resolveEntityIdFromLegacyIdentifier(
+                                context = context,
+                                detailType = legacyDetailType,
+                                identifier = identifier.trim()
+                            )
+                            if (resolvedId != null) {
+                                entityId = resolvedId
+                                    Log.d("AppNavigation", "✅ Successfully resolved ${typeStr} '$identifier' to entity ID: $resolvedId")
+                            } else {
+                                resolveError = "Could not find entity for ${typeStr}: $identifier"
+                                Log.e("AppNavigation", "Failed to resolve ${typeStr} identifier: $identifier")
+                            }
+                        } catch (e: Exception) {
+                            resolveError = "Error resolving ${typeStr}: ${e.message}"
+                            Log.e("AppNavigation", "Exception resolving ${typeStr} identifier", e)
+                        } finally {
+                            isResolving = false
+                        }
+                    }
+                    
+                    when {
+                        isResolving -> {
+                            // Show loading while resolving
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                        resolveError != null -> {
+                            // Show error if resolution failed
+                            Log.e("AppNavigation", "Resolution error: $resolveError")
                             LaunchedEffect(Unit) {
                                 navController.navigate("main") {
                                     popUpTo("main") { inclusive = true }
                                 }
                             }
-                            return@composable
+                        }
+                        entityId != null -> {
+                            // Show unified entity detail view
+                            Log.d("AppNavigation", "Showing EntityDetailScreen for resolved entity ID: $entityId")
+                            EntityDetailScreen(
+                                entityId = entityId!!,
+                                onNavigateBack = { 
+                                    Log.d("AppNavigation", "Navigating back from EntityDetailScreen")
+                                    navController.popBackStack() 
+                                },
+                                onNavigateToDetails = { newDetailType, newIdentifier ->
+                                    if (newIdentifier.isNotBlank()) {
+                                        Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
+                                        // Handle entity navigation specially
+                                        if (newIdentifier.startsWith("entity/")) {
+                                            navController.navigate("details/$newIdentifier")
+                                        } else {
+                                            navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
+                                        }
+                                    } else {
+                                        Log.e("AppNavigation", "Attempted navigation with blank identifier")
+                                    }
+                                }
+                            )
                         }
                     }
-                    
-                    Log.d("AppNavigation", "Valid navigation parameters, showing DetailScreen for $detailType")
-                    
-                    DetailScreen(
-                        detailType = detailType,
-                        identifier = identifier.trim(),
-                        onNavigateBack = { 
-                            Log.d("AppNavigation", "Navigating back from DetailScreen")
-                            navController.popBackStack() 
-                        },
-                        onNavigateToDetails = { newDetailType, newIdentifier ->
-                            if (newIdentifier.isNotBlank()) {
-                                Log.d("AppNavigation", "Navigating to new details: $newDetailType, $newIdentifier")
-                                navController.navigate("details/${newDetailType.name.lowercase()}/$newIdentifier")
-                            } else {
-                                Log.e("AppNavigation", "Attempted navigation with blank identifier")
-                            }
-                        },
-                        onPurgeCache = { tagUid ->
-                            Log.d("AppNavigation", "Cache purge requested for tagUid: $tagUid")
-                            nfcManager?.let { manager ->
-                                manager.invalidateTagCache(tagUid)
-                                Log.d("AppNavigation", "Cache purged for tagUid: $tagUid")
-                            } ?: run {
-                                Log.w("AppNavigation", "NFC not available - cannot purge cache for tagUid: $tagUid")
-                            }
+                }
+                else -> {
+                    Log.e("AppNavigation", "Unknown detail type: $typeStr")
+                    // Navigate back to main screen on unknown type
+                    LaunchedEffect(Unit) {
+                        navController.navigate("main") {
+                            popUpTo("main") { inclusive = true }
                         }
-                    )
+                    }
                 }
             }
         }
