@@ -676,4 +676,51 @@ class CatalogRepository(private val context: Context) {
                product.colorName.contains(query, ignoreCase = true) ||
                product.materialType.contains(query, ignoreCase = true)
     }
+    
+    /**
+     * Get content fingerprint for dependency tracking
+     * Used by EntityCacheManager to detect catalog changes
+     */
+    fun getContentFingerprint(): String {
+        return try {
+            val catalog = getCatalog()
+            val userSkus = getUserSkusCache()
+            
+            // Create deterministic fingerprint of catalog content
+            val contentString = buildString {
+                // Include manufacturer count and identifiers
+                append("manufacturers:${catalog.manufacturers.size}")
+                catalog.manufacturers.entries
+                    .sortedBy { it.key }
+                    .forEach { (key, manufacturer) ->
+                        append("mfg:$key:${manufacturer.name}:${manufacturer.products.size}")
+                        // Include product count per manufacturer
+                        manufacturer.products
+                            .sortedBy { it.variantId }
+                            .forEach { product ->
+                                append("sku:${product.variantId}:${product.productName}:${product.materialType}")
+                            }
+                    }
+                
+                // Include user-created SKU count and identifiers
+                append("user_skus:${userSkus.size}")
+                userSkus.values
+                    .sortedBy { it.skuId }
+                    .forEach { sku ->
+                        append("user:${sku.skuId}:${sku.name}")
+                    }
+            }
+            
+            // Generate SHA-256 hash and return first 16 chars
+            java.security.MessageDigest.getInstance("SHA-256")
+                .digest(contentString.toByteArray())
+                .fold("") { str, it -> str + "%02x".format(it) }
+                .take(16)
+                
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to generate catalog fingerprint", e)
+            // Return timestamp-based fallback
+            "fallback_${System.currentTimeMillis().toString().takeLast(8)}"
+        }
+    }
 }
