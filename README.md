@@ -22,7 +22,7 @@ B-Scan works with any inventory you need to manage:
 Use whatever works best for your situation:
 
 - **📱 NFC/RFID Scanning**: Just tap your phone to any NFC tag
-- **📷 QR Codes & Barcodes**: Point your camera and scan
+- **🔄 Future Expansion**: QR codes and barcodes (planned)
 - **✏️ Manual Entry**: Type in serial numbers, part numbers, or custom IDs
 - **🏷️ Batch Tracking**: Manage production lots and quality control
 - **📦 SKU Lookup**: Connect to your existing catalog system
@@ -46,7 +46,7 @@ No special hardware required - use your phone's built-in NFC and camera, or ente
 - **Android 10 (API 29) or newer** - Most phones from 2019 onwards
 - **Optional features** (app works fine without these):
   - NFC for tap-to-scan identification
-  - Camera for QR codes and barcodes
+  - Camera for future QR code and barcode support
   - Bluetooth for connecting scales
 
 ### Installation
@@ -60,7 +60,7 @@ No special hardware required - use your phone's built-in NFC and camera, or ente
 1. **Open B-Scan** on your Android device
 2. **Choose your method**:
    - **NFC/RFID**: Tap your phone to any NFC tag
-   - **Camera**: Point at QR codes or barcodes  
+   - **Future**: QR codes and barcodes (in development)  
    - **Manual**: Tap "Add Item" to type in details
 3. **Organise**: Create relationships between components, set up categories
 4. **Track**: Monitor quantities, locations, and usage over time
