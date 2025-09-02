@@ -120,28 +120,6 @@ This app is part of a larger ecosystem of 3D printing and inventory management t
 ## Screenshots
 
 *Screenshots will be added as the app develops*
-## Privacy & Security
-
-- **No data collection**: App processes identification data locally and doesn't transmit any information
-- **No internet required**: All processing happens on-device
-- **Local storage only**: Inventory data is stored locally on your device
-- **Read-only access**: App cannot modify or write to identification sources (RFID tags, etc.)
-
-## Current Limitations
-
-**RFID/NFC Scanning**:
-- Currently supports Bambu Lab and Creality RFID formats
-- Cannot read heavily encrypted or physically damaged tags
-- Requires physical proximity for NFC (range ~4cm)
-- Does not support tag writing or modification
-
-**Camera Scanning**:
-- QR code and barcode scanning require adequate lighting
-- Camera-based scanning needs clear, unobstructed view
-
-**General**:
-- Offline-only operation (by design for privacy)
-- Manual backup required for data preservation across devices
 
 ## Contributing
 
