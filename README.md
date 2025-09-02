@@ -75,8 +75,8 @@ The app automatically recognises different identification formats and presents i
 - **Generic NFC**: Any NFC tag can store custom component information
 
 **Visual Scanning**:
-- **QR Codes**: Any QR code format with customisable data interpretation
-- **Barcodes**: Standard 1D barcodes for traditional inventory systems
+- **QR Codes**: Planned for future release
+- **Barcodes**: Planned for future release
 
 **Manual Methods**:
 - **Serial Numbers**: Perfect for equipment and tools
