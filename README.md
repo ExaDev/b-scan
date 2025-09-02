@@ -151,9 +151,11 @@ If you're interested in contributing code:
 
 B-Scan is part of a larger ecosystem of inventory and 3D printing management tools:
 
-- **[OpenSpool](../OpenSpool/)**: ESP32 hardware for automatic filament detection
-- **[BambuSpoolPal](../MrBambuSpoolPal-BambuSpoolPal_AndroidApp/)**: Full-featured app with Spoolman integration
-- **[RFID-Tag-Guide](../RFID-Tag-Guide/)**: Research documentation for Bambu Lab RFID protocols
+- **OpenSpool**: ESP32 hardware for automatic filament detection
+- **BambuSpoolPal**: Full-featured app with Spoolman integration  
+- **RFID-Tag-Guide**: Research documentation for Bambu Lab RFID protocols
+
+*Note: These are related projects that may have separate repositories or be part of private development.*
 
 ### Third-Party Tools
 
