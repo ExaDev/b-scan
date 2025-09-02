@@ -6,6 +6,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Scale
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +25,9 @@ import com.bscan.ui.components.visual.parseColorWithAlpha
 import com.bscan.ui.components.visual.MaterialDisplayBox
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.components.PropertyRow
+import com.bscan.ui.components.consumption.ConsumptionEntryBottomSheet
+import com.bscan.service.UnitConversionService
+import com.bscan.model.graph.entities.InventoryItem
 import kotlinx.coroutines.launch
 
 // EntityType constants
@@ -322,6 +328,24 @@ private fun PhysicalComponentContent(
     entity: Entity,
     modifier: Modifier = Modifier
 ) {
+    var showConsumptionEntry by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // Check if this component has related inventory items
+    var hasInventoryTracking by remember { mutableStateOf(false) }
+    var relatedInventoryItems by remember { mutableStateOf<List<Entity>>(emptyList()) }
+    
+    LaunchedEffect(entity.id) {
+        scope.launch {
+            val graphRepository = GraphRepository(context)
+            val connected = graphRepository.getConnectedEntities(entity.id)
+            val inventoryItems = connected.filter { it.entityType == "inventory_item" }
+            relatedInventoryItems = inventoryItems
+            hasInventoryTracking = inventoryItems.isNotEmpty()
+        }
+    }
+    
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -370,7 +394,69 @@ private fun PhysicalComponentContent(
             entity.getProperty<String>("manufacturer")?.let { manufacturer ->
                 Text("Manufacturer: $manufacturer", style = MaterialTheme.typography.bodyMedium)
             }
+            
+            // Show consumption actions if inventory tracking is available
+            if (hasInventoryTracking) {
+                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                
+                Text(
+                    text = "Inventory Actions",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { showConsumptionEntry = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Scale, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Measure & Record")
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { /* TODO: Quick add stock action */ },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add Stock")
+                    }
+                }
+            }
         }
+    }
+    
+    // Consumption Entry Sheet
+    if (showConsumptionEntry && relatedInventoryItems.isNotEmpty()) {
+        // Convert entities to InventoryItems - simplified for this demo
+        val inventoryItems = relatedInventoryItems.mapNotNull { entity ->
+            // Create InventoryItem from entity for testing
+            InventoryItem(
+                id = entity.id,
+                label = entity.label
+            ).apply {
+                isConsumable = entity.getProperty<Boolean>("isConsumable") ?: false
+            }
+        }
+        
+        ConsumptionEntryBottomSheet(
+            availableEntities = inventoryItems,
+            unitConversionService = UnitConversionService(),
+            onIndividualConsumption = { item, amount, unit, notes ->
+                // TODO: Handle individual consumption recording
+                showConsumptionEntry = false
+            },
+            onCompositeConsumption = { compositeId, totalWeight, notes ->
+                // TODO: Handle composite consumption recording
+                showConsumptionEntry = false
+            },
+            onDismiss = { showConsumptionEntry = false }
+        )
     }
 }
 
@@ -379,6 +465,8 @@ private fun InventoryItemContent(
     entity: Entity,
     modifier: Modifier = Modifier
 ) {
+    var showConsumptionEntry by remember { mutableStateOf(false) }
+    
     Card(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -410,7 +498,71 @@ private fun InventoryItemContent(
             entity.getProperty<String>("trackingMode")?.let { trackingMode ->
                 Text("Tracking Mode: $trackingMode", style = MaterialTheme.typography.bodyMedium)
             }
+            
+            // Composite consumption properties
+            entity.getProperty<Boolean>("isConsumable")?.let { isConsumable ->
+                if (isConsumable) {
+                    Text("Consumable: Yes", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            
+            entity.getProperty<Float>("fixedMass")?.let { fixedMass ->
+                Text("Fixed Mass: ${fixedMass}g", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            entity.getProperty<String>("componentType")?.let { componentType ->
+                Text("Component Type: $componentType", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            // Consumption Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { showConsumptionEntry = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Scale, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Record Consumption")
+                }
+                
+                OutlinedButton(
+                    onClick = { /* TODO: Quick consume action */ },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Remove, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Quick Use")
+                }
+            }
         }
+    }
+    
+    // Consumption Entry Sheet
+    if (showConsumptionEntry) {
+        // Convert entity to InventoryItem for the sheet
+        val inventoryItem = InventoryItem(
+            id = entity.id,
+            label = entity.label
+        ).apply {
+            isConsumable = entity.getProperty<Boolean>("isConsumable") ?: false
+        }
+        
+        ConsumptionEntryBottomSheet(
+            availableEntities = listOf(inventoryItem),
+            unitConversionService = UnitConversionService(),
+            onIndividualConsumption = { item, amount, unit, notes ->
+                // TODO: Handle individual consumption recording
+                showConsumptionEntry = false
+            },
+            onCompositeConsumption = { compositeId, totalWeight, notes ->
+                // TODO: Handle composite consumption recording
+                showConsumptionEntry = false
+            },
+            onDismiss = { showConsumptionEntry = false }
+        )
     }
 }
 
