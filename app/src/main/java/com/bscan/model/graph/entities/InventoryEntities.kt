@@ -586,6 +586,23 @@ class InventoryItem(
         get() = getProperty("notes")
         set(value) { value?.let { setProperty("notes", it) } }
     
+    // Composite consumption properties
+    var isConsumable: Boolean
+        get() = getProperty("isConsumable") ?: true  // Default to consumable
+        set(value) { setProperty("isConsumable", value) }
+    
+    var fixedMass: Float?
+        get() = getProperty("fixedMass")
+        set(value) { value?.let { setProperty("fixedMass", it) } }
+    
+    var lastCompositeWeight: Float?
+        get() = getProperty("lastCompositeWeight")
+        set(value) { value?.let { setProperty("lastCompositeWeight", it) } }
+    
+    var componentType: String?
+        get() = getProperty("componentType")
+        set(value) { value?.let { setProperty("componentType", it) } }
+    
     /**
      * Perform bidirectional inference between weight and quantity
      */
@@ -839,6 +856,131 @@ open class StockMovementActivity(
 }
 
 /**
+ * Consumption distribution activity - records distribution of composite measurements
+ * across multiple consumable entities (like splitting a bill between participants)
+ */
+open class ConsumptionDistributionActivity(
+    id: String = generateId(),
+    label: String,
+    properties: MutableMap<String, PropertyValue> = mutableMapOf()
+) : Activity(
+    id = id,
+    activityType = ActivityTypes.CONSUMPTION_DISTRIBUTION,
+    label = label,
+    properties = properties
+) {
+    
+    // Composite measurement inputs
+    var compositeEntityId: String
+        get() = getProperty("compositeEntityId") ?: ""
+        set(value) { setProperty("compositeEntityId", value) }
+    
+    var measuredWeight: Float
+        get() = getProperty("measuredWeight") ?: 0f
+        set(value) { setProperty("measuredWeight", value) }
+    
+    var previousCompositeWeight: Float?
+        get() = getProperty("previousCompositeWeight")
+        set(value) { value?.let { setProperty("previousCompositeWeight", it) } }
+    
+    var totalConsumption: Float
+        get() = getProperty("totalConsumption") ?: 0f
+        set(value) { setProperty("totalConsumption", value) }
+    
+    // Distribution method and results
+    var distributionMethod: DistributionMethod
+        get() = getProperty<String>("distributionMethod")?.let { 
+            DistributionMethod.valueOf(it) 
+        } ?: DistributionMethod.PROPORTIONAL
+        set(value) { setProperty("distributionMethod", value.name) }
+    
+    var distributionConfidence: Float
+        get() = getProperty("distributionConfidence") ?: 0.95f
+        set(value) { setProperty("distributionConfidence", value) }
+    
+    // Individual entity distributions (stored as JSON map string)
+    var distributions: Map<String, Float>
+        get() {
+            val jsonString = getProperty<String>("distributions") ?: "{}"
+            return try {
+                // Simple JSON parsing for Float values
+                jsonString.removeSurrounding("{", "}")
+                    .split(",")
+                    .associate { pair ->
+                        val (key, value) = pair.split(":")
+                        key.trim().removeSurrounding("\"") to value.trim().toFloat()
+                    }
+            } catch (e: Exception) {
+                emptyMap()
+            }
+        }
+        set(value) { 
+            val jsonString = value.entries.joinToString(",", "{", "}") { (k, v) -> 
+                "\"$k\":$v" 
+            }
+            setProperty("distributions", jsonString)
+        }
+    
+    // Component information at time of measurement
+    var fixedComponents: Map<String, Float>  // entityId -> fixed mass
+        get() {
+            val jsonString = getProperty<String>("fixedComponents") ?: "{}"
+            return try {
+                jsonString.removeSurrounding("{", "}")
+                    .split(",")
+                    .associate { pair ->
+                        val (key, value) = pair.split(":")
+                        key.trim().removeSurrounding("\"") to value.trim().toFloat()
+                    }
+            } catch (e: Exception) {
+                emptyMap()
+            }
+        }
+        set(value) {
+            val jsonString = value.entries.joinToString(",", "{", "}") { (k, v) -> 
+                "\"$k\":$v" 
+            }
+            setProperty("fixedComponents", jsonString)
+        }
+    
+    var consumableComponents: Map<String, Float>  // entityId -> previous mass
+        get() {
+            val jsonString = getProperty<String>("consumableComponents") ?: "{}"
+            return try {
+                jsonString.removeSurrounding("{", "}")
+                    .split(",")
+                    .associate { pair ->
+                        val (key, value) = pair.split(":")
+                        key.trim().removeSurrounding("\"") to value.trim().toFloat()
+                    }
+            } catch (e: Exception) {
+                emptyMap()
+            }
+        }
+        set(value) {
+            val jsonString = value.entries.joinToString(",", "{", "}") { (k, v) -> 
+                "\"$k\":$v" 
+            }
+            setProperty("consumableComponents", jsonString)
+        }
+    
+    var notes: String?
+        get() = getProperty("notes")
+        set(value) { value?.let { setProperty("notes", it) } }
+}
+
+/**
+ * Distribution methods for composite consumption
+ */
+enum class DistributionMethod {
+    PROPORTIONAL,       // Distribute based on current quantities
+    USER_SPECIFIED,     // User manually specified distribution
+    EQUAL_SPLIT,        // Split equally between all consumables
+    WEIGHTED,           // Distribute based on usage patterns
+    INFERRED            // AI/ML-based inference from patterns
+}
+
+/**
  * Tracking modes for inventory items
  */
 enum class TrackingMode {
@@ -894,6 +1036,7 @@ object ActivityTypes {
     const val INSPECTION = "inspection"
     const val MEASUREMENT = "measurement"
     const val STOCK_MOVEMENT = "stock_movement"
+    const val CONSUMPTION_DISTRIBUTION = "consumption_distribution"
 }
 
 /**
@@ -907,4 +1050,11 @@ object InventoryRelationshipTypes {
     const val HAS_COMPONENT = "has_component"     // InventoryItem -> PhysicalComponent (tare weights)
     const val STORED_AT = "stored_at"             // InventoryItem -> Location
     const val SUPPLIED_BY = "supplied_by"         // InventoryItem -> Person (supplier)
+    
+    // Composite consumption relationships
+    const val DISTRIBUTED_TO = "distributed_to"   // ConsumptionDistributionActivity -> InventoryItem
+    const val MEASURED_AS_COMPOSITE = "measured_as_composite"  // Entity -> ConsumptionDistributionActivity
+    const val COMPONENT_OF = "component_of"       // PhysicalComponent -> PhysicalComponent (composite)
+    const val FIXED_MASS_COMPONENT = "fixed_mass_component"   // Composite -> Fixed mass component
+    const val CONSUMABLE_COMPONENT = "consumable_component"   // Composite -> Consumable component
 }
