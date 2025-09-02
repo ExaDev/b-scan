@@ -35,7 +35,7 @@ No special hardware required - use your phone's built-in NFC and camera, or ente
 🔄 **Flexible Organization**: Create hierarchical relationships between components  
 🎨 **Visual Design**: Beautiful Material Design interface with colour-coded categories  
 📊 **Smart Inventory**: Automatically aggregate stock levels across multiple instances  
-⚖️ **Weight Tracking**: Connect Bluetooth scales for consumption monitoring (coming soon)  
+⚖️ **Weight Tracking**: Connect Bluetooth scales for consumption monitoring  
 💾 **Backup & Restore**: Export/import your complete inventory as JSON files  
 🔒 **Privacy First**: Your data never leaves your device
 
