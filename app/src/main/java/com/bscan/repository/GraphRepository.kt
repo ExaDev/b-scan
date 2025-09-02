@@ -454,6 +454,13 @@ class GraphRepository(private val context: Context) {
     }
     
     /**
+     * Get all edges involving a specific entity
+     */
+    suspend fun getAllEdgesForEntity(entityId: String): List<Edge> = withContext(Dispatchers.IO) {
+        graph.getAllEdges(entityId)
+    }
+    
+    /**
      * Get graph statistics
      */
     suspend fun getStatistics(): GraphStatistics = withContext(Dispatchers.IO) {
