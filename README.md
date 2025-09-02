@@ -43,7 +43,7 @@ No special hardware required - use your phone's built-in NFC and camera, or ente
 
 ### Requirements
 
-- **Android 10 or newer** - Most phones from 2019 onwards
+- **Android 10 (API 29) or newer** - Most phones from 2019 onwards
 - **Optional features** (app works fine without these):
   - NFC for tap-to-scan identification
   - Camera for QR codes and barcodes
