@@ -497,7 +497,249 @@ class CompositeConsumptionService(
             DistributionMethod.INFERRED -> 0.75f       // Future ML inference
         }
     }
+    
+    // ========================================================================================
+    // BULK ITEM SUPPORT - Enhanced for box of screws scenario
+    // ========================================================================================
+    
+    /**
+     * Calculate consumption for bulk items using weight-based inference
+     * Perfect for "box of 100 screws" scenario where we know unit weights
+     */
+    suspend fun calculateBulkItemConsumption(
+        inventoryItemId: String,
+        measuredTotalWeight: Float,
+        containerWeight: Float? = null
+    ): BulkConsumptionResult = withContext(Dispatchers.IO) {
+        
+        val inventoryItem = graphRepository.getEntity(inventoryItemId) as? InventoryItem
+            ?: return@withContext BulkConsumptionResult(
+                success = false,
+                error = "Inventory item not found"
+            )
+        
+        // Check if item has unit weight calibration
+        val unitWeight = inventoryItem.unitWeight
+            ?: return@withContext BulkConsumptionResult(
+                success = false,
+                error = "Item not calibrated - unit weight unknown"
+            )
+        
+        // Calculate net weight (subtract container if provided)
+        val effectiveContainerWeight = containerWeight ?: inventoryItem.containerWeight ?: 0f
+        val netWeight = measuredTotalWeight - effectiveContainerWeight
+        
+        if (netWeight <= 0f) {
+            return@withContext BulkConsumptionResult(
+                success = false,
+                error = "Invalid measurement - net weight is zero or negative"
+            )
+        }
+        
+        // Infer quantity from weight
+        val inferredQuantity = (netWeight / unitWeight).toInt()
+        val previousQuantity = inventoryItem.currentQuantity.toInt()
+        val quantityConsumed = previousQuantity - inferredQuantity
+        
+        // Calculate confidence based on measurement precision
+        val confidence = calculateBulkInferenceConfidence(
+            measuredWeight = measuredTotalWeight,
+            containerWeight = effectiveContainerWeight,
+            unitWeight = unitWeight,
+            inferredQuantity = inferredQuantity
+        )
+        
+        BulkConsumptionResult(
+            success = true,
+            inventoryItemId = inventoryItemId,
+            measuredTotalWeight = measuredTotalWeight,
+            containerWeight = effectiveContainerWeight,
+            netWeight = netWeight,
+            unitWeight = unitWeight,
+            previousQuantity = previousQuantity,
+            inferredQuantity = inferredQuantity,
+            quantityConsumed = quantityConsumed,
+            confidence = confidence,
+            inferenceMethod = "weight_to_quantity"
+        )
+    }
+    
+    /**
+     * Calculate consumption for bulk items using count-based inference
+     * When user counts items and we infer total weight
+     */
+    suspend fun calculateBulkItemConsumptionFromCount(
+        inventoryItemId: String,
+        countedQuantity: Int
+    ): BulkConsumptionResult = withContext(Dispatchers.IO) {
+        
+        val inventoryItem = graphRepository.getEntity(inventoryItemId) as? InventoryItem
+            ?: return@withContext BulkConsumptionResult(
+                success = false,
+                error = "Inventory item not found"
+            )
+        
+        val unitWeight = inventoryItem.unitWeight
+            ?: return@withContext BulkConsumptionResult(
+                success = false,
+                error = "Item not calibrated - unit weight unknown"
+            )
+        
+        // Calculate weights from count
+        val netWeight = countedQuantity * unitWeight
+        val containerWeight = inventoryItem.containerWeight ?: 0f
+        val totalWeight = netWeight + containerWeight
+        
+        val previousQuantity = inventoryItem.currentQuantity.toInt()
+        val quantityConsumed = previousQuantity - countedQuantity
+        
+        BulkConsumptionResult(
+            success = true,
+            inventoryItemId = inventoryItemId,
+            measuredTotalWeight = totalWeight,
+            containerWeight = containerWeight,
+            netWeight = netWeight,
+            unitWeight = unitWeight,
+            previousQuantity = previousQuantity,
+            inferredQuantity = countedQuantity,
+            quantityConsumed = quantityConsumed,
+            confidence = 0.95f, // High confidence when user counted
+            inferenceMethod = "count_to_weight"
+        )
+    }
+    
+    /**
+     * Learn container weight from empty measurement
+     * Used after initial calibration to improve accuracy
+     */
+    suspend fun learnContainerWeightFromBulkItem(
+        inventoryItemId: String,
+        emptyContainerWeight: Float
+    ): ContainerLearningResult = withContext(Dispatchers.IO) {
+        
+        val inventoryItem = graphRepository.getEntity(inventoryItemId) as? InventoryItem
+            ?: return@withContext ContainerLearningResult(
+                success = false,
+                error = "Inventory item not found"
+            )
+        
+        val previousContainerWeight = inventoryItem.containerWeight
+        inventoryItem.containerWeight = emptyContainerWeight
+        inventoryItem.lastCalibratedAt = LocalDateTime.now().toString()
+        
+        // Update calibration confidence since we now know container weight precisely
+        val currentConfidence = inventoryItem.calibrationConfidence ?: 0f
+        inventoryItem.calibrationConfidence = (currentConfidence + 10f).coerceAtMost(95f)
+        
+        // Save updated inventory item
+        graphRepository.addEntity(inventoryItem)
+        
+        // Create learning activity for audit trail
+        val learningActivity = CalibrationActivity(
+            label = "Container Weight Learning - ${inventoryItem.label}"
+        ).apply {
+            tareWeight = emptyContainerWeight
+            calculatedUnitWeight = inventoryItem.unitWeight
+            calibrationAccuracy = inventoryItem.calibrationConfidence
+            setProperty("previousContainerWeight", previousContainerWeight ?: 0f)
+            setProperty("notes", "Learned container weight to improve bulk inference accuracy")
+        }
+        
+        graphRepository.addEntity(learningActivity)
+        
+        // Link to inventory item
+        val edge = Edge(
+            fromEntityId = inventoryItem.id,
+            toEntityId = learningActivity.id,
+            relationshipType = InventoryRelationshipTypes.CALIBRATED_BY
+        )
+        graphRepository.addEdge(edge)
+        
+        ContainerLearningResult(
+            success = true,
+            inventoryItemId = inventoryItemId,
+            previousContainerWeight = previousContainerWeight,
+            newContainerWeight = emptyContainerWeight,
+            improvedConfidence = inventoryItem.calibrationConfidence ?: 0f,
+            learningActivityId = learningActivity.id
+        )
+    }
+    
+    /**
+     * Calculate confidence for bulk item inference
+     */
+    private fun calculateBulkInferenceConfidence(
+        measuredWeight: Float,
+        containerWeight: Float,
+        unitWeight: Float,
+        inferredQuantity: Int
+    ): Float {
+        // Base confidence on measurement precision and setup
+        var confidence = 0.85f
+        
+        // Adjust for container weight knowledge
+        if (containerWeight > 0f) {
+            confidence += 0.10f // Knowing container weight improves confidence
+        }
+        
+        // Adjust for unit weight precision
+        when {
+            unitWeight >= 1.0f -> confidence += 0.05f  // Heavier units easier to measure
+            unitWeight >= 0.1f -> confidence += 0.02f  // Moderate precision
+            unitWeight < 0.1f -> confidence -= 0.05f   // Very light units harder to measure
+        }
+        
+        // Adjust for quantity size
+        when {
+            inferredQuantity >= 50 -> confidence += 0.03f  // Larger samples more accurate
+            inferredQuantity <= 10 -> confidence -= 0.08f  // Small samples less reliable
+        }
+        
+        // Measurement precision factors
+        val netWeight = measuredWeight - containerWeight
+        val expectedWeight = inferredQuantity * unitWeight
+        val weightError = abs(netWeight - expectedWeight) / expectedWeight
+        
+        when {
+            weightError < 0.02f -> confidence += 0.05f  // Very accurate measurement
+            weightError < 0.05f -> confidence += 0.02f  // Good measurement
+            weightError > 0.10f -> confidence -= 0.08f  // Less accurate measurement
+        }
+        
+        return confidence.coerceIn(0.60f, 0.98f)
+    }
 }
+
+/**
+ * Result of bulk item consumption calculation
+ */
+data class BulkConsumptionResult(
+    val success: Boolean,
+    val inventoryItemId: String? = null,
+    val measuredTotalWeight: Float = 0f,
+    val containerWeight: Float = 0f,
+    val netWeight: Float = 0f,
+    val unitWeight: Float = 0f,
+    val previousQuantity: Int = 0,
+    val inferredQuantity: Int = 0,
+    val quantityConsumed: Int = 0,
+    val confidence: Float = 0f,
+    val inferenceMethod: String = "",
+    val error: String? = null
+)
+
+/**
+ * Result of container weight learning
+ */
+data class ContainerLearningResult(
+    val success: Boolean,
+    val inventoryItemId: String? = null,
+    val previousContainerWeight: Float? = null,
+    val newContainerWeight: Float = 0f,
+    val improvedConfidence: Float = 0f,
+    val learningActivityId: String? = null,
+    val error: String? = null
+)
 
 /**
  * Result of consumption calculation from composite measurement
