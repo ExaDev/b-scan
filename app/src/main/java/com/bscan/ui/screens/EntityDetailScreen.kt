@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import com.bscan.ui.components.visual.MaterialDisplayBox
 import com.bscan.ui.components.FilamentColorBox
 import com.bscan.ui.components.PropertyRow
 import com.bscan.ui.components.consumption.ConsumptionEntryBottomSheet
+import com.bscan.ui.components.calibration.CalibrationDialog
 import com.bscan.service.UnitConversionService
 import com.bscan.model.graph.entities.InventoryItem
 import kotlinx.coroutines.launch
@@ -466,6 +468,8 @@ private fun InventoryItemContent(
     modifier: Modifier = Modifier
 ) {
     var showConsumptionEntry by remember { mutableStateOf(false) }
+    var showCalibrationDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -514,27 +518,73 @@ private fun InventoryItemContent(
                 Text("Component Type: $componentType", style = MaterialTheme.typography.bodyMedium)
             }
             
-            // Consumption Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Calibration-specific properties
+            entity.getProperty<Float>("unitWeight")?.let { unitWeight ->
+                Text("Unit Weight: ${unitWeight}g", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            entity.getProperty<Float>("containerWeight")?.let { containerWeight ->
+                Text("Container Weight: ${containerWeight}g", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            entity.getProperty<String>("calibrationMethod")?.let { method ->
+                Text("Calibration Method: $method", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            entity.getProperty<Float>("calibrationConfidence")?.let { confidence ->
+                Text("Calibration Confidence: ${confidence.toInt()}%", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            // Action Buttons
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
-                    onClick = { showConsumptionEntry = true },
-                    modifier = Modifier.weight(1f)
+                // Primary actions row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Scale, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Record Consumption")
+                    Button(
+                        onClick = { showConsumptionEntry = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Scale, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Record Consumption")
+                    }
+                    
+                    Button(
+                        onClick = { showCalibrationDialog = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Engineering, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Calibrate")
+                    }
                 }
                 
-                OutlinedButton(
-                    onClick = { /* TODO: Quick consume action */ },
-                    modifier = Modifier.weight(1f)
+                // Secondary actions row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Remove, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Quick Use")
+                    OutlinedButton(
+                        onClick = { /* TODO: Quick consume action */ },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Remove, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Quick Use")
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { /* TODO: Add stock action */ },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Add Stock")
+                    }
                 }
             }
         }
@@ -562,6 +612,32 @@ private fun InventoryItemContent(
                 showConsumptionEntry = false
             },
             onDismiss = { showConsumptionEntry = false }
+        )
+    }
+    
+    // Calibration Dialog
+    if (showCalibrationDialog) {
+        // Convert entity to InventoryItem for calibration dialog
+        val calibrationInventoryItem = InventoryItem(
+            id = entity.id,
+            label = entity.label
+        ).apply {
+            // Copy relevant properties from entity
+            unitWeight = entity.getProperty<Float>("unitWeight")
+            containerWeight = entity.getProperty<Float>("containerWeight")
+            calibrationMethod = entity.getProperty<String>("calibrationMethod")
+            calibrationConfidence = entity.getProperty<Float>("calibrationConfidence")
+            lastCalibratedAt = entity.getProperty<String>("lastCalibratedAt")
+        }
+        
+        CalibrationDialog(
+            inventoryItem = calibrationInventoryItem,
+            onDismiss = { showCalibrationDialog = false },
+            onCalibrationComplete = { success, message ->
+                showCalibrationDialog = false
+                // TODO: Show success/error message to user
+                // TODO: Refresh entity data to show updated calibration
+            }
         )
     }
 }
