@@ -603,23 +603,129 @@ class InventoryItem(
         get() = getProperty("componentType")
         set(value) { value?.let { setProperty("componentType", it) } }
     
+    // Unit weight calibration properties
+    var containerWeight: Float?
+        get() = getProperty("containerWeight") ?: tareWeight  // Alias for tareWeight with clearer name
+        set(value) { 
+            value?.let { 
+                setProperty("containerWeight", it)
+                tareWeight = it  // Keep both in sync
+            }
+        }
+    
+    var lastCalibratedAt: String?
+        get() = getProperty("lastCalibratedAt")
+        set(value) { value?.let { setProperty("lastCalibratedAt", it) } }
+    
+    var calibrationMethod: String?
+        get() = getProperty("calibrationMethod")
+        set(value) { value?.let { setProperty("calibrationMethod", it) } }
+    
+    var calibrationConfidence: Float?
+        get() = getProperty("calibrationConfidence")
+        set(value) { value?.let { setProperty("calibrationConfidence", it) } }
+    
+    /**
+     * Calibrate unit weight from known count and total weight
+     * Perfect for: "I have 100 screws weighing 247g total, box weighs 47g"
+     */
+    fun calibrateUnitWeight(
+        totalWeight: Float,
+        knownQuantity: Float,
+        containerWeight: Float? = null
+    ): CalibrationResult {
+        if (knownQuantity <= 0) {
+            return CalibrationResult(
+                success = false,
+                error = "Known quantity must be greater than zero"
+            )
+        }
+        
+        val tare = containerWeight ?: this.containerWeight ?: 0f
+        val netWeight = totalWeight - tare
+        
+        if (netWeight <= 0) {
+            return CalibrationResult(
+                success = false,
+                error = "Net weight must be positive (check container weight)"
+            )
+        }
+        
+        val unitWt = netWeight / knownQuantity
+        
+        // Update stored values
+        this.unitWeight = unitWt
+        this.tareWeight = tare
+        this.containerWeight = tare
+        this.currentQuantity = knownQuantity
+        this.currentWeight = totalWeight
+        this.lastCalibratedAt = LocalDateTime.now().toString()
+        this.calibrationMethod = "COUNTED_AND_WEIGHED"
+        this.calibrationConfidence = 95f  // High confidence for direct measurement
+        
+        return CalibrationResult(
+            success = true,
+            unitWeight = unitWt,
+            netWeight = netWeight,
+            accuracy = 95f,
+            method = "DIRECT_CALIBRATION"
+        )
+    }
+    
+    /**
+     * Learn container weight from empty container measurement
+     * Used when initially didn't know box weight
+     */
+    fun learnContainerWeight(emptyContainerWeight: Float): CalibrationResult {
+        val oldTare = tareWeight ?: 0f
+        val oldUnitWeight = unitWeight
+        val lastWeight = currentWeight
+        val lastQuantity = currentQuantity
+        
+        if (oldUnitWeight == null || lastWeight == null) {
+            return CalibrationResult(
+                success = false,
+                error = "No previous calibration data available"
+            )
+        }
+        
+        // Recalculate unit weight with accurate container weight
+        val correctedNetWeight = lastWeight - emptyContainerWeight
+        val correctedUnitWeight = if (lastQuantity > 0) correctedNetWeight / lastQuantity else oldUnitWeight
+        
+        // Update values
+        this.containerWeight = emptyContainerWeight
+        this.tareWeight = emptyContainerWeight
+        this.unitWeight = correctedUnitWeight
+        this.calibrationMethod = "CONTAINER_WEIGHT_LEARNED"
+        this.calibrationConfidence = 98f  // Even higher confidence with known container
+        
+        return CalibrationResult(
+            success = true,
+            unitWeight = correctedUnitWeight,
+            netWeight = correctedNetWeight,
+            accuracy = 98f,
+            method = "CONTAINER_LEARNING"
+        )
+    }
+    
     /**
      * Perform bidirectional inference between weight and quantity
      */
     fun inferFromWeight(totalWeight: Float): InferenceResult? {
-        val tare = tareWeight ?: return null
+        val tare = containerWeight ?: tareWeight ?: return null
         val unitWt = unitWeight ?: return null
         
         val netWeight = totalWeight - tare
         val inferredQuantity = when (trackingMode) {
             TrackingMode.DISCRETE -> (netWeight / unitWt).toInt().toFloat()
-            TrackingMode.CONTINUOUS -> netWeight / unitWt  // For continuous, divide by unit weight to get quantity
+            TrackingMode.CONTINUOUS -> netWeight / unitWt
         }
         
         return InferenceResult(
             inferredQuantity = inferredQuantity,
             inferredWeight = totalWeight,
-            confidence = calculateConfidence(netWeight, unitWt),
+            confidence = calculateInferenceConfidence(netWeight, unitWt),
             method = "weight_inference"
         )
     }
@@ -628,12 +734,12 @@ class InventoryItem(
      * Perform bidirectional inference from quantity to weight
      */
     fun inferFromQuantity(quantity: Float): InferenceResult? {
-        val tare = tareWeight ?: return null
+        val tare = containerWeight ?: tareWeight ?: return null
         val unitWt = unitWeight ?: return null
         
         val netWeight = when (trackingMode) {
             TrackingMode.DISCRETE -> quantity * unitWt
-            TrackingMode.CONTINUOUS -> quantity * unitWt  // For continuous, multiply by unit weight to get net weight
+            TrackingMode.CONTINUOUS -> quantity * unitWt
         }
         val inferredWeight = netWeight + tare
         
@@ -645,12 +751,69 @@ class InventoryItem(
         )
     }
     
-    private fun calculateConfidence(netWeight: Float, unitWeight: Float): Float {
-        // Simple confidence based on how well the division works out
-        val exactUnits = netWeight / unitWeight
-        val roundedUnits = exactUnits.toInt()
-        val error = kotlin.math.abs(exactUnits - roundedUnits)
-        return (100f * (1f - error)).coerceIn(50f, 100f)
+    /**
+     * Update quantity and weight from new total weight measurement
+     * Perfect for: "Box now weighs 187g, how many screws are left?"
+     */
+    fun updateFromWeightMeasurement(newTotalWeight: Float): WeightUpdateResult {
+        val inference = inferFromWeight(newTotalWeight)
+            ?: return WeightUpdateResult(
+                success = false,
+                error = "Cannot infer quantity - missing calibration data"
+            )
+        
+        val oldQuantity = currentQuantity
+        val consumedQuantity = oldQuantity - inference.inferredQuantity
+        
+        // Update current values
+        this.currentQuantity = inference.inferredQuantity
+        this.currentWeight = newTotalWeight
+        
+        return WeightUpdateResult(
+            success = true,
+            newQuantity = inference.inferredQuantity,
+            quantityConsumed = consumedQuantity,
+            confidence = inference.confidence,
+            inferenceMethod = inference.method
+        )
+    }
+    
+    private fun calculateInferenceConfidence(netWeight: Float, unitWeight: Float): Float {
+        // Base confidence on calibration quality and measurement precision
+        val baseConfidence = calibrationConfidence ?: 70f
+        
+        // Factor in measurement precision for discrete items
+        return when (trackingMode) {
+            TrackingMode.DISCRETE -> {
+                val exactUnits = netWeight / unitWeight
+                val roundedUnits = exactUnits.toInt()
+                val error = kotlin.math.abs(exactUnits - roundedUnits)
+                val precisionFactor = 1f - error
+                (baseConfidence * precisionFactor).coerceIn(50f, 100f)
+            }
+            TrackingMode.CONTINUOUS -> baseConfidence.coerceIn(70f, 100f)
+        }
+    }
+    
+    /**
+     * Check if this item is properly calibrated for weight-based inference
+     */
+    fun isProperlyCalibrated(): Boolean {
+        return unitWeight != null && unitWeight!! > 0 && 
+               (containerWeight != null || tareWeight != null)
+    }
+    
+    /**
+     * Get calibration status summary
+     */
+    fun getCalibrationStatus(): String {
+        return when {
+            !isProperlyCalibrated() -> "Not calibrated"
+            calibrationMethod == "COUNTED_AND_WEIGHED" -> "Calibrated (counted & weighed)"
+            calibrationMethod == "CONTAINER_WEIGHT_LEARNED" -> "Calibrated (container learned)"
+            calibrationMethod == "ESTIMATED" -> "Estimated calibration"
+            else -> "Calibrated (method unknown)"
+        }
     }
     
     override fun copy(newId: String): InventoryItem {
@@ -668,10 +831,20 @@ class InventoryItem(
         if (label.isBlank()) errors.add("Inventory item must have a label")
         if (currentQuantity < 0) errors.add("Current quantity cannot be negative")
         
+        // Validate calibration consistency
+        val unitWt = unitWeight
+        val tare = containerWeight ?: tareWeight
+        if (unitWt != null && unitWt <= 0) {
+            errors.add("Unit weight must be positive")
+        }
+        if (tare != null && tare < 0) {
+            errors.add("Container/tare weight cannot be negative")
+        }
+        
         return if (errors.isEmpty()) {
-            ValidationResult.valid()
+            ValidationResult.Valid
         } else {
-            ValidationResult.invalid(*errors.toTypedArray())
+            ValidationResult.Invalid(errors)
         }
     }
 }
@@ -1019,6 +1192,19 @@ data class CalibrationResult(
     val unitWeight: Float? = null,
     val netWeight: Float? = null,
     val accuracy: Float? = null,
+    val method: String? = null,
+    val error: String? = null
+)
+
+/**
+ * Result of weight-based quantity update
+ */
+data class WeightUpdateResult(
+    val success: Boolean,
+    val newQuantity: Float = 0f,
+    val quantityConsumed: Float = 0f,
+    val confidence: Float = 0f,
+    val inferenceMethod: String = "",
     val error: String? = null
 )
 
