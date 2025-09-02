@@ -51,7 +51,7 @@ No special hardware required - use your phone's built-in NFC and camera, or ente
 
 ### Installation
 
-1. **Download** the latest APK from the [releases page](../../releases)
+1. **Download** the latest APK from the [GitHub releases page](https://github.com/JoeMearman/b-scan/releases)
 2. **Install** the APK (you may need to enable "Install from unknown sources" in Android settings)
 3. **Launch** the app and grant permissions when prompted
 
