@@ -107,9 +107,11 @@ The app automatically recognises different identification formats and presents i
 
 This app is part of a larger ecosystem of 3D printing and inventory management tools:
 
-- **[OpenSpool](../OpenSpool/)**: ESP32 hardware for automatic filament detection
-- **[BambuSpoolPal](../MrBambuSpoolPal-BambuSpoolPal_AndroidApp/)**: Full-featured app with Spoolman integration
-- **[RFID-Tag-Guide](../RFID-Tag-Guide/)**: Research documentation for Bambu Lab RFID protocols
+- **OpenSpool**: ESP32 hardware for automatic filament detection
+- **BambuSpoolPal**: Full-featured app with Spoolman integration  
+- **RFID-Tag-Guide**: Research documentation for Bambu Lab RFID protocols
+
+*Note: These are related projects that may have separate repositories or be part of private development.*
 
 ## Documentation
 
