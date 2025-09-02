@@ -162,6 +162,9 @@ B-Scan is part of a larger ecosystem of inventory and 3D printing management too
 - **[Spoolease](https://www.spoolease.io/)**: Web-based filament spool management platform
 - **[Filaman](https://www.filaman.app/)**: Filament tracking and management application  
 - **[MyFilametrics](https://www.myfilametrics.com/)**: Advanced filament analytics and monitoring platform
+- **[OpenSpool by spuder](https://github.com/spuder/OpenSpool)**: Open-source RFID filament detection system
+- **[RFID-Tag-Guide by Bambu-Research-Group](https://github.com/Bambu-Research-Group/RFID-Tag-Guide)**: Instructions for reading Bambu Lab NFC tags
+- **[Bambu Lab RFID Library by queengooborg](https://github.com/queengooborg/Bambu-Lab-RFID-Library)**: Comprehensive collection of Bambu Lab RFID tag data
 
 ## License
 
