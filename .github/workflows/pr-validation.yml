@@ -1,0 +1,160 @@
+name: PR Validation
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ==============================================================================
+  # PR Validation Pipeline
+  # ==============================================================================
+  validate:
+    name: Validate Pull Request
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      # Quick dependency install for fast feedback
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --ignore-scripts
+
+      # Fast checks first (fail fast principle)
+      - name: Check TypeScript compilation
+        run: npx tsc --noEmit
+
+      - name: Run ESLint (errors only)
+        run: npx eslint . --max-warnings 0
+
+      - name: Run Prettier check
+        run: npx prettier --check .
+
+      # Then run tests
+      - name: Run Jest tests
+        run: npm test -- --watchAll=false --passWithNoTests
+
+      # Validate package.json and lock file
+      - name: Validate package files
+        run: |
+          # Check if package-lock.json is up to date
+          npm ci --dry-run
+
+          # Check for security vulnerabilities
+          npm audit --audit-level=moderate --production
+
+      # Check bundle can be created
+      - name: Test Metro bundling
+        run: |
+          timeout 30s npx react-native start --reset-cache &
+          METRO_PID=$!
+          sleep 10
+
+          # Test if bundle can be created
+          curl -f "http://localhost:8081/index.bundle?platform=android&dev=false" > /dev/null || exit 1
+
+          kill $METRO_PID 2>/dev/null || true
+
+  # ==============================================================================
+  # PR Commit Message Validation
+  # ==============================================================================
+  commit-messages:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          # Get the base SHA for comparison
+          BASE_SHA=$(git merge-base origin/${{ github.base_ref }} HEAD)
+
+          # Check each commit message in the PR
+          git log --format="%H %s" ${BASE_SHA}..HEAD | while read sha message; do
+            echo "Validating commit: $sha"
+            echo "Message: $message"
+            
+            # Conventional commit pattern
+            if [[ ! "$message" =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\(.+\))?: .+ ]]; then
+              echo "❌ Commit $sha does not follow conventional commit format"
+              echo "Expected format: type(scope): description"
+              echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
+              echo "Example: feat(nfc): add MIFARE Classic tag support"
+              exit 1
+            else
+              echo "✅ Commit $sha follows conventional commit format"
+            fi
+          done
+
+  # ==============================================================================
+  # PR Build Test (Smoke Test)
+  # ==============================================================================
+  build-smoke-test:
+    name: Build Smoke Test
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*') }}
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Android debug build test
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace -x test
+
+      - name: Test results summary
+        run: |
+          echo "## PR Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ TypeScript compilation passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ ESLint validation passed" >> $GITHUB_STEP_SUMMARY  
+          echo "✅ Prettier formatting passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Jest tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Package files validated" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Metro bundling tested" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Android debug build tested" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,82 @@
+version: 2
+updates:
+  # NPM dependencies
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'UTC'
+    open-pull-requests-limit: 10
+    reviewers:
+      - '@me'
+    assignees:
+      - '@me'
+    commit-message:
+      prefix: 'chore(deps)'
+      include: 'scope'
+    groups:
+      react-native:
+        patterns:
+          - 'react-native*'
+          - '@react-native*'
+          - 'react'
+        update-types:
+          - 'minor'
+          - 'patch'
+      navigation:
+        patterns:
+          - '@react-navigation*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      testing:
+        patterns:
+          - 'jest*'
+          - '@jest*'
+          - '@testing-library*'
+          - 'react-test-renderer'
+        update-types:
+          - 'minor'
+          - 'patch'
+      build-tools:
+        patterns:
+          - '@babel*'
+          - 'eslint*'
+          - 'prettier*'
+          - 'typescript*'
+          - 'metro*'
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'UTC'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'ci'
+      include: 'scope'
+
+  # Gradle dependencies (Android)
+  - package-ecosystem: 'gradle'
+    directory: '/android'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '09:00'
+      timezone: 'UTC'
+    open-pull-requests-limit: 5
+    reviewers:
+      - '@me'
+    assignees:
+      - '@me'
+    commit-message:
+      prefix: 'chore(deps-android)'
+      include: 'scope'
