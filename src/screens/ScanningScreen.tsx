@@ -12,7 +12,8 @@ import {
 } from 'react-native-paper';
 import {NfcManagerService} from '../services/NfcManagerService';
 import {NavigationProps} from '../types/Navigation';
-import {ScanProgress, ScanStage, TagReadResult} from '../types/FilamentInfo';
+import {ScanProgress, ScanStage} from '../types/FilamentInfo';
+import {TagReadResult} from '../services/NfcManager';
 
 interface ScanningScreenProps extends NavigationProps {
   route: {
