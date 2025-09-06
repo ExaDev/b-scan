@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+android/app/build/
+android/app/.cxx/
+ios/build/
+ios/Pods/
+coverage/
+
+# Generated files
+*.log
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# React Native
+metro.config.js
+# Let GitHub Actions and other CI configs be formatted
