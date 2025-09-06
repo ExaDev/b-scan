@@ -1,7 +1,7 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types/Navigation';
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../types/Navigation';
 
 // Screen imports
 import HomeScreen from '../screens/HomeScreen';
@@ -18,7 +18,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const AppNavigator: React.FC = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator 
+      <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{
           headerStyle: {
@@ -28,54 +28,53 @@ const AppNavigator: React.FC = () => {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
-        }}
-      >
-        <Stack.Screen 
-          name="Home" 
-          component={HomeScreen} 
-          options={{ 
+        }}>
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
             title: 'B-Scan',
-            headerTitleAlign: 'center'
-          }} 
+            headerTitleAlign: 'center',
+          }}
         />
-        <Stack.Screen 
-          name="DataBrowser" 
-          component={DataBrowserScreen} 
-          options={{ title: 'Inventory Browser' }} 
+        <Stack.Screen
+          name="DataBrowser"
+          component={DataBrowserScreen}
+          options={{title: 'Inventory Browser'}}
         />
-        <Stack.Screen 
-          name="EntityDetail" 
-          component={EntityDetailScreen} 
-          options={{ title: 'Entity Details' }} 
+        <Stack.Screen
+          name="EntityDetail"
+          component={EntityDetailScreen}
+          options={{title: 'Entity Details'}}
         />
-        <Stack.Screen 
-          name="ComponentDetail" 
-          component={ComponentDetailScreen} 
-          options={{ title: 'Component Details' }} 
+        <Stack.Screen
+          name="ComponentDetail"
+          component={ComponentDetailScreen}
+          options={{title: 'Component Details'}}
         />
-        <Stack.Screen 
-          name="ScanHistory" 
-          component={ScanHistoryScreen} 
-          options={{ title: 'Scan History' }} 
+        <Stack.Screen
+          name="ScanHistory"
+          component={ScanHistoryScreen}
+          options={{title: 'Scan History'}}
         />
-        <Stack.Screen 
-          name="ScanDetail" 
-          component={ScanDetailScreen} 
-          options={{ title: 'Scan Details' }} 
+        <Stack.Screen
+          name="ScanDetail"
+          component={ScanDetailScreen}
+          options={{title: 'Scan Details'}}
         />
-        <Stack.Screen 
-          name="Settings" 
-          component={SettingsScreen} 
-          options={{ title: 'Settings' }} 
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{title: 'Settings'}}
         />
-        <Stack.Screen 
-          name="Scanning" 
-          component={ScanningScreen} 
-          options={{ 
+        <Stack.Screen
+          name="Scanning"
+          component={ScanningScreen}
+          options={{
             title: 'Scanning NFC Tag',
             headerBackVisible: false,
-            gestureEnabled: false 
-          }} 
+            gestureEnabled: false,
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
