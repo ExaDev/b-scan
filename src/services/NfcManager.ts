@@ -25,6 +25,7 @@ export class NfcManager {
   private isInitialized = false;
   private isScanning = false;
   private scanTimeout?: NodeJS.Timeout;
+  private progressCallback?: (progress: ScanProgress) => void;
 
   constructor() {
     // Constructor can be called for testing
