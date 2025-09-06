@@ -24,7 +24,8 @@ import {
   PhysicalComponent, 
   InventoryItem, 
   Identifier, 
-  Activity
+  Activity,
+  TagFormat
 } from '../types/FilamentInfo';
 
 interface EntityDetailScreenProps extends NavigationProps {
@@ -82,7 +83,7 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
           filamentInfo: {
             tagUid: 'AB:CD:EF:12',
             trayUid: 'TR001',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'Bambu Lab',
             filamentType: 'PLA Basic',
             colorHex: '#FF6600',
