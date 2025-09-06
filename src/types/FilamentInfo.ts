@@ -20,7 +20,7 @@ export interface FilamentInfo {
 export enum TagFormat {
   BAMBU_LAB = 'BAMBU_LAB',
   CREALITY = 'CREALITY',
-  OPEN_TAG = 'OPEN_TAG',
+  OPENSPOOL = 'OPENSPOOL',
   UNKNOWN = 'UNKNOWN',
 }
 
