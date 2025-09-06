@@ -196,7 +196,7 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
         return 'Bambu Lab';
       case TagFormat.CREALITY:
         return 'Creality';
-      case TagFormat.OPEN_TAG:
+      case TagFormat.OPENSPOOL:
         return 'Open Tag';
       default:
         return 'Unknown';
