@@ -21,7 +21,7 @@ export enum TagFormat {
   BAMBU_LAB = 'BAMBU_LAB',
   CREALITY = 'CREALITY',
   OPEN_TAG = 'OPEN_TAG',
-  UNKNOWN = 'UNKNOWN'
+  UNKNOWN = 'UNKNOWN',
 }
 
 export interface ScanProgress {
@@ -37,16 +37,16 @@ export enum ScanStage {
   READING_DATA = 'READING_DATA',
   PARSING_DATA = 'PARSING_DATA',
   COMPLETED = 'COMPLETED',
-  ERROR = 'ERROR'
+  ERROR = 'ERROR',
 }
 
-export type TagReadResult = 
-  | { type: 'SUCCESS'; filamentInfo: FilamentInfo }
-  | { type: 'NO_NFC' }
-  | { type: 'INVALID_TAG' }
-  | { type: 'READ_ERROR'; error: string }
-  | { type: 'AUTHENTICATION_FAILED' }
-  | { type: 'PARSING_ERROR'; error: string };
+export type TagReadResult =
+  | {type: 'SUCCESS'; filamentInfo: FilamentInfo}
+  | {type: 'NO_NFC'}
+  | {type: 'INVALID_TAG'}
+  | {type: 'READ_ERROR'; error: string}
+  | {type: 'AUTHENTICATION_FAILED'}
+  | {type: 'PARSING_ERROR'; error: string};
 
 export interface ScanHistoryEntry {
   id: string;
@@ -68,7 +68,7 @@ export enum EntityType {
   INVENTORY_ITEM = 'INVENTORY_ITEM',
   IDENTIFIER = 'IDENTIFIER',
   ACTIVITY = 'ACTIVITY',
-  STOCK_DEFINITION = 'STOCK_DEFINITION'
+  STOCK_DEFINITION = 'STOCK_DEFINITION',
 }
 
 export interface PhysicalComponent extends GraphEntity {
