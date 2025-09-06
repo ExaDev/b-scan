@@ -164,7 +164,7 @@ export class NfcManagerService {
     try {
       this.updateScanProgress(ScanStage.READING_DATA, 60, 0, 'Reading NDEF data...');
       
-      const ndefRecords = await Ndef.getNdefMessage();
+      const ndefRecords = await NfcManager.ndefHandler.getNdefMessage();
       
       if (!ndefRecords || ndefRecords.length === 0) {
         return null;
@@ -252,7 +252,8 @@ export class NfcManagerService {
   async cleanup(): Promise<void> {
     try {
       if (this.isInitialized) {
-        await NfcManager.stop();
+        await NfcManager.cancelTechnologyRequest();
+        await NfcManager.unregisterTagEvent();
         this.isInitialized = false;
       }
     } catch (error) {

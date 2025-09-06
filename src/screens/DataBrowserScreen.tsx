@@ -21,7 +21,7 @@ import {
   RadioButton,
 } from 'react-native-paper';
 import { NavigationProps } from '../types/Navigation';
-import { FilamentInfo, EntityType } from '../types/FilamentInfo';
+import { FilamentInfo, EntityType, TagFormat } from '../types/FilamentInfo';
 
 interface DataBrowserScreenProps extends NavigationProps {}
 
@@ -68,7 +68,7 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
           filamentInfo: {
             tagUid: 'AB:CD:EF:12',
             trayUid: 'TR001',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'Bambu Lab',
             filamentType: 'PLA Basic',
             colorHex: '#FF6600',
@@ -94,7 +94,7 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
           filamentInfo: {
             tagUid: 'CD:EF:12:34',
             trayUid: 'TR002',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'PolyMaker',
             filamentType: 'PETG Carbon Fiber',
             colorHex: '#2C2C2C',
@@ -129,7 +129,7 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
           filamentInfo: {
             tagUid: 'EF:12:34:56',
             trayUid: 'TR003',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'Hatchbox',
             filamentType: 'ABS',
             colorHex: '#FFFFFF',
