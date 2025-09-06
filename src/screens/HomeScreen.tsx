@@ -10,7 +10,7 @@ import {
   Text,
   IconButton,
 } from 'react-native-paper';
-import {NfcManagerService} from '../services/NfcManager';
+import {NfcManagerService} from '../services/NfcManagerService';
 import {NavigationProps} from '../types/Navigation';
 import {TagReadResult} from '../types/FilamentInfo';
 

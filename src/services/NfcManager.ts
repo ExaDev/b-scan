@@ -58,6 +58,24 @@ export class NfcManager {
   }
 
   /**
+   * Check if NFC is enabled on the device
+   */
+  async isNfcEnabled(): Promise<boolean> {
+    try {
+      const supported = await NfcLib.isSupported();
+      if (!supported) {
+        return false;
+      }
+      
+      const enabled = await NfcLib.isEnabled();
+      return enabled;
+    } catch (error) {
+      console.error('Error checking NFC status:', error);
+      return false;
+    }
+  }
+
+  /**
    * Scan for NFC tags
    */
   async scanTag(): Promise<TagReadResult> {
