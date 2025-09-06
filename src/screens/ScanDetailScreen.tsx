@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Share,
-} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {View, StyleSheet, ScrollView, Share} from 'react-native';
 import {
   Card,
   Title,
@@ -17,11 +12,11 @@ import {
   Divider,
   ActivityIndicator,
 } from 'react-native-paper';
-import { NavigationProps } from '../types/Navigation';
-import { 
-  ScanHistoryEntry, 
-  TagReadResult, 
-  TagFormat
+import {NavigationProps} from '../types/Navigation';
+import {
+  ScanHistoryEntry,
+  TagReadResult,
+  TagFormat,
 } from '../types/FilamentInfo';
 
 interface ScanDetailScreenProps extends NavigationProps {
@@ -43,8 +38,11 @@ interface ScanDiagnostics {
   signalStrength: number;
 }
 
-const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }) => {
-  const { scanId } = route.params;
+const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
+  navigation,
+  route,
+}) => {
+  const {scanId} = route.params;
   const [scanEntry, setScanEntry] = useState<ScanHistoryEntry | null>(null);
   const [diagnostics, setDiagnostics] = useState<ScanDiagnostics | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -55,7 +53,7 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
     setTimeout(() => {
       const mockScan = createMockScanEntry(scanId);
       const mockDiagnostics = createMockDiagnostics(mockScan.result);
-      
+
       setScanEntry(mockScan);
       setDiagnostics(mockDiagnostics);
       setIsLoading(false);
@@ -68,9 +66,10 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
 
   const createMockScanEntry = (id: string): ScanHistoryEntry => {
     // Create different mock data based on scan ID for variety
-    const isSuccess = id.includes('scan-1') || id.includes('scan-2') || id.includes('scan-5');
+    const isSuccess =
+      id.includes('scan-1') || id.includes('scan-2') || id.includes('scan-5');
     const isError = id.includes('scan-3') || id.includes('scan-7');
-    
+
     if (isSuccess) {
       return {
         id,
@@ -111,16 +110,29 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
     }
   };
 
-  const createMockDiagnostics = (result: TagReadResult['type']): ScanDiagnostics => {
+  const createMockDiagnostics = (
+    result: TagReadResult['type'],
+  ): ScanDiagnostics => {
     const isSuccess = result === 'SUCCESS';
-    
+
     return {
       nfcEnabled: true,
       tagDetected: result !== 'NO_NFC',
       tagType: result === 'NO_NFC' ? 'None' : 'MIFARE Classic 1K',
-      dataIntegrity: isSuccess ? 'good' : (result === 'PARSING_ERROR' ? 'corrupted' : 'partial'),
-      authenticationStatus: isSuccess ? 'success' : (result.includes('AUTH') ? 'failed' : 'not_required'),
-      readErrors: result === 'SUCCESS' ? [] : ['Sector 4 authentication failed', 'Key derivation timeout'],
+      dataIntegrity: isSuccess
+        ? 'good'
+        : result === 'PARSING_ERROR'
+        ? 'corrupted'
+        : 'partial',
+      authenticationStatus: isSuccess
+        ? 'success'
+        : result.includes('AUTH')
+        ? 'failed'
+        : 'not_required',
+      readErrors:
+        result === 'SUCCESS'
+          ? []
+          : ['Sector 4 authentication failed', 'Key derivation timeout'],
       processingTime: 1200 + Math.random() * 800, // 1.2-2.0 seconds
       signalStrength: result === 'NO_NFC' ? 0 : 65 + Math.random() * 30, // 65-95%
     };
@@ -205,13 +217,15 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
           tagUid: scanEntry.filamentInfo.tagUid,
         },
       }),
-      ...(scanEntry.error && { error: scanEntry.error }),
+      ...(scanEntry.error && {error: scanEntry.error}),
     };
 
     try {
       await Share.share({
         title: 'B-Scan Result',
-        message: `Scan Result: ${getResultLabel(scanEntry.result)}\n\nDetails:\n${JSON.stringify(scanData, null, 2)}`,
+        message: `Scan Result: ${getResultLabel(
+          scanEntry.result,
+        )}\n\nDetails:\n${JSON.stringify(scanData, null, 2)}`,
       });
     } catch (error) {
       console.error('Error sharing scan result:', error);
@@ -219,15 +233,15 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
   };
 
   const handleRescan = () => {
-    navigation.navigate('Scanning', { 
-      tagUid: scanEntry?.filamentInfo?.tagUid 
+    navigation.navigate('Scanning', {
+      tagUid: scanEntry?.filamentInfo?.tagUid,
     });
   };
 
   const handleViewComponent = () => {
     if (scanEntry?.filamentInfo) {
-      navigation.navigate('ComponentDetail', { 
-        identifier: scanEntry.filamentInfo.tagUid 
+      navigation.navigate('ComponentDetail', {
+        identifier: scanEntry.filamentInfo.tagUid,
       });
     }
   };
@@ -248,11 +262,8 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
                 {getTagFormatLabel(filament.tagFormat)}
               </Chip>
             </View>
-            <View 
-              style={[
-                styles.colorSwatch, 
-                { backgroundColor: filament.colorHex }
-              ]} 
+            <View
+              style={[styles.colorSwatch, {backgroundColor: filament.colorHex}]}
             />
           </View>
 
@@ -265,7 +276,9 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Diameter</Text>
-              <Text style={styles.infoValue}>{filament.filamentDiameter}mm</Text>
+              <Text style={styles.infoValue}>
+                {filament.filamentDiameter}mm
+              </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Spool Weight</Text>
@@ -273,7 +286,9 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Length</Text>
-              <Text style={styles.infoValue}>{(filament.filamentLength / 1000).toFixed(0)}m</Text>
+              <Text style={styles.infoValue}>
+                {(filament.filamentLength / 1000).toFixed(0)}m
+              </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Production Date</Text>
@@ -333,35 +348,41 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
       <Card style={styles.card}>
         <Card.Content>
           <Title>Scan Diagnostics</Title>
-          
+
           <View style={styles.diagnosticItem}>
             <Text style={styles.diagnosticLabel}>NFC Status</Text>
-            <Chip 
+            <Chip
               icon={diagnostics.nfcEnabled ? 'nfc' : 'nfc-off'}
               style={[
                 styles.diagnosticChip,
-                { backgroundColor: diagnostics.nfcEnabled ? '#4CAF5020' : '#F4433620' }
+                {
+                  backgroundColor: diagnostics.nfcEnabled
+                    ? '#4CAF5020'
+                    : '#F4433620',
+                },
               ]}
-              textStyle={{ 
-                color: diagnostics.nfcEnabled ? '#4CAF50' : '#F44336' 
-              }}
-            >
+              textStyle={{
+                color: diagnostics.nfcEnabled ? '#4CAF50' : '#F44336',
+              }}>
               {diagnostics.nfcEnabled ? 'Enabled' : 'Disabled'}
             </Chip>
           </View>
 
           <View style={styles.diagnosticItem}>
             <Text style={styles.diagnosticLabel}>Tag Detection</Text>
-            <Chip 
+            <Chip
               icon={diagnostics.tagDetected ? 'check' : 'close'}
               style={[
                 styles.diagnosticChip,
-                { backgroundColor: diagnostics.tagDetected ? '#4CAF5020' : '#F4433620' }
+                {
+                  backgroundColor: diagnostics.tagDetected
+                    ? '#4CAF5020'
+                    : '#F4433620',
+                },
               ]}
-              textStyle={{ 
-                color: diagnostics.tagDetected ? '#4CAF50' : '#F44336' 
-              }}
-            >
+              textStyle={{
+                color: diagnostics.tagDetected ? '#4CAF50' : '#F44336',
+              }}>
               {diagnostics.tagDetected ? 'Detected' : 'Not Found'}
             </Chip>
           </View>
@@ -370,56 +391,62 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
             <>
               <View style={styles.diagnosticItem}>
                 <Text style={styles.diagnosticLabel}>Tag Type</Text>
-                <Text style={styles.diagnosticValue}>{diagnostics.tagType}</Text>
+                <Text style={styles.diagnosticValue}>
+                  {diagnostics.tagType}
+                </Text>
               </View>
 
               <View style={styles.diagnosticItem}>
                 <Text style={styles.diagnosticLabel}>Data Integrity</Text>
-                <Chip 
+                <Chip
                   style={[
                     styles.diagnosticChip,
-                    { 
-                      backgroundColor: diagnostics.dataIntegrity === 'good' 
-                        ? '#4CAF5020' 
-                        : diagnostics.dataIntegrity === 'partial'
-                        ? '#FF980020'
-                        : '#F4433620'
-                    }
+                    {
+                      backgroundColor:
+                        diagnostics.dataIntegrity === 'good'
+                          ? '#4CAF5020'
+                          : diagnostics.dataIntegrity === 'partial'
+                          ? '#FF980020'
+                          : '#F4433620',
+                    },
                   ]}
-                  textStyle={{ 
-                    color: diagnostics.dataIntegrity === 'good' 
-                      ? '#4CAF50' 
-                      : diagnostics.dataIntegrity === 'partial'
-                      ? '#FF9800'
-                      : '#F44336'
-                  }}
-                >
+                  textStyle={{
+                    color:
+                      diagnostics.dataIntegrity === 'good'
+                        ? '#4CAF50'
+                        : diagnostics.dataIntegrity === 'partial'
+                        ? '#FF9800'
+                        : '#F44336',
+                  }}>
                   {diagnostics.dataIntegrity.toUpperCase()}
                 </Chip>
               </View>
 
               <View style={styles.diagnosticItem}>
                 <Text style={styles.diagnosticLabel}>Authentication</Text>
-                <Chip 
+                <Chip
                   style={[
                     styles.diagnosticChip,
-                    { 
-                      backgroundColor: diagnostics.authenticationStatus === 'success' 
-                        ? '#4CAF5020' 
-                        : diagnostics.authenticationStatus === 'failed'
-                        ? '#F4433620'
-                        : '#75757520'
-                    }
+                    {
+                      backgroundColor:
+                        diagnostics.authenticationStatus === 'success'
+                          ? '#4CAF5020'
+                          : diagnostics.authenticationStatus === 'failed'
+                          ? '#F4433620'
+                          : '#75757520',
+                    },
                   ]}
-                  textStyle={{ 
-                    color: diagnostics.authenticationStatus === 'success' 
-                      ? '#4CAF50' 
-                      : diagnostics.authenticationStatus === 'failed'
-                      ? '#F44336'
-                      : '#757575'
-                  }}
-                >
-                  {diagnostics.authenticationStatus.replace('_', ' ').toUpperCase()}
+                  textStyle={{
+                    color:
+                      diagnostics.authenticationStatus === 'success'
+                        ? '#4CAF50'
+                        : diagnostics.authenticationStatus === 'failed'
+                        ? '#F44336'
+                        : '#757575',
+                  }}>
+                  {diagnostics.authenticationStatus
+                    .replace('_', ' ')
+                    .toUpperCase()}
                 </Chip>
               </View>
 
@@ -504,7 +531,7 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
                 />
               </View>
             </View>
-            
+
             {scanEntry.error && (
               <Surface style={styles.errorSurface} elevation={1}>
                 <Text style={styles.errorMessage}>{scanEntry.error}</Text>
@@ -512,11 +539,7 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
             )}
           </Card.Content>
           <Card.Actions>
-            <Button 
-              mode="outlined" 
-              onPress={handleRescan}
-              icon="refresh"
-            >
+            <Button mode="outlined" onPress={handleRescan} icon="refresh">
               Rescan
             </Button>
           </Card.Actions>

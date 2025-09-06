@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  Alert,
-  BackHandler,
-} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {View, StyleSheet, Alert, BackHandler} from 'react-native';
 import {
   Card,
   Title,
@@ -15,9 +10,9 @@ import {
   Text,
   ActivityIndicator,
 } from 'react-native-paper';
-import { NfcManagerService } from '../services/NfcManager';
-import { NavigationProps } from '../types/Navigation';
-import { ScanProgress, ScanStage, TagReadResult } from '../types/FilamentInfo';
+import {NfcManagerService} from '../services/NfcManager';
+import {NavigationProps} from '../types/Navigation';
+import {ScanProgress, ScanStage, TagReadResult} from '../types/FilamentInfo';
 
 interface ScanningScreenProps extends NavigationProps {
   route: {
@@ -27,12 +22,15 @@ interface ScanningScreenProps extends NavigationProps {
   };
 }
 
-const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _route }) => {
+const ScanningScreen: React.FC<ScanningScreenProps> = ({
+  navigation,
+  route: _route,
+}) => {
   const [scanProgress, setScanProgress] = useState<ScanProgress>({
     stage: ScanStage.INITIALIZING,
     percentage: 0,
     currentSector: 0,
-    statusMessage: 'Preparing to scan...'
+    statusMessage: 'Preparing to scan...',
   });
   const [isScanning, setIsScanning] = useState<boolean>(true);
   const [scanResult, setScanResult] = useState<TagReadResult | null>(null);
@@ -40,23 +38,19 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
   const nfcManager = NfcManagerService.getInstance();
 
   const handleCancelScan = useCallback(() => {
-    Alert.alert(
-      'Cancel Scan',
-      'Are you sure you want to cancel the scan?',
-      [
-        {
-          text: 'Continue Scanning',
-          style: 'cancel'
+    Alert.alert('Cancel Scan', 'Are you sure you want to cancel the scan?', [
+      {
+        text: 'Continue Scanning',
+        style: 'cancel',
+      },
+      {
+        text: 'Cancel',
+        onPress: () => {
+          nfcManager.stopScan();
+          navigation.navigate('Home');
         },
-        {
-          text: 'Cancel',
-          onPress: () => {
-            nfcManager.stopScan();
-            navigation.navigate('Home');
-          }
-        }
-      ]
-    );
+      },
+    ]);
   }, [nfcManager, navigation]);
 
   const startScan = useCallback(async () => {
@@ -82,18 +76,18 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
             {
               text: 'View Details',
               onPress: () => {
-                navigation.replace('ComponentDetail', { 
-                  identifier: result.filamentInfo.tagUid 
+                navigation.replace('ComponentDetail', {
+                  identifier: result.filamentInfo.tagUid,
                 });
-              }
+              },
             },
             {
               text: 'Scan Another',
               onPress: () => {
                 startScan();
-              }
+              },
             },
-          ]
+          ],
         );
       } else {
         // Handle error inline to avoid circular dependency
@@ -111,11 +105,13 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
             break;
           case 'AUTHENTICATION_FAILED':
             title = 'Authentication Failed';
-            message = 'Could not authenticate with the NFC tag. It may be protected or corrupted.';
+            message =
+              'Could not authenticate with the NFC tag. It may be protected or corrupted.';
             break;
           case 'READ_ERROR':
             title = 'Read Error';
-            message = result.error || 'Unknown error occurred while reading the tag.';
+            message =
+              result.error || 'Unknown error occurred while reading the tag.';
             break;
           case 'PARSING_ERROR':
             title = 'Parsing Error';
@@ -123,31 +119,27 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
             break;
         }
 
-        Alert.alert(
-          title,
-          message,
-          [
-            {
-              text: 'Try Again',
-              onPress: () => {
-                startScan();
-              }
+        Alert.alert(title, message, [
+          {
+            text: 'Try Again',
+            onPress: () => {
+              startScan();
             },
-            {
-              text: 'Cancel',
-              onPress: () => {
-                navigation.navigate('Home');
-              },
-              style: 'cancel'
+          },
+          {
+            text: 'Cancel',
+            onPress: () => {
+              navigation.navigate('Home');
             },
-          ]
-        );
+            style: 'cancel',
+          },
+        ]);
       }
     } catch (error) {
       console.error('Scanning error:', error);
-      setScanResult({ 
-        type: 'READ_ERROR', 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      setScanResult({
+        type: 'READ_ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       setIsScanning(false);
     }
@@ -163,16 +155,18 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
 
   useEffect(() => {
     startScan();
-    
+
     // Handle Android back button
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-    
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleBackPress,
+    );
+
     return () => {
       backHandler.remove();
       nfcManager.stopScan();
     };
   }, [handleBackPress, nfcManager, startScan]);
-
 
   const getStageTitle = (stage: ScanStage): string => {
     switch (stage) {
@@ -233,9 +227,9 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
           {/* Progress Bar */}
           {isScanning && (
             <View style={styles.progressContainer}>
-              <ProgressBar 
-                progress={scanProgress.percentage / 100} 
-                color="#6200EE" 
+              <ProgressBar
+                progress={scanProgress.percentage / 100}
+                color="#6200EE"
                 style={styles.progressBar}
               />
               <Text style={styles.progressText}>
@@ -246,15 +240,17 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
 
           {/* Status Message */}
           <Paragraph style={styles.statusMessage}>
-            {scanProgress.statusMessage || getStageDescription(scanProgress.stage)}
+            {scanProgress.statusMessage ||
+              getStageDescription(scanProgress.stage)}
           </Paragraph>
 
           {/* Sector Information */}
-          {scanProgress.stage === ScanStage.AUTHENTICATING && scanProgress.currentSector > 0 && (
-            <Text style={styles.sectorInfo}>
-              Sector {scanProgress.currentSector} of 16
-            </Text>
-          )}
+          {scanProgress.stage === ScanStage.AUTHENTICATING &&
+            scanProgress.currentSector > 0 && (
+              <Text style={styles.sectorInfo}>
+                Sector {scanProgress.currentSector} of 16
+              </Text>
+            )}
 
           {/* Instructions */}
           {scanProgress.stage === ScanStage.INITIALIZING && (
@@ -262,8 +258,12 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
               <Card.Content>
                 <Title style={styles.instructionsTitle}>How to Scan</Title>
                 <Paragraph>1. Hold your device steady</Paragraph>
-                <Paragraph>2. Place the NFC tag on the back of your device</Paragraph>
-                <Paragraph>3. Keep the tag in contact until scanning is complete</Paragraph>
+                <Paragraph>
+                  2. Place the NFC tag on the back of your device
+                </Paragraph>
+                <Paragraph>
+                  3. Keep the tag in contact until scanning is complete
+                </Paragraph>
               </Card.Content>
             </Card>
           )}
@@ -271,27 +271,24 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
             {isScanning ? (
-              <Button 
-                mode="outlined" 
+              <Button
+                mode="outlined"
                 onPress={handleCancelScan}
-                style={styles.button}
-              >
+                style={styles.button}>
                 Cancel Scan
               </Button>
             ) : scanResult?.type !== 'SUCCESS' ? (
               <>
-                <Button 
-                  mode="contained" 
+                <Button
+                  mode="contained"
                   onPress={startScan}
-                  style={styles.button}
-                >
+                  style={styles.button}>
                   Try Again
                 </Button>
-                <Button 
-                  mode="outlined" 
+                <Button
+                  mode="outlined"
                   onPress={() => navigation.navigate('Home')}
-                  style={styles.button}
-                >
+                  style={styles.button}>
                   Back to Home
                 </Button>
               </>

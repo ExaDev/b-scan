@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {
   Card,
   Title,
@@ -15,16 +10,18 @@ import {
   Text,
   IconButton,
 } from 'react-native-paper';
-import { NfcManagerService } from '../services/NfcManager';
-import { NavigationProps } from '../types/Navigation';
-import { TagReadResult } from '../types/FilamentInfo';
+import {NfcManagerService} from '../services/NfcManager';
+import {NavigationProps} from '../types/Navigation';
+import {TagReadResult} from '../types/FilamentInfo';
 
 interface HomeScreenProps extends NavigationProps {}
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   const [isNfcEnabled, setIsNfcEnabled] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [_lastScanResult, _setLastScanResult] = useState<TagReadResult | null>(null);
+  const [_lastScanResult, _setLastScanResult] = useState<TagReadResult | null>(
+    null,
+  );
 
   const nfcManager = NfcManagerService.getInstance();
 
@@ -39,7 +36,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       Alert.alert(
         'NFC Not Available',
         'This device does not support NFC or NFC is disabled.',
-        [{ text: 'OK' }]
+        [{text: 'OK'}],
       );
     }
   }, [nfcManager]);
@@ -54,7 +51,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       Alert.alert(
         'NFC Disabled',
         'Please enable NFC in your device settings to scan tags.',
-        [{ text: 'OK' }]
+        [{text: 'OK'}],
       );
       return;
     }
@@ -154,18 +151,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <Title>Quick Actions</Title>
           </Card.Content>
           <Card.Actions style={styles.quickActions}>
-            <Button 
-              mode="contained" 
+            <Button
+              mode="contained"
               onPress={handleViewInventory}
-              style={styles.actionButton}
-            >
+              style={styles.actionButton}>
               Browse Inventory
             </Button>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               onPress={handleViewHistory}
-              style={styles.actionButton}
-            >
+              style={styles.actionButton}>
               Scan History
             </Button>
           </Card.Actions>

@@ -1,10 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {View, StyleSheet, ScrollView, FlatList} from 'react-native';
 import {
   Card,
   Title,
@@ -20,8 +15,8 @@ import {
   Modal,
   RadioButton,
 } from 'react-native-paper';
-import { NavigationProps } from '../types/Navigation';
-import { FilamentInfo, EntityType, TagFormat } from '../types/FilamentInfo';
+import {NavigationProps} from '../types/Navigation';
+import {FilamentInfo, EntityType, TagFormat} from '../types/FilamentInfo';
 
 interface DataBrowserScreenProps extends NavigationProps {}
 
@@ -39,7 +34,7 @@ interface BrowserItem {
   quantity?: number;
 }
 
-const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => {
+const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({navigation}) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('date');
@@ -157,10 +152,11 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.title.toLowerCase().includes(query) ||
-        item.subtitle.toLowerCase().includes(query) ||
-        item.metadata.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        item =>
+          item.title.toLowerCase().includes(query) ||
+          item.subtitle.toLowerCase().includes(query) ||
+          item.metadata.toLowerCase().includes(query),
       );
     }
 
@@ -168,13 +164,19 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
     if (filterType !== 'all') {
       switch (filterType) {
         case 'components':
-          filtered = filtered.filter(item => item.type === EntityType.PHYSICAL_COMPONENT);
+          filtered = filtered.filter(
+            item => item.type === EntityType.PHYSICAL_COMPONENT,
+          );
           break;
         case 'inventory':
-          filtered = filtered.filter(item => item.type === EntityType.INVENTORY_ITEM);
+          filtered = filtered.filter(
+            item => item.type === EntityType.INVENTORY_ITEM,
+          );
           break;
         case 'identifiers':
-          filtered = filtered.filter(item => item.type === EntityType.IDENTIFIER);
+          filtered = filtered.filter(
+            item => item.type === EntityType.IDENTIFIER,
+          );
           break;
       }
     }
@@ -204,11 +206,11 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
 
   const handleItemPress = (item: BrowserItem) => {
     if (item.type === EntityType.PHYSICAL_COMPONENT && item.filamentInfo) {
-      navigation.navigate('ComponentDetail', { identifier: item.id });
+      navigation.navigate('ComponentDetail', {identifier: item.id});
     } else {
-      navigation.navigate('EntityDetail', { 
-        entityId: item.id, 
-        entityType: item.type 
+      navigation.navigate('EntityDetail', {
+        entityId: item.id,
+        entityType: item.type,
       });
     }
   };
@@ -243,7 +245,7 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
     }
   };
 
-  const renderItem = ({ item }: { item: BrowserItem }) => (
+  const renderItem = ({item}: {item: BrowserItem}) => (
     <Card style={styles.itemCard} onPress={() => handleItemPress(item)}>
       <Card.Content>
         <View style={styles.itemHeader}>
@@ -265,11 +267,11 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
         </View>
         {item.filamentInfo && (
           <View style={styles.colorIndicator}>
-            <View 
+            <View
               style={[
-                styles.colorSwatch, 
-                { backgroundColor: item.filamentInfo.colorHex }
-              ]} 
+                styles.colorSwatch,
+                {backgroundColor: item.filamentInfo.colorHex},
+              ]}
             />
             <Text style={styles.colorName}>{item.filamentInfo.colorName}</Text>
           </View>
@@ -279,39 +281,37 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
   );
 
   const renderFilterChips = () => (
-    <ScrollView 
-      horizontal 
+    <ScrollView
+      horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.chipScrollView}
-      contentContainerStyle={styles.chipContainer}
-    >
+      contentContainerStyle={styles.chipContainer}>
       <Chip
         selected={filterType === 'all'}
         onPress={() => setFilterType('all')}
-        style={styles.chip}
-      >
+        style={styles.chip}>
         All ({items.length})
       </Chip>
       <Chip
         selected={filterType === 'components'}
         onPress={() => setFilterType('components')}
-        style={styles.chip}
-      >
-        Components ({items.filter(i => i.type === EntityType.PHYSICAL_COMPONENT).length})
+        style={styles.chip}>
+        Components (
+        {items.filter(i => i.type === EntityType.PHYSICAL_COMPONENT).length})
       </Chip>
       <Chip
         selected={filterType === 'inventory'}
         onPress={() => setFilterType('inventory')}
-        style={styles.chip}
-      >
-        Inventory ({items.filter(i => i.type === EntityType.INVENTORY_ITEM).length})
+        style={styles.chip}>
+        Inventory (
+        {items.filter(i => i.type === EntityType.INVENTORY_ITEM).length})
       </Chip>
       <Chip
         selected={filterType === 'identifiers'}
         onPress={() => setFilterType('identifiers')}
-        style={styles.chip}
-      >
-        Identifiers ({items.filter(i => i.type === EntityType.IDENTIFIER).length})
+        style={styles.chip}>
+        Identifiers (
+        {items.filter(i => i.type === EntityType.IDENTIFIER).length})
       </Chip>
     </ScrollView>
   );
@@ -321,15 +321,13 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
       <Modal
         visible={showSortModal}
         onDismiss={() => setShowSortModal(false)}
-        contentContainerStyle={styles.modalContent}
-      >
+        contentContainerStyle={styles.modalContent}>
         <Title style={styles.modalTitle}>Sort Options</Title>
-        
+
         <Text style={styles.sectionHeader}>Sort by:</Text>
         <RadioButton.Group
-          onValueChange={(value) => setSortType(value as SortType)}
-          value={sortType}
-        >
+          onValueChange={value => setSortType(value as SortType)}
+          value={sortType}>
           <View style={styles.radioItem}>
             <RadioButton value="date" />
             <Text style={styles.radioLabel}>Date Created</Text>
@@ -350,9 +348,8 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
 
         <Text style={styles.sectionHeader}>Order:</Text>
         <RadioButton.Group
-          onValueChange={(value) => setSortAscending(value === 'asc')}
-          value={sortAscending ? 'asc' : 'desc'}
-        >
+          onValueChange={value => setSortAscending(value === 'asc')}
+          value={sortAscending ? 'asc' : 'desc'}>
           <View style={styles.radioItem}>
             <RadioButton value="desc" />
             <Text style={styles.radioLabel}>Newest First</Text>
@@ -366,8 +363,7 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
         <Button
           mode="contained"
           onPress={() => setShowSortModal(false)}
-          style={styles.modalButton}
-        >
+          style={styles.modalButton}>
           Apply
         </Button>
       </Modal>
@@ -410,7 +406,7 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({ navigation }) => 
       <FlatList
         data={filteredItems}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         refreshing={isLoading}

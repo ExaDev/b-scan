@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {
   Card,
   Title,
@@ -17,15 +12,15 @@ import {
   Divider,
   ActivityIndicator,
 } from 'react-native-paper';
-import { NavigationProps } from '../types/Navigation';
-import { 
-  GraphEntity, 
-  EntityType, 
-  PhysicalComponent, 
-  InventoryItem, 
-  Identifier, 
+import {NavigationProps} from '../types/Navigation';
+import {
+  GraphEntity,
+  EntityType,
+  PhysicalComponent,
+  InventoryItem,
+  Identifier,
   Activity,
-  TagFormat
+  TagFormat,
 } from '../types/FilamentInfo';
 
 interface EntityDetailScreenProps extends NavigationProps {
@@ -44,8 +39,11 @@ interface EntityRelationship {
   description: string;
 }
 
-const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, route }) => {
-  const { entityId, entityType } = route.params;
+const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({
+  navigation,
+  route,
+}) => {
+  const {entityId, entityType} = route.params;
   const [entity, setEntity] = useState<GraphEntity | null>(null);
   const [relationships, setRelationships] = useState<EntityRelationship[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -57,7 +55,7 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
     setTimeout(() => {
       const mockEntity = createMockEntity(entityId, entityType as EntityType);
       const mockRelationships = createMockRelationships(entityId);
-      
+
       setEntity(mockEntity);
       setRelationships(mockRelationships);
       setIsLoading(false);
@@ -213,16 +211,16 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
       'Delete Entity',
       'Are you sure you want to delete this entity? This action cannot be undone.',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
           style: 'destructive',
           onPress: () => {
             // TODO: Implement delete functionality
             navigation.goBack();
-          }
+          },
         },
-      ]
+      ],
     );
   };
 
@@ -240,27 +238,35 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
           <Title>Filament Information</Title>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Manufacturer:</Text>
-            <Text style={styles.value}>{component.filamentInfo.manufacturerName}</Text>
+            <Text style={styles.value}>
+              {component.filamentInfo.manufacturerName}
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Type:</Text>
-            <Text style={styles.value}>{component.filamentInfo.filamentType}</Text>
+            <Text style={styles.value}>
+              {component.filamentInfo.filamentType}
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Color:</Text>
             <View style={styles.colorRow}>
-              <View 
+              <View
                 style={[
-                  styles.colorSwatch, 
-                  { backgroundColor: component.filamentInfo.colorHex }
-                ]} 
+                  styles.colorSwatch,
+                  {backgroundColor: component.filamentInfo.colorHex},
+                ]}
               />
-              <Text style={styles.value}>{component.filamentInfo.colorName}</Text>
+              <Text style={styles.value}>
+                {component.filamentInfo.colorName}
+              </Text>
             </View>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Diameter:</Text>
-            <Text style={styles.value}>{component.filamentInfo.filamentDiameter}mm</Text>
+            <Text style={styles.value}>
+              {component.filamentInfo.filamentDiameter}mm
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Current Weight:</Text>
@@ -275,17 +281,21 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
           <View style={styles.detailRow}>
             <Text style={styles.label}>Nozzle Temp:</Text>
             <Text style={styles.value}>
-              {component.filamentInfo.minTemperature}°C - {component.filamentInfo.maxTemperature}°C
+              {component.filamentInfo.minTemperature}°C -{' '}
+              {component.filamentInfo.maxTemperature}°C
             </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Bed Temp:</Text>
-            <Text style={styles.value}>{component.filamentInfo.bedTemperature}°C</Text>
+            <Text style={styles.value}>
+              {component.filamentInfo.bedTemperature}°C
+            </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.label}>Drying:</Text>
             <Text style={styles.value}>
-              {component.filamentInfo.dryingTemperature}°C for {component.filamentInfo.dryingTime}h
+              {component.filamentInfo.dryingTemperature}°C for{' '}
+              {component.filamentInfo.dryingTime}h
             </Text>
           </View>
         </Card.Content>
@@ -336,7 +346,9 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.label}>Value:</Text>
-          <Text style={[styles.value, styles.monospace]}>{identifier.value}</Text>
+          <Text style={[styles.value, styles.monospace]}>
+            {identifier.value}
+          </Text>
         </View>
       </Card.Content>
     </Card>
@@ -375,11 +387,10 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
           <Title>Relationships</Title>
           {relationships.map((rel, index) => (
             <View key={rel.id}>
-              <Surface 
-                style={styles.relationshipItem} 
+              <Surface
+                style={styles.relationshipItem}
                 elevation={1}
-                onTouchEnd={() => handleRelationshipPress(rel)}
-              >
+                onTouchEnd={() => handleRelationshipPress(rel)}>
                 <View style={styles.relationshipHeader}>
                   <IconButton
                     icon={getEntityIcon(rel.targetEntity.type)}
@@ -387,13 +398,19 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
                     size={20}
                   />
                   <View style={styles.relationshipContent}>
-                    <Text style={styles.relationshipType}>{rel.type.replace('_', ' ')}</Text>
-                    <Text style={styles.relationshipDescription}>{rel.description}</Text>
+                    <Text style={styles.relationshipType}>
+                      {rel.type.replace('_', ' ')}
+                    </Text>
+                    <Text style={styles.relationshipDescription}>
+                      {rel.description}
+                    </Text>
                   </View>
                   <IconButton icon="chevron-right" size={20} />
                 </View>
               </Surface>
-              {index < relationships.length - 1 && <Divider style={styles.relationshipDivider} />}
+              {index < relationships.length - 1 && (
+                <Divider style={styles.relationshipDivider} />
+              )}
             </View>
           ))}
         </Card.Content>
@@ -429,10 +446,12 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
           <Card.Content>
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <Chip 
+                <Chip
                   icon={getEntityIcon(entity.type)}
-                  style={[styles.typeChip, { backgroundColor: getEntityColor(entity.type) + '20' }]}
-                >
+                  style={[
+                    styles.typeChip,
+                    {backgroundColor: getEntityColor(entity.type) + '20'},
+                  ]}>
                   {getEntityTypeLabel(entity.type)}
                 </Chip>
                 <Title style={styles.entityId}>ID: {entity.id}</Title>
@@ -444,11 +463,7 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
                 </Paragraph>
               </View>
               <View style={styles.headerActions}>
-                <IconButton
-                  icon="pencil"
-                  size={24}
-                  onPress={handleEdit}
-                />
+                <IconButton icon="pencil" size={24} onPress={handleEdit} />
                 <IconButton
                   icon="delete"
                   size={24}
@@ -461,13 +476,13 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
         </Card>
 
         {/* Entity-specific Details */}
-        {entity.type === EntityType.PHYSICAL_COMPONENT && 
+        {entity.type === EntityType.PHYSICAL_COMPONENT &&
           renderPhysicalComponentDetails(entity as PhysicalComponent)}
-        {entity.type === EntityType.INVENTORY_ITEM && 
+        {entity.type === EntityType.INVENTORY_ITEM &&
           renderInventoryItemDetails(entity as InventoryItem)}
-        {entity.type === EntityType.IDENTIFIER && 
+        {entity.type === EntityType.IDENTIFIER &&
           renderIdentifierDetails(entity as Identifier)}
-        {entity.type === EntityType.ACTIVITY && 
+        {entity.type === EntityType.ACTIVITY &&
           renderActivityDetails(entity as Activity)}
 
         {/* Relationships */}

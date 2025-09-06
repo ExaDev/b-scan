@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Card,
   Title,
@@ -20,17 +15,23 @@ import {
   ActivityIndicator,
   FAB,
 } from 'react-native-paper';
-import { NavigationProps } from '../types/Navigation';
-import { ScanHistoryEntry, TagReadResult, TagFormat } from '../types/FilamentInfo';
+import {NavigationProps} from '../types/Navigation';
+import {
+  ScanHistoryEntry,
+  TagReadResult,
+  TagFormat,
+} from '../types/FilamentInfo';
 
 interface ScanHistoryScreenProps extends NavigationProps {}
 
 type FilterType = 'all' | 'success' | 'error' | 'invalid';
 type SortType = 'date' | 'result' | 'type';
 
-const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => {
+const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({navigation}) => {
   const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
-  const [filteredHistory, setFilteredHistory] = useState<ScanHistoryEntry[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<ScanHistoryEntry[]>(
+    [],
+  );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('date');
@@ -50,11 +51,12 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(scan => 
-        scan.filamentInfo?.manufacturerName.toLowerCase().includes(query) ||
-        scan.filamentInfo?.filamentType.toLowerCase().includes(query) ||
-        scan.filamentInfo?.colorName.toLowerCase().includes(query) ||
-        scan.error?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        scan =>
+          scan.filamentInfo?.manufacturerName.toLowerCase().includes(query) ||
+          scan.filamentInfo?.filamentType.toLowerCase().includes(query) ||
+          scan.filamentInfo?.colorName.toLowerCase().includes(query) ||
+          scan.error?.toLowerCase().includes(query),
       );
     }
 
@@ -65,16 +67,16 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
           filtered = filtered.filter(scan => scan.result === 'SUCCESS');
           break;
         case 'error':
-          filtered = filtered.filter(scan => 
-            scan.result === 'READ_ERROR' || 
-            scan.result === 'PARSING_ERROR' || 
-            scan.result === 'AUTHENTICATION_FAILED'
+          filtered = filtered.filter(
+            scan =>
+              scan.result === 'READ_ERROR' ||
+              scan.result === 'PARSING_ERROR' ||
+              scan.result === 'AUTHENTICATION_FAILED',
           );
           break;
         case 'invalid':
-          filtered = filtered.filter(scan => 
-            scan.result === 'INVALID_TAG' || 
-            scan.result === 'NO_NFC'
+          filtered = filtered.filter(
+            scan => scan.result === 'INVALID_TAG' || scan.result === 'NO_NFC',
           );
           break;
       }
@@ -215,7 +217,6 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
     }, 500);
   };
 
-
   const getResultIcon = (result: TagReadResult['type']): string => {
     switch (result) {
       case 'SUCCESS':
@@ -269,7 +270,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
   };
 
   const handleScanPress = (scan: ScanHistoryEntry) => {
-    navigation.navigate('ScanDetail', { scanId: scan.id });
+    navigation.navigate('ScanDetail', {scanId: scan.id});
   };
 
   // const _handleClearHistory = () => {
@@ -277,7 +278,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
   //   setScanHistory([]);
   // };
 
-  const renderScanItem = ({ item }: { item: ScanHistoryEntry }) => (
+  const renderScanItem = ({item}: {item: ScanHistoryEntry}) => (
     <Card style={styles.scanCard} onPress={() => handleScanPress(item)}>
       <Card.Content>
         <View style={styles.scanHeader}>
@@ -313,27 +314,26 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
                 )}
               </View>
             </View>
-            
+
             <View style={styles.scanMetadata}>
-              <Chip 
+              <Chip
                 icon={getResultIcon(item.result)}
                 style={[
                   styles.resultChip,
-                  { backgroundColor: getResultColor(item.result) + '20' }
+                  {backgroundColor: getResultColor(item.result) + '20'},
                 ]}
-                textStyle={{ color: getResultColor(item.result) }}
-                compact
-              >
+                textStyle={{color: getResultColor(item.result)}}
+                compact>
                 {getResultLabel(item.result)}
               </Chip>
-              
+
               {item.filamentInfo && (
                 <View style={styles.colorIndicator}>
-                  <View 
+                  <View
                     style={[
-                      styles.colorSwatch, 
-                      { backgroundColor: item.filamentInfo.colorHex }
-                    ]} 
+                      styles.colorSwatch,
+                      {backgroundColor: item.filamentInfo.colorHex},
+                    ]}
                   />
                   <Text style={styles.colorName}>
                     {item.filamentInfo.colorName}
@@ -342,12 +342,12 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
               )}
             </View>
           </View>
-          
+
           <View style={styles.scanTime}>
             <Text style={styles.timeText}>
-              {new Date(item.timestamp).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
+              {new Date(item.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
               })}
             </Text>
             <Text style={styles.dateText}>
@@ -364,15 +364,13 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
       <Modal
         visible={showSortModal}
         onDismiss={() => setShowSortModal(false)}
-        contentContainerStyle={styles.modalContent}
-      >
+        contentContainerStyle={styles.modalContent}>
         <Title style={styles.modalTitle}>Sort Options</Title>
-        
+
         <Text style={styles.sectionHeader}>Sort by:</Text>
         <RadioButton.Group
-          onValueChange={(value) => setSortType(value as SortType)}
-          value={sortType}
-        >
+          onValueChange={value => setSortType(value as SortType)}
+          value={sortType}>
           <View style={styles.radioItem}>
             <RadioButton value="date" />
             <Text style={styles.radioLabel}>Date</Text>
@@ -389,9 +387,8 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
 
         <Text style={styles.sectionHeader}>Order:</Text>
         <RadioButton.Group
-          onValueChange={(value) => setSortAscending(value === 'asc')}
-          value={sortAscending ? 'asc' : 'desc'}
-        >
+          onValueChange={value => setSortAscending(value === 'asc')}
+          value={sortAscending ? 'asc' : 'desc'}>
           <View style={styles.radioItem}>
             <RadioButton value="desc" />
             <Text style={styles.radioLabel}>Newest First</Text>
@@ -405,8 +402,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
         <Button
           mode="contained"
           onPress={() => setShowSortModal(false)}
-          style={styles.modalButton}
-        >
+          style={styles.modalButton}>
           Apply
         </Button>
       </Modal>
@@ -421,46 +417,56 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
         value={searchQuery}
         style={styles.searchbar}
       />
-      
+
       <View style={styles.controls}>
         <View style={styles.filterChips}>
           <Chip
             selected={filterType === 'all'}
             onPress={() => setFilterType('all')}
-            style={styles.filterChip}
-          >
+            style={styles.filterChip}>
             All ({scanHistory.length})
           </Chip>
           <Chip
             selected={filterType === 'success'}
             onPress={() => setFilterType('success')}
-            style={styles.filterChip}
-          >
+            style={styles.filterChip}>
             Success ({scanHistory.filter(s => s.result === 'SUCCESS').length})
           </Chip>
           <Chip
             selected={filterType === 'error'}
             onPress={() => setFilterType('error')}
-            style={styles.filterChip}
-          >
-            Errors ({scanHistory.filter(s => s.result.includes('ERROR') || s.result === 'AUTHENTICATION_FAILED').length})
+            style={styles.filterChip}>
+            Errors (
+            {
+              scanHistory.filter(
+                s =>
+                  s.result.includes('ERROR') ||
+                  s.result === 'AUTHENTICATION_FAILED',
+              ).length
+            }
+            )
           </Chip>
           <Chip
             selected={filterType === 'invalid'}
             onPress={() => setFilterType('invalid')}
-            style={styles.filterChip}
-          >
-            Invalid ({scanHistory.filter(s => s.result === 'INVALID_TAG' || s.result === 'NO_NFC').length})
+            style={styles.filterChip}>
+            Invalid (
+            {
+              scanHistory.filter(
+                s => s.result === 'INVALID_TAG' || s.result === 'NO_NFC',
+              ).length
+            }
+            )
           </Chip>
         </View>
-        
+
         <IconButton
           icon="sort"
           size={24}
           onPress={() => setShowSortModal(true)}
         />
       </View>
-      
+
       <View style={styles.resultsInfo}>
         <Text style={styles.resultsText}>
           {filteredHistory.length} of {scanHistory.length} scans
@@ -484,11 +490,11 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
   return (
     <View style={styles.container}>
       {renderHeader()}
-      
+
       <FlatList
         data={filteredHistory}
         renderItem={renderScanItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -502,10 +508,9 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
             <IconButton icon="history" size={48} iconColor="#ccc" />
             <Text style={styles.emptyText}>No scan history found</Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery || filterType !== 'all' 
-                ? 'Try adjusting your search or filters' 
-                : 'Start scanning NFC tags to see history here'
-              }
+              {searchQuery || filterType !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'Start scanning NFC tags to see history here'}
             </Text>
           </View>
         }

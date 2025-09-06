@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  Linking,
-} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {View, StyleSheet, ScrollView, Alert, Linking} from 'react-native';
 import {
   Card,
   Title,
@@ -20,7 +14,7 @@ import {
   RadioButton,
   IconButton,
 } from 'react-native-paper';
-import { NavigationProps } from '../types/Navigation';
+import {NavigationProps} from '../types/Navigation';
 
 interface SettingsScreenProps extends NavigationProps {}
 
@@ -51,7 +45,9 @@ interface AppSettings {
   };
 }
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({
+  navigation: _navigation,
+}) => {
   const [settings, setSettings] = useState<AppSettings>({
     nfcSettings: {
       enableAutoScan: true,
@@ -98,10 +94,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
     setSettings(newSettings);
   };
 
-  const updateSetting = <K extends keyof AppSettings, T extends keyof AppSettings[K]>(
+  const updateSetting = <
+    K extends keyof AppSettings,
+    T extends keyof AppSettings[K],
+  >(
     category: K,
     setting: T,
-    value: AppSettings[K][T]
+    value: AppSettings[K][T],
   ) => {
     const newSettings = {
       ...settings,
@@ -118,7 +117,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
       'Reset Settings',
       'This will reset all settings to their default values. Are you sure?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {text: 'Cancel', style: 'cancel'},
         {
           text: 'Reset',
           style: 'destructive',
@@ -153,7 +152,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
             saveSettings(defaultSettings);
           },
         },
-      ]
+      ],
     );
   };
 
@@ -162,7 +161,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
       'Clear All Data',
       'This will permanently delete all scan history, saved components, and cached data. This action cannot be undone.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {text: 'Cancel', style: 'cancel'},
         {
           text: 'Clear Data',
           style: 'destructive',
@@ -171,18 +170,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
             Alert.alert('Success', 'All data has been cleared.');
           },
         },
-      ]
+      ],
     );
   };
 
   const handleExportData = () => {
     // TODO: Export data to file
-    Alert.alert('Export Data', 'Data export functionality would be implemented here.');
+    Alert.alert(
+      'Export Data',
+      'Data export functionality would be implemented here.',
+    );
   };
 
   const handleImportData = () => {
     // TODO: Import data from file
-    Alert.alert('Import Data', 'Data import functionality would be implemented here.');
+    Alert.alert(
+      'Import Data',
+      'Data import functionality would be implemented here.',
+    );
   };
 
   const openAppSettings = () => {
@@ -194,10 +199,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
       <Modal
         visible={showTimeoutModal}
         onDismiss={() => setShowTimeoutModal(false)}
-        contentContainerStyle={styles.modalContent}
-      >
+        contentContainerStyle={styles.modalContent}>
         <Title>Scan Timeout</Title>
-        <Paragraph>Set the maximum time to wait for NFC tag detection (1-30 seconds)</Paragraph>
+        <Paragraph>
+          Set the maximum time to wait for NFC tag detection (1-30 seconds)
+        </Paragraph>
         <TextInput
           label="Timeout (seconds)"
           value={tempTimeout}
@@ -209,8 +215,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
           <Button
             mode="outlined"
             onPress={() => setShowTimeoutModal(false)}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Cancel
           </Button>
           <Button
@@ -221,11 +226,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                 updateSetting('nfcSettings', 'scanTimeout', timeout);
                 setShowTimeoutModal(false);
               } else {
-                Alert.alert('Invalid Value', 'Timeout must be between 1 and 30 seconds');
+                Alert.alert(
+                  'Invalid Value',
+                  'Timeout must be between 1 and 30 seconds',
+                );
               }
             }}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Save
           </Button>
         </View>
@@ -238,8 +245,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
       <Modal
         visible={showRetentionModal}
         onDismiss={() => setShowRetentionModal(false)}
-        contentContainerStyle={styles.modalContent}
-      >
+        contentContainerStyle={styles.modalContent}>
         <Title>Data Retention Period</Title>
         <Paragraph>Set how long to keep scan history (7-1095 days)</Paragraph>
         <TextInput
@@ -253,8 +259,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
           <Button
             mode="outlined"
             onPress={() => setShowRetentionModal(false)}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Cancel
           </Button>
           <Button
@@ -265,11 +270,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                 updateSetting('dataSettings', 'retentionPeriod', days);
                 setShowRetentionModal(false);
               } else {
-                Alert.alert('Invalid Value', 'Retention period must be between 7 and 1095 days');
+                Alert.alert(
+                  'Invalid Value',
+                  'Retention period must be between 7 and 1095 days',
+                );
               }
             }}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Save
           </Button>
         </View>
@@ -284,20 +291,20 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
         <Card style={styles.card}>
           <Card.Content>
             <Title>NFC Settings</Title>
-            
+
             <List.Item
               title="Auto Scan"
               description="Automatically start scanning when opening the app"
               right={() => (
                 <Switch
                   value={settings.nfcSettings.enableAutoScan}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('nfcSettings', 'enableAutoScan', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Scan Timeout"
               description={`Wait ${settings.nfcSettings.scanTimeout} seconds for tag detection`}
@@ -312,7 +319,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                 />
               )}
             />
-            
+
             <List.Item
               title="Retry Attempts"
               description={`Retry ${settings.nfcSettings.retryAttempts} times on failure`}
@@ -321,44 +328,54 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                   <IconButton
                     icon="minus"
                     size={16}
-                    onPress={() => 
+                    onPress={() =>
                       settings.nfcSettings.retryAttempts > 1 &&
-                      updateSetting('nfcSettings', 'retryAttempts', settings.nfcSettings.retryAttempts - 1)
+                      updateSetting(
+                        'nfcSettings',
+                        'retryAttempts',
+                        settings.nfcSettings.retryAttempts - 1,
+                      )
                     }
                   />
-                  <Text style={styles.retryValue}>{settings.nfcSettings.retryAttempts}</Text>
+                  <Text style={styles.retryValue}>
+                    {settings.nfcSettings.retryAttempts}
+                  </Text>
                   <IconButton
                     icon="plus"
                     size={16}
-                    onPress={() => 
+                    onPress={() =>
                       settings.nfcSettings.retryAttempts < 10 &&
-                      updateSetting('nfcSettings', 'retryAttempts', settings.nfcSettings.retryAttempts + 1)
+                      updateSetting(
+                        'nfcSettings',
+                        'retryAttempts',
+                        settings.nfcSettings.retryAttempts + 1,
+                      )
                     }
                   />
                 </View>
               )}
             />
-            
+
             <List.Item
               title="Haptic Feedback"
               description="Vibrate on successful scan"
               right={() => (
                 <Switch
                   value={settings.nfcSettings.enableHapticFeedback}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('nfcSettings', 'enableHapticFeedback', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Sound Feedback"
               description="Play sound on successful scan"
               right={() => (
                 <Switch
                   value={settings.nfcSettings.enableSoundFeedback}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('nfcSettings', 'enableSoundFeedback', value)
                   }
                 />
@@ -371,18 +388,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
         <Card style={styles.card}>
           <Card.Content>
             <Title>Display Settings</Title>
-            
+
             <List.Item
               title="Theme"
               description={`Current: ${settings.displaySettings.theme}`}
               right={() => (
                 <View style={styles.themeButtons}>
                   <RadioButton.Group
-                    onValueChange={(value) => 
-                      updateSetting('displaySettings', 'theme', value as 'auto' | 'light' | 'dark')
+                    onValueChange={value =>
+                      updateSetting(
+                        'displaySettings',
+                        'theme',
+                        value as 'auto' | 'light' | 'dark',
+                      )
                     }
-                    value={settings.displaySettings.theme}
-                  >
+                    value={settings.displaySettings.theme}>
                     <View style={styles.themeOptions}>
                       <View style={styles.themeOption}>
                         <RadioButton value="auto" />
@@ -401,43 +421,46 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                 </View>
               )}
             />
-            
+
             <List.Item
               title="Animations"
               description="Enable smooth transitions and animations"
               right={() => (
                 <Switch
                   value={settings.displaySettings.enableAnimations}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('displaySettings', 'enableAnimations', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Advanced Info"
               description="Show technical details in scan results"
               right={() => (
                 <Switch
                   value={settings.displaySettings.showAdvancedInfo}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('displaySettings', 'showAdvancedInfo', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Default Sort Order"
               description={`Sort by ${settings.displaySettings.defaultSortOrder} by default`}
               right={() => (
                 <RadioButton.Group
-                  onValueChange={(value) => 
-                    updateSetting('displaySettings', 'defaultSortOrder', value as 'date' | 'name' | 'type')
+                  onValueChange={value =>
+                    updateSetting(
+                      'displaySettings',
+                      'defaultSortOrder',
+                      value as 'date' | 'name' | 'type',
+                    )
                   }
-                  value={settings.displaySettings.defaultSortOrder}
-                >
+                  value={settings.displaySettings.defaultSortOrder}>
                   <View style={styles.sortOptions}>
                     <View style={styles.sortOption}>
                       <RadioButton value="date" />
@@ -462,33 +485,33 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
         <Card style={styles.card}>
           <Card.Content>
             <Title>Data Settings</Title>
-            
+
             <List.Item
               title="Cloud Sync"
               description="Sync data across devices (requires account)"
               right={() => (
                 <Switch
                   value={settings.dataSettings.enableCloudSync}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('dataSettings', 'enableCloudSync', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Auto Backup"
               description="Automatically backup scan data locally"
               right={() => (
                 <Switch
                   value={settings.dataSettings.autoBackup}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('dataSettings', 'autoBackup', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Data Retention"
               description={`Keep data for ${settings.dataSettings.retentionPeriod} days`}
@@ -497,13 +520,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                   icon="pencil"
                   size={20}
                   onPress={() => {
-                    setTempRetention(settings.dataSettings.retentionPeriod.toString());
+                    setTempRetention(
+                      settings.dataSettings.retentionPeriod.toString(),
+                    );
                     setShowRetentionModal(true);
                   }}
                 />
               )}
             />
-            
+
             <List.Item
               title="Max History Entries"
               description={`Keep up to ${settings.dataSettings.maxHistoryEntries} scan records`}
@@ -512,18 +537,28 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
                   <IconButton
                     icon="minus"
                     size={16}
-                    onPress={() => 
+                    onPress={() =>
                       settings.dataSettings.maxHistoryEntries > 100 &&
-                      updateSetting('dataSettings', 'maxHistoryEntries', settings.dataSettings.maxHistoryEntries - 100)
+                      updateSetting(
+                        'dataSettings',
+                        'maxHistoryEntries',
+                        settings.dataSettings.maxHistoryEntries - 100,
+                      )
                     }
                   />
-                  <Text style={styles.historyValue}>{settings.dataSettings.maxHistoryEntries}</Text>
+                  <Text style={styles.historyValue}>
+                    {settings.dataSettings.maxHistoryEntries}
+                  </Text>
                   <IconButton
                     icon="plus"
                     size={16}
-                    onPress={() => 
+                    onPress={() =>
                       settings.dataSettings.maxHistoryEntries < 10000 &&
-                      updateSetting('dataSettings', 'maxHistoryEntries', settings.dataSettings.maxHistoryEntries + 100)
+                      updateSetting(
+                        'dataSettings',
+                        'maxHistoryEntries',
+                        settings.dataSettings.maxHistoryEntries + 100,
+                      )
                     }
                   />
                 </View>
@@ -546,11 +581,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
             </Button>
           </Card.Actions>
           <Card.Actions style={styles.dataActions}>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               textColor="#F44336"
-              onPress={handleClearData}
-            >
+              onPress={handleClearData}>
               Clear All Data
             </Button>
           </Card.Actions>
@@ -560,40 +594,44 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
         <Card style={styles.card}>
           <Card.Content>
             <Title>Privacy Settings</Title>
-            
+
             <List.Item
               title="Analytics"
               description="Help improve the app by sharing usage analytics"
               right={() => (
                 <Switch
                   value={settings.privacySettings.enableAnalytics}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('privacySettings', 'enableAnalytics', value)
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Crash Reporting"
               description="Automatically report crashes to help fix bugs"
               right={() => (
                 <Switch
                   value={settings.privacySettings.enableCrashReporting}
-                  onValueChange={(value) => 
-                    updateSetting('privacySettings', 'enableCrashReporting', value)
+                  onValueChange={value =>
+                    updateSetting(
+                      'privacySettings',
+                      'enableCrashReporting',
+                      value,
+                    )
                   }
                 />
               )}
             />
-            
+
             <List.Item
               title="Share Usage Data"
               description="Share anonymous usage patterns for research"
               right={() => (
                 <Switch
                   value={settings.privacySettings.shareUsageData}
-                  onValueChange={(value) => 
+                  onValueChange={value =>
                     updateSetting('privacySettings', 'shareUsageData', value)
                   }
                 />
@@ -627,7 +665,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
             </View>
             <View style={styles.aboutRow}>
               <Text style={styles.aboutLabel}>Build Date</Text>
-              <Text style={styles.aboutValue}>{new Date().toLocaleDateString()}</Text>
+              <Text style={styles.aboutValue}>
+                {new Date().toLocaleDateString()}
+              </Text>
             </View>
             <View style={styles.aboutRow}>
               <Text style={styles.aboutLabel}>React Native</Text>
@@ -635,7 +675,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation: _navigation
             </View>
           </Card.Content>
           <Card.Actions>
-            <Button onPress={() => Linking.openURL('https://github.com/your-repo/b-scan')}>
+            <Button
+              onPress={() =>
+                Linking.openURL('https://github.com/your-repo/b-scan')
+              }>
               GitHub Repository
             </Button>
           </Card.Actions>

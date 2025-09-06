@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import React, {useState, useEffect, useCallback} from 'react';
+import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {
   Card,
   Title,
@@ -20,8 +15,8 @@ import {
   ActivityIndicator,
   ProgressBar,
 } from 'react-native-paper';
-import { NavigationProps } from '../types/Navigation';
-import { PhysicalComponent, TagFormat, EntityType } from '../types/FilamentInfo';
+import {NavigationProps} from '../types/Navigation';
+import {PhysicalComponent, TagFormat, EntityType} from '../types/FilamentInfo';
 
 interface ComponentDetailScreenProps extends NavigationProps {
   route: {
@@ -48,11 +43,16 @@ interface MaintenanceRecord {
   duration?: number;
 }
 
-const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigation, route }) => {
-  const { identifier } = route.params;
+const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({
+  navigation,
+  route,
+}) => {
+  const {identifier} = route.params;
   const [component, setComponent] = useState<PhysicalComponent | null>(null);
   const [usageHistory, setUsageHistory] = useState<UsageHistory[]>([]);
-  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
+  const [maintenanceRecords, setMaintenanceRecords] = useState<
+    MaintenanceRecord[]
+  >([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showWeightModal, setShowWeightModal] = useState<boolean>(false);
   const [showNotesModal, setShowNotesModal] = useState<boolean>(false);
@@ -87,7 +87,8 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
           dryingTime: 4,
         },
         currentWeight: 850,
-        notes: 'High quality filament, prints well with default settings. Stored in dry box.',
+        notes:
+          'High quality filament, prints well with default settings. Stored in dry box.',
       };
 
       const mockUsage: UsageHistory[] = [
@@ -158,9 +159,14 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
 
   const calculateRemainingPercentage = (): number => {
     if (!component) return 0;
-    const filamentWeight = component.currentWeight! - component.filamentInfo.spoolWeight;
-    const originalFilamentWeight = component.filamentInfo.filamentLength * 1.24 / 1000;
-    return Math.max(0, Math.min(100, (filamentWeight / originalFilamentWeight) * 100));
+    const filamentWeight =
+      component.currentWeight! - component.filamentInfo.spoolWeight;
+    const originalFilamentWeight =
+      (component.filamentInfo.filamentLength * 1.24) / 1000;
+    return Math.max(
+      0,
+      Math.min(100, (filamentWeight / originalFilamentWeight) * 100),
+    );
   };
 
   const handleUpdateWeight = () => {
@@ -194,14 +200,14 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
 
   const handleStartDrying = () => {
     if (!component) return;
-    
+
     Alert.alert(
       'Start Drying Process',
       `Recommended settings:\nTemperature: ${component.filamentInfo.dryingTemperature}°C\nDuration: ${component.filamentInfo.dryingTime} hours`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Start', 
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Start',
           onPress: () => {
             const newRecord: MaintenanceRecord = {
               id: `maint-${Date.now()}`,
@@ -213,9 +219,9 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
             };
             setMaintenanceRecords([newRecord, ...maintenanceRecords]);
             Alert.alert('Drying Started', 'Maintenance record has been added.');
-          }
+          },
         },
-      ]
+      ],
     );
   };
 
@@ -237,8 +243,7 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
       <Modal
         visible={showWeightModal}
         onDismiss={() => setShowWeightModal(false)}
-        contentContainerStyle={styles.modalContent}
-      >
+        contentContainerStyle={styles.modalContent}>
         <Title>Update Current Weight</Title>
         <TextInput
           label="Current weight (grams)"
@@ -251,15 +256,13 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
           <Button
             mode="outlined"
             onPress={() => setShowWeightModal(false)}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Cancel
           </Button>
           <Button
             mode="contained"
             onPress={handleUpdateWeight}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Update
           </Button>
         </View>
@@ -272,8 +275,7 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
       <Modal
         visible={showNotesModal}
         onDismiss={() => setShowNotesModal(false)}
-        contentContainerStyle={styles.modalContent}
-      >
+        contentContainerStyle={styles.modalContent}>
         <Title>Edit Notes</Title>
         <TextInput
           label="Notes"
@@ -287,15 +289,13 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
           <Button
             mode="outlined"
             onPress={() => setShowNotesModal(false)}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Cancel
           </Button>
           <Button
             mode="contained"
             onPress={handleUpdateNotes}
-            style={styles.modalButton}
-          >
+            style={styles.modalButton}>
             Save
           </Button>
         </View>
@@ -333,15 +333,17 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
           <Card.Content>
             <View style={styles.header}>
               <View style={styles.colorInfo}>
-                <View 
+                <View
                   style={[
-                    styles.colorSwatch, 
-                    { backgroundColor: component.filamentInfo.colorHex }
-                  ]} 
+                    styles.colorSwatch,
+                    {backgroundColor: component.filamentInfo.colorHex},
+                  ]}
                 />
                 <View style={styles.headerText}>
                   <Title>{component.filamentInfo.filamentType}</Title>
-                  <Paragraph>{component.filamentInfo.manufacturerName}</Paragraph>
+                  <Paragraph>
+                    {component.filamentInfo.manufacturerName}
+                  </Paragraph>
                   <Chip style={styles.formatChip}>
                     {getTagFormatLabel(component.filamentInfo.tagFormat)}
                   </Chip>
@@ -350,10 +352,12 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
               <IconButton
                 icon="pencil"
                 size={24}
-                onPress={() => navigation.navigate('EntityDetail', { 
-                  entityId: component.id, 
-                  entityType: component.type.toString() 
-                })}
+                onPress={() =>
+                  navigation.navigate('EntityDetail', {
+                    entityId: component.id,
+                    entityType: component.type.toString(),
+                  })
+                }
               />
             </View>
           </Card.Content>
@@ -370,18 +374,21 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
                 onPress={() => {
                   setNewWeight(component.currentWeight?.toString() || '');
                   setShowWeightModal(true);
-                }}
-              >
+                }}>
                 Update Weight
               </Button>
             </View>
             <View style={styles.weightStats}>
               <View style={styles.weightStat}>
-                <Text style={styles.weightNumber}>{formatWeight(component.currentWeight || 0)}</Text>
+                <Text style={styles.weightNumber}>
+                  {formatWeight(component.currentWeight || 0)}
+                </Text>
                 <Text style={styles.weightLabel}>Current Weight</Text>
               </View>
               <View style={styles.weightStat}>
-                <Text style={styles.weightNumber}>{remainingPercentage.toFixed(0)}%</Text>
+                <Text style={styles.weightNumber}>
+                  {remainingPercentage.toFixed(0)}%
+                </Text>
                 <Text style={styles.weightLabel}>Remaining</Text>
               </View>
             </View>
@@ -400,19 +407,27 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
             <View style={styles.propertyGrid}>
               <View style={styles.propertyItem}>
                 <Text style={styles.propertyLabel}>Diameter</Text>
-                <Text style={styles.propertyValue}>{component.filamentInfo.filamentDiameter}mm</Text>
+                <Text style={styles.propertyValue}>
+                  {component.filamentInfo.filamentDiameter}mm
+                </Text>
               </View>
               <View style={styles.propertyItem}>
                 <Text style={styles.propertyLabel}>Length</Text>
-                <Text style={styles.propertyValue}>{(component.filamentInfo.filamentLength / 1000).toFixed(0)}m</Text>
+                <Text style={styles.propertyValue}>
+                  {(component.filamentInfo.filamentLength / 1000).toFixed(0)}m
+                </Text>
               </View>
               <View style={styles.propertyItem}>
                 <Text style={styles.propertyLabel}>Spool Weight</Text>
-                <Text style={styles.propertyValue}>{formatWeight(component.filamentInfo.spoolWeight)}</Text>
+                <Text style={styles.propertyValue}>
+                  {formatWeight(component.filamentInfo.spoolWeight)}
+                </Text>
               </View>
               <View style={styles.propertyItem}>
                 <Text style={styles.propertyLabel}>Production Date</Text>
-                <Text style={styles.propertyValue}>{component.filamentInfo.productionDate}</Text>
+                <Text style={styles.propertyValue}>
+                  {component.filamentInfo.productionDate}
+                </Text>
               </View>
             </View>
           </Card.Content>
@@ -425,12 +440,15 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
             <View style={styles.settingsRow}>
               <Text style={styles.settingLabel}>Nozzle Temperature</Text>
               <Text style={styles.settingValue}>
-                {component.filamentInfo.minTemperature}°C - {component.filamentInfo.maxTemperature}°C
+                {component.filamentInfo.minTemperature}°C -{' '}
+                {component.filamentInfo.maxTemperature}°C
               </Text>
             </View>
             <View style={styles.settingsRow}>
               <Text style={styles.settingLabel}>Bed Temperature</Text>
-              <Text style={styles.settingValue}>{component.filamentInfo.bedTemperature}°C</Text>
+              <Text style={styles.settingValue}>
+                {component.filamentInfo.bedTemperature}°C
+              </Text>
             </View>
           </Card.Content>
           <Card.Actions>
@@ -457,7 +475,7 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
         <Card style={styles.card}>
           <Card.Content>
             <Title>Recent Usage</Title>
-            {usageHistory.map((usage) => (
+            {usageHistory.map(usage => (
               <Surface key={usage.id} style={styles.usageItem} elevation={1}>
                 <View style={styles.usageHeader}>
                   <Text style={styles.usageTitle}>{usage.printJob}</Text>
@@ -487,16 +505,27 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
         <Card style={styles.card}>
           <Card.Content>
             <Title>Maintenance History</Title>
-            {maintenanceRecords.map((record) => (
-              <Surface key={record.id} style={styles.maintenanceItem} elevation={1}>
+            {maintenanceRecords.map(record => (
+              <Surface
+                key={record.id}
+                style={styles.maintenanceItem}
+                elevation={1}>
                 <View style={styles.maintenanceHeader}>
                   <IconButton
-                    icon={record.type === 'drying' ? 'heat-wave' : record.type === 'storage' ? 'archive' : 'tools'}
+                    icon={
+                      record.type === 'drying'
+                        ? 'heat-wave'
+                        : record.type === 'storage'
+                        ? 'archive'
+                        : 'tools'
+                    }
                     size={20}
                     iconColor="#6200EE"
                   />
                   <View style={styles.maintenanceContent}>
-                    <Text style={styles.maintenanceTitle}>{record.description}</Text>
+                    <Text style={styles.maintenanceTitle}>
+                      {record.description}
+                    </Text>
                     <Text style={styles.maintenanceDate}>
                       {new Date(record.timestamp).toLocaleDateString()}
                     </Text>
