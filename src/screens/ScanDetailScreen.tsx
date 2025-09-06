@@ -49,10 +49,6 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
   const [diagnostics, setDiagnostics] = useState<ScanDiagnostics | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    loadScanDetails();
-  }, [scanId, loadScanDetails]);
-
   const loadScanDetails = useCallback(async () => {
     setIsLoading(true);
     // Simulate loading scan details
@@ -65,6 +61,10 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ navigation, route }
       setIsLoading(false);
     }, 500);
   }, [scanId]);
+
+  useEffect(() => {
+    loadScanDetails();
+  }, [scanId, loadScanDetails]);
 
   const createMockScanEntry = (id: string): ScanHistoryEntry => {
     // Create different mock data based on scan ID for variety

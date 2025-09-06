@@ -21,7 +21,7 @@ import {
   ProgressBar,
 } from 'react-native-paper';
 import { NavigationProps } from '../types/Navigation';
-import { PhysicalComponent, TagFormat } from '../types/FilamentInfo';
+import { PhysicalComponent, TagFormat, EntityType } from '../types/FilamentInfo';
 
 interface ComponentDetailScreenProps extends NavigationProps {
   route: {
@@ -58,10 +58,6 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
   const [showNotesModal, setShowNotesModal] = useState<boolean>(false);
   const [newWeight, setNewWeight] = useState<string>('');
   const [newNotes, setNewNotes] = useState<string>('');
-
-  useEffect(() => {
-    loadComponentDetails();
-  }, [identifier, loadComponentDetails]);
 
   const loadComponentDetails = useCallback(async () => {
     setIsLoading(true);
@@ -142,6 +138,10 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
       setIsLoading(false);
     }, 500);
   }, [identifier]);
+
+  useEffect(() => {
+    loadComponentDetails();
+  }, [identifier, loadComponentDetails]);
 
   const getTagFormatLabel = (format: TagFormat): string => {
     switch (format) {

@@ -51,10 +51,6 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [_isEditing, _setIsEditing] = useState<boolean>(false);
 
-  useEffect(() => {
-    loadEntityDetails();
-  }, [entityId, loadEntityDetails]);
-
   const loadEntityDetails = useCallback(async () => {
     setIsLoading(true);
     // Simulate loading entity data
@@ -67,6 +63,10 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({ navigation, rou
       setIsLoading(false);
     }, 500);
   }, [entityId, entityType]);
+
+  useEffect(() => {
+    loadEntityDetails();
+  }, [entityId, loadEntityDetails]);
 
   const createMockEntity = (id: string, type: EntityType): GraphEntity => {
     const baseEntity = {

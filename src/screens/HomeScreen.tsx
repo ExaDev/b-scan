@@ -28,11 +28,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const nfcManager = NfcManagerService.getInstance();
 
-  useEffect(() => {
-    checkNfcStatus();
-    initializeNfc();
-  }, [checkNfcStatus, initializeNfc]);
-
   const checkNfcStatus = useCallback(async () => {
     const enabled = await nfcManager.isNfcEnabled();
     setIsNfcEnabled(enabled);
@@ -48,6 +43,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       );
     }
   }, [nfcManager]);
+
+  useEffect(() => {
+    checkNfcStatus();
+    initializeNfc();
+  }, [checkNfcStatus, initializeNfc]);
 
   const handleStartScan = async () => {
     if (!isNfcEnabled) {
