@@ -1,4 +1,4 @@
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { 
   FilamentInfo, 
   TagFormat, 
@@ -166,7 +166,7 @@ export class NfcManagerService {
       
       const ndefRecords = await NfcManager.ndefHandler.getNdefMessage();
       
-      if (!ndefRecords || ndefRecords.length === 0) {
+      if (!ndefRecords || !Array.isArray(ndefRecords) || ndefRecords.length === 0) {
         return null;
       }
 
