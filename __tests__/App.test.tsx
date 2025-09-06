@@ -21,7 +21,7 @@ describe('B-Scan App', () => {
     await ReactTestRenderer.act(() => {
       tree = ReactTestRenderer.create(<App />);
     });
-    
+
     if (tree) {
       const root = tree.root;
       expect(root).toBeTruthy();
