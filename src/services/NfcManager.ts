@@ -4,7 +4,7 @@
  */
 
 import NfcLib, { NfcTech } from 'react-native-nfc-manager';
-import { FilamentInfo, TagFormat } from '../types/FilamentInfo';
+import { FilamentInfo, TagFormat, ScanProgress, ScanStage, TagReadResult as FilamentTagReadResult } from '../types/FilamentInfo';
 import { BambuKeyDerivation } from './BambuKeyDerivation';
 
 export interface TagData {
@@ -24,7 +24,7 @@ export interface TagReadResult {
 export class NfcManager {
   private isInitialized = false;
   private isScanning = false;
-  private scanTimeout?: NodeJS.Timeout;
+  private scanTimeout?: ReturnType<typeof setTimeout>;
   private progressCallback?: (progress: ScanProgress) => void;
 
   constructor() {
@@ -159,6 +159,34 @@ export class NfcManager {
       }
     } catch (error) {
       console.error('Error during cleanup:', error);
+    }
+  }
+
+  /**
+   * Set scan progress callback
+   */
+  setScanProgressCallback(callback: (progress: ScanProgress) => void): void {
+    this.progressCallback = callback;
+  }
+
+  /**
+   * Stop ongoing scan
+   */
+  async stopScan(): Promise<void> {
+    await this.cancelScan();
+  }
+
+  /**
+   * Update scan progress and notify callback
+   */
+  private updateProgress(stage: ScanStage, percentage: number, currentSector: number, statusMessage: string): void {
+    if (this.progressCallback) {
+      this.progressCallback({
+        stage,
+        percentage,
+        currentSector,
+        statusMessage
+      });
     }
   }
 
