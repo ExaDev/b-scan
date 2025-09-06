@@ -21,7 +21,7 @@ import {
   FAB,
 } from 'react-native-paper';
 import { NavigationProps } from '../types/Navigation';
-import { ScanHistoryEntry, TagReadResult } from '../types/FilamentInfo';
+import { ScanHistoryEntry, TagReadResult, TagFormat } from '../types/FilamentInfo';
 
 interface ScanHistoryScreenProps extends NavigationProps {}
 
@@ -123,7 +123,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
           filamentInfo: {
             tagUid: 'AB:CD:EF:12:34:56',
             trayUid: 'TR001',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'Bambu Lab',
             filamentType: 'PLA Basic',
             colorHex: '#FF6600',
@@ -146,7 +146,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
           filamentInfo: {
             tagUid: 'CD:EF:12:34:56:78',
             trayUid: 'TR002',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'PolyMaker',
             filamentType: 'PETG Carbon Fiber',
             colorHex: '#2C2C2C',
@@ -180,7 +180,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ navigation }) => 
           filamentInfo: {
             tagUid: 'EF:12:34:56:78:9A',
             trayUid: 'TR003',
-            tagFormat: 0,
+            tagFormat: TagFormat.BAMBU_LAB,
             manufacturerName: 'Hatchbox',
             filamentType: 'ABS',
             colorHex: '#FFFFFF',
