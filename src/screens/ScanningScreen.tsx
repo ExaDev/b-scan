@@ -17,7 +17,7 @@ import {
 } from 'react-native-paper';
 import { NfcManagerService } from '../services/NfcManager';
 import { NavigationProps } from '../types/Navigation';
-import { ScanProgress, ScanStage, TagReadResult, FilamentInfo } from '../types/FilamentInfo';
+import { ScanProgress, ScanStage, TagReadResult } from '../types/FilamentInfo';
 
 interface ScanningScreenProps extends NavigationProps {
   route: {
@@ -74,9 +74,74 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
       setIsScanning(false);
 
       if (result.type === 'SUCCESS') {
-        handleScanSuccess(result.filamentInfo);
+        // Handle success inline to avoid circular dependency
+        Alert.alert(
+          'Scan Successful!',
+          `Found ${result.filamentInfo.manufacturerName} ${result.filamentInfo.filamentType} - ${result.filamentInfo.colorName}`,
+          [
+            {
+              text: 'View Details',
+              onPress: () => {
+                navigation.replace('ComponentDetail', { 
+                  identifier: result.filamentInfo.tagUid 
+                });
+              }
+            },
+            {
+              text: 'Scan Another',
+              onPress: () => {
+                startScan();
+              }
+            },
+          ]
+        );
       } else {
-        handleScanError(result);
+        // Handle error inline to avoid circular dependency
+        let title = 'Scan Error';
+        let message = 'Failed to read the NFC tag.';
+
+        switch (result.type) {
+          case 'NO_NFC':
+            title = 'NFC Not Available';
+            message = 'NFC is not supported or enabled on this device.';
+            break;
+          case 'INVALID_TAG':
+            title = 'Invalid Tag';
+            message = 'The NFC tag format is not supported.';
+            break;
+          case 'AUTHENTICATION_FAILED':
+            title = 'Authentication Failed';
+            message = 'Could not authenticate with the NFC tag. It may be protected or corrupted.';
+            break;
+          case 'READ_ERROR':
+            title = 'Read Error';
+            message = result.error || 'Unknown error occurred while reading the tag.';
+            break;
+          case 'PARSING_ERROR':
+            title = 'Parsing Error';
+            message = result.error || 'Could not parse the data from the tag.';
+            break;
+        }
+
+        Alert.alert(
+          title,
+          message,
+          [
+            {
+              text: 'Try Again',
+              onPress: () => {
+                startScan();
+              }
+            },
+            {
+              text: 'Cancel',
+              onPress: () => {
+                navigation.navigate('Home');
+              },
+              style: 'cancel'
+            },
+          ]
+        );
       }
     } catch (error) {
       console.error('Scanning error:', error);
@@ -86,79 +151,7 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({ navigation, route: _rou
       });
       setIsScanning(false);
     }
-  }, [nfcManager, handleScanSuccess, handleScanError]);
-
-  const handleScanSuccess = useCallback((filamentInfo: FilamentInfo) => {
-    Alert.alert(
-      'Scan Successful!',
-      `Found ${filamentInfo.manufacturerName} ${filamentInfo.filamentType} - ${filamentInfo.colorName}`,
-      [
-        {
-          text: 'View Details',
-          onPress: () => {
-            navigation.replace('ComponentDetail', { 
-              identifier: filamentInfo.tagUid 
-            });
-          }
-        },
-        {
-          text: 'Scan Another',
-          onPress: () => {
-            startScan();
-          }
-        },
-        {
-          text: 'Back to Home',
-          onPress: () => {
-            navigation.navigate('Home');
-          }
-        }
-      ]
-    );
-  }, [navigation, startScan]);
-
-  const handleScanError = useCallback((result: TagReadResult) => {
-    let title = 'Scan Failed';
-    let message = 'Unknown error occurred';
-
-    switch (result.type) {
-      case 'NO_NFC':
-        title = 'NFC Not Available';
-        message = 'This device does not support NFC or NFC is disabled.';
-        break;
-      case 'INVALID_TAG':
-        title = 'Invalid Tag';
-        message = 'The tag could not be read. Please try again with a valid NFC tag.';
-        break;
-      case 'READ_ERROR':
-        title = 'Read Error';
-        message = `Failed to read tag: ${result.error || 'Unknown error'}`;
-        break;
-      case 'AUTHENTICATION_FAILED':
-        title = 'Authentication Failed';
-        message = 'Could not authenticate with the tag. This may not be a supported filament tag.';
-        break;
-      case 'PARSING_ERROR':
-        title = 'Parsing Error';
-        message = `Could not parse tag data: ${result.error || 'Unknown error'}`;
-        break;
-    }
-
-    Alert.alert(title, message, [
-      {
-        text: 'Try Again',
-        onPress: () => {
-          startScan();
-        }
-      },
-      {
-        text: 'Cancel',
-        onPress: () => {
-          navigation.navigate('Home');
-        }
-      }
-    ]);
-  }, [navigation, startScan]);
+  }, [nfcManager, navigation]);
 
   const handleBackPress = useCallback((): boolean => {
     if (isScanning) {
