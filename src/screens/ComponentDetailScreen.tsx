@@ -69,7 +69,7 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({ navigatio
     setTimeout(() => {
       const mockComponent: PhysicalComponent = {
         id: identifier,
-        type: 0, // EntityType.PHYSICAL_COMPONENT
+        type: EntityType.PHYSICAL_COMPONENT,
         createdAt: Date.now() - 1000 * 60 * 60 * 24 * 7, // 1 week ago
         updatedAt: Date.now() - 1000 * 60 * 30, // 30 minutes ago
         filamentInfo: {
