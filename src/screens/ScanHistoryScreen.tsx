@@ -15,14 +15,14 @@ import {
   ActivityIndicator,
   FAB,
 } from 'react-native-paper';
-import {NavigationProps} from '../types/Navigation';
+import {TabNavigationProps} from '../types/Navigation';
 import {
   ScanHistoryEntry,
   TagReadResult,
   TagFormat,
 } from '../types/FilamentInfo';
 
-interface ScanHistoryScreenProps extends NavigationProps {}
+interface ScanHistoryScreenProps extends TabNavigationProps {}
 
 type FilterType = 'all' | 'success' | 'error' | 'invalid';
 type SortType = 'date' | 'result' | 'type';
@@ -36,7 +36,6 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({navigation}) => {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('date');
   const [sortAscending, setSortAscending] = useState<boolean>(false);
-  const [_showFilterMenu, _setShowFilterMenu] = useState<boolean>(false);
   const [showSortModal, setShowSortModal] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -552,7 +551,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({navigation}) => {
         style={styles.fab}
         icon="nfc-tap"
         label="New Scan"
-        onPress={() => navigation.navigate('Scanning')}
+        onPress={() => navigation.navigate('Scanning', {})}
       />
     </View>
   );

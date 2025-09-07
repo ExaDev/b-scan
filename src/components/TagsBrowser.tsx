@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Text,
@@ -37,7 +37,7 @@ const TagsBrowser: React.FC<TagsBrowserProps> = ({onNavigateToDetails}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [graph] = useState(() => new Graph());
 
-  const loadTags = async () => {
+  const loadTags = useCallback(async () => {
     try {
       setError(null);
       
@@ -45,17 +45,26 @@ const TagsBrowser: React.FC<TagsBrowserProps> = ({onNavigateToDetails}) => {
       const identifierEntities = graph.findEntitiesByType(EntityType.IDENTIFIER) as IdentifierEntity[];
       
       // Transform identifier entities to display format
-      const displayTags: TagInfoDisplay[] = identifierEntities.map(entity => ({
-        id: entity.id,
-        uid: entity.value || entity.id,
-        type: entity.identifierType === 'RFID' ? 'MIFARE Classic 1K' : 
-              entity.identifierType === 'QR_CODE' ? 'QR Code' : 
-              entity.identifierType === 'BARCODE' ? 'Barcode' : 'Unknown',
-        lastScanned: new Date(entity.updatedAt || entity.createdAt),
-        scanCount: 1, // Default scan count
+      const displayTags: TagInfoDisplay[] = identifierEntities.map(entity => {
+        const tag: TagInfoDisplay = {
+          id: entity.id,
+          uid: entity.value || entity.id,
+          type: entity.identifierType === 'RFID' ? 'MIFARE Classic 1K' : 
+                entity.identifierType === 'QR_CODE' ? 'QR Code' : 
+                entity.identifierType === 'BARCODE' ? 'Barcode' : 'Unknown',
+          lastScanned: new Date(entity.updatedAt || entity.createdAt),
+          scanCount: 1, // Default scan count
+        };
+
+        // Conditionally add associatedSpool if it exists
         // Associated spool information would be derived from relationships
-        associatedSpool: undefined,
-      }));
+        const associatedSpool = undefined; // Would be populated from relationships
+        if (associatedSpool !== undefined) {
+          tag.associatedSpool = associatedSpool;
+        }
+
+        return tag;
+      });
       
       setTags(displayTags);
     } catch (err) {
@@ -65,11 +74,11 @@ const TagsBrowser: React.FC<TagsBrowserProps> = ({onNavigateToDetails}) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [graph]);
 
   useEffect(() => {
     loadTags();
-  }, [graph]);
+  }, [loadTags]);
 
   const onRefresh = async () => {
     setRefreshing(true);

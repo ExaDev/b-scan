@@ -18,13 +18,7 @@ import {
 import {NavigationProps} from '../types/Navigation';
 import {PhysicalComponent, TagFormat, EntityType} from '../types/FilamentInfo';
 
-interface ComponentDetailScreenProps extends NavigationProps {
-  route: {
-    params: {
-      identifier: string;
-    };
-  };
-}
+interface ComponentDetailScreenProps extends NavigationProps<'ComponentDetail'> {}
 
 interface UsageHistory {
   id: string;
@@ -505,7 +499,22 @@ const ComponentDetailScreen: React.FC<ComponentDetailScreenProps> = ({
             ))}
           </Card.Content>
           <Card.Actions>
-            <Button onPress={() => navigation.navigate('ScanHistory')}>
+            <Button onPress={() => navigation.reset({
+              index: 0,
+              routes: [
+                {
+                  name: 'MainTabs',
+                  state: {
+                    routes: [
+                      { name: 'Home' },
+                      { name: 'History' },
+                      { name: 'Settings' },
+                    ],
+                    index: 1, // Select History tab
+                  },
+                },
+              ],
+            })}>
               View All History
             </Button>
           </Card.Actions>

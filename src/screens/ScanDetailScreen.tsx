@@ -19,13 +19,7 @@ import {
   TagFormat,
 } from '../types/FilamentInfo';
 
-interface ScanDetailScreenProps extends NavigationProps {
-  route: {
-    params: {
-      scanId: string;
-    };
-  };
-}
+interface ScanDetailScreenProps extends NavigationProps<'ScanDetail'> {}
 
 interface ScanDiagnostics {
   nfcEnabled: boolean;
@@ -243,9 +237,12 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
   };
 
   const handleRescan = () => {
-    navigation.navigate('Scanning', {
-      tagUid: scanEntry?.filamentInfo?.tagUid,
-    });
+    const tagUid = scanEntry?.filamentInfo?.tagUid;
+    const navParams: { tagUid?: string } = {};
+    if (tagUid !== undefined) {
+      navParams.tagUid = tagUid;
+    }
+    navigation.navigate('Scanning', navParams);
   };
 
   const handleViewComponent = () => {
@@ -365,15 +362,9 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
               icon={diagnostics.nfcEnabled ? 'nfc' : 'nfc-off'}
               style={[
                 styles.diagnosticChip,
-                {
-                  backgroundColor: diagnostics.nfcEnabled
-                    ? '#4CAF5020'
-                    : '#F4433620',
-                },
+                diagnostics.nfcEnabled ? styles.nfcEnabledChip : styles.nfcDisabledChip,
               ]}
-              textStyle={{
-                color: diagnostics.nfcEnabled ? '#4CAF50' : '#F44336',
-              }}>
+              textStyle={diagnostics.nfcEnabled ? styles.nfcEnabledText : styles.nfcDisabledText}>
               {diagnostics.nfcEnabled ? 'Enabled' : 'Disabled'}
             </Chip>
           </View>
@@ -384,15 +375,9 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
               icon={diagnostics.tagDetected ? 'check' : 'close'}
               style={[
                 styles.diagnosticChip,
-                {
-                  backgroundColor: diagnostics.tagDetected
-                    ? '#4CAF5020'
-                    : '#F4433620',
-                },
+                diagnostics.tagDetected ? styles.tagDetectedChip : styles.tagNotFoundChip,
               ]}
-              textStyle={{
-                color: diagnostics.tagDetected ? '#4CAF50' : '#F44336',
-              }}>
+              textStyle={diagnostics.tagDetected ? styles.tagDetectedText : styles.tagNotFoundText}>
               {diagnostics.tagDetected ? 'Detected' : 'Not Found'}
             </Chip>
           </View>
@@ -411,23 +396,19 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
                 <Chip
                   style={[
                     styles.diagnosticChip,
-                    {
-                      backgroundColor:
-                        diagnostics.dataIntegrity === 'good'
-                          ? '#4CAF5020'
-                          : diagnostics.dataIntegrity === 'partial'
-                          ? '#FF980020'
-                          : '#F4433620',
-                    },
+                    diagnostics.dataIntegrity === 'good'
+                      ? styles.dataIntegrityGoodChip
+                      : diagnostics.dataIntegrity === 'partial'
+                      ? styles.dataIntegrityPartialChip
+                      : styles.dataIntegrityCorruptedChip,
                   ]}
-                  textStyle={{
-                    color:
-                      diagnostics.dataIntegrity === 'good'
-                        ? '#4CAF50'
-                        : diagnostics.dataIntegrity === 'partial'
-                        ? '#FF9800'
-                        : '#F44336',
-                  }}>
+                  textStyle={
+                    diagnostics.dataIntegrity === 'good'
+                      ? styles.dataIntegrityGoodText
+                      : diagnostics.dataIntegrity === 'partial'
+                      ? styles.dataIntegrityPartialText
+                      : styles.dataIntegrityCorruptedText
+                  }>
                   {diagnostics.dataIntegrity.toUpperCase()}
                 </Chip>
               </View>
@@ -437,23 +418,19 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
                 <Chip
                   style={[
                     styles.diagnosticChip,
-                    {
-                      backgroundColor:
-                        diagnostics.authenticationStatus === 'success'
-                          ? '#4CAF5020'
-                          : diagnostics.authenticationStatus === 'failed'
-                          ? '#F4433620'
-                          : '#75757520',
-                    },
+                    diagnostics.authenticationStatus === 'success'
+                      ? styles.authSuccessChip
+                      : diagnostics.authenticationStatus === 'failed'
+                      ? styles.authFailedChip
+                      : styles.authNotRequiredChip,
                   ]}
-                  textStyle={{
-                    color:
-                      diagnostics.authenticationStatus === 'success'
-                        ? '#4CAF50'
-                        : diagnostics.authenticationStatus === 'failed'
-                        ? '#F44336'
-                        : '#757575',
-                  }}>
+                  textStyle={
+                    diagnostics.authenticationStatus === 'success'
+                      ? styles.authSuccessText
+                      : diagnostics.authenticationStatus === 'failed'
+                      ? styles.authFailedText
+                      : styles.authNotRequiredText
+                  }>
                   {diagnostics.authenticationStatus
                     .replace('_', ' ')
                     .toUpperCase()}
@@ -720,6 +697,68 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
+  },
+  // Diagnostic chip colors
+  nfcEnabledChip: {
+    backgroundColor: '#4CAF5020',
+  },
+  nfcDisabledChip: {
+    backgroundColor: '#F4433620',
+  },
+  tagDetectedChip: {
+    backgroundColor: '#4CAF5020',
+  },
+  tagNotFoundChip: {
+    backgroundColor: '#F4433620',
+  },
+  dataIntegrityGoodChip: {
+    backgroundColor: '#4CAF5020',
+  },
+  dataIntegrityPartialChip: {
+    backgroundColor: '#FF980020',
+  },
+  dataIntegrityCorruptedChip: {
+    backgroundColor: '#F4433620',
+  },
+  authSuccessChip: {
+    backgroundColor: '#4CAF5020',
+  },
+  authFailedChip: {
+    backgroundColor: '#F4433620',
+  },
+  authNotRequiredChip: {
+    backgroundColor: '#75757520',
+  },
+  // Text colors
+  nfcEnabledText: {
+    color: '#4CAF50',
+  },
+  nfcDisabledText: {
+    color: '#F44336',
+  },
+  tagDetectedText: {
+    color: '#4CAF50',
+  },
+  tagNotFoundText: {
+    color: '#F44336',
+  },
+  dataIntegrityGoodText: {
+    color: '#4CAF50',
+  },
+  dataIntegrityPartialText: {
+    color: '#FF9800',
+  },
+  dataIntegrityCorruptedText: {
+    color: '#F44336',
+  },
+  authSuccessText: {
+    color: '#4CAF50',
+  },
+  authFailedText: {
+    color: '#F44336',
+  },
+  authNotRequiredText: {
+    color: '#757575',
   },
 });
 

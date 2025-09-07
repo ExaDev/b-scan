@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useCallback} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
@@ -19,32 +19,56 @@ import ScanningScreen from '../screens/ScanningScreen';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
+// Tab icon component extracted to avoid nested component warning
+interface TabIconProps {
+  routeName: string;
+  focused: boolean;
+  color: string;
+  size: number;
+}
+
+const TabIcon: React.FC<TabIconProps> = ({routeName, focused, color, size}) => {
+  let iconName: string;
+  
+  switch (routeName) {
+    case 'Home':
+      iconName = focused ? 'inventory' : 'inventory-2';
+      break;
+    case 'History':
+      iconName = focused ? 'history' : 'history';
+      break;
+    case 'Settings':
+      iconName = focused ? 'settings' : 'settings';
+      break;
+    default:
+      iconName = 'help';
+  }
+  
+  return <MaterialIcon name={iconName} size={size} color={color} />;
+};
+
 function MainTabNavigator() {
   const theme = useTheme();
+  
+  const getTabBarIcon = useCallback(({focused, color, size, route}: {
+    focused: boolean;
+    color: string;
+    size: number;
+    route: {name: string};
+  }) => (
+    <TabIcon 
+      routeName={route.name} 
+      focused={focused} 
+      color={color} 
+      size={size} 
+    />
+  ), []);
   
   return (
     <Tab.Navigator
       initialRouteName="Home"
       screenOptions={({route}) => ({
-        tabBarIcon: ({focused, color, size}) => {
-          let iconName: string;
-          
-          switch (route.name) {
-            case 'Home':
-              iconName = focused ? 'inventory' : 'inventory-2';
-              break;
-            case 'History':
-              iconName = focused ? 'history' : 'history';
-              break;
-            case 'Settings':
-              iconName = focused ? 'settings' : 'settings';
-              break;
-            default:
-              iconName = 'help';
-          }
-          
-          return <MaterialIcon name={iconName} size={size} color={color} />;
-        },
+        tabBarIcon: (props) => getTabBarIcon({...props, route}),
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {

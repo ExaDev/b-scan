@@ -39,7 +39,6 @@ const DataBrowserScreen: React.FC<DataBrowserScreenProps> = ({navigation}) => {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('date');
   const [sortAscending, setSortAscending] = useState<boolean>(false);
-  const [_showFilterMenu, _setShowFilterMenu] = useState<boolean>(false);
   const [showSortModal, setShowSortModal] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [items, setItems] = useState<BrowserItem[]>([]);

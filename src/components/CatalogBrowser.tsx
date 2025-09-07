@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Text,
@@ -40,7 +40,7 @@ const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [graph] = useState(() => new Graph());
   
-  const loadCatalogItems = async () => {
+  const loadCatalogItems = useCallback(async () => {
     try {
       setError(null);
       
@@ -103,11 +103,11 @@ const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [graph]);
 
   useEffect(() => {
     loadCatalogItems();
-  }, [graph]);
+  }, [loadCatalogItems]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -142,7 +142,7 @@ const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
               key={index}
               mode="outlined"
               style={[styles.colorChip, {backgroundColor: theme.colors.surfaceVariant}]}
-              textStyle={{color: theme.colors.onSurfaceVariant, fontSize: 10}}>
+              textStyle={[styles.colorChipText, {color: theme.colors.onSurfaceVariant}]}>
               {color}
             </Chip>
           ))}
@@ -256,6 +256,9 @@ const styles = StyleSheet.create({
     marginRight: 4,
     marginBottom: 4,
     height: 24,
+  },
+  colorChipText: {
+    fontSize: 10,
   },
   moreColors: {
     fontSize: 10,

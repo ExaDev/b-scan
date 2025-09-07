@@ -23,14 +23,7 @@ import {
   TagFormat,
 } from '../types/FilamentInfo';
 
-interface EntityDetailScreenProps extends NavigationProps {
-  route: {
-    params: {
-      entityId: string;
-      entityType: string;
-    };
-  };
-}
+interface EntityDetailScreenProps extends NavigationProps<'EntityDetail'> {}
 
 interface EntityRelationship {
   id: string;
@@ -47,14 +40,13 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({
   const [entity, setEntity] = useState<GraphEntity | null>(null);
   const [relationships, setRelationships] = useState<EntityRelationship[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [_isEditing, _setIsEditing] = useState<boolean>(false);
 
   const loadEntityDetails = useCallback(async () => {
     setIsLoading(true);
     // Simulate loading entity data
     setTimeout(() => {
       const mockEntity = createMockEntity(entityId, entityType as EntityType);
-      const mockRelationships = createMockRelationships(entityId);
+      const mockRelationships = createMockRelationships();
 
       setEntity(mockEntity);
       setRelationships(mockRelationships);
@@ -75,9 +67,10 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({
     };
 
     switch (type) {
-      case EntityType.PHYSICAL_COMPONENT:
-        return {
+      case EntityType.PHYSICAL_COMPONENT: {
+        const physicalComponent: PhysicalComponent = {
           ...baseEntity,
+          type: EntityType.PHYSICAL_COMPONENT,
           filamentInfo: {
             tagUid: 'AB:CD:EF:12',
             trayUid: 'TR001',
@@ -95,40 +88,61 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({
             bedTemperature: 60,
             dryingTemperature: 45,
             dryingTime: 4,
+            detailedFilamentType: 'PLA Basic',
+            materialVariantId: 'PLA-BASIC-001',
+            materialId: 'PLA',
+            nozzleDiameter: 0.4,
+            spoolWidth: 65,
+            bedTemperatureType: 1,
+            shortProductionDate: '2024-01',
+            colorCount: 1,
+            shortProductionDateHex: '240100',
+            unknownBlock17Hex: '000000000000000000000000'
           },
           currentWeight: 850,
           notes: 'High quality filament, prints well with default settings',
-        } as PhysicalComponent;
+        };
+        return physicalComponent;
+      }
 
-      case EntityType.INVENTORY_ITEM:
-        return {
+      case EntityType.INVENTORY_ITEM: {
+        const inventoryItem: InventoryItem = {
           ...baseEntity,
+          type: EntityType.INVENTORY_ITEM,
           quantity: 5,
           location: 'Storage Rack A, Shelf 2',
           lastUpdated: Date.now() - 1000 * 60 * 30, // 30 minutes ago
-        } as InventoryItem;
+        };
+        return inventoryItem;
+      }
 
-      case EntityType.IDENTIFIER:
-        return {
+      case EntityType.IDENTIFIER: {
+        const identifier: Identifier = {
           ...baseEntity,
+          type: EntityType.IDENTIFIER,
           value: 'AB:CD:EF:12:34:56',
           identifierType: 'RFID',
-        } as Identifier;
+        };
+        return identifier;
+      }
 
-      case EntityType.ACTIVITY:
-        return {
+      case EntityType.ACTIVITY: {
+        const activity: Activity = {
           ...baseEntity,
+          type: EntityType.ACTIVITY,
           activityType: 'SCAN',
           description: 'RFID tag scanned successfully',
           relatedEntityId: 'component-001',
-        } as Activity;
+        };
+        return activity;
+      }
 
       default:
         return baseEntity;
     }
   };
 
-  const createMockRelationships = (_entityId: string): EntityRelationship[] => {
+  const createMockRelationships = (): EntityRelationship[] => {
     return [
       {
         id: 'rel-1',
@@ -201,7 +215,6 @@ const EntityDetailScreen: React.FC<EntityDetailScreenProps> = ({
   };
 
   const handleEdit = () => {
-    _setIsEditing(true);
     // TODO: Navigate to edit screen or show edit modal
     Alert.alert('Edit Entity', 'Edit functionality would be implemented here');
   };

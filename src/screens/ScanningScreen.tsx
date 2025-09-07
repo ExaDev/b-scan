@@ -15,18 +15,9 @@ import {NavigationProps} from '../types/Navigation';
 import {ScanProgress, ScanStage} from '../types/FilamentInfo';
 import {TagReadResult} from '../services/NfcManager';
 
-interface ScanningScreenProps extends NavigationProps {
-  route: {
-    params?: {
-      tagUid?: string;
-    };
-  };
-}
+interface ScanningScreenProps extends NavigationProps<'Scanning'> {}
 
-const ScanningScreen: React.FC<ScanningScreenProps> = ({
-  navigation,
-  route: _route,
-}) => {
+const ScanningScreen: React.FC<ScanningScreenProps> = ({navigation}) => {
   const [scanProgress, setScanProgress] = useState<ScanProgress>({
     stage: ScanStage.INITIALIZING,
     percentage: 0,
@@ -48,7 +39,7 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({
         text: 'Cancel',
         onPress: () => {
           nfcManager.stopScan();
-          navigation.navigate('Home');
+          navigation.navigate('MainTabs');
         },
       },
     ]);
@@ -133,7 +124,7 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({
           {
             text: 'Cancel',
             onPress: () => {
-              navigation.navigate('Home');
+              navigation.navigate('MainTabs');
             },
             style: 'cancel',
           },
@@ -291,7 +282,7 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({
                 </Button>
                 <Button
                   mode="outlined"
-                  onPress={() => navigation.navigate('Home')}
+                  onPress={() => navigation.navigate('MainTabs')}
                   style={styles.button}>
                   Back to Home
                 </Button>

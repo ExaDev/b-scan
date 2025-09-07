@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, ScrollView, Alert, Linking} from 'react-native';
 import {
   Card,
@@ -14,9 +14,264 @@ import {
   RadioButton,
   IconButton,
 } from 'react-native-paper';
-import {NavigationProps} from '../types/Navigation';
+import {TabNavigationProps} from '../types/Navigation';
 
-interface SettingsScreenProps extends NavigationProps {}
+interface SettingsScreenProps extends TabNavigationProps {}
+
+// Extracted components to avoid inline definitions
+interface SettingSwitchProps {
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}
+
+const SettingSwitch: React.FC<SettingSwitchProps> = ({ value, onValueChange }) => (
+  <Switch value={value} onValueChange={onValueChange} />
+);
+
+interface EditIconButtonProps {
+  onPress: () => void;
+}
+
+const EditIconButton: React.FC<EditIconButtonProps> = ({ onPress }) => (
+  <IconButton icon="pencil" size={20} onPress={onPress} />
+);
+
+interface CounterControlProps {
+  value: number;
+  onDecrement: () => void;
+  onIncrement: () => void;
+  style?: Record<string, unknown>;
+}
+
+const RetryCounterControl: React.FC<CounterControlProps> = ({ 
+  value, 
+  onDecrement, 
+  onIncrement,
+  style 
+}) => (
+  <View style={style}>
+    <IconButton icon="minus" size={16} onPress={onDecrement} />
+    <Text style={styles.retryValue}>{value}</Text>
+    <IconButton icon="plus" size={16} onPress={onIncrement} />
+  </View>
+);
+
+const HistoryCounterControl: React.FC<CounterControlProps> = ({ 
+  value, 
+  onDecrement, 
+  onIncrement,
+  style 
+}) => (
+  <View style={style}>
+    <IconButton icon="minus" size={16} onPress={onDecrement} />
+    <Text style={styles.historyValue}>{value}</Text>
+    <IconButton icon="plus" size={16} onPress={onIncrement} />
+  </View>
+);
+
+interface ThemeRadioGroupProps {
+  value: 'auto' | 'light' | 'dark';
+  onValueChange: (value: 'auto' | 'light' | 'dark') => void;
+}
+
+const ThemeRadioGroup: React.FC<ThemeRadioGroupProps> = ({ value, onValueChange }) => (
+  <View style={styles.themeButtons}>
+    <RadioButton.Group onValueChange={(newValue: string) => onValueChange(newValue as 'auto' | 'light' | 'dark')} value={value}>
+      <View style={styles.themeOptions}>
+        <View style={styles.themeOption}>
+          <RadioButton value="auto" />
+          <Text style={styles.themeLabel}>Auto</Text>
+        </View>
+        <View style={styles.themeOption}>
+          <RadioButton value="light" />
+          <Text style={styles.themeLabel}>Light</Text>
+        </View>
+        <View style={styles.themeOption}>
+          <RadioButton value="dark" />
+          <Text style={styles.themeLabel}>Dark</Text>
+        </View>
+      </View>
+    </RadioButton.Group>
+  </View>
+);
+
+interface SortRadioGroupProps {
+  value: 'date' | 'name' | 'type';
+  onValueChange: (value: 'date' | 'name' | 'type') => void;
+}
+
+const SortRadioGroup: React.FC<SortRadioGroupProps> = ({ value, onValueChange }) => (
+  <RadioButton.Group onValueChange={(newValue: string) => onValueChange(newValue as 'date' | 'name' | 'type')} value={value}>
+    <View style={styles.sortOptions}>
+      <View style={styles.sortOption}>
+        <RadioButton value="date" />
+        <Text style={styles.sortLabel}>Date</Text>
+      </View>
+      <View style={styles.sortOption}>
+        <RadioButton value="name" />
+        <Text style={styles.sortLabel}>Name</Text>
+      </View>
+      <View style={styles.sortOption}>
+        <RadioButton value="type" />
+        <Text style={styles.sortLabel}>Type</Text>
+      </View>
+    </View>
+  </RadioButton.Group>
+);
+
+// Specific wrapped components to avoid arrow functions in render
+interface SpecificSwitchProps {
+  settings: AppSettings;
+  updateSetting: <K extends keyof AppSettings, T extends keyof AppSettings[K]>(
+    category: K,
+    setting: T,
+    value: AppSettings[K][T],
+  ) => void;
+}
+
+const AutoScanSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.nfcSettings.enableAutoScan}
+    onValueChange={value => updateSetting('nfcSettings', 'enableAutoScan', value)}
+  />
+);
+
+const HapticFeedbackSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.nfcSettings.enableHapticFeedback}
+    onValueChange={value => updateSetting('nfcSettings', 'enableHapticFeedback', value)}
+  />
+);
+
+const SoundFeedbackSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.nfcSettings.enableSoundFeedback}
+    onValueChange={value => updateSetting('nfcSettings', 'enableSoundFeedback', value)}
+  />
+);
+
+const AnimationsSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.displaySettings.enableAnimations}
+    onValueChange={value => updateSetting('displaySettings', 'enableAnimations', value)}
+  />
+);
+
+const AdvancedInfoSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.displaySettings.showAdvancedInfo}
+    onValueChange={value => updateSetting('displaySettings', 'showAdvancedInfo', value)}
+  />
+);
+
+const CloudSyncSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.dataSettings.enableCloudSync}
+    onValueChange={value => updateSetting('dataSettings', 'enableCloudSync', value)}
+  />
+);
+
+const AutoBackupSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.dataSettings.autoBackup}
+    onValueChange={value => updateSetting('dataSettings', 'autoBackup', value)}
+  />
+);
+
+const AnalyticsSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.privacySettings.enableAnalytics}
+    onValueChange={value => updateSetting('privacySettings', 'enableAnalytics', value)}
+  />
+);
+
+const CrashReportingSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.privacySettings.enableCrashReporting}
+    onValueChange={value => updateSetting('privacySettings', 'enableCrashReporting', value)}
+  />
+);
+
+const ShareUsageDataSwitch: React.FC<SpecificSwitchProps> = ({ settings, updateSetting }) => (
+  <SettingSwitch
+    value={settings.privacySettings.shareUsageData}
+    onValueChange={value => updateSetting('privacySettings', 'shareUsageData', value)}
+  />
+);
+
+interface EditButtonWithActionsProps {
+  onPress: () => void;
+}
+
+const ScanTimeoutEditButton: React.FC<EditButtonWithActionsProps> = ({ onPress }) => (
+  <EditIconButton onPress={onPress} />
+);
+
+const RetentionEditButton: React.FC<EditButtonWithActionsProps> = ({ onPress }) => (
+  <EditIconButton onPress={onPress} />
+);
+
+interface SpecificThemeRadioProps {
+  settings: AppSettings;
+  updateSetting: <K extends keyof AppSettings, T extends keyof AppSettings[K]>(
+    category: K,
+    setting: T,
+    value: AppSettings[K][T],
+  ) => void;
+}
+
+const ThemeRadioGroupWrapper: React.FC<SpecificThemeRadioProps> = ({ settings, updateSetting }) => (
+  <ThemeRadioGroup
+    value={settings.displaySettings.theme}
+    onValueChange={value => updateSetting('displaySettings', 'theme', value)}
+  />
+);
+
+const SortRadioGroupWrapper: React.FC<SpecificThemeRadioProps> = ({ settings, updateSetting }) => (
+  <SortRadioGroup
+    value={settings.displaySettings.defaultSortOrder}
+    onValueChange={value => updateSetting('displaySettings', 'defaultSortOrder', value)}
+  />
+);
+
+interface SpecificRetryControlProps {
+  settings: AppSettings;
+  updateSetting: <K extends keyof AppSettings, T extends keyof AppSettings[K]>(
+    category: K,
+    setting: T,
+    value: AppSettings[K][T],
+  ) => void;
+}
+
+const RetryAttemptsControl: React.FC<SpecificRetryControlProps> = ({ settings, updateSetting }) => (
+  <RetryCounterControl
+    value={settings.nfcSettings.retryAttempts}
+    onDecrement={() =>
+      settings.nfcSettings.retryAttempts > 1 &&
+      updateSetting('nfcSettings', 'retryAttempts', settings.nfcSettings.retryAttempts - 1)
+    }
+    onIncrement={() =>
+      settings.nfcSettings.retryAttempts < 10 &&
+      updateSetting('nfcSettings', 'retryAttempts', settings.nfcSettings.retryAttempts + 1)
+    }
+    style={styles.retryButtons}
+  />
+);
+
+const MaxHistoryControl: React.FC<SpecificRetryControlProps> = ({ settings, updateSetting }) => (
+  <HistoryCounterControl
+    value={settings.dataSettings.maxHistoryEntries}
+    onDecrement={() =>
+      settings.dataSettings.maxHistoryEntries > 100 &&
+      updateSetting('dataSettings', 'maxHistoryEntries', settings.dataSettings.maxHistoryEntries - 100)
+    }
+    onIncrement={() =>
+      settings.dataSettings.maxHistoryEntries < 10000 &&
+      updateSetting('dataSettings', 'maxHistoryEntries', settings.dataSettings.maxHistoryEntries + 100)
+    }
+    style={styles.historyButtons}
+  />
+);
 
 interface AppSettings {
   nfcSettings: {
@@ -45,9 +300,7 @@ interface AppSettings {
   };
 }
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({
-  navigation: _navigation,
-}) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [settings, setSettings] = useState<AppSettings>({
     nfcSettings: {
       enableAutoScan: true,
@@ -80,21 +333,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [tempTimeout, setTempTimeout] = useState<string>('');
   const [tempRetention, setTempRetention] = useState<string>('');
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    // TODO: Load settings from AsyncStorage or secure storage
-    // For now, using default settings
-  };
-
-  const saveSettings = async (newSettings: AppSettings) => {
-    // TODO: Save settings to AsyncStorage or secure storage
-    setSettings(newSettings);
-  };
-
-  const updateSetting = <
+  const updateSetting = useCallback(<
     K extends keyof AppSettings,
     T extends keyof AppSettings[K],
   >(
@@ -110,6 +349,91 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       },
     };
     saveSettings(newSettings);
+  }, [settings]);
+
+  // Create useCallback functions to avoid arrow functions in render
+  const renderAutoScanSwitch = useCallback(() => (
+    <AutoScanSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderScanTimeoutButton = useCallback(() => (
+    <ScanTimeoutEditButton onPress={() => {
+      setTempTimeout(settings.nfcSettings.scanTimeout.toString());
+      setShowTimeoutModal(true);
+    }} />
+  ), [settings.nfcSettings.scanTimeout]);
+
+  const renderRetryAttemptsControl = useCallback(() => (
+    <RetryAttemptsControl settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderHapticFeedbackSwitch = useCallback(() => (
+    <HapticFeedbackSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderSoundFeedbackSwitch = useCallback(() => (
+    <SoundFeedbackSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderThemeRadioGroup = useCallback(() => (
+    <ThemeRadioGroupWrapper settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderAnimationsSwitch = useCallback(() => (
+    <AnimationsSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderAdvancedInfoSwitch = useCallback(() => (
+    <AdvancedInfoSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderSortRadioGroup = useCallback(() => (
+    <SortRadioGroupWrapper settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderCloudSyncSwitch = useCallback(() => (
+    <CloudSyncSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderAutoBackupSwitch = useCallback(() => (
+    <AutoBackupSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderRetentionEditButton = useCallback(() => (
+    <RetentionEditButton onPress={() => {
+      setTempRetention(settings.dataSettings.retentionPeriod.toString());
+      setShowRetentionModal(true);
+    }} />
+  ), [settings.dataSettings.retentionPeriod]);
+
+  const renderMaxHistoryControl = useCallback(() => (
+    <MaxHistoryControl settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderAnalyticsSwitch = useCallback(() => (
+    <AnalyticsSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderCrashReportingSwitch = useCallback(() => (
+    <CrashReportingSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  const renderShareUsageDataSwitch = useCallback(() => (
+    <ShareUsageDataSwitch settings={settings} updateSetting={updateSetting} />
+  ), [settings, updateSetting]);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    // TODO: Load settings from AsyncStorage or secure storage
+    // For now, using default settings
+  };
+
+  const saveSettings = async (newSettings: AppSettings) => {
+    // TODO: Save settings to AsyncStorage or secure storage
+    setSettings(newSettings);
   };
 
   const handleResetSettings = () => {
@@ -221,7 +545,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <Button
             mode="contained"
             onPress={() => {
-              const timeout = parseInt(tempTimeout);
+              const timeout = parseInt(tempTimeout, 10);
               if (timeout >= 1 && timeout <= 30) {
                 updateSetting('nfcSettings', 'scanTimeout', timeout);
                 setShowTimeoutModal(false);
@@ -265,7 +589,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <Button
             mode="contained"
             onPress={() => {
-              const days = parseInt(tempRetention);
+              const days = parseInt(tempRetention, 10);
               if (days >= 7 && days <= 1095) {
                 updateSetting('dataSettings', 'retentionPeriod', days);
                 setShowRetentionModal(false);
@@ -295,91 +619,31 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <List.Item
               title="Auto Scan"
               description="Automatically start scanning when opening the app"
-              right={() => (
-                <Switch
-                  value={settings.nfcSettings.enableAutoScan}
-                  onValueChange={value =>
-                    updateSetting('nfcSettings', 'enableAutoScan', value)
-                  }
-                />
-              )}
+              right={renderAutoScanSwitch}
             />
 
             <List.Item
               title="Scan Timeout"
               description={`Wait ${settings.nfcSettings.scanTimeout} seconds for tag detection`}
-              right={() => (
-                <IconButton
-                  icon="pencil"
-                  size={20}
-                  onPress={() => {
-                    setTempTimeout(settings.nfcSettings.scanTimeout.toString());
-                    setShowTimeoutModal(true);
-                  }}
-                />
-              )}
+              right={renderScanTimeoutButton}
             />
 
             <List.Item
               title="Retry Attempts"
               description={`Retry ${settings.nfcSettings.retryAttempts} times on failure`}
-              right={() => (
-                <View style={styles.retryButtons}>
-                  <IconButton
-                    icon="minus"
-                    size={16}
-                    onPress={() =>
-                      settings.nfcSettings.retryAttempts > 1 &&
-                      updateSetting(
-                        'nfcSettings',
-                        'retryAttempts',
-                        settings.nfcSettings.retryAttempts - 1,
-                      )
-                    }
-                  />
-                  <Text style={styles.retryValue}>
-                    {settings.nfcSettings.retryAttempts}
-                  </Text>
-                  <IconButton
-                    icon="plus"
-                    size={16}
-                    onPress={() =>
-                      settings.nfcSettings.retryAttempts < 10 &&
-                      updateSetting(
-                        'nfcSettings',
-                        'retryAttempts',
-                        settings.nfcSettings.retryAttempts + 1,
-                      )
-                    }
-                  />
-                </View>
-              )}
+              right={renderRetryAttemptsControl}
             />
 
             <List.Item
               title="Haptic Feedback"
               description="Vibrate on successful scan"
-              right={() => (
-                <Switch
-                  value={settings.nfcSettings.enableHapticFeedback}
-                  onValueChange={value =>
-                    updateSetting('nfcSettings', 'enableHapticFeedback', value)
-                  }
-                />
-              )}
+              right={renderHapticFeedbackSwitch}
             />
 
             <List.Item
               title="Sound Feedback"
               description="Play sound on successful scan"
-              right={() => (
-                <Switch
-                  value={settings.nfcSettings.enableSoundFeedback}
-                  onValueChange={value =>
-                    updateSetting('nfcSettings', 'enableSoundFeedback', value)
-                  }
-                />
-              )}
+              right={renderSoundFeedbackSwitch}
             />
           </Card.Content>
         </Card>
@@ -392,91 +656,25 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <List.Item
               title="Theme"
               description={`Current: ${settings.displaySettings.theme}`}
-              right={() => (
-                <View style={styles.themeButtons}>
-                  <RadioButton.Group
-                    onValueChange={value =>
-                      updateSetting(
-                        'displaySettings',
-                        'theme',
-                        value as 'auto' | 'light' | 'dark',
-                      )
-                    }
-                    value={settings.displaySettings.theme}>
-                    <View style={styles.themeOptions}>
-                      <View style={styles.themeOption}>
-                        <RadioButton value="auto" />
-                        <Text style={styles.themeLabel}>Auto</Text>
-                      </View>
-                      <View style={styles.themeOption}>
-                        <RadioButton value="light" />
-                        <Text style={styles.themeLabel}>Light</Text>
-                      </View>
-                      <View style={styles.themeOption}>
-                        <RadioButton value="dark" />
-                        <Text style={styles.themeLabel}>Dark</Text>
-                      </View>
-                    </View>
-                  </RadioButton.Group>
-                </View>
-              )}
+              right={renderThemeRadioGroup}
             />
 
             <List.Item
               title="Animations"
               description="Enable smooth transitions and animations"
-              right={() => (
-                <Switch
-                  value={settings.displaySettings.enableAnimations}
-                  onValueChange={value =>
-                    updateSetting('displaySettings', 'enableAnimations', value)
-                  }
-                />
-              )}
+              right={renderAnimationsSwitch}
             />
 
             <List.Item
               title="Advanced Info"
               description="Show technical details in scan results"
-              right={() => (
-                <Switch
-                  value={settings.displaySettings.showAdvancedInfo}
-                  onValueChange={value =>
-                    updateSetting('displaySettings', 'showAdvancedInfo', value)
-                  }
-                />
-              )}
+              right={renderAdvancedInfoSwitch}
             />
 
             <List.Item
               title="Default Sort Order"
               description={`Sort by ${settings.displaySettings.defaultSortOrder} by default`}
-              right={() => (
-                <RadioButton.Group
-                  onValueChange={value =>
-                    updateSetting(
-                      'displaySettings',
-                      'defaultSortOrder',
-                      value as 'date' | 'name' | 'type',
-                    )
-                  }
-                  value={settings.displaySettings.defaultSortOrder}>
-                  <View style={styles.sortOptions}>
-                    <View style={styles.sortOption}>
-                      <RadioButton value="date" />
-                      <Text style={styles.sortLabel}>Date</Text>
-                    </View>
-                    <View style={styles.sortOption}>
-                      <RadioButton value="name" />
-                      <Text style={styles.sortLabel}>Name</Text>
-                    </View>
-                    <View style={styles.sortOption}>
-                      <RadioButton value="type" />
-                      <Text style={styles.sortLabel}>Type</Text>
-                    </View>
-                  </View>
-                </RadioButton.Group>
-              )}
+              right={renderSortRadioGroup}
             />
           </Card.Content>
         </Card>
@@ -489,80 +687,25 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <List.Item
               title="Cloud Sync"
               description="Sync data across devices (requires account)"
-              right={() => (
-                <Switch
-                  value={settings.dataSettings.enableCloudSync}
-                  onValueChange={value =>
-                    updateSetting('dataSettings', 'enableCloudSync', value)
-                  }
-                />
-              )}
+              right={renderCloudSyncSwitch}
             />
 
             <List.Item
               title="Auto Backup"
               description="Automatically backup scan data locally"
-              right={() => (
-                <Switch
-                  value={settings.dataSettings.autoBackup}
-                  onValueChange={value =>
-                    updateSetting('dataSettings', 'autoBackup', value)
-                  }
-                />
-              )}
+              right={renderAutoBackupSwitch}
             />
 
             <List.Item
               title="Data Retention"
               description={`Keep data for ${settings.dataSettings.retentionPeriod} days`}
-              right={() => (
-                <IconButton
-                  icon="pencil"
-                  size={20}
-                  onPress={() => {
-                    setTempRetention(
-                      settings.dataSettings.retentionPeriod.toString(),
-                    );
-                    setShowRetentionModal(true);
-                  }}
-                />
-              )}
+              right={renderRetentionEditButton}
             />
 
             <List.Item
               title="Max History Entries"
               description={`Keep up to ${settings.dataSettings.maxHistoryEntries} scan records`}
-              right={() => (
-                <View style={styles.historyButtons}>
-                  <IconButton
-                    icon="minus"
-                    size={16}
-                    onPress={() =>
-                      settings.dataSettings.maxHistoryEntries > 100 &&
-                      updateSetting(
-                        'dataSettings',
-                        'maxHistoryEntries',
-                        settings.dataSettings.maxHistoryEntries - 100,
-                      )
-                    }
-                  />
-                  <Text style={styles.historyValue}>
-                    {settings.dataSettings.maxHistoryEntries}
-                  </Text>
-                  <IconButton
-                    icon="plus"
-                    size={16}
-                    onPress={() =>
-                      settings.dataSettings.maxHistoryEntries < 10000 &&
-                      updateSetting(
-                        'dataSettings',
-                        'maxHistoryEntries',
-                        settings.dataSettings.maxHistoryEntries + 100,
-                      )
-                    }
-                  />
-                </View>
-              )}
+              right={renderMaxHistoryControl}
             />
           </Card.Content>
         </Card>
@@ -598,44 +741,19 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <List.Item
               title="Analytics"
               description="Help improve the app by sharing usage analytics"
-              right={() => (
-                <Switch
-                  value={settings.privacySettings.enableAnalytics}
-                  onValueChange={value =>
-                    updateSetting('privacySettings', 'enableAnalytics', value)
-                  }
-                />
-              )}
+              right={renderAnalyticsSwitch}
             />
 
             <List.Item
               title="Crash Reporting"
               description="Automatically report crashes to help fix bugs"
-              right={() => (
-                <Switch
-                  value={settings.privacySettings.enableCrashReporting}
-                  onValueChange={value =>
-                    updateSetting(
-                      'privacySettings',
-                      'enableCrashReporting',
-                      value,
-                    )
-                  }
-                />
-              )}
+              right={renderCrashReportingSwitch}
             />
 
             <List.Item
               title="Share Usage Data"
               description="Share anonymous usage patterns for research"
-              right={() => (
-                <Switch
-                  value={settings.privacySettings.shareUsageData}
-                  onValueChange={value =>
-                    updateSetting('privacySettings', 'shareUsageData', value)
-                  }
-                />
-              )}
+              right={renderShareUsageDataSwitch}
             />
           </Card.Content>
         </Card>

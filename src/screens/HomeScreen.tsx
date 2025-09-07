@@ -1,29 +1,72 @@
 import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, Dimensions, Alert} from 'react-native';
 import {
-  Appbar,
   Snackbar,
   useTheme,
   Button,
   Menu,
-  Portal,
   Badge,
 } from 'react-native-paper';
 import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {TabView, SceneMap, TabBar} from 'react-native-tab-view';
 import {NfcManagerService} from '../services/NfcManagerService';
-import {NavigationProps, ViewMode} from '../types/Navigation';
-import {TagReadResult} from '../services/NfcManager';
+import {TabNavigationProps} from '../types/Navigation';
 import InventoryBrowser from '../components/InventoryBrowser';
 import CatalogBrowser from '../components/CatalogBrowser';
 import TagsBrowser from '../components/TagsBrowser';
 import ScansBrowser from '../components/ScansBrowser';
 import ScanPrompt from '../components/ScanPrompt';
 
-interface HomeScreenProps extends NavigationProps {}
+interface HomeScreenProps extends TabNavigationProps {}
+
+type RouteType = {
+  key: string;
+  title: string;
+  icon: string;
+};
 
 const initialLayout = {width: Dimensions.get('window').width};
+
+// Icon components to avoid inline creation
+interface IconProps {
+  size: number;
+  color: string;
+}
+
+const SortIcon: React.FC<IconProps & {ascending: boolean}> = ({size, color, ascending}) => (
+  <MaterialCommunityIcon 
+    name={ascending ? 'sort-ascending' : 'sort-descending'} 
+    size={size} 
+    color={color} 
+  />
+);
+
+const FilterIcon = ({size, color}: {size: number; color: string}) => (
+  <MaterialIcon name="filter-list" size={size} color={color} />
+);
+
+const GroupIcon = ({size, color}: {size: number; color: string}) => (
+  <MaterialIcon name="group-work" size={size} color={color} />
+);
+
+
+// Scene components extracted to avoid recreation on each render
+const InventoryScene: React.FC<{onNavigateToDetails: (entityId: string, entityType: string) => void}> = ({onNavigateToDetails}) => (
+  <InventoryBrowser onNavigateToDetails={onNavigateToDetails} />
+);
+
+const CatalogScene: React.FC<{onNavigateToDetails: (entityId: string, entityType: string) => void}> = ({onNavigateToDetails}) => (
+  <CatalogBrowser onNavigateToDetails={onNavigateToDetails} />
+);
+
+const TagsScene: React.FC<{onNavigateToDetails: (entityId: string, entityType: string) => void}> = ({onNavigateToDetails}) => (
+  <TagsBrowser onNavigateToDetails={onNavigateToDetails} />
+);
+
+const ScansScene: React.FC<{onNavigateToDetails: (entityId: string, entityType: string) => void}> = ({onNavigateToDetails}) => (
+  <ScansBrowser onNavigateToDetails={onNavigateToDetails} />
+);
 
 const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   const theme = useTheme();
@@ -35,15 +78,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   
   // Sort and filter state
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
-  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [, setFilterMenuVisible] = useState(false);
   const [groupMenuVisible, setGroupMenuVisible] = useState(false);
   const [sortProperty, setSortProperty] = useState<'lastScan' | 'name' | 'color' | 'material'>('lastScan');
-  const [sortAscending, setSortAscending] = useState(false);
-  const [activeFilters, setActiveFilters] = useState(0);
+  const [sortAscending] = useState(false);
+  const [activeFilters] = useState(0);
   
   // Tab view state
   const [index, setIndex] = useState(0);
-  const [routes] = useState([
+  const [routes] = useState<RouteType[]>([
     {key: 'inventory', title: 'Inventory', icon: 'inventory'},
     {key: 'catalog', title: 'Catalog', icon: 'category'},
     {key: 'tags', title: 'Tags', icon: 'tag'},
@@ -82,45 +125,48 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
 
     setIsScanning(true);
     setScanProgress(0);
-    navigation.navigate('Scanning');
+    navigation.navigate('Scanning', {});
   };
 
-  const handleNavigateToDetails = (type: string, identifier: string) => {
+  const handleNavigateToDetails = useCallback((type: string, identifier: string) => {
     navigation.navigate('EntityDetail', {
       entityId: identifier,
       entityType: type,
     });
-  };
+  }, [navigation]);
+
+  const inventoryScene = useCallback(() => (
+    <InventoryScene onNavigateToDetails={handleNavigateToDetails} />
+  ), [handleNavigateToDetails]);
+
+  const catalogScene = useCallback(() => (
+    <CatalogScene onNavigateToDetails={handleNavigateToDetails} />
+  ), [handleNavigateToDetails]);
+
+  const tagsScene = useCallback(() => (
+    <TagsScene onNavigateToDetails={handleNavigateToDetails} />
+  ), [handleNavigateToDetails]);
+
+  const scansScene = useCallback(() => (
+    <ScansScene onNavigateToDetails={handleNavigateToDetails} />
+  ), [handleNavigateToDetails]);
+
+  const sortIcon = useCallback((props: IconProps) => (
+    <SortIcon {...props} ascending={sortAscending} />
+  ), [sortAscending]);
 
   const renderScene = SceneMap({
-    inventory: () => (
-      <InventoryBrowser
-        onNavigateToDetails={handleNavigateToDetails}
-      />
-    ),
-    catalog: () => (
-      <CatalogBrowser
-        onNavigateToDetails={handleNavigateToDetails}
-      />
-    ),
-    tags: () => (
-      <TagsBrowser
-        onNavigateToDetails={handleNavigateToDetails}
-      />
-    ),
-    scans: () => (
-      <ScansBrowser
-        onNavigateToDetails={handleNavigateToDetails}
-      />
-    ),
+    inventory: inventoryScene,
+    catalog: catalogScene,
+    tags: tagsScene,
+    scans: scansScene,
   });
 
-  const renderTabBar = (props: any) => (
+  const renderTabBar = (props: unknown) => (
     <TabBar
-      {...props}
+      {...(props as Parameters<typeof TabBar>[0])}
       indicatorStyle={{backgroundColor: theme.colors.primary}}
       style={{backgroundColor: theme.colors.surface}}
-      labelStyle={{color: theme.colors.onSurface, fontSize: 12, fontWeight: '600'}}
       activeColor={theme.colors.primary}
       inactiveColor={theme.colors.onSurfaceVariant}
     />
@@ -128,7 +174,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
 
   const shouldShowScanPrompt = () => {
     const currentRoute = routes[index];
-    return currentRoute.key === 'inventory' || currentRoute.key === 'catalog';
+    return currentRoute ? (currentRoute.key === 'inventory' || currentRoute.key === 'catalog') : false;
   };
 
   return (
@@ -154,13 +200,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
             <Button
               mode="outlined"
               onPress={() => setSortMenuVisible(true)}
-              icon={({size, color}) => (
-                <MaterialCommunityIcon 
-                  name={sortAscending ? 'sort-ascending' : 'sort-descending'} 
-                  size={size} 
-                  color={color} 
-                />
-              )}
+              icon={sortIcon}
               compact
               style={styles.controlButton}>
               {sortProperty === 'lastScan' ? 'Last Scan' : 
@@ -178,9 +218,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
         <Button
           mode="outlined"
           onPress={() => setFilterMenuVisible(true)}
-          icon={({size, color}) => (
-            <MaterialIcon name="filter-list" size={size} color={color} />
-          )}
+          icon={FilterIcon}
           compact
           style={styles.controlButton}>
           Filter
@@ -197,9 +235,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
             <Button
               mode="outlined"
               onPress={() => setGroupMenuVisible(true)}
-              icon={({size, color}) => (
-                <MaterialIcon name="group-work" size={size} color={color} />
-              )}
+              icon={GroupIcon}
               compact
               style={styles.controlButton}>
               Group
@@ -213,7 +249,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
       </View>
 
       {/* Tab View */}
-      <TabView
+      <TabView<RouteType>
         navigationState={{index, routes}}
         renderScene={renderScene}
         renderTabBar={renderTabBar}

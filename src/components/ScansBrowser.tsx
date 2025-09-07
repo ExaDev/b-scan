@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Text,
@@ -12,7 +12,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {Graph} from '../repositories/Graph';
 import {EntityType, Activity as ActivityEntity} from '../types/FilamentInfo';
-import {ScanOccurrence} from '../models/activities/ScanOccurrence';
 
 interface ScanRecordDisplay {
   id: string;
@@ -41,7 +40,7 @@ const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
   const [refreshing, setRefreshing] = useState(false);
   const [graph] = useState(() => new Graph());
 
-  const loadScans = async () => {
+  const loadScans = useCallback(async () => {
     try {
       setError(null);
       
@@ -52,17 +51,30 @@ const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
       );
       
       // Transform scan activities to display format
-      const displayScans: ScanRecordDisplay[] = scanActivities.map(activity => ({
-        id: activity.id,
-        timestamp: new Date(activity.createdAt),
-        tagUid: activity.relatedEntityId || 'Unknown',
-        success: !activity.description.includes('failed') && !activity.description.includes('error'),
+      const displayScans: ScanRecordDisplay[] = scanActivities.map(activity => {
+        const scan: ScanRecordDisplay = {
+          id: activity.id,
+          timestamp: new Date(activity.createdAt),
+          tagUid: activity.relatedEntityId || 'Unknown',
+          success: !activity.description.includes('failed') && !activity.description.includes('error'),
+          duration: Math.floor(Math.random() * 2000) + 500, // Simulated duration
+        };
+
+        // Conditionally add filamentInfo if it exists
         // Filament info would be derived from related entities
-        filamentInfo: undefined,
-        errorMessage: activity.description.includes('failed') ? 
-          activity.description : undefined,
-        duration: Math.floor(Math.random() * 2000) + 500, // Simulated duration
-      }));
+        const filamentInfo = undefined; // Would be populated from related entities
+        if (filamentInfo !== undefined) {
+          scan.filamentInfo = filamentInfo;
+        }
+
+        // Conditionally add errorMessage if it exists
+        const errorMessage = activity.description.includes('failed') ? activity.description : undefined;
+        if (errorMessage !== undefined) {
+          scan.errorMessage = errorMessage;
+        }
+
+        return scan;
+      });
       
       // Sort by timestamp (most recent first)
       displayScans.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -75,11 +87,11 @@ const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [graph]);
 
   useEffect(() => {
     loadScans();
-  }, [graph]);
+  }, [loadScans]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -141,13 +153,13 @@ const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
               <Chip
                 mode="outlined"
                 style={[styles.materialChip, {backgroundColor: theme.colors.surface}]}
-                textStyle={{color: theme.colors.onSurface, fontSize: 10}}>
+                textStyle={[styles.chipText, {color: theme.colors.onSurface}]}>
                 {item.filamentInfo.material}
               </Chip>
               <Chip
                 mode="outlined"
                 style={[styles.colorChip, {backgroundColor: theme.colors.surface}]}
-                textStyle={{color: theme.colors.onSurface, fontSize: 10}}>
+                textStyle={[styles.chipText, {color: theme.colors.onSurface}]}>
                 {item.filamentInfo.color}
               </Chip>
             </View>
@@ -309,6 +321,9 @@ const styles = StyleSheet.create({
   },
   colorChip: {
     height: 24,
+  },
+  chipText: {
+    fontSize: 10,
   },
   brandText: {
     fontSize: 12,

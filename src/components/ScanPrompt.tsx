@@ -12,6 +12,20 @@ interface ScanPromptProps {
   compact?: boolean;
 }
 
+interface NfcTapIconProps {
+  size: number;
+  color: string;
+}
+
+const NfcTapIcon: React.FC<NfcTapIconProps> = ({ size, color }) => (
+  <MaterialCommunityIcon name="nfc-tap" size={size} color={color} />
+);
+
+
+const ButtonNfcTapIcon = ({ size, color }: { size: number; color: string }) => (
+  <NfcTapIcon size={size} color={color} />
+);
+
 const ScanPrompt: React.FC<ScanPromptProps> = ({
   isScanning,
   scanProgress,
@@ -100,9 +114,7 @@ const ScanPrompt: React.FC<ScanPromptProps> = ({
             onPress={onStartScan}
             disabled={!isNfcEnabled}
             style={styles.button}
-            icon={({size, color}) => (
-              <MaterialCommunityIcon name="nfc-tap" size={size} color={color} />
-            )}>
+            icon={ButtonNfcTapIcon}>
             Start Scanning
           </Button>
         )}

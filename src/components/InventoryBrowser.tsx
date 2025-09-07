@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Text,
@@ -8,12 +8,10 @@ import {
   Chip,
   useTheme,
   Surface,
-  IconButton,
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {Graph} from '../repositories/Graph';
 import {EntityType, InventoryItem as InventoryItemEntity} from '../types/FilamentInfo';
-import {InventoryItem} from '../services/inventory/InventoryItem';
 
 interface InventoryItemDisplay {
   id: string;
@@ -41,7 +39,7 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [graph] = useState(() => new Graph());
 
-  const loadInventoryItems = async () => {
+  const loadInventoryItems = useCallback(async () => {
     try {
       setError(null);
       
@@ -57,7 +55,7 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
         brand: 'Unknown',
         weight: 1000, // Default weight
         remainingWeight: Math.max(0, entity.quantity * 25), // Estimate 25g per unit
-        lastScanDate: entity.lastUpdated ? new Date(entity.lastUpdated) : undefined,
+        ...(entity.lastUpdated ? { lastScanDate: new Date(entity.lastUpdated) } : {}),
         isActive: entity.quantity > 0,
       }));
       
@@ -70,11 +68,11 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [graph]);
 
   useEffect(() => {
     loadInventoryItems();
-  }, [graph]);
+  }, [loadInventoryItems]);
 
   const onRefresh = async () => {
     setRefreshing(true);
