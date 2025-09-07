@@ -1,3 +1,9 @@
+// Import jest-extended matchers
+import 'jest-extended';
+
+// Import polyfills for React Native environment
+require('./src/polyfills/textDecoder.js');
+
 // Mock react-native-nfc-manager
 jest.mock('react-native-nfc-manager', () => ({
   isSupported: jest.fn(() => Promise.resolve(true)),
@@ -7,16 +13,40 @@ jest.mock('react-native-nfc-manager', () => ({
   requestTechnology: jest.fn(() => Promise.resolve()),
   cancelTechnologyRequest: jest.fn(() => Promise.resolve()),
   getTag: jest.fn(() =>
-    Promise.resolve({id: [1, 2, 3, 4], techTypes: ['MifareClassic']}),
+    Promise.resolve({
+      id: '04914CCA5E6480',
+      techTypes: ['android.nfc.tech.MifareClassic'],
+      type: 'MifareClassic',
+      ndefMessage: []
+    }),
   ),
+  mifareClassicAuthenticateA: jest.fn(() => Promise.resolve(true)),
+  mifareClassicReadBlock: jest.fn(() => Promise.resolve(new Uint8Array(16).fill(0x42))),
   NfcTech: {
     MifareClassic: 'MifareClassic',
     Ndef: 'Ndef',
     NfcA: 'NfcA',
+    NfcB: 'NfcB',
+    NfcF: 'NfcF',
+    NfcV: 'NfcV',
+    IsoDep: 'IsoDep',
+    Iso15693: 'Iso15693',
+    MifareUltralight: 'MifareUltralight',
   },
   Ndef: {
     getNdefMessage: jest.fn(() => Promise.resolve([])),
   },
+  default: {
+    isSupported: jest.fn(() => Promise.resolve(true)),
+    start: jest.fn(() => Promise.resolve()),
+    stop: jest.fn(() => Promise.resolve()),
+    isEnabled: jest.fn(() => Promise.resolve(true)),
+    requestTechnology: jest.fn(() => Promise.resolve()),
+    cancelTechnologyRequest: jest.fn(() => Promise.resolve()),
+    getTag: jest.fn(() => Promise.resolve(null)),
+    mifareClassicAuthenticateA: jest.fn(() => Promise.resolve(true)),
+    mifareClassicReadBlock: jest.fn(() => Promise.resolve(new Uint8Array(16).fill(0x42))),
+  }
 }));
 
 // Mock @react-native-async-storage/async-storage

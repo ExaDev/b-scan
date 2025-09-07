@@ -59,10 +59,12 @@ describe('Scan Workflow Integration Tests', () => {
       const scanResult = await nfcManager.scanTag();
       
       // Verify successful scan
-      expect(scanResult?.success).toBe(true);
-      expect(scanResult?.data).toBeDefined();
-      expect(scanResult?.data?.uid).toBe('04914CCA5E6480');
-      expect(scanResult?.data?.technology).toBe('MifareClassic');
+      expect(scanResult.type).toBe('SUCCESS');
+      if (scanResult.type === 'SUCCESS') {
+        expect(scanResult.filamentInfo).toBeDefined();
+        expect(scanResult.filamentInfo.tagUid).toBe('04914CCA5E6480');
+        expect(scanResult.filamentInfo.tagFormat).toBe(TagFormat.BAMBU_LAB);
+      }
     });
 
     it('should handle scan failure gracefully in workflow', async () => {
@@ -79,8 +81,9 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Verify graceful failure handling
       expect(scanResult?.success).toBe(false);
-      expect(scanResult?.error).toBeDefined();
-      expect(scanResult?.data).toBeUndefined();
+      if (!scanResult?.success) {
+        expect(scanResult.error).toBeDefined();
+      }
     });
 
     it('should handle authentication workflow correctly', async () => {
@@ -263,7 +266,7 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Mock a long-running operation
       mockNfcLib.requestTechnology.mockImplementation(() =>
-        new Promise(resolve => setTimeout(resolve, 10000)) // 10 second delay
+        new Promise(resolve => setTimeout(() => resolve(void 0), 10000)) // 10 second delay
       );
       
       await nfcManager.initialize();

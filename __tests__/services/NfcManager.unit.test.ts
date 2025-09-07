@@ -6,12 +6,16 @@
 // Use manual mock
 jest.mock('react-native-nfc-manager');
 
-import { NfcManager, TagData, TagReadResult, BambuKeyDerivation } from '../../src/services/NfcManager';
+import { NfcManager, TagData, BambuKeyDerivation } from '../../src/services/NfcManager';
 import { TagFormat } from '../../src/types/FilamentInfo';
 // Import the mocked module to access mock functions
 import NfcLib from 'react-native-nfc-manager';
 
-const mockNfcLib = NfcLib as jest.Mocked<typeof NfcLib>;
+const mockNfcLib = NfcLib as jest.Mocked<typeof NfcLib> & {
+  mifareClassicAuthenticateA: jest.MockedFunction<any>;
+  mifareClassicReadBlock: jest.MockedFunction<any>;
+  stop: jest.MockedFunction<any>;
+};
 
 describe('NfcManager Unit Tests', () => {
   let nfcManager: NfcManager;
@@ -32,26 +36,23 @@ describe('NfcManager Unit Tests', () => {
     nfcManager = new NfcManager();
     jest.clearAllMocks();
     
-    // Add missing methods to the mock if they don't exist
-    if (!mockNfcLib.mifareClassicAuthenticateA) {
-      mockNfcLib.mifareClassicAuthenticateA = jest.fn();
-    }
-    if (!mockNfcLib.mifareClassicReadBlock) {
-      mockNfcLib.mifareClassicReadBlock = jest.fn();
-    }
+    // Ensure mock methods are properly set up
+    mockNfcLib.mifareClassicAuthenticateA = jest.fn();
+    mockNfcLib.mifareClassicReadBlock = jest.fn();
+    mockNfcLib.stop = jest.fn();
     
     // Set up default mock implementations
     mockNfcLib.isSupported.mockResolvedValue(true);
-    mockNfcLib.start.mockResolvedValue(undefined);
-    mockNfcLib.stop.mockResolvedValue(undefined);
-    mockNfcLib.cancelTechnologyRequest.mockResolvedValue(undefined);
+    mockNfcLib.start.mockResolvedValue(void 0);
+    mockNfcLib.stop.mockResolvedValue(void 0);
+    mockNfcLib.cancelTechnologyRequest.mockResolvedValue(void 0);
     mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
     mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16).fill(0x42));
   });
 
   describe('initialization and lifecycle', () => {
     it('should initialize NFC manager successfully', async () => {
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(void 0);
       
       const result = await nfcManager.initialize();
       
@@ -94,10 +95,11 @@ describe('NfcManager Unit Tests', () => {
       const mockTag = {
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
-        type: 'MifareClassic'
+        type: 'MifareClassic',
+        ndefMessage: []
       };
       
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue(mockTag);
       mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
       mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16).fill(0x42));
@@ -106,24 +108,27 @@ describe('NfcManager Unit Tests', () => {
       
       expect(mockNfcLib.requestTechnology).toHaveBeenCalled();
       expect(result).toBeDefined();
-      expect(result?.success).toBe(true);
+      expect(result.type).toBe('SUCCESS');
     });
 
     it('should handle authentication failure', async () => {
       const mockTag = {
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
-        type: 'MifareClassic'
+        type: 'MifareClassic',
+        ndefMessage: []
       };
       
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue(mockTag);
       mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(false);
       
       const result = await nfcManager.scanTag();
       
-      expect(result?.success).toBe(false);
-      expect(result?.error).toContain('Failed to read tag data');
+      expect(result.type).toBe('READ_ERROR');
+      if (result.type === 'READ_ERROR') {
+        expect(result.error).toContain('Failed to read tag data');
+      }
     });
 
     it('should handle scan timeout', async () => {
@@ -135,18 +140,19 @@ describe('NfcManager Unit Tests', () => {
       
       const result = await nfcManager.scanTag();
       
-      expect(result?.success).toBe(false);
-      expect(result?.error).toBe('Timeout');
+      expect(result.type).toBe('READ_ERROR');
+      if (result.type === 'READ_ERROR') {
+        expect(result.error).toBe('Timeout');
+      }
     }, 1000);
 
     it('should handle no tag present', async () => {
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue(null);
       
       const result = await nfcManager.scanTag();
       
-      expect(result?.success).toBe(false);
-      expect(result?.error).toContain('No tag');
+      expect(result.type).toBe('INVALID_TAG');
     });
 
     it('should cancel scanning operation', async () => {
@@ -281,7 +287,7 @@ describe('NfcManager Unit Tests', () => {
     });
 
     it('should handle concurrent scan requests', async () => {
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -296,14 +302,14 @@ describe('NfcManager Unit Tests', () => {
       const results = await Promise.all([scan1, scan2, scan3]);
       
       // Only one scan should succeed, others should be cancelled or fail
-      const successCount = results.filter(r => r?.success).length;
+      const successCount = results.filter(r => r.type === 'SUCCESS').length;
       expect(successCount).toBeLessThanOrEqual(1);
     });
   });
 
   describe('performance and reliability', () => {
     it('should complete scan operations in reasonable time', async () => {
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -325,7 +331,7 @@ describe('NfcManager Unit Tests', () => {
       const largeData = new Uint8Array(4096);
       largeData.fill(0x42);
       
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -349,7 +355,7 @@ describe('NfcManager Unit Tests', () => {
       const mockData = new Uint8Array(16);
       mockData.fill(0x42);
       
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(null as any);
       mockNfcLib.getTag.mockResolvedValue(mockTag);
       mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
       mockNfcLib.mifareClassicReadBlock.mockResolvedValue(mockData);
@@ -359,11 +365,11 @@ describe('NfcManager Unit Tests', () => {
       const result3 = await nfcManager.scanTag();
       
       // Results should be consistent
-      expect(result1?.success).toBe(result2?.success);
-      expect(result2?.success).toBe(result3?.success);
+      expect(result1.type).toBe(result2.type);
+      expect(result2.type).toBe(result3.type);
       
-      if (result1?.data && result2?.data) {
-        expect(result1.data.uid).toBe(result2.data.uid);
+      if (result1.type === 'SUCCESS' && result2.type === 'SUCCESS') {
+        expect(result1.filamentInfo.tagUid).toBe(result2.filamentInfo.tagUid);
       }
     });
   });

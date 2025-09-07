@@ -134,7 +134,7 @@ describe('BambuTagDecoder Unit Tests', () => {
       };
 
       const result = nfcManager.parseTagData(openSpoolTagData);
-      expect(result === null || result?.format === TagFormat.OPENSPOOL).toBe(true);
+      expect(result === null || result?.tagFormat === TagFormat.OPENSPOOL).toBe(true);
     });
 
     it('should handle unknown format gracefully', () => {
