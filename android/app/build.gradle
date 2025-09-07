@@ -118,9 +118,3 @@ dependencies {
     }
 }
 
-// Vector Icons Configuration - Automatic font syncing
-project.ext.vectoricons = [
-    iconFontNames: [ 'MaterialIcons.ttf', 'MaterialCommunityIcons.ttf' ] // Include both Material Icons fonts
-]
-
-apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
