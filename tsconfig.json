@@ -1,14 +1,23 @@
 {
   "extends": "@react-native/typescript-config",
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "__tests__/**/*.ts", 
+    "__tests__/**/*.tsx",
+    "__mocks__/**/*.ts",
+    "__mocks__/**/*.tsx",
+    "*.ts",
+    "*.tsx"
+  ],
   "exclude": ["**/node_modules", "**/Pods"],
   "compilerOptions": {
     "types": ["jest", "jest-extended"],
     "typeRoots": ["node_modules/@types", "src/types"],
     
-    // Balanced strict settings with dependency compatibility
+    // Maximum strictness settings
     "strict": true,
-    "skipLibCheck": true, // Skip checking node_modules types for compatibility
+    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
@@ -17,8 +26,24 @@
     "noImplicitOverride": true,
     "useUnknownInCatchVariables": true,
     
-    // Relax these for dependency compatibility while keeping our code strict
-    "exactOptionalPropertyTypes": false,
-    "noUncheckedSideEffectImports": false
+    // Additional strict checks
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "strictBindCallApply": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    
+    // Quality and safety checks
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitParameter": true,
+    "isolatedModules": true,
+    
+    // Keep compatibility for dependencies
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true
   }
 }
