@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
-import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
 import { RouteProp } from '@react-navigation/native';
 import ScanningScreen from '../../src/screens/ScanningScreen';
