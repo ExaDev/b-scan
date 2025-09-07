@@ -1,27 +1,42 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {View, StyleSheet, ScrollView, Alert} from 'react-native';
+import {View, StyleSheet, Dimensions, Alert} from 'react-native';
 import {
-  Card,
-  Title,
-  Paragraph,
-  Button,
+  Appbar,
   FAB,
-  Surface,
-  Text,
-  IconButton,
+  Portal,
+  Snackbar,
+  useTheme,
 } from 'react-native-paper';
+import {TabView, SceneMap, TabBar} from 'react-native-tab-view';
 import {NfcManagerService} from '../services/NfcManagerService';
-import {NavigationProps} from '../types/Navigation';
+import {NavigationProps, ViewMode} from '../types/Navigation';
 import {TagReadResult} from '../services/NfcManager';
+import InventoryBrowser from '../components/InventoryBrowser';
+import CatalogBrowser from '../components/CatalogBrowser';
+import TagsBrowser from '../components/TagsBrowser';
+import ScansBrowser from '../components/ScansBrowser';
+import ScanPrompt from '../components/ScanPrompt';
 
 interface HomeScreenProps extends NavigationProps {}
 
+const initialLayout = {width: Dimensions.get('window').width};
+
 const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
+  const theme = useTheme();
   const [isNfcEnabled, setIsNfcEnabled] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [_lastScanResult, _setLastScanResult] = useState<TagReadResult | null>(
-    null,
-  );
+  const [scanProgress, setScanProgress] = useState<number>(0);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  
+  // Tab view state
+  const [index, setIndex] = useState(0);
+  const [routes] = useState([
+    {key: 'inventory', title: 'Inventory', icon: 'inventory'},
+    {key: 'catalog', title: 'Catalog', icon: 'category'},
+    {key: 'tags', title: 'Tags', icon: 'tag'},
+    {key: 'scans', title: 'Scans', icon: 'history'},
+  ]);
 
   const nfcManager = NfcManagerService.getInstance();
 
@@ -33,11 +48,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   const initializeNfc = useCallback(async () => {
     const initialized = await nfcManager.initialize();
     if (!initialized) {
-      Alert.alert(
-        'NFC Not Available',
-        'This device does not support NFC or NFC is disabled.',
-        [{text: 'OK'}],
-      );
+      setSnackbarMessage('NFC not available on this device');
+      setSnackbarVisible(true);
     }
   }, [nfcManager]);
 
@@ -57,138 +69,87 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
     }
 
     setIsScanning(true);
+    setScanProgress(0);
     navigation.navigate('Scanning');
   };
 
-  const handleViewInventory = () => {
-    navigation.navigate('DataBrowser');
+  const handleNavigateToDetails = (type: string, identifier: string) => {
+    navigation.navigate('EntityDetail', {
+      entityId: identifier,
+      entityType: type,
+    });
   };
 
-  const handleViewHistory = () => {
-    navigation.navigate('ScanHistory');
-  };
+  const renderScene = SceneMap({
+    inventory: () => (
+      <InventoryBrowser
+        onNavigateToDetails={handleNavigateToDetails}
+        scanState={isScanning ? 'processing' : 'idle'}
+        scanProgress={scanProgress}
+        onSimulateScan={handleStartScan}
+      />
+    ),
+    catalog: () => (
+      <CatalogBrowser
+        onNavigateToDetails={handleNavigateToDetails}
+        scanState={isScanning ? 'processing' : 'idle'}
+        scanProgress={scanProgress}
+        onSimulateScan={handleStartScan}
+      />
+    ),
+    tags: () => (
+      <TagsBrowser
+        onNavigateToDetails={handleNavigateToDetails}
+      />
+    ),
+    scans: () => (
+      <ScansBrowser
+        onNavigateToDetails={handleNavigateToDetails}
+      />
+    ),
+  });
 
-  const handleSettings = () => {
-    navigation.navigate('Settings');
-  };
-
-  const renderQuickStats = () => {
-    return (
-      <Surface style={styles.statsContainer} elevation={2}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>12</Text>
-          <Text style={styles.statLabel}>Total Spools</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>8</Text>
-          <Text style={styles.statLabel}>In Stock</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>45</Text>
-          <Text style={styles.statLabel}>Total Scans</Text>
-        </View>
-      </Surface>
-    );
-  };
-
-  const renderRecentActivity = () => {
-    return (
-      <Card style={styles.card}>
-        <Card.Content>
-          <Title>Recent Activity</Title>
-          <View style={styles.activityItem}>
-            <Text style={styles.activityText}>Scanned PLA Basic - Orange</Text>
-            <Text style={styles.activityTime}>2 hours ago</Text>
-          </View>
-          <View style={styles.activityItem}>
-            <Text style={styles.activityText}>Updated PETG inventory</Text>
-            <Text style={styles.activityTime}>1 day ago</Text>
-          </View>
-          <View style={styles.activityItem}>
-            <Text style={styles.activityText}>Added new TPU spool</Text>
-            <Text style={styles.activityTime}>3 days ago</Text>
-          </View>
-        </Card.Content>
-        <Card.Actions>
-          <Button onPress={handleViewHistory}>View All</Button>
-        </Card.Actions>
-      </Card>
-    );
-  };
+  const renderTabBar = (props: any) => (
+    <TabBar
+      {...props}
+      indicatorStyle={{backgroundColor: theme.colors.primary}}
+      style={{backgroundColor: theme.colors.surface}}
+      labelStyle={{color: theme.colors.onSurface, fontSize: 12, fontWeight: '600'}}
+      activeColor={theme.colors.primary}
+      inactiveColor={theme.colors.onSurfaceVariant}
+    />
+  );
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* NFC Status Card */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <View style={styles.nfcStatusContainer}>
-              <View style={styles.nfcStatusLeft}>
-                <Title>NFC Status</Title>
-                <Paragraph>
-                  {isNfcEnabled ? 'Ready to scan' : 'NFC is disabled'}
-                </Paragraph>
-              </View>
-              <View style={styles.nfcStatusRight}>
-                <IconButton
-                  icon={isNfcEnabled ? 'nfc' : 'nfc-off'}
-                  size={32}
-                  iconColor={isNfcEnabled ? '#4CAF50' : '#F44336'}
-                />
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {/* Quick Stats */}
-        {renderQuickStats()}
-
-        {/* Quick Actions */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>Quick Actions</Title>
-          </Card.Content>
-          <Card.Actions style={styles.quickActions}>
-            <Button
-              mode="contained"
-              onPress={handleViewInventory}
-              style={styles.actionButton}>
-              Browse Inventory
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={handleViewHistory}
-              style={styles.actionButton}>
-              Scan History
-            </Button>
-          </Card.Actions>
-        </Card>
-
-        {/* Recent Activity */}
-        {renderRecentActivity()}
-
-        {/* Settings Quick Access */}
-        <Card style={styles.card}>
-          <Card.Content>
-            <Title>Settings</Title>
-            <Paragraph>Configure app preferences and NFC settings</Paragraph>
-          </Card.Content>
-          <Card.Actions>
-            <Button onPress={handleSettings}>Open Settings</Button>
-          </Card.Actions>
-        </Card>
-      </ScrollView>
+    <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      {/* Tab View */}
+      <TabView
+        navigationState={{index, routes}}
+        renderScene={renderScene}
+        renderTabBar={renderTabBar}
+        onIndexChange={setIndex}
+        initialLayout={initialLayout}
+        style={styles.tabView}
+      />
 
       {/* Floating Action Button for Scanning */}
-      <FAB
-        style={styles.fab}
-        icon="nfc-tap"
-        label="Scan Tag"
-        onPress={handleStartScan}
-        disabled={!isNfcEnabled || isScanning}
-      />
+      <Portal>
+        <FAB
+          style={[styles.fab, {backgroundColor: theme.colors.primary}]}
+          icon="nfc-tap"
+          label="Scan Tag"
+          onPress={handleStartScan}
+          disabled={!isNfcEnabled || isScanning}
+        />
+      </Portal>
+
+      {/* Snackbar for messages */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}>
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 };
@@ -196,81 +157,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  scrollView: {
+  tabView: {
     flex: 1,
-    padding: 16,
-  },
-  card: {
-    marginBottom: 16,
-  },
-  nfcStatusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  nfcStatusLeft: {
-    flex: 1,
-  },
-  nfcStatusRight: {
-    alignItems: 'center',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#6200EE',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#ddd',
-    marginHorizontal: 8,
-  },
-  quickActions: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-  },
-  actionButton: {
-    marginVertical: 4,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  activityText: {
-    flex: 1,
-    fontSize: 14,
-  },
-  activityTime: {
-    fontSize: 12,
-    color: '#666',
   },
   fab: {
     position: 'absolute',
     margin: 16,
     right: 0,
     bottom: 0,
-    backgroundColor: '#6200EE',
   },
 });
 
