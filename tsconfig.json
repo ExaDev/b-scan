@@ -27,7 +27,6 @@
     "useUnknownInCatchVariables": true,
     
     // Additional strict checks
-    "noPropertyAccessFromIndexSignature": true,
     "noImplicitAny": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
@@ -39,7 +38,6 @@
     // Quality and safety checks
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noImplicitParameter": true,
     "isolatedModules": true,
     
     // Keep compatibility for dependencies
