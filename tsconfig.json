@@ -15,6 +15,11 @@
     "types": ["jest", "jest-extended"],
     "typeRoots": ["node_modules/@types", "src/types"],
     
+    // Essential React Native settings
+    "jsx": "react-native",
+    "allowJs": true,
+    "esModuleInterop": true,
+    
     // Maximum strictness settings
     "strict": true,
     "exactOptionalPropertyTypes": true,
