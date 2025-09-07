@@ -117,3 +117,10 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// Vector Icons Configuration - Automatic font syncing
+project.ext.vectoricons = [
+    iconFontNames: [ 'MaterialIcons.ttf' ] // Only include fonts we use
+]
+
+apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
