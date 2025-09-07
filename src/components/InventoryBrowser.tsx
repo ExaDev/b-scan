@@ -11,7 +11,6 @@ import {
   IconButton,
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import ScanPrompt from './ScanPrompt';
 
 interface InventoryItem {
   id: string;
@@ -27,16 +26,10 @@ interface InventoryItem {
 
 interface InventoryBrowserProps {
   onNavigateToDetails: (type: string, identifier: string) => void;
-  scanState: 'idle' | 'processing';
-  scanProgress: number;
-  onSimulateScan: () => void;
 }
 
 const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
   onNavigateToDetails,
-  scanState,
-  scanProgress,
-  onSimulateScan,
 }) => {
   const theme = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -172,20 +165,11 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
   };
 
   const renderHeader = () => (
-    <>
-      <ScanPrompt
-        isScanning={scanState === 'processing'}
-        scanProgress={scanProgress}
-        onStartScan={onSimulateScan}
-        isNfcEnabled={true}
-        compact={false} // Always show full version in list header
-      />
-      <View style={styles.sectionHeader}>
-        <Title style={[styles.sectionTitle, {color: theme.colors.onBackground}]}>
-          Inventory ({inventoryItems.filter(item => item.isActive).length} active)
-        </Title>
-      </View>
-    </>
+    <View style={styles.sectionHeader}>
+      <Title style={[styles.sectionTitle, {color: theme.colors.onBackground}]}>
+        Inventory ({inventoryItems.filter(item => item.isActive).length} active)
+      </Title>
+    </View>
   );
 
   return (

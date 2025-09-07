@@ -8,7 +8,6 @@ import {
   Chip,
   useTheme,
 } from 'react-native-paper';
-import ScanPrompt from './ScanPrompt';
 
 interface CatalogItem {
   id: string;
@@ -26,16 +25,10 @@ interface CatalogItem {
 
 interface CatalogBrowserProps {
   onNavigateToDetails: (type: string, identifier: string) => void;
-  scanState: 'idle' | 'processing';
-  scanProgress: number;
-  onSimulateScan: () => void;
 }
 
 const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
   onNavigateToDetails,
-  scanState,
-  scanProgress,
-  onSimulateScan,
 }) => {
   const theme = useTheme();
   
@@ -107,20 +100,11 @@ const CatalogBrowser: React.FC<CatalogBrowserProps> = ({
   );
 
   const renderHeader = () => (
-    <>
-      <ScanPrompt
-        isScanning={scanState === 'processing'}
-        scanProgress={scanProgress}
-        onStartScan={onSimulateScan}
-        isNfcEnabled={true}
-        compact={false} // Always show full version in list header
-      />
-      <View style={styles.sectionHeader}>
-        <Title style={[styles.sectionTitle, {color: theme.colors.onBackground}]}>
-          Filament Catalog
-        </Title>
-      </View>
-    </>
+    <View style={styles.sectionHeader}>
+      <Title style={[styles.sectionTitle, {color: theme.colors.onBackground}]}>
+        Filament Catalog
+      </Title>
+    </View>
   );
 
   return (
