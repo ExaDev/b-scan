@@ -1,7 +1,7 @@
 module.exports = {
   preset: 'react-native',
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage)/)',
+    'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage|react-native-tab-view|react-native-pager-view)/)',
   ],
   moduleNameMapper: {
     '^react-native-vector-icons/(.*)$': 'react-native-vector-icons/dist/$1',
@@ -14,7 +14,7 @@ module.exports = {
       testEnvironment: 'node',
       preset: 'react-native',
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage)/)',
+        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage|react-native-tab-view|react-native-pager-view)/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
@@ -24,7 +24,7 @@ module.exports = {
       testEnvironment: 'node',
       preset: 'react-native',
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage)/)',
+        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage|react-native-tab-view|react-native-pager-view)/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
@@ -34,7 +34,7 @@ module.exports = {
       testEnvironment: 'jsdom',
       preset: 'react-native',
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage)/)',
+        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage|react-native-tab-view|react-native-pager-view)/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
@@ -44,7 +44,7 @@ module.exports = {
       testEnvironment: 'jsdom',
       preset: 'react-native',
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage)/)',
+        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage|react-native-tab-view|react-native-pager-view)/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
@@ -54,7 +54,7 @@ module.exports = {
       testEnvironment: 'node',
       preset: 'react-native',
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage)/)',
+        'node_modules/(?!(react-native|@react-native|react-native-nfc-manager|@react-navigation|react-native-paper|react-native-vector-icons|react-native-safe-area-context|react-native-screens|@react-native-async-storage|react-native-tab-view|react-native-pager-view)/)',
       ],
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     }

@@ -101,7 +101,7 @@ jest.mock('react-native-paper', () => ({
     maximumValue,
     step,
   }),
-  Modal: ({visible, children, onDismiss}) => (visible ? children : null),
+  Modal: ({visible, children}) => (visible ? children : null),
   Portal: ({children}) => children,
   TextInput: ({value, onChangeText, placeholder, multiline}) => ({
     value,

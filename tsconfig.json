@@ -4,6 +4,18 @@
   "exclude": ["**/node_modules", "**/Pods"],
   "compilerOptions": {
     "types": ["jest", "jest-extended"],
-    "typeRoots": ["node_modules/@types", "src/types"]
+    "typeRoots": ["node_modules/@types", "src/types"],
+    
+    // Additional strict mode options beyond base config
+    "strict": true, // Already in base but being explicit
+    "noUncheckedIndexedAccess": true, // Requires undefined checks for indexed access
+    "exactOptionalPropertyTypes": true, // Disallows assigning undefined to optional properties
+    "noImplicitReturns": true, // Requires explicit returns in all code paths
+    "noFallthroughCasesInSwitch": true, // Prevents fallthrough in switch statements
+    "noUncheckedSideEffectImports": true, // Strict import checking
+    "allowUnusedLabels": false, // Disallow unused labels
+    "allowUnreachableCode": false, // Error on unreachable code
+    "noImplicitOverride": true, // Requires explicit override keyword
+    "useUnknownInCatchVariables": true // Catch variables are unknown instead of any
   }
 }
