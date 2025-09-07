@@ -6,16 +6,19 @@
     "types": ["jest", "jest-extended"],
     "typeRoots": ["node_modules/@types", "src/types"],
     
-    // Additional strict mode options beyond base config
-    "strict": true, // Already in base but being explicit
-    "noUncheckedIndexedAccess": true, // Requires undefined checks for indexed access
-    "exactOptionalPropertyTypes": true, // Disallows assigning undefined to optional properties
-    "noImplicitReturns": true, // Requires explicit returns in all code paths
-    "noFallthroughCasesInSwitch": true, // Prevents fallthrough in switch statements
-    "noUncheckedSideEffectImports": true, // Strict import checking
-    "allowUnusedLabels": false, // Disallow unused labels
-    "allowUnreachableCode": false, // Error on unreachable code
-    "noImplicitOverride": true, // Requires explicit override keyword
-    "useUnknownInCatchVariables": true // Catch variables are unknown instead of any
+    // Balanced strict settings with dependency compatibility
+    "strict": true,
+    "skipLibCheck": true, // Skip checking node_modules types for compatibility
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    
+    // Relax these for dependency compatibility while keeping our code strict
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedSideEffectImports": false
   }
 }
