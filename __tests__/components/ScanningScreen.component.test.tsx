@@ -68,7 +68,7 @@ jest.mock('../../src/services/NfcManagerService', () => ({
   }
 }));
 
-describe.skip('ScanningScreen Component Tests - React rendering issue needs investigation', () => {
+describe.skip('ScanningScreen Component Tests - React rendering issue - component resolves as undefined', () => {
   const renderScanningScreen = () => {
     const route: RouteProp<RootStackParamList, 'Scanning'> = { key: 'Scanning', name: 'Scanning', params: {} };
     return render(
