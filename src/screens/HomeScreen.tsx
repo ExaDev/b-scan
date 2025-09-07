@@ -2,11 +2,15 @@ import React, {useState, useEffect, useCallback} from 'react';
 import {View, StyleSheet, Dimensions, Alert} from 'react-native';
 import {
   Appbar,
-  FAB,
-  Portal,
   Snackbar,
   useTheme,
+  Button,
+  Menu,
+  Portal,
+  Badge,
 } from 'react-native-paper';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {TabView, SceneMap, TabBar} from 'react-native-tab-view';
 import {NfcManagerService} from '../services/NfcManagerService';
 import {NavigationProps, ViewMode} from '../types/Navigation';
@@ -28,6 +32,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   const [scanProgress, setScanProgress] = useState<number>(0);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  
+  // Sort and filter state
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [groupMenuVisible, setGroupMenuVisible] = useState(false);
+  const [sortProperty, setSortProperty] = useState<'lastScan' | 'name' | 'color' | 'material'>('lastScan');
+  const [sortAscending, setSortAscending] = useState(false);
+  const [activeFilters, setActiveFilters] = useState(0);
   
   // Tab view state
   const [index, setIndex] = useState(0);
@@ -84,17 +96,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
     inventory: () => (
       <InventoryBrowser
         onNavigateToDetails={handleNavigateToDetails}
-        scanState={isScanning ? 'processing' : 'idle'}
-        scanProgress={scanProgress}
-        onSimulateScan={handleStartScan}
       />
     ),
     catalog: () => (
       <CatalogBrowser
         onNavigateToDetails={handleNavigateToDetails}
-        scanState={isScanning ? 'processing' : 'idle'}
-        scanProgress={scanProgress}
-        onSimulateScan={handleStartScan}
       />
     ),
     tags: () => (
@@ -120,8 +126,92 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
     />
   );
 
+  const shouldShowScanPrompt = () => {
+    const currentRoute = routes[index];
+    return currentRoute.key === 'inventory' || currentRoute.key === 'catalog';
+  };
+
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      {/* Conditional Scan Prompt - only on Inventory and Catalog tabs */}
+      {shouldShowScanPrompt() && (
+        <ScanPrompt
+          isScanning={isScanning}
+          scanProgress={scanProgress}
+          onStartScan={handleStartScan}
+          isNfcEnabled={isNfcEnabled}
+          compact={false}
+        />
+      )}
+
+      {/* Sort, Filter, Group Controls */}
+      <View style={styles.controlsRow}>
+        {/* Sort Button */}
+        <Menu
+          visible={sortMenuVisible}
+          onDismiss={() => setSortMenuVisible(false)}
+          anchor={
+            <Button
+              mode="outlined"
+              onPress={() => setSortMenuVisible(true)}
+              icon={({size, color}) => (
+                <MaterialCommunityIcon 
+                  name={sortAscending ? 'sort-ascending' : 'sort-descending'} 
+                  size={size} 
+                  color={color} 
+                />
+              )}
+              compact
+              style={styles.controlButton}>
+              {sortProperty === 'lastScan' ? 'Last Scan' : 
+               sortProperty === 'name' ? 'Name' :
+               sortProperty === 'color' ? 'Color' : 'Material'}
+            </Button>
+          }>
+          <Menu.Item onPress={() => { setSortProperty('lastScan'); setSortMenuVisible(false); }} title="Last Scan" />
+          <Menu.Item onPress={() => { setSortProperty('name'); setSortMenuVisible(false); }} title="Name" />
+          <Menu.Item onPress={() => { setSortProperty('color'); setSortMenuVisible(false); }} title="Color" />
+          <Menu.Item onPress={() => { setSortProperty('material'); setSortMenuVisible(false); }} title="Material" />
+        </Menu>
+
+        {/* Filter Button */}
+        <Button
+          mode="outlined"
+          onPress={() => setFilterMenuVisible(true)}
+          icon={({size, color}) => (
+            <MaterialIcon name="filter-list" size={size} color={color} />
+          )}
+          compact
+          style={styles.controlButton}>
+          Filter
+          {activeFilters > 0 && (
+            <Badge size={16} style={styles.filterBadge}>{activeFilters}</Badge>
+          )}
+        </Button>
+
+        {/* Group Button */}
+        <Menu
+          visible={groupMenuVisible}
+          onDismiss={() => setGroupMenuVisible(false)}
+          anchor={
+            <Button
+              mode="outlined"
+              onPress={() => setGroupMenuVisible(true)}
+              icon={({size, color}) => (
+                <MaterialIcon name="group-work" size={size} color={color} />
+              )}
+              compact
+              style={styles.controlButton}>
+              Group
+            </Button>
+          }>
+          <Menu.Item onPress={() => setGroupMenuVisible(false)} title="None" />
+          <Menu.Item onPress={() => setGroupMenuVisible(false)} title="Color" />
+          <Menu.Item onPress={() => setGroupMenuVisible(false)} title="Material" />
+          <Menu.Item onPress={() => setGroupMenuVisible(false)} title="Series" />
+        </Menu>
+      </View>
+
       {/* Tab View */}
       <TabView
         navigationState={{index, routes}}
@@ -131,17 +221,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
         initialLayout={initialLayout}
         style={styles.tabView}
       />
-
-      {/* Floating Action Button for Scanning */}
-      <Portal>
-        <FAB
-          style={[styles.fab, {backgroundColor: theme.colors.primary}]}
-          icon="nfc-tap"
-          label="Scan Tag"
-          onPress={handleStartScan}
-          disabled={!isNfcEnabled || isScanning}
-        />
-      </Portal>
 
       {/* Snackbar for messages */}
       <Snackbar
@@ -161,11 +240,19 @@ const styles = StyleSheet.create({
   tabView: {
     flex: 1,
   },
-  fab: {
+  controlsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  controlButton: {
+    flex: 1,
+  },
+  filterBadge: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+    top: -4,
+    right: -4,
   },
 });
 
