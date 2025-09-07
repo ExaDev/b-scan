@@ -1,7 +1,10 @@
 import React from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../types/Navigation';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import {useTheme} from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import {RootStackParamList, TabParamList} from '../types/Navigation';
 
 // Screen imports
 import HomeScreen from '../screens/HomeScreen';
@@ -14,28 +17,96 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ScanningScreen from '../screens/ScanningScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
+
+function MainTabNavigator() {
+  const theme = useTheme();
+  
+  return (
+    <Tab.Navigator
+      initialRouteName="Home"
+      screenOptions={({route}) => ({
+        tabBarIcon: ({focused, color, size}) => {
+          let iconName: string;
+          
+          switch (route.name) {
+            case 'Home':
+              iconName = focused ? 'inventory' : 'inventory-2';
+              break;
+            case 'History':
+              iconName = focused ? 'history' : 'history';
+              break;
+            case 'Settings':
+              iconName = focused ? 'settings' : 'settings';
+              break;
+            default:
+              iconName = 'help';
+          }
+          
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
+        tabBarStyle: {
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.outline,
+        },
+        headerStyle: {
+          backgroundColor: theme.colors.primary,
+        },
+        headerTintColor: theme.colors.onPrimary,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      })}>
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={{
+          title: 'B-Scan',
+          headerTitle: 'B-Scan',
+        }}
+      />
+      <Tab.Screen 
+        name="History" 
+        component={ScanHistoryScreen}
+        options={{
+          title: 'History',
+          headerTitle: 'Scan History',
+        }}
+      />
+      <Tab.Screen 
+        name="Settings" 
+        component={SettingsScreen}
+        options={{
+          title: 'Settings',
+          headerTitle: 'Settings',
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 const AppNavigator: React.FC = () => {
+  const theme = useTheme();
+  
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Home"
+        initialRouteName="MainTabs"
         screenOptions={{
           headerStyle: {
-            backgroundColor: '#6200EE',
+            backgroundColor: theme.colors.primary,
           },
-          headerTintColor: '#fff',
+          headerTintColor: theme.colors.onPrimary,
           headerTitleStyle: {
             fontWeight: 'bold',
           },
         }}>
         <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: 'B-Scan',
-            headerTitleAlign: 'center',
-          }}
+          name="MainTabs"
+          component={MainTabNavigator}
+          options={{headerShown: false}}
         />
         <Stack.Screen
           name="DataBrowser"
@@ -45,7 +116,7 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen
           name="EntityDetail"
           component={EntityDetailScreen}
-          options={{title: 'Entity Details'}}
+          options={{title: 'Details'}}
         />
         <Stack.Screen
           name="ComponentDetail"
@@ -53,19 +124,9 @@ const AppNavigator: React.FC = () => {
           options={{title: 'Component Details'}}
         />
         <Stack.Screen
-          name="ScanHistory"
-          component={ScanHistoryScreen}
-          options={{title: 'Scan History'}}
-        />
-        <Stack.Screen
           name="ScanDetail"
           component={ScanDetailScreen}
           options={{title: 'Scan Details'}}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{title: 'Settings'}}
         />
         <Stack.Screen
           name="Scanning"
