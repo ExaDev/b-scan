@@ -3,7 +3,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {useTheme} from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 import {RootStackParamList, TabParamList} from '../types/Navigation';
 
 // Screen imports
@@ -43,7 +43,7 @@ function MainTabNavigator() {
               iconName = 'help';
           }
           
-          return <Icon name={iconName} size={size} color={color} />;
+          return <MaterialIcon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,

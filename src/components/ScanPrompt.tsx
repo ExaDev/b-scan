@@ -1,7 +1,8 @@
 import React from 'react';
 import {View, StyleSheet} from 'react-native';
 import {Card, Title, Paragraph, Button, ProgressBar, useTheme} from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface ScanPromptProps {
   isScanning: boolean;
@@ -24,7 +25,7 @@ const ScanPrompt: React.FC<ScanPromptProps> = ({
     return (
       <View style={[styles.compactContainer, {backgroundColor: theme.colors.surfaceVariant}]}>
         <View style={styles.compactContent}>
-          <Icon name="nfc" size={24} color={theme.colors.primary} />
+          <MaterialIcon name="nfc" size={24} color={theme.colors.primary} />
           <View style={styles.compactText}>
             <Title style={styles.compactTitle}>
               {isScanning ? 'Scanning...' : 'Ready to scan NFC tags'}
@@ -55,11 +56,19 @@ const ScanPrompt: React.FC<ScanPromptProps> = ({
     <Card style={styles.card}>
       <Card.Content style={styles.content}>
         <View style={styles.iconContainer}>
-          <Icon
-            name={isScanning ? 'nfc-tap' : 'nfc'}
-            size={48}
-            color={isNfcEnabled ? theme.colors.primary : theme.colors.outline}
-          />
+          {isScanning ? (
+            <MaterialCommunityIcon
+              name="nfc-tap"
+              size={48}
+              color={isNfcEnabled ? theme.colors.primary : theme.colors.outline}
+            />
+          ) : (
+            <MaterialIcon
+              name="nfc"
+              size={48}
+              color={isNfcEnabled ? theme.colors.primary : theme.colors.outline}
+            />
+          )}
         </View>
         
         <Title style={[styles.title, {color: theme.colors.onSurface}]}>
@@ -91,7 +100,9 @@ const ScanPrompt: React.FC<ScanPromptProps> = ({
             onPress={onStartScan}
             disabled={!isNfcEnabled}
             style={styles.button}
-            icon="nfc-tap">
+            icon={({size, color}) => (
+              <MaterialCommunityIcon name="nfc-tap" size={size} color={color} />
+            )}>
             Start Scanning
           </Button>
         )}

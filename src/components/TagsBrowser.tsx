@@ -8,7 +8,7 @@ import {
   useTheme,
   Surface,
 } from 'react-native-paper';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcon from 'react-native-vector-icons/MaterialIcons';
 
 interface TagInfo {
   id: string;
@@ -82,7 +82,7 @@ const TagsBrowser: React.FC<TagsBrowserProps> = ({onNavigateToDetails}) => {
             </Paragraph>
           </View>
           <Surface style={[styles.iconContainer, {backgroundColor: theme.colors.primaryContainer}]}>
-            <Icon name="nfc" size={24} color={theme.colors.primary} />
+            <MaterialIcon name="nfc" size={24} color={theme.colors.primary} />
           </Surface>
         </View>
 
