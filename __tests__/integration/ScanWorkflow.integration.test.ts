@@ -7,14 +7,25 @@ import { NfcManager, TagReadResult } from '../../src/services/NfcManager';
 import { TagFormat } from '../../src/types/FilamentInfo';
 
 // Mock react-native-nfc-manager for integration testing
+const mockNfcLib = {
+  isSupported: jest.fn().mockResolvedValue(true),
+  start: jest.fn().mockResolvedValue(true),
+  stop: jest.fn().mockResolvedValue(undefined),
+  isEnabled: jest.fn().mockResolvedValue(true),
+  requestTechnology: jest.fn().mockResolvedValue(undefined),
+  cancelTechnologyRequest: jest.fn().mockResolvedValue(undefined),
+  mifareClassicAuthenticateA: jest.fn().mockResolvedValue(true),
+  mifareClassicReadBlock: jest.fn().mockResolvedValue(new Uint8Array(16)),
+  getTag: jest.fn().mockResolvedValue({
+    id: '04914CCA5E6480',
+    techTypes: ['android.nfc.tech.MifareClassic'],
+    type: 'MifareClassic'
+  }),
+};
+
 jest.mock('react-native-nfc-manager', () => ({
-  start: jest.fn(),
-  stop: jest.fn(),
-  requestTechnology: jest.fn(),
-  cancelTechnologyRequest: jest.fn(),
-  mifareClassicAuthenticateA: jest.fn(),
-  mifareClassicReadBlock: jest.fn(),
-  getTag: jest.fn(),
+  __esModule: true,
+  default: mockNfcLib,
   NfcTech: {
     MifareClassic: 'MifareClassic',
     Ndef: 'Ndef'
@@ -31,7 +42,7 @@ describe('Scan Workflow Integration Tests', () => {
 
   describe('complete scan workflow', () => {
     it('should complete full Bambu Lab tag scan workflow', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       // Mock successful NFC operations
       mockNfcLib.start.mockResolvedValue(true);
@@ -68,7 +79,7 @@ describe('Scan Workflow Integration Tests', () => {
     });
 
     it('should handle scan failure gracefully in workflow', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       // Mock NFC initialization success but scan failure
       mockNfcLib.start.mockResolvedValue(true);
@@ -87,7 +98,7 @@ describe('Scan Workflow Integration Tests', () => {
     });
 
     it('should handle authentication workflow correctly', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
@@ -113,7 +124,7 @@ describe('Scan Workflow Integration Tests', () => {
     });
 
     it('should handle partial data read scenarios', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
@@ -228,7 +239,7 @@ describe('Scan Workflow Integration Tests', () => {
 
   describe('workflow error recovery', () => {
     it('should recover from NFC connection drops', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology
@@ -256,7 +267,7 @@ describe('Scan Workflow Integration Tests', () => {
     });
 
     it('should handle tag removal during scan', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
@@ -279,7 +290,7 @@ describe('Scan Workflow Integration Tests', () => {
     });
 
     it('should timeout long-running operations', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       
@@ -300,7 +311,7 @@ describe('Scan Workflow Integration Tests', () => {
     }, 10000);
 
     it('should clean up resources on failure', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology.mockRejectedValue(new Error('Scan failed'));
@@ -317,7 +328,7 @@ describe('Scan Workflow Integration Tests', () => {
 
   describe('performance and reliability', () => {
     it('should maintain consistent performance across multiple scans', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       // Setup successful scan mocks
       mockNfcLib.start.mockResolvedValue(true);
@@ -355,7 +366,7 @@ describe('Scan Workflow Integration Tests', () => {
     });
 
     it('should handle concurrent scan attempts', async () => {
-      const mockNfcLib = require('react-native-nfc-manager');
+      // mockNfcLib is already available from the mock setup
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
