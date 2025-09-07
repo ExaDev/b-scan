@@ -220,6 +220,8 @@ export class ConfidenceCalculator {
     for (let i = 1; i < sortedMeasurements.length; i++) {
       const prev = sortedMeasurements[i - 1];
       const curr = sortedMeasurements[i];
+      if (!prev || !curr) continue;
+      
       const change = curr.weight - prev.weight;
 
       totalChanges++;
@@ -285,11 +287,11 @@ export class ConfidenceCalculator {
       return 'Very Poor';
     };
 
-    const getRecommendation = (overall: number): string => {
-      if (overall >= 0.8) return 'System is highly reliable for automated operations';
-      if (overall >= 0.7) return 'System is suitable for most operations with occasional manual verification';
-      if (overall >= 0.6) return 'System requires regular manual verification';
-      if (overall >= 0.5) return 'System needs significant improvement before reliable use';
+    const getRecommendation = (score: number): string => {
+      if (score >= 0.8) return 'System is highly reliable for automated operations';
+      if (score >= 0.7) return 'System is suitable for most operations with occasional manual verification';
+      if (score >= 0.6) return 'System requires regular manual verification';
+      if (score >= 0.5) return 'System needs significant improvement before reliable use';
       return 'System requires recalibration and manual oversight';
     };
 

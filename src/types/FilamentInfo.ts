@@ -286,6 +286,7 @@ export interface GraphEntity {
   type: EntityType;
   createdAt: number;
   updatedAt: number;
+  [key: string]: unknown;
 }
 
 export enum EntityType {

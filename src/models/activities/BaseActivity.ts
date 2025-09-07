@@ -57,7 +57,10 @@ export interface ActivityMetadata {
   tags: string[];
   
   /** Custom metadata as key-value pairs */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
+  
+  /** Index signature for additional properties */
+  [key: string]: unknown;
 }
 
 export interface ActivityResult {
@@ -68,7 +71,7 @@ export interface ActivityResult {
   message?: string;
   
   /** Structured data representing the result */
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   
   /** Any errors that occurred during the activity */
   errors?: ActivityError[];
@@ -88,7 +91,7 @@ export interface ActivityError {
   message: string;
   
   /** Optional error details */
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   
   /** Timestamp when the error occurred */
   timestamp: Date;
@@ -105,7 +108,7 @@ export interface ActivityWarning {
   message: string;
   
   /** Optional warning details */
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   
   /** Timestamp when the warning was generated */
   timestamp: Date;
@@ -173,7 +176,7 @@ export interface ActivityRelationship {
   relationshipType: 'primary' | 'secondary' | 'reference' | 'target';
   
   /** Additional relationship metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BaseActivity {
@@ -193,10 +196,13 @@ export interface BaseActivity {
   relationships: ActivityRelationship[];
   
   /** Configuration specific to the activity type */
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
   
   /** Audit trail of state changes */
   auditTrail: ActivityAuditEntry[];
+  
+  /** Index signature for additional properties */
+  [key: string]: unknown;
 }
 
 export interface ActivityAuditEntry {
@@ -219,7 +225,7 @@ export interface ActivityAuditEntry {
   description?: string;
   
   /** Additional change details */
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface ActivityValidationResult {
@@ -268,5 +274,5 @@ export interface ActivityExecutionContext {
   };
   
   /** Additional execution context */
-  customContext?: Record<string, any>;
+  customContext?: Record<string, unknown>;
 }

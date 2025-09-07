@@ -1,3 +1,8 @@
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import type {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
+import type {CompositeNavigationProp} from '@react-navigation/native';
+import type {RouteProp} from '@react-navigation/native';
+
 export type RootStackParamList = {
   MainTabs: undefined;
   DataBrowser: undefined;
@@ -13,9 +18,24 @@ export type TabParamList = {
   Settings: undefined;
 };
 
-export type NavigationProps = {
-  navigation: any;
-  route: any;
+export type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+export type TabNavigationProp = BottomTabNavigationProp<TabParamList>;
+
+export type NavigationProps<
+  T extends keyof RootStackParamList = keyof RootStackParamList
+> = {
+  navigation: NativeStackNavigationProp<RootStackParamList, T>;
+  route: RouteProp<RootStackParamList, T>;
+};
+
+export type TabNavigationProps<
+  T extends keyof TabParamList = keyof TabParamList
+> = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, T>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+  route: RouteProp<TabParamList, T>;
 };
 
 export type DetailType = 'component' | 'tag' | 'scan' | 'inventory' | 'sku';

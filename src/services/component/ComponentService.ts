@@ -73,13 +73,17 @@ export class ComponentService extends BaseService {
   private lowFilamentThreshold = 0.15; // 15% remaining
   private emptyFilamentThreshold = 0.05; // 5% remaining
 
-  constructor(
-    entityService?: EntityService,
-    activityService?: ActivityService
-  ) {
+  constructor(...args: unknown[]) {
     super();
-    this.entityService = entityService;
-    this.activityService = activityService;
+    // Dependencies are injected via setter methods after construction
+    // See ServiceRegistry.wireServiceDependencies()
+    const [entityService, activityService] = args;
+    if (entityService && entityService instanceof BaseService) {
+      this.entityService = entityService as EntityService;
+    }
+    if (activityService && activityService instanceof BaseService) {
+      this.activityService = activityService as ActivityService;
+    }
   }
 
   /**
@@ -128,9 +132,17 @@ export class ComponentService extends BaseService {
       const component: Omit<PhysicalComponent, 'id' | 'createdAt' | 'updatedAt'> = {
         type: EntityType.PHYSICAL_COMPONENT,
         filamentInfo: request.filamentInfo,
-        currentWeight: request.currentWeight || request.filamentInfo.spoolWeight,
-        notes: request.notes,
       };
+      
+      // Add optional properties conditionally
+      const weightValue = request.currentWeight || request.filamentInfo.spoolWeight;
+      if (weightValue !== undefined) {
+        component.currentWeight = weightValue;
+      }
+      
+      if (request.notes !== undefined) {
+        component.notes = request.notes;
+      }
 
       const componentResult = await this.entityService.createEntity({
         entityData: component,
@@ -147,7 +159,6 @@ export class ComponentService extends BaseService {
       // Create initial inventory item if requested
       if (request.initialInventoryQuantity !== undefined) {
         const inventoryResult = await this.createInventoryItem(
-          createdComponent,
           request.initialInventoryQuantity,
           request.location
         );
@@ -172,10 +183,14 @@ export class ComponentService extends BaseService {
 
       const result: ComponentInventoryInfo = {
         component: createdComponent,
-        inventoryItem,
         usageCalculation: this.calculateFilamentUsage(createdComponent),
         scanCount: 0,
       };
+
+      // Add optional properties conditionally
+      if (inventoryItem !== undefined) {
+        result.inventoryItem = inventoryItem;
+      }
 
       this.log('info', `Created component: ${createdComponent.id} (${request.filamentInfo.tagUid})`);
       return ValidationResult.success(result);
@@ -220,7 +235,7 @@ export class ComponentService extends BaseService {
       const oldWeight = existingComponent.currentWeight || 0;
 
       // Update component weight
-      const updateResult = await this.entityService.updateEntity({
+      const updateResult = await this.entityService.updateEntity<PhysicalComponent>({
         id: request.componentId,
         updates: {
           currentWeight: request.newWeight,
@@ -231,7 +246,7 @@ export class ComponentService extends BaseService {
         return ValidationResult.error(updateResult.issues);
       }
 
-      const updatedComponent = updateResult.data!;
+      const updatedComponent = updateResult.data! as PhysicalComponent;
 
       // Record weight update activity
       if (this.activityService) {
@@ -323,11 +338,21 @@ export class ComponentService extends BaseService {
     }
 
     try {
-      const entityQuery = {
+      const entityQuery: {
+        entityType: EntityType;
+        limit?: number;
+        offset?: number;
+      } = {
         entityType: EntityType.PHYSICAL_COMPONENT,
-        limit: query.limit,
-        offset: query.offset,
       };
+
+      // Add optional properties conditionally
+      if (query.limit !== undefined) {
+        entityQuery.limit = query.limit;
+      }
+      if (query.offset !== undefined) {
+        entityQuery.offset = query.offset;
+      }
 
       const componentsResult = await this.entityService.queryEntities<PhysicalComponent>(entityQuery);
       if (!componentsResult.isValid) {
@@ -446,7 +471,7 @@ export class ComponentService extends BaseService {
       const component = componentResult.data;
 
       // Find related inventory item
-      const inventoryResult = await this.findInventoryItemForComponent(componentId);
+      const inventoryResult = await this.findInventoryItemForComponent();
       const inventoryItem = inventoryResult.isValid ? inventoryResult.data || undefined : undefined;
 
       // Calculate usage
@@ -466,10 +491,14 @@ export class ComponentService extends BaseService {
 
       const result: ComponentInventoryInfo = {
         component,
-        inventoryItem,
         usageCalculation,
         scanCount,
       };
+
+      // Add optional properties conditionally
+      if (inventoryItem !== undefined) {
+        result.inventoryItem = inventoryItem;
+      }
 
       return ValidationResult.success(result);
 
@@ -561,7 +590,6 @@ export class ComponentService extends BaseService {
   }
 
   private async createInventoryItem(
-    component: PhysicalComponent,
     quantity: number,
     location?: string
   ): Promise<ServiceResult<InventoryItem>> {
@@ -576,9 +604,13 @@ export class ComponentService extends BaseService {
     const inventoryItem: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'> = {
       type: EntityType.INVENTORY_ITEM,
       quantity,
-      location,
       lastUpdated: Date.now(),
     };
+
+    // Add optional properties conditionally
+    if (location !== undefined) {
+      inventoryItem.location = location;
+    }
 
     return this.entityService.createEntity({
       entityData: inventoryItem,
@@ -586,7 +618,7 @@ export class ComponentService extends BaseService {
     });
   }
 
-  private async findInventoryItemForComponent(componentId: string): Promise<ServiceResult<InventoryItem | null>> {
+  private async findInventoryItemForComponent(): Promise<ServiceResult<InventoryItem | null>> {
     if (!this.entityService) {
       return ValidationResult.success(null);
     }
@@ -596,7 +628,7 @@ export class ComponentService extends BaseService {
     return ValidationResult.success(null);
   }
 
-  protected async doCleanup(): Promise<void> {
+  protected override async doCleanup(): Promise<void> {
     // Service cleanup if needed
   }
 }

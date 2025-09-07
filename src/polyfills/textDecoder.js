@@ -11,7 +11,8 @@ if (typeof global.TextDecoder === 'undefined') {
 
     decode(input) {
       if (this.encoding === 'utf-8' || this.encoding === 'utf8') {
-        // Simple UTF-8 decoder
+        // Simple UTF-8 decoder - bitwise operations required for UTF-8 decoding
+        /* eslint-disable no-bitwise */
         let result = '';
         let i = 0;
         while (i < input.length) {
@@ -34,6 +35,7 @@ if (typeof global.TextDecoder === 'undefined') {
             result += '\uFFFD';
           }
         }
+        /* eslint-enable no-bitwise */
         return result;
       } else {
         // For non-UTF-8 encodings, fallback to simple byte-to-string conversion

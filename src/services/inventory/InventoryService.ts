@@ -71,7 +71,6 @@ export class InventoryService {
     const itemData: InventoryItemData = {
       id,
       name,
-      description,
       trackingMode,
       currentQuantity: initialQuantity,
       reorderConfig: defaultReorderConfig,
@@ -79,6 +78,11 @@ export class InventoryService {
       lastUpdated: new Date(),
       createdAt: new Date(),
     };
+
+    // Add optional properties conditionally
+    if (description !== undefined) {
+      itemData.description = description;
+    }
 
     return this.addItem(itemData);
   }

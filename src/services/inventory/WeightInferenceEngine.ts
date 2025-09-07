@@ -270,18 +270,33 @@ export class WeightInferenceEngine {
     const sorted = [...values].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     
-    return sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
+    if (sorted.length % 2 === 0) {
+      const leftMid = sorted[mid - 1];
+      const rightMid = sorted[mid];
+      if (leftMid !== undefined && rightMid !== undefined) {
+        return (leftMid + rightMid) / 2;
+      }
+    } else {
+      const midValue = sorted[mid];
+      if (midValue !== undefined) {
+        return midValue;
+      }
+    }
+    return 0; // Fallback if all values are undefined
   }
 
   private calculateWeightedAverage(values: number[]): number {
     // Weight more recent measurements higher (assuming they're ordered by time)
-    const weights = values.map((_, index) => index + 1);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const weights = values.map((_value, index) => index + 1);
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
     
     return values.reduce((sum, val, index) => {
-      return sum + (val * weights[index]) / totalWeight;
+      const weight = weights[index];
+      if (weight !== undefined) {
+        return sum + (val * weight) / totalWeight;
+      }
+      return sum;
     }, 0);
   }
 

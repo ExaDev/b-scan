@@ -153,14 +153,20 @@ export class InventoryItem {
       itemId: this.data.id,
       type: movementType,
       quantityChange,
-      weightChange: weightChange !== 0 ? weightChange : undefined,
       previousQuantity,
       newQuantity,
       timestamp: new Date(),
       confidence,
-      notes,
       source: 'MANUAL',
     };
+
+    // Add optional properties conditionally
+    if (weightChange !== 0) {
+      movement.weightChange = weightChange;
+    }
+    if (notes !== undefined) {
+      movement.notes = notes;
+    }
 
     // Update data
     this.data.currentQuantity = newQuantity;
@@ -221,7 +227,11 @@ export class InventoryItem {
     let standardDeviation: number;
     
     if (method === 'SINGLE_SAMPLE' || unitWeights.length === 1) {
-      unitWeight = unitWeights[0];
+      const firstWeight = unitWeights[0];
+      if (firstWeight === undefined) {
+        throw new Error('No unit weight available for calibration');
+      }
+      unitWeight = firstWeight;
       standardDeviation = 0;
     } else if (method === 'STATISTICAL') {
       // Remove outliers using IQR method
@@ -423,11 +433,21 @@ export class InventoryItem {
     const upper = Math.ceil(index);
     
     if (lower === upper) {
-      return sortedValues[lower];
+      const value = sortedValues[lower];
+      if (value === undefined) {
+        throw new Error('Percentile calculation failed: no value at index');
+      }
+      return value;
+    }
+    
+    const lowerValue = sortedValues[lower];
+    const upperValue = sortedValues[upper];
+    if (lowerValue === undefined || upperValue === undefined) {
+      throw new Error('Percentile calculation failed: values at indices are undefined');
     }
     
     const weight = index - lower;
-    return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+    return lowerValue * (1 - weight) + upperValue * weight;
   }
 
   private calculateCalibrationConfidence(

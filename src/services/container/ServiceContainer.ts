@@ -7,7 +7,7 @@ import { BaseService } from '../core/BaseService';
 import { ValidationResult } from '../validation';
 
 export interface ServiceConstructor<T extends BaseService> {
-  new (...args: any[]): T;
+  new (...args: unknown[]): T;
 }
 
 export interface ServiceRegistration<T extends BaseService> {
@@ -25,7 +25,7 @@ export interface ServiceConfig {
 
 export class ServiceContainer {
   private static instance: ServiceContainer | null = null;
-  private services: Map<string, ServiceRegistration<any>> = new Map();
+  private services: Map<string, ServiceRegistration<BaseService>> = new Map();
   private config: ServiceConfig;
   private initializationOrder: string[] = [];
 
@@ -211,7 +211,7 @@ export class ServiceContainer {
 
     // Clear all instances but keep registrations
     for (const registration of this.services.values()) {
-      registration.instance = undefined;
+      delete registration.instance;
       registration.initialized = false;
     }
 
@@ -227,11 +227,14 @@ export class ServiceContainer {
     for (const serviceName of serviceNames) {
       const registration = this.services.get(serviceName);
       if (registration) {
-        scopedContainer.services.set(serviceName, {
-          ...registration,
-          instance: undefined, // New instances in scope
+        const scopedRegistration: ServiceRegistration<BaseService> = {
+          constructor: registration.constructor,
+          singleton: registration.singleton,
+          dependencies: registration.dependencies,
           initialized: false,
-        });
+        };
+        // Don't set instance property - leave it undefined implicitly
+        scopedContainer.services.set(serviceName, scopedRegistration);
       }
     }
 

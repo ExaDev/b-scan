@@ -202,7 +202,6 @@ export class ServiceRegistry {
       const entityService = await this.container.resolve<EntityService>('EntityService');
       const activityService = await this.container.resolve<ActivityService>('ActivityService');
       const componentService = await this.container.resolve<ComponentService>('ComponentService');
-      const scanService = await this.container.resolve<ScanService>('ScanService');
 
       // Wire up dependencies that couldn't be injected via constructor
       activityService.setEntityService(entityService);

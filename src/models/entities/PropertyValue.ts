@@ -6,6 +6,47 @@
 import { TrackingMode } from './types';
 
 /**
+ * Type guard to validate that a value is an array of unknown values
+ */
+function isValidArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+/**
+ * Type guard to validate that a value is a plain object (not null, not array)
+ */
+function isValidRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && 
+         value !== null && 
+         !Array.isArray(value) &&
+         value.constructor === Object;
+}
+
+/**
+ * Safely parse JSON with validation for array type
+ */
+function parseJsonAsArray(jsonString: string, fallback: unknown[]): unknown[] {
+  try {
+    const parsed: unknown = JSON.parse(jsonString);
+    return isValidArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Safely parse JSON with validation for record/object type
+ */
+function parseJsonAsRecord(jsonString: string, fallback: Record<string, unknown>): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(jsonString);
+    return isValidRecord(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Supported property types
  */
 export enum PropertyType {
@@ -119,13 +160,17 @@ export const QuantityFactory = {
   fromString(str: string): Quantity {
     const parts = str.split('-');
     const quantityPart = parts[0];
-    const trackingMode = parts.length > 1 && parts[1].toLowerCase() === 'discrete'
+    if (!quantityPart) {
+      throw new Error(`Invalid quantity format: ${str}`);
+    }
+    
+    const trackingMode = parts.length > 1 && parts[1] && parts[1].toLowerCase() === 'discrete'
       ? TrackingMode.DISCRETE
       : TrackingMode.CONTINUOUS;
 
     // Extract numeric value and unit using regex
     const match = quantityPart.match(/^([0-9]*\.?[0-9]+)(.*)$/);
-    if (!match) {
+    if (!match || !match[1]) {
       throw new Error(`Invalid quantity format: ${str}`);
     }
 
@@ -151,12 +196,12 @@ export const QuantityFactory = {
  */
 export abstract class PropertyValue {
   abstract readonly type: PropertyType;
-  abstract readonly rawValue: any;
+  abstract readonly rawValue: unknown;
 
   /**
    * Get the value with type safety
    */
-  abstract getValue<T = any>(): T | undefined;
+  abstract getValue<T = unknown>(): T | undefined;
 
   /**
    * Convert to string representation
@@ -166,7 +211,7 @@ export abstract class PropertyValue {
   /**
    * Create PropertyValue from any supported type
    */
-  static create(value: any): PropertyValue {
+  static create(value: unknown): PropertyValue {
     if (value === null || value === undefined) {
       return new NullValue();
     }
@@ -200,7 +245,7 @@ export abstract class PropertyValue {
     }
     
     if (typeof value === 'object' && value !== null) {
-      return new MapValue(value as Record<string, any>);
+      return new MapValue(value as Record<string, unknown>);
     }
     
     // Fallback to string
@@ -231,17 +276,9 @@ export abstract class PropertyValue {
       case PropertyType.QUANTITY:
         return new QuantityValue(QuantityFactory.fromString(value));
       case PropertyType.LIST:
-        try {
-          return new ListValue(JSON.parse(value));
-        } catch {
-          return new ListValue([value]);
-        }
+        return new ListValue(parseJsonAsArray(value, [value]));
       case PropertyType.MAP:
-        try {
-          return new MapValue(JSON.parse(value));
-        } catch {
-          return new MapValue({ value });
-        }
+        return new MapValue(parseJsonAsRecord(value, { value }));
       case PropertyType.NULL:
         return new NullValue();
       default:
@@ -257,8 +294,8 @@ export class StringValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -276,8 +313,8 @@ export class IntValue extends PropertyValue {
     }
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -292,8 +329,8 @@ export class DoubleValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -308,8 +345,8 @@ export class BooleanValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -324,8 +361,8 @@ export class DateTimeValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -340,24 +377,29 @@ export class DateValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T | undefined;
   }
 
   asString(): string {
-    return this.rawValue.toISOString().split('T')[0];
+    const isoString = this.rawValue.toISOString();
+    const datePart = isoString.split('T')[0];
+    if (!datePart) {
+      throw new Error('Invalid date format');
+    }
+    return datePart;
   }
 }
 
 export class ListValue extends PropertyValue {
   readonly type = PropertyType.LIST;
 
-  constructor(public readonly rawValue: any[]) {
+  constructor(public readonly rawValue: unknown[]) {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -368,12 +410,12 @@ export class ListValue extends PropertyValue {
 export class MapValue extends PropertyValue {
   readonly type = PropertyType.MAP;
 
-  constructor(public readonly rawValue: Record<string, any>) {
+  constructor(public readonly rawValue: Record<string, unknown>) {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -388,8 +430,8 @@ export class BytesValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -406,8 +448,8 @@ export class QuantityValue extends PropertyValue {
     super();
   }
 
-  getValue<T = any>(): T | undefined {
-    return this.rawValue as any;
+  getValue<T = unknown>(): T | undefined {
+    return this.rawValue as T;
   }
 
   asString(): string {
@@ -419,7 +461,7 @@ export class NullValue extends PropertyValue {
   readonly type = PropertyType.NULL;
   readonly rawValue = null;
 
-  getValue<T = any>(): T | undefined {
+  getValue<T = unknown>(): T | undefined {
     return undefined;
   }
 

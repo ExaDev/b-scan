@@ -17,7 +17,7 @@ export interface ActivityCreateRequest {
   activityType: 'SCAN' | 'UPDATE' | 'CREATE' | 'DELETE';
   description: string;
   relatedEntityId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   userId?: string;
 }
 
@@ -55,9 +55,14 @@ export class ActivityService extends BaseService {
   private entityService?: EntityService;
   private scanHistory: Map<string, ScanHistoryEntry> = new Map();
 
-  constructor(entityService?: EntityService) {
+  constructor(...args: unknown[]) {
     super();
-    this.entityService = entityService;
+    // Dependencies are injected via setter methods after construction
+    // See ServiceRegistry.wireServiceDependencies()
+    const [entityService] = args;
+    if (entityService && entityService instanceof BaseService) {
+      this.entityService = entityService as EntityService;
+    }
   }
 
   /**
@@ -93,8 +98,12 @@ export class ActivityService extends BaseService {
         type: EntityType.ACTIVITY,
         activityType: request.activityType,
         description: request.description,
-        relatedEntityId: request.relatedEntityId,
       };
+
+      // Conditionally add relatedEntityId if it exists
+      if (request.relatedEntityId !== undefined) {
+        activity.relatedEntityId = request.relatedEntityId;
+      }
 
       const createResult = await this.entityService.createEntity({
         entityData: activity,
@@ -122,7 +131,7 @@ export class ActivityService extends BaseService {
     filamentInfo: FilamentInfo,
     success: boolean,
     error?: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<ServiceResult<{ activity: Activity; historyEntry: ScanHistoryEntry }>> {
     this.ensureInitialized();
 
@@ -131,10 +140,18 @@ export class ActivityService extends BaseService {
       const historyEntry: ScanHistoryEntry = {
         id: `scan_${filamentInfo.tagUid}_${Date.now()}`,
         timestamp: Date.now(),
-        filamentInfo: success ? filamentInfo : undefined,
         result: success ? 'SUCCESS' : 'READ_ERROR',
-        error,
       };
+
+      // Conditionally add filamentInfo if successful
+      if (success) {
+        historyEntry.filamentInfo = filamentInfo;
+      }
+
+      // Conditionally add error if it exists
+      if (error !== undefined) {
+        historyEntry.error = error;
+      }
 
       this.scanHistory.set(historyEntry.id, historyEntry);
 
@@ -165,8 +182,8 @@ export class ActivityService extends BaseService {
         historyEntry,
       });
 
-    } catch (error) {
-      return this.handleError(error, 'recordScanActivity');
+    } catch (err) {
+      return this.handleError(err, 'recordScanActivity');
     }
   }
 
@@ -185,13 +202,27 @@ export class ActivityService extends BaseService {
     }
 
     try {
-      const entityQuery = {
+      const entityQuery: Record<string, unknown> = {
         entityType: EntityType.ACTIVITY,
-        createdAfter: query.startDate,
-        createdBefore: query.endDate,
-        limit: query.limit,
-        offset: query.offset,
       };
+
+      // Conditionally add date filters
+      if (query.startDate !== undefined) {
+        entityQuery.createdAfter = query.startDate;
+      }
+
+      if (query.endDate !== undefined) {
+        entityQuery.createdBefore = query.endDate;
+      }
+
+      // Conditionally add pagination
+      if (query.limit !== undefined) {
+        entityQuery.limit = query.limit;
+      }
+
+      if (query.offset !== undefined) {
+        entityQuery.offset = query.offset;
+      }
 
       const entitiesResult = await this.entityService.queryEntities<Activity>(entityQuery);
       if (!entitiesResult.isValid) {
@@ -285,11 +316,20 @@ export class ActivityService extends BaseService {
     this.ensureInitialized();
 
     try {
-      const activitiesResult = await this.getActivities({
-        startDate,
-        endDate,
+      const activityQuery: ActivityQuery = {
         limit: 10000, // Get all activities in range
-      });
+      };
+
+      // Conditionally add date filters
+      if (startDate !== undefined) {
+        activityQuery.startDate = startDate;
+      }
+
+      if (endDate !== undefined) {
+        activityQuery.endDate = endDate;
+      }
+
+      const activitiesResult = await this.getActivities(activityQuery);
 
       if (!activitiesResult.isValid) {
         return ValidationResult.error(activitiesResult.issues);
@@ -323,8 +363,10 @@ export class ActivityService extends BaseService {
         const dayGroups = new Map<string, number>();
         
         activities.forEach(activity => {
-          const date = new Date(activity.createdAt).toISOString().split('T')[0];
-          dayGroups.set(date, (dayGroups.get(date) || 0) + 1);
+          const datePart = new Date(activity.createdAt).toISOString().split('T')[0];
+          if (datePart) {
+            dayGroups.set(datePart, (dayGroups.get(datePart) || 0) + 1);
+          }
         });
 
         let maxCount = 0;
@@ -372,13 +414,19 @@ export class ActivityService extends BaseService {
     try {
       const historyEntries = Array.from(this.scanHistory.values());
       
-      const stats = {
+      const stats: {
+        totalScans: number;
+        successfulScans: number;
+        failedScans: number;
+        successRate: number;
+        uniqueTagsScanned: number;
+        mostScannedTag?: { tagUid: string; count: number };
+      } = {
         totalScans: historyEntries.length,
         successfulScans: historyEntries.filter(entry => entry.result === 'SUCCESS').length,
         failedScans: historyEntries.filter(entry => entry.result !== 'SUCCESS').length,
         successRate: 0,
         uniqueTagsScanned: 0,
-        mostScannedTag: undefined as { tagUid: string; count: number } | undefined,
       };
 
       if (stats.totalScans > 0) {
@@ -409,10 +457,11 @@ export class ActivityService extends BaseService {
       }
 
       if (maxCount > 0) {
-        stats.mostScannedTag = {
+        const mostScannedTag = {
           tagUid: mostScannedTagUid,
           count: maxCount,
         };
+        stats.mostScannedTag = mostScannedTag;
       }
 
       return ValidationResult.success(stats);
@@ -487,7 +536,7 @@ export class ActivityService extends BaseService {
     return ValidationUtils.combineResults(...validations).map(() => undefined);
   }
 
-  protected async doCleanup(): Promise<void> {
+  protected override async doCleanup(): Promise<void> {
     this.scanHistory.clear();
   }
 }

@@ -23,7 +23,9 @@ export class ValidationResult<T> {
 
   private constructor(isValid: boolean, data?: T, issues: ValidationIssue[] = []) {
     this.isValid = isValid;
-    this.data = data;
+    if (data !== undefined) {
+      this.data = data;
+    }
     this.issues = issues;
   }
 
@@ -45,7 +47,7 @@ export class ValidationResult<T> {
    * Create a failed validation result
    */
   static error<T = never>(issues: ValidationIssue[]): ValidationResult<T> {
-    return new ValidationResult<T>(false, undefined as any, issues);
+    return new ValidationResult<T>(false, undefined as T, issues);
   }
 
   /**
@@ -162,11 +164,20 @@ export class ValidationResult<T> {
     data?: T;
     issues: ValidationIssue[];
   } {
-    return {
+    const result: {
+      isValid: boolean;
+      data?: T;
+      issues: ValidationIssue[];
+    } = {
       isValid: this.isValid,
-      data: this.data,
       issues: this.issues,
     };
+
+    if (this.data !== undefined) {
+      result.data = this.data;
+    }
+
+    return result;
   }
 
   /**

@@ -27,9 +27,7 @@ export type {
 
 export type {
   Quantity,
-  PropertyType,
-  PropertySchema,
-  PropertyValidation
+  PropertyType
 } from './PropertyValue';
 
 export type {

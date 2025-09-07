@@ -1,4 +1,4 @@
-import {v4 as uuidv4} from 'react-native-uuid';
+import uuid from 'react-native-uuid';
 
 import {
   GraphEntity,
@@ -26,15 +26,23 @@ export class EntityFactory {
   ): PhysicalComponent {
     const now = Date.now();
     
-    return {
-      id: uuidv4() as string,
+    const physicalComponent: PhysicalComponent = {
+      id: uuid.v4() as string,
       type: EntityType.PHYSICAL_COMPONENT,
       createdAt: now,
       updatedAt: now,
       filamentInfo,
-      currentWeight: options.currentWeight,
-      notes: options.notes,
     };
+    
+    // Conditionally assign optional properties
+    if (options.currentWeight !== undefined) {
+      physicalComponent.currentWeight = options.currentWeight;
+    }
+    if (options.notes !== undefined) {
+      physicalComponent.notes = options.notes;
+    }
+    
+    return physicalComponent;
   }
 
   static createInventoryItem(options: {
@@ -43,15 +51,21 @@ export class EntityFactory {
   }): InventoryItem {
     const now = Date.now();
     
-    return {
-      id: uuidv4() as string,
+    const inventoryItem: InventoryItem = {
+      id: uuid.v4() as string,
       type: EntityType.INVENTORY_ITEM,
       createdAt: now,
       updatedAt: now,
       quantity: options.quantity,
-      location: options.location,
       lastUpdated: now,
     };
+    
+    // Conditionally assign optional properties
+    if (options.location !== undefined) {
+      inventoryItem.location = options.location;
+    }
+    
+    return inventoryItem;
   }
 
   static createIdentifier(options: {
@@ -61,7 +75,7 @@ export class EntityFactory {
     const now = Date.now();
     
     return {
-      id: uuidv4() as string,
+      id: uuid.v4() as string,
       type: EntityType.IDENTIFIER,
       createdAt: now,
       updatedAt: now,
@@ -77,15 +91,21 @@ export class EntityFactory {
   }): Activity {
     const now = Date.now();
     
-    return {
-      id: uuidv4() as string,
+    const activity: Activity = {
+      id: uuid.v4() as string,
       type: EntityType.ACTIVITY,
       createdAt: now,
       updatedAt: now,
       activityType: options.activityType,
       description: options.description,
-      relatedEntityId: options.relatedEntityId,
     };
+    
+    // Conditionally assign optional properties
+    if (options.relatedEntityId !== undefined) {
+      activity.relatedEntityId = options.relatedEntityId;
+    }
+    
+    return activity;
   }
 
   // Edge creation methods
@@ -94,87 +114,120 @@ export class EntityFactory {
     targetEntityId: string;
     relationshipType: RelationshipType;
     weight?: number;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Edge {
     const now = Date.now();
     
-    return {
-      id: uuidv4() as string,
+    const edge: Edge = {
+      id: uuid.v4() as string,
       sourceEntityId: options.sourceEntityId,
       targetEntityId: options.targetEntityId,
       relationshipType: options.relationshipType,
       createdAt: now,
       updatedAt: now,
-      weight: options.weight,
-      metadata: options.metadata,
     };
+    
+    // Conditionally assign optional properties
+    if (options.weight !== undefined) {
+      edge.weight = options.weight;
+    }
+    if (options.metadata !== undefined) {
+      edge.metadata = options.metadata;
+    }
+    
+    return edge;
   }
 
   // Relationship convenience methods
   static createIdentificationRelationship(
     physicalComponentId: string,
     identifierId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Edge {
-    return this.createEdge({
+    const edgeConfig: Parameters<typeof this.createEdge>[0] = {
       sourceEntityId: physicalComponentId,
       targetEntityId: identifierId,
       relationshipType: RelationshipType.IDENTIFIED_BY,
-      metadata,
-    });
+    };
+    
+    if (metadata !== undefined) {
+      edgeConfig.metadata = metadata;
+    }
+    
+    return this.createEdge(edgeConfig);
   }
 
   static createInventoryRelationship(
     inventoryItemId: string,
     physicalComponentId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Edge {
-    return this.createEdge({
+    const edgeConfig: Parameters<typeof this.createEdge>[0] = {
       sourceEntityId: inventoryItemId,
       targetEntityId: physicalComponentId,
       relationshipType: RelationshipType.CONTAINS,
-      metadata,
-    });
+    };
+    
+    if (metadata !== undefined) {
+      edgeConfig.metadata = metadata;
+    }
+    
+    return this.createEdge(edgeConfig);
   }
 
   static createActivityRelationship(
     activityId: string,
     targetEntityId: string,
     relationshipType: RelationshipType = RelationshipType.TRIGGERED_BY,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Edge {
-    return this.createEdge({
+    const edgeConfig: Parameters<typeof this.createEdge>[0] = {
       sourceEntityId: activityId,
       targetEntityId: targetEntityId,
       relationshipType,
-      metadata,
-    });
+    };
+    
+    if (metadata !== undefined) {
+      edgeConfig.metadata = metadata;
+    }
+    
+    return this.createEdge(edgeConfig);
   }
 
   static createPartOfRelationship(
     partId: string,
     wholeId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Edge {
-    return this.createEdge({
+    const edgeConfig: Parameters<typeof this.createEdge>[0] = {
       sourceEntityId: partId,
       targetEntityId: wholeId,
       relationshipType: RelationshipType.PART_OF,
-      metadata,
-    });
+    };
+    
+    if (metadata !== undefined) {
+      edgeConfig.metadata = metadata;
+    }
+    
+    return this.createEdge(edgeConfig);
   }
 
   static createLocationRelationship(
     entityId: string,
     locationEntityId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Edge {
-    return this.createEdge({
+    const edgeConfig: Parameters<typeof this.createEdge>[0] = {
       sourceEntityId: entityId,
       targetEntityId: locationEntityId,
       relationshipType: RelationshipType.LOCATED_AT,
-      metadata,
-    });
+    };
+    
+    if (metadata !== undefined) {
+      edgeConfig.metadata = metadata;
+    }
+    
+    return this.createEdge(edgeConfig);
   }
 
   // Complex entity creation patterns
@@ -191,16 +244,22 @@ export class EntityFactory {
     edges: Edge[];
   } {
     // Create the physical component (the actual spool)
-    const physicalComponent = this.createPhysicalComponent(filamentInfo, {
+    const physicalComponentOptions: Parameters<typeof this.createPhysicalComponent>[1] = {
       currentWeight: options.initialWeight || filamentInfo.spoolWeight,
-      notes: options.notes,
-    });
+    };
+    if (options.notes !== undefined) {
+      physicalComponentOptions.notes = options.notes;
+    }
+    const physicalComponent = this.createPhysicalComponent(filamentInfo, physicalComponentOptions);
 
     // Create the inventory item
-    const inventoryItem = this.createInventoryItem({
+    const inventoryItemOptions: Parameters<typeof this.createInventoryItem>[0] = {
       quantity: 1,
-      location: options.location,
-    });
+    };
+    if (options.location !== undefined) {
+      inventoryItemOptions.location = options.location;
+    }
+    const inventoryItem = this.createInventoryItem(inventoryItemOptions);
 
     // Create scan activity
     const scanActivity = this.createActivity({
@@ -254,13 +313,25 @@ export class EntityFactory {
       );
     }
 
-    return {
+    const result: {
+      physicalComponent: PhysicalComponent;
+      inventoryItem: InventoryItem;
+      identifier?: Identifier;
+      scanActivity: Activity;
+      edges: Edge[];
+    } = {
       physicalComponent,
       inventoryItem,
-      identifier,
       scanActivity,
       edges,
     };
+    
+    // Conditionally assign optional identifier
+    if (identifier !== undefined) {
+      result.identifier = identifier;
+    }
+    
+    return result;
   }
 
   // Update entity timestamps
@@ -325,7 +396,7 @@ export class EntityFactory {
     const now = Date.now();
     return {
       ...entity,
-      id: uuidv4() as string,
+      id: uuid.v4() as string,
       createdAt: now,
       updatedAt: now,
     };
@@ -335,7 +406,7 @@ export class EntityFactory {
     const now = Date.now();
     return {
       ...edge,
-      id: uuidv4() as string,
+      id: uuid.v4() as string,
       sourceEntityId: newSourceId || edge.sourceEntityId,
       targetEntityId: newTargetId || edge.targetEntityId,
       createdAt: now,

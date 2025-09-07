@@ -6,19 +6,14 @@
 
 import { NfcManager, TagReadResult } from './NfcManager';
 import {
-  NfcTagData,
-  EncryptedScanData,
-  DecryptedScanData,
   ScanProgress,
   ScanStage,
   NfcScanError,
   NfcErrorType,
   TagFormat,
-  NfcTechnology,
   ScanCache,
   CachedScanResult,
   FilamentInfo,
-  ErrorSeverity,
 } from '../types/FilamentInfo';
 
 export interface NfcScanOptions {
@@ -169,16 +164,32 @@ export class NfcManagerService {
     } = options;
 
     try {
-      this.currentScan = this.performEnhancedScan({
+      const scanOptions: {
+        scanId: number;
+        enableCache: boolean;
+        cacheTimeout: number;
+        maxRetries: number;
+        formats: TagFormat[];
+        timeout: number;
+        progressCallback?: (progress: ScanProgress) => void;
+        errorCallback?: (error: NfcScanError) => void;
+      } = {
         scanId,
         enableCache,
         cacheTimeout,
         maxRetries,
-        progressCallback,
-        errorCallback,
         formats,
         timeout,
-      });
+      };
+
+      if (progressCallback) {
+        scanOptions.progressCallback = progressCallback;
+      }
+      if (errorCallback) {
+        scanOptions.errorCallback = errorCallback;
+      }
+
+      this.currentScan = this.performEnhancedScan(scanOptions);
 
       return await this.currentScan;
     } finally {
@@ -318,7 +329,7 @@ export class NfcManagerService {
     formats: TagFormat[];
     timeout: number;
   }): Promise<TagReadResult> {
-    const { scanId, enableCache, progressCallback, errorCallback, maxRetries, timeout } = params;
+    const { scanId, enableCache, progressCallback, errorCallback, maxRetries } = params;
 
     this.updateProgress(progressCallback, ScanStage.INITIALIZING, 0, 'Initializing NFC scan...');
 
@@ -498,7 +509,7 @@ export class NfcManagerService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  private log(message: string, ...args: any[]): void {
+  private log(message: string, ...args: unknown[]): void {
     if (this.config.enableLogging) {
       console.log(`[NfcManagerService] ${message}`, ...args);
     }

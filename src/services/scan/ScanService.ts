@@ -11,7 +11,6 @@ import {
   TagReadResult as FilamentTagReadResult,
   ScanProgress,
   ScanStage,
-  ScanHistoryEntry,
   Activity,
   EntityType,
 } from '../../types/FilamentInfo';
@@ -21,7 +20,7 @@ import { PhysicalComponent } from '../../models/entities/InventoryEntities';
 export interface ScanOperationRequest {
   scanId: string;
   userId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ScanOperationResult {
@@ -82,7 +81,11 @@ export class ScanService extends BaseService {
       // Perform NFC scan
       const nfcResult = await this.performNfcScan(scanId);
       if (!nfcResult.isValid) {
-        return this.finalizeScan(scanId, startTime, { success: false, error: nfcResult.firstErrorMessage });
+        const errorResult: Partial<ScanOperationResult> = { success: false };
+        if (nfcResult.firstErrorMessage) {
+          errorResult.error = nfcResult.firstErrorMessage;
+        }
+        return this.finalizeScan(scanId, startTime, errorResult);
       }
 
       const tagReadResult = nfcResult.data!;
@@ -98,10 +101,11 @@ export class ScanService extends BaseService {
       // Process scan data
       const processResult = await this.processScanData(tagReadResult, options);
       if (!processResult.isValid) {
-        return this.finalizeScan(scanId, startTime, { 
-          success: false, 
-          error: processResult.firstErrorMessage 
-        });
+        const errorResult: Partial<ScanOperationResult> = { success: false };
+        if (processResult.firstErrorMessage) {
+          errorResult.error = processResult.firstErrorMessage;
+        }
+        return this.finalizeScan(scanId, startTime, errorResult);
       }
 
       const scanData = processResult.data!;
@@ -111,11 +115,17 @@ export class ScanService extends BaseService {
         scanId,
         success: true,
         filamentInfo: scanData.filamentInfo,
-        physicalComponent: scanData.physicalComponent,
-        activity: scanData.activity,
         timestamp: startTime,
         duration: Date.now() - startTime,
       };
+
+      // Only add optional properties if they exist
+      if (scanData.physicalComponent) {
+        result.physicalComponent = scanData.physicalComponent;
+      }
+      if (scanData.activity) {
+        result.activity = scanData.activity;
+      }
 
       // Update progress
       this.updateScanProgress(scanId, {
@@ -280,7 +290,7 @@ export class ScanService extends BaseService {
       // Create physical component if requested
       if (options.createPhysicalComponent) {
         const componentResult = await this.createPhysicalComponent(filamentInfo);
-        if (componentResult.isValid) {
+        if (componentResult.isValid && componentResult.data) {
           result.physicalComponent = componentResult.data;
         }
       }
@@ -288,7 +298,7 @@ export class ScanService extends BaseService {
       // Track activity if requested
       if (options.trackActivity) {
         const activityResult = await this.createScanActivity(filamentInfo);
-        if (activityResult.isValid) {
+        if (activityResult.isValid && activityResult.data) {
           result.activity = activityResult.data;
         }
       }
@@ -407,7 +417,7 @@ export class ScanService extends BaseService {
     return ValidationResult.success(finalResult);
   }
 
-  protected async doCleanup(): Promise<void> {
+  protected override async doCleanup(): Promise<void> {
     // Cancel all active scans
     for (const scanId of this.activeScanIds) {
       await this.cancelScan(scanId);

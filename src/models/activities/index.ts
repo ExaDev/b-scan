@@ -105,8 +105,15 @@ export type AnyActivityData =
   | ConsumptionDistributionActivity['distributionData'];
 
 // Helper type guards
-export const isActivity = (obj: any): obj is BaseActivity => {
-  return obj && typeof obj === 'object' && 'metadata' in obj && 'configuration' in obj;
+export const isActivity = (obj: unknown): obj is BaseActivity => {
+  return (
+    obj != null &&
+    typeof obj === 'object' &&
+    'metadata' in obj &&
+    'configuration' in obj &&
+    typeof (obj as BaseActivity).metadata === 'object' &&
+    typeof (obj as BaseActivity).configuration === 'object'
+  );
 };
 
 export const isScanOccurrence = (activity: BaseActivity): activity is ScanOccurrence => {

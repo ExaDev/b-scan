@@ -116,7 +116,7 @@ export interface ActivityRelationship {
   isActive: boolean;
   
   /** Additional relationship metadata */
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   
   /** Relationship context information */
   context?: {
@@ -136,7 +136,7 @@ export interface ActivityRelationship {
   /** Relationship constraints */
   constraints?: Array<{
     constraintType: string;
-    constraintValue: any;
+    constraintValue: unknown;
     constraintDescription: string;
     mandatory: boolean;
   }>;
@@ -161,10 +161,10 @@ export interface ActivityEntity {
   /** Entity properties relevant to activities */
   properties: {
     /** Core properties */
-    coreProperties: Record<string, any>;
+    coreProperties: Record<string, unknown>;
     
     /** Activity-specific properties */
-    activityProperties?: Record<ActivityType, Record<string, any>>;
+    activityProperties?: Record<ActivityType, Record<string, unknown>>;
     
     /** Temporal properties */
     temporalProperties?: {
@@ -211,7 +211,7 @@ export interface ActivityEntity {
     capabilityName: string;
     capabilityType: string;
     available: boolean;
-    parameters?: Record<string, any>;
+    parameters?: Record<string, unknown>;
   }>;
 }
 
@@ -265,7 +265,7 @@ export interface RelationshipGraph {
     nodeType: 'activity' | 'entity';
     entityType?: EntityType;
     activityType?: ActivityType;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
   }>;
   
   /** Graph edges (relationships) */
@@ -275,7 +275,7 @@ export interface RelationshipGraph {
     targetNodeId: string;
     relationshipType: RelationshipType;
     weight: number;
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
   }>;
   
   /** Graph analytics */
@@ -329,7 +329,7 @@ export interface RelationshipLifecycle {
     enteredAt?: Date;
     exitedAt?: Date;
     duration?: number;
-    stageMetadata?: Record<string, any>;
+    stageMetadata?: Record<string, unknown>;
   }>;
   
   /** Lifecycle triggers */
@@ -383,7 +383,7 @@ export interface RelationshipQuery {
     entityFilters?: {
       entityIds?: string[];
       entityTypes?: EntityType[];
-      entityProperties?: Record<string, any>;
+      entityProperties?: Record<string, unknown>;
     };
     
     /** Filter by relationship */
@@ -541,7 +541,7 @@ export interface RelationshipBuilder {
   ): RelationshipBuilder;
   
   /** Add metadata to the relationship */
-  withMetadata(metadata: Record<string, any>): RelationshipBuilder;
+  withMetadata(metadata: Record<string, unknown>): RelationshipBuilder;
   
   /** Add context information */
   withContext(context: ActivityRelationship['context']): RelationshipBuilder;

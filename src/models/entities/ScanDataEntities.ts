@@ -117,7 +117,7 @@ export class RawScanData extends Information {
     if (value !== undefined) this.setProperty('checksumValid', value);
   }
 
-  copy(newId: string = generateId()): RawScanData {
+  override copy(newId: string = generateId()): RawScanData {
     return new RawScanData(
       newId,
       this.label,
@@ -126,7 +126,7 @@ export class RawScanData extends Information {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
     
     if (!this.scanFormat.trim()) {

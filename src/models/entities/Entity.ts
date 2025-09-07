@@ -12,6 +12,7 @@ export interface EntityMetadata {
   tags: Set<string>;
   source?: string; // Where this entity came from (scan, import, user, etc.)
   confidence: number; // Confidence level for inferred data (0.0 to 1.0)
+  [key: string]: unknown;
 }
 
 /**
@@ -84,7 +85,7 @@ export abstract class Entity {
   /**
    * Get a property value with type safety
    */
-  getProperty<T = any>(key: string): T | undefined {
+  getProperty<T = unknown>(key: string): T | undefined {
     const propertyValue = this.properties.get(key);
     return propertyValue?.getValue<T>();
   }
@@ -131,7 +132,7 @@ export abstract class Entity {
     return ValidationResult.valid();
   }
 
-  equals(other: any): boolean {
+  equals(other: unknown): boolean {
     if (this === other) return true;
     if (!(other instanceof Entity)) return false;
     return this.id === other.id;

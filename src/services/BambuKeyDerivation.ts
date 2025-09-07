@@ -65,6 +65,7 @@ export class BambuKeyDerivation {
     let previousT = CryptoJS.lib.WordArray.create();
 
     for (let i = 1; i <= n; i++) {
+      // eslint-disable-next-line no-bitwise
       const hmacInput = previousT.concat(info).concat(CryptoJS.lib.WordArray.create([i << 24])); // Convert counter to 4 bytes
       previousT = CryptoJS.HmacSHA256(hmacInput, prk);
       okm = okm.concat(previousT);
@@ -79,6 +80,7 @@ export class BambuKeyDerivation {
       const wordIndex = Math.floor(i / 4);
       const byteIndex = i % 4;
       const word = truncatedOkm.words[wordIndex] || 0;
+      // eslint-disable-next-line no-bitwise
       const byte = (word >>> (24 - (byteIndex * 8))) & 0xFF;
       bytes.push(byte);
     }
@@ -99,7 +101,12 @@ export class BambuKeyDerivation {
       throw new Error('Failed to derive keys from UID');
     }
 
-    return keys[keyIndex];
+    const key = keys[keyIndex];
+    if (!key) {
+      throw new Error(`Key at index ${keyIndex} is undefined`);
+    }
+    
+    return key;
   }
 
   /**

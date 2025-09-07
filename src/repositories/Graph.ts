@@ -9,7 +9,6 @@ import {
   GraphQuery,
   GraphMetrics,
   EntityWithRelationships,
-  GraphDiff,
 } from '../types/Graph';
 
 export class Graph {
@@ -269,8 +268,8 @@ export class Graph {
 
   // Graph statistics
   getMetrics(): GraphMetrics {
-    const entityTypeDistribution: Record<EntityType, number> = {} as Record<EntityType, number>;
-    const relationshipTypeDistribution: Record<RelationshipType, number> = {} as Record<RelationshipType, number>;
+    const entityTypeDistribution: Record<EntityType, number> = Object.create(null) as Record<EntityType, number>;
+    const relationshipTypeDistribution: Record<RelationshipType, number> = Object.create(null) as Record<RelationshipType, number>;
 
     // Initialize distributions
     Object.values(EntityType).forEach(type => {

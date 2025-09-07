@@ -8,6 +8,18 @@ export {BackgroundSyncService} from './BackgroundSyncService';
 // Type exports
 export * from '../types/Graph';
 
+// Import for use in this file
+import {RelationshipType} from '../types/Graph';
+import {GraphRepository} from './GraphRepository';
+import {BackgroundSyncService} from './BackgroundSyncService';
+import {EntityFactory} from './EntityFactory';
+import {
+  FilamentInfo,
+  PhysicalComponent,
+  EntityType,
+  Activity,
+} from '../types/FilamentInfo';
+
 // Re-export entity types for convenience
 export type {
   GraphEntity,

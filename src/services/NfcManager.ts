@@ -17,6 +17,7 @@ import {
   ErrorSeverity,
   EncryptionMethod,
   AuthenticationMethod,
+  KeyDerivationAlgorithm,
 } from '../types/FilamentInfo';
 import { BambuKeyDerivation } from './BambuKeyDerivation';
 
@@ -33,7 +34,36 @@ const TextDecoderPolyfill = class implements TextDecoderInterface {
 };
 
 // Use native TextDecoder if available, otherwise use polyfill
-const TextDecoder = (globalThis as any).TextDecoder || TextDecoderPolyfill;
+const TextDecoder = (globalThis as unknown as { TextDecoder?: typeof TextDecoderPolyfill }).TextDecoder || TextDecoderPolyfill;
+
+// OpenSpool JSON data structure interfaces
+interface OpenSpoolData {
+  openspool?: boolean;
+  filament?: boolean;
+  trayUid?: string;
+  manufacturer?: string;
+  material?: string;
+  colorHex?: string;
+  colorName?: string;
+  spoolWeight?: number;
+  diameter?: number;
+  length?: number;
+  productionDate?: string;
+  minTemp?: number;
+  maxTemp?: number;
+  bedTemp?: number;
+  dryTemp?: number;
+  dryTime?: number;
+  materialVariantId?: string;
+  materialId?: string;
+  nozzleDiameter?: number;
+  spoolWidth?: number;
+  bedTemperatureType?: number;
+  shortProductionDate?: string;
+  colorCount?: number;
+  shortProductionDateHex?: string;
+  unknownBlock17Hex?: string;
+}
 
 export interface TagData {
   uid: string;
@@ -58,6 +88,58 @@ export class NfcManager {
 
   constructor() {
     // Constructor can be called for testing
+  }
+
+  /**
+   * Type guard to check if parsed JSON data is OpenSpool format
+   */
+  private isOpenSpoolData(data: unknown): data is OpenSpoolData {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    return Boolean(obj.openspool) || Boolean(obj.filament) || 
+           typeof obj.trayUid === 'string' || typeof obj.manufacturer === 'string';
+  }
+
+  /**
+   * Safely extract a string property from unknown data
+   */
+  private safeGetString(data: unknown, key: string): string | null {
+    if (typeof data !== 'object' || data === null) {
+      return null;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    const value = obj[key];
+    return typeof value === 'string' ? value : null;
+  }
+
+  /**
+   * Safely extract a number property from unknown data
+   */
+  private safeGetNumber(data: unknown, key: string): number | null {
+    if (typeof data !== 'object' || data === null) {
+      return null;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    const value = obj[key];
+    return typeof value === 'number' ? value : null;
+  }
+
+  /**
+   * Safely extract filament type from material string
+   */
+  private extractFilamentType(data: unknown): string | null {
+    const material = this.safeGetString(data, 'material');
+    if (!material) {
+      return null;
+    }
+    
+    const parts = material.split(' ');
+    return parts.length > 0 && parts[0] ? parts[0] : null;
   }
 
   /**
@@ -129,7 +211,8 @@ export class NfcManager {
       this.isScanning = true;
 
       // Set up scan timeout
-      const timeoutPromise = new Promise<TagReadResult>((_, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const timeoutPromise = new Promise<TagReadResult>((_resolve, reject) => {
         this.scanTimeout = setTimeout(() => {
           reject(new Error('Scan timeout'));
         }, 10000); // 10 second timeout
@@ -315,12 +398,25 @@ export class NfcManager {
         }
       }
 
-      return {
+      const result: {
+        filamentInfo: FilamentInfo | null;
+        encryptedData?: EncryptedScanData;
+        decryptedData?: DecryptedScanData;
+        validationResult: ValidationResult;
+      } = {
         filamentInfo,
-        encryptedData,
-        decryptedData,
         validationResult,
       };
+      
+      if (encryptedData !== undefined) {
+        result.encryptedData = encryptedData;
+      }
+      
+      if (decryptedData !== undefined) {
+        result.decryptedData = decryptedData;
+      }
+      
+      return result;
     } catch (error) {
       validationResult.errors.push({
         code: 'PARSING_EXCEPTION',
@@ -416,6 +512,12 @@ export class NfcManager {
       }
 
       // Read MIFARE Classic tag
+      if (!tag.id) {
+        return {
+          type: 'READ_ERROR',
+          error: 'Tag ID is missing'
+        };
+      }
       const tagData = await this.readMifareClassicTag(tag);
       
       await NfcLib.cancelTechnologyRequest();
@@ -459,6 +561,12 @@ export class NfcManager {
         };
       }
 
+      if (!tag.id) {
+        return {
+          type: 'READ_ERROR',
+          error: 'NDEF tag ID is missing'
+        };
+      }
       const tagData = await this.readNdefTag(tag);
       
       await NfcLib.cancelTechnologyRequest();
@@ -492,8 +600,12 @@ export class NfcManager {
     }
   }
 
-  private async readMifareClassicTag(tag: any): Promise<TagData | null> {
+  private async readMifareClassicTag(tag: { id?: number[] | string; [key: string]: unknown }): Promise<TagData | null> {
     try {
+      if (!tag.id) {
+        throw new Error('Tag ID is missing');
+      }
+      
       const uidHex = Array.isArray(tag.id) ? 
         tag.id.map((b: number) => b.toString(16).padStart(2, '0')).join('').toUpperCase() :
         tag.id.toString().toUpperCase();
@@ -519,13 +631,20 @@ export class NfcManager {
     }
   }
 
-  private async readNdefTag(tag: any): Promise<TagData | null> {
+  private async readNdefTag(tag: { id?: number[] | string; [key: string]: unknown }): Promise<TagData | null> {
     try {
+      if (!tag.id) {
+        throw new Error('NDEF Tag ID is missing');
+      }
+      
       const uidHex = Array.isArray(tag.id) ?
         tag.id.map((b: number) => b.toString(16).padStart(2, '0')).join('').toUpperCase() :
         tag.id.toString().toUpperCase();
 
       // Read NDEF message
+      if (!NfcLib.ndefHandler) {
+        return null;
+      }
       const ndefMessage = await NfcLib.ndefHandler.getNdefMessage();
       
       if (!ndefMessage || (Array.isArray(ndefMessage) && ndefMessage.length === 0)) {
@@ -602,7 +721,11 @@ export class NfcManager {
       // Try authentication with multiple keys if first fails
       for (let keyIndex = 0; keyIndex < Math.min(keys.length, 3); keyIndex++) {
         try {
-          const keyBytes = keys[(sector + keyIndex) % keys.length];
+          const keyIndex_mod = (sector + keyIndex) % keys.length;
+          const keyBytes = keys[keyIndex_mod];
+          if (!keyBytes) {
+            continue;
+          }
           const success = NfcLib.mifareClassicAuthenticateA 
             ? await NfcLib.mifareClassicAuthenticateA(sector, keyBytes)
             : false;
@@ -690,7 +813,7 @@ export class NfcManager {
         spoolWeight: 240,
         filamentDiameter: 1.75,
         filamentLength: 330000,
-        productionDate: new Date().toISOString().split('T')[0],
+        productionDate: new Date().toISOString().split('T')[0] || '',
         minTemperature: 190,
         maxTemperature: 220,
         bedTemperature: 60,
@@ -701,7 +824,7 @@ export class NfcManager {
         nozzleDiameter: 0.4,
         spoolWidth: 70,
         bedTemperatureType: 1,
-        shortProductionDate: new Date().toISOString().split('T')[0].replace(/-/g, '').slice(2),
+        shortProductionDate: (new Date().toISOString().split('T')[0] || '').replace(/-/g, '').slice(2),
         colorCount: 1,
         shortProductionDateHex: '00000000',
         unknownBlock17Hex: '00000000000000000000000000000000',
@@ -718,9 +841,13 @@ export class NfcManager {
     
     // If data is all the same byte, reject it
     const firstByte = data[0];
+    if (firstByte === undefined) {
+      return false;
+    }
     let allSame = true;
     for (let i = 1; i < Math.min(16, data.length); i++) {
-      if (data[i] !== firstByte) {
+      const currentByte = data[i];
+      if (currentByte !== undefined && currentByte !== firstByte) {
         allSame = false;
         break;
       }
@@ -749,7 +876,8 @@ export class NfcManager {
     let patternMatches = 0;
     for (let i = 0; i < Math.min(10, data.length); i++) {
       const expected = (i * 17 + 42) % 256;
-      if (data[i] === expected) {
+      const currentByte = data[i];
+      if (currentByte !== undefined && currentByte === expected) {
         patternMatches++;
       }
     }
@@ -773,7 +901,7 @@ export class NfcManager {
         spoolWeight: 250,
         filamentDiameter: 1.75,
         filamentLength: 300000,
-        productionDate: new Date().toISOString().split('T')[0],
+        productionDate: new Date().toISOString().split('T')[0] || '',
         minTemperature: 180,
         maxTemperature: 210,
         bedTemperature: 50,
@@ -784,7 +912,7 @@ export class NfcManager {
         nozzleDiameter: 0.4,
         spoolWidth: 70,
         bedTemperatureType: 0,
-        shortProductionDate: new Date().toISOString().split('T')[0].replace(/-/g, '').slice(2),
+        shortProductionDate: (new Date().toISOString().split('T')[0] || '').replace(/-/g, '').slice(2),
         colorCount: 1,
         shortProductionDateHex: '00000000',
         unknownBlock17Hex: '00000000000000000000000000000000',
@@ -817,7 +945,7 @@ export class NfcManager {
     // This is a placeholder implementation
     if (tagData.technology === NfcTechnology.MIFARE_CLASSIC) {
       // Look for Creality-specific patterns
-      return this.hasCrealityMarkers(tagData.rawData);
+      return this.hasCrealityMarkers();
     }
     return false;
   }
@@ -830,7 +958,7 @@ export class NfcManager {
     return false;
   }
 
-  private hasCrealityMarkers(data: Uint8Array): boolean {
+  private hasCrealityMarkers(): boolean {
     // Placeholder for Creality format detection
     // Would need actual Creality tag analysis to implement
     return false;
@@ -881,7 +1009,7 @@ export class NfcManager {
         format: TagFormat.BAMBU_LAB,
         encryptionMethod: EncryptionMethod.BAMBU_PROPRIETARY,
         keyDerivationInfo: {
-          algorithm: 'HKDF_SHA256' as any,
+          algorithm: KeyDerivationAlgorithm.HKDF_SHA256,
           salt: 'BambuLab',
           keyLength: 6,
           derivedKeyCount: 16,
@@ -949,7 +1077,7 @@ export class NfcManager {
         spoolWeight: 220,
         filamentDiameter: 1.75,
         filamentLength: 330000,
-        productionDate: new Date().toISOString().split('T')[0],
+        productionDate: new Date().toISOString().split('T')[0] || '',
         minTemperature: 190,
         maxTemperature: 220,
         bedTemperature: 60,
@@ -960,7 +1088,7 @@ export class NfcManager {
         nozzleDiameter: 0.4,
         spoolWidth: 70,
         bedTemperatureType: 1,
-        shortProductionDate: new Date().toISOString().split('T')[0].replace(/-/g, '').slice(2),
+        shortProductionDate: (new Date().toISOString().split('T')[0] || '').replace(/-/g, '').slice(2),
         colorCount: 1,
         shortProductionDateHex: '00000000',
         unknownBlock17Hex: '00000000000000000000000000000000',
@@ -1000,36 +1128,36 @@ export class NfcManager {
         try {
           const decoder = new TextDecoder();
           const payload = decoder.decode(record.payload);
-          const data = JSON.parse(payload);
+          const parsedData = JSON.parse(payload) as unknown;
 
-          if (data.openspool || data.filament) {
+          if (this.isOpenSpoolData(parsedData)) {
             const filamentInfo: FilamentInfo = {
               tagUid: tagData.uid,
-              trayUid: data.trayUid || `OPENSPOOL_${tagData.uid.slice(-8)}`,
-              tagFormat: TagFormat.OPENSPOOL,
-              manufacturerName: data.manufacturer || 'OpenSpool',
-              filamentType: data.material?.split(' ')[0] || 'PLA',
-              detailedFilamentType: data.material || 'Generic PLA',
-              colorHex: data.colorHex || '#00FF00',
-              colorName: data.colorName || 'Green',
-              spoolWeight: data.spoolWeight || 250,
-              filamentDiameter: data.diameter || 1.75,
-              filamentLength: data.length || 300000,
-              productionDate: data.productionDate || new Date().toISOString().split('T')[0],
-              minTemperature: data.minTemp || 180,
-              maxTemperature: data.maxTemp || 210,
-              bedTemperature: data.bedTemp || 50,
-              dryingTemperature: data.dryTemp || 35,
-              dryingTime: data.dryTime || 6,
-              materialVariantId: data.materialVariantId || 'OPENSPOOL_VARIANT',
-              materialId: data.materialId || 'OPENSPOOL_MAT',
-              nozzleDiameter: data.nozzleDiameter || 0.4,
-              spoolWidth: data.spoolWidth || 70,
-              bedTemperatureType: data.bedTemperatureType || 0,
-              shortProductionDate: data.shortProductionDate || new Date().toISOString().split('T')[0].replace(/-/g, '').slice(2),
-              colorCount: data.colorCount || 1,
-              shortProductionDateHex: data.shortProductionDateHex || '00000000',
-              unknownBlock17Hex: data.unknownBlock17Hex || '00000000000000000000000000000000',
+              trayUid: this.safeGetString(parsedData, 'trayUid') || `OPENSPOOL_${tagData.uid.slice(-8)}`,
+              tagFormat: TagFormat.NDEF_JSON,
+              manufacturerName: this.safeGetString(parsedData, 'manufacturer') || 'OpenSpool',
+              filamentType: this.extractFilamentType(parsedData) || 'PLA',
+              detailedFilamentType: this.safeGetString(parsedData, 'material') || 'Generic PLA',
+              colorHex: this.safeGetString(parsedData, 'colorHex') || '#00FF00',
+              colorName: this.safeGetString(parsedData, 'colorName') || 'Green',
+              spoolWeight: this.safeGetNumber(parsedData, 'spoolWeight') || 250,
+              filamentDiameter: this.safeGetNumber(parsedData, 'diameter') || 1.75,
+              filamentLength: this.safeGetNumber(parsedData, 'length') || 300000,
+              productionDate: this.safeGetString(parsedData, 'productionDate') || new Date().toISOString().split('T')[0] || '',
+              minTemperature: this.safeGetNumber(parsedData, 'minTemp') || 180,
+              maxTemperature: this.safeGetNumber(parsedData, 'maxTemp') || 210,
+              bedTemperature: this.safeGetNumber(parsedData, 'bedTemp') || 50,
+              dryingTemperature: this.safeGetNumber(parsedData, 'dryTemp') || 35,
+              dryingTime: this.safeGetNumber(parsedData, 'dryTime') || 6,
+              materialVariantId: this.safeGetString(parsedData, 'materialVariantId') || 'OPENSPOOL_VARIANT',
+              materialId: this.safeGetString(parsedData, 'materialId') || 'OPENSPOOL_MAT',
+              nozzleDiameter: this.safeGetNumber(parsedData, 'nozzleDiameter') || 0.4,
+              spoolWidth: this.safeGetNumber(parsedData, 'spoolWidth') || 70,
+              bedTemperatureType: this.safeGetNumber(parsedData, 'bedTemperatureType') || 0,
+              shortProductionDate: this.safeGetString(parsedData, 'shortProductionDate') || (new Date().toISOString().split('T')[0] || '').replace(/-/g, '').slice(2),
+              colorCount: this.safeGetNumber(parsedData, 'colorCount') || 1,
+              shortProductionDateHex: this.safeGetString(parsedData, 'shortProductionDateHex') || '00000000',
+              unknownBlock17Hex: this.safeGetString(parsedData, 'unknownBlock17Hex') || '00000000000000000000000000000000',
             };
 
             return {
@@ -1048,7 +1176,7 @@ export class NfcManager {
         uid: tagData.uid,
         data: tagData.rawData,
         technology: 'NDEF',
-        format: TagFormat.OPENSPOOL,
+        format: TagFormat.NDEF_JSON,
       };
 
       const filamentInfo = this.parseOpenSpoolTag(legacyTagData);
@@ -1132,7 +1260,10 @@ export class NfcManager {
   private calculateChecksum(data: Uint8Array): string {
     let checksum = 0;
     for (let i = 0; i < data.length; i++) {
-      checksum = (checksum + data[i]) % 256;
+      const byte = data[i];
+      if (byte !== undefined) {
+        checksum = (checksum + byte) % 256;
+      }
     }
     return checksum.toString(16).padStart(2, '0').toUpperCase();
   }

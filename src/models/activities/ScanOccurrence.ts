@@ -9,6 +9,9 @@ export interface ScanOccurrenceConfiguration {
   /** Type of scan being performed */
   scanType: ScanType;
   
+  /** Index signature for additional properties */
+  [key: string]: unknown;
+  
   /** Expected scan data format/pattern */
   expectedFormat?: string;
   
@@ -60,7 +63,7 @@ export interface ScanData {
   rawData: string;
   
   /** Parsed/decoded data if applicable */
-  decodedData?: Record<string, any>;
+  decodedData?: Record<string, unknown>;
   
   /** Data format detected */
   detectedFormat?: string;
@@ -101,7 +104,7 @@ export interface ScanAttempt {
   error?: {
     code: string;
     message: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
   
   /** Location where scan was attempted */
@@ -170,7 +173,7 @@ export interface ScanOccurrenceData {
     action: string;
     timestamp: Date;
     successful: boolean;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   }>;
 }
 
@@ -206,16 +209,28 @@ export interface ScanOccurrenceBuilder {
   enableLocationCapture(enable: boolean): ScanOccurrenceBuilder;
   
   /** Set camera settings for visual scanning */
-  setCameraSettings(settings: ScanOccurrenceConfiguration['scanSettings']['camera']): ScanOccurrenceBuilder;
+  setCameraSettings(settings: {
+    resolution?: 'low' | 'medium' | 'high';
+    autofocus?: boolean;
+    flashEnabled?: boolean;
+  }): ScanOccurrenceBuilder;
   
   /** Set RFID/NFC settings */
-  setRfidSettings(settings: ScanOccurrenceConfiguration['scanSettings']['rfid']): ScanOccurrenceBuilder;
+  setRfidSettings(settings: {
+    frequency?: number;
+    powerLevel?: number;
+    readDistance?: number;
+  }): ScanOccurrenceBuilder;
   
   /** Set OCR settings */
-  setOcrSettings(settings: ScanOccurrenceConfiguration['scanSettings']['ocr']): ScanOccurrenceBuilder;
+  setOcrSettings(settings: {
+    enabled?: boolean;
+    languages?: string[];
+    confidence?: number;
+  }): ScanOccurrenceBuilder;
   
   /** Add custom configuration */
-  addCustomConfig(key: string, value: any): ScanOccurrenceBuilder;
+  addCustomConfig(key: string, value: unknown): ScanOccurrenceBuilder;
   
   /** Build the scan occurrence activity */
   build(): ScanOccurrence;
@@ -250,7 +265,7 @@ export interface ScanResultClassification {
   confidence: number;
   
   /** Additional classification metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ScanQualityAssessment {

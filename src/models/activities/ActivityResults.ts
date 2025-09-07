@@ -169,7 +169,7 @@ export interface ScanOccurrenceResult {
     attemptCount: number;
     finalScanData?: {
       rawData: string;
-      decodedData?: Record<string, any>;
+      decodedData?: Record<string, unknown>;
       confidenceScore: number;
       qualityMetrics: Record<string, number>;
     };
@@ -196,7 +196,7 @@ export interface ScanOccurrenceResult {
     action: string;
     successful: boolean;
     duration: number;
-    result?: any;
+    result?: unknown;
   }>;
 }
 
@@ -305,8 +305,8 @@ export interface StockMovementResult {
     actualQuantity: number;
     discrepancies: Array<{
       type: string;
-      expected: any;
-      actual: any;
+      expected: unknown;
+      actual: unknown;
       resolved: boolean;
     }>;
   }>;

@@ -12,6 +12,9 @@ export interface StockMovementConfiguration {
   /** Items being moved */
   items: StockMovementItem[];
   
+  /** Index signature for additional properties */
+  [key: string]: unknown;
+  
   /** Source location information */
   sourceLocation?: {
     locationId: string;
@@ -164,8 +167,8 @@ export interface StockMovementExecution {
     /** Any discrepancies found */
     discrepancies?: Array<{
       type: 'quantity' | 'condition' | 'identification' | 'location';
-      expected: any;
-      actual: any;
+      expected: unknown;
+      actual: unknown;
       reason?: string;
     }>;
   }>;
@@ -249,7 +252,7 @@ export interface StockMovementStep {
   itemsInvolved?: string[];
   
   /** Step-specific data */
-  stepData?: Record<string, any>;
+  stepData?: Record<string, unknown>;
   
   /** Issues encountered */
   issues?: Array<{
@@ -270,7 +273,7 @@ export interface StockMovementValidationResult {
     itemId?: string;
     errorType: 'item_not_found' | 'insufficient_quantity' | 'location_full' | 'unauthorized' | 'business_rule' | 'system_error';
     errorMessage: string;
-    errorDetails?: Record<string, any>;
+    errorDetails?: Record<string, unknown>;
     canProceed: boolean;
     suggestedAction?: string;
   }>;

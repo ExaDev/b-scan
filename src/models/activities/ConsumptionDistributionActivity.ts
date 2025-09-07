@@ -13,6 +13,9 @@ export interface ConsumptionDistributionConfiguration {
   /** Source items being consumed */
   sourceItems: SourceConsumptionItem[];
   
+  /** Index signature for additional properties */
+  [key: string]: unknown;
+  
   /** Target destinations for distribution */
   distributionTargets: DistributionTarget[];
   
@@ -149,7 +152,7 @@ export interface SourceConsumptionItem {
   consumptionReason?: string;
   
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DistributionTarget {
@@ -200,13 +203,13 @@ export interface DistributionTarget {
     /** Business rules */
     businessRules?: Array<{
       ruleType: string;
-      ruleValue: any;
+      ruleValue: unknown;
       ruleDescription: string;
     }>;
   };
   
   /** Additional target metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DistributionCalculation {
@@ -214,7 +217,7 @@ export interface DistributionCalculation {
   method: DistributionMethod;
   
   /** Input parameters */
-  inputParameters: Record<string, any>;
+  inputParameters: Record<string, unknown>;
   
   /** Calculation steps performed */
   calculationSteps: Array<{
@@ -263,7 +266,7 @@ export interface DistributionCalculation {
   confidence?: number;
   
   /** Alternative calculation results for comparison */
-  alternativeResults?: Record<DistributionMethod, any>;
+  alternativeResults?: Record<DistributionMethod, unknown>;
 }
 
 export interface DistributionAllocation {
@@ -497,7 +500,7 @@ export interface ConsumptionDistributionBuilder {
   
   /** Set proportional parameters */
   setProportionalParameters(
-    basis: ConsumptionDistributionConfiguration['methodParameters']['proportional']['proportionalBasis'],
+    basis: 'quantity' | 'value' | 'weight' | 'volume' | 'custom',
     customFactors?: Record<string, number>
   ): ConsumptionDistributionBuilder;
   
@@ -516,7 +519,7 @@ export interface ConsumptionDistributionBuilder {
   /** Set inference parameters */
   setInferenceParameters(
     dataSources: string[],
-    algorithm: ConsumptionDistributionConfiguration['methodParameters']['inferred']['inferenceAlgorithm'],
+    algorithm: 'historical_average' | 'regression' | 'ml_prediction' | 'rule_based',
     confidenceThreshold: number,
     fallbackMethod: DistributionMethod
   ): ConsumptionDistributionBuilder;
@@ -524,7 +527,7 @@ export interface ConsumptionDistributionBuilder {
   /** Set authorization requirements */
   setAuthorizationRequirements(
     required: boolean,
-    approvalLevel?: ConsumptionDistributionConfiguration['authorization']['approvalLevel'],
+    approvalLevel?: 'automatic' | 'supervisor' | 'manager' | 'finance',
     threshold?: number
   ): ConsumptionDistributionBuilder;
   

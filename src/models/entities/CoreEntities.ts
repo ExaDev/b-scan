@@ -4,7 +4,7 @@
 
 import { Entity, ValidationResult, generateId } from './Entity';
 import { PropertyValue } from './PropertyValue';
-import { EntityTypes, ActivityTypes, IdentifierTypes } from './types';
+import { EntityTypes } from './types';
 
 /**
  * Identifier entity (RFID UIDs, barcodes, QR codes, etc.)
@@ -54,7 +54,7 @@ export class Identifier extends Entity {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
     
     if (!this.identifierType.trim()) {
@@ -160,7 +160,7 @@ export class Person extends Entity {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
     
     if (!this.label.trim()) {
@@ -229,7 +229,7 @@ export class Activity extends Entity {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
     
     if (!this.activityType.trim()) {

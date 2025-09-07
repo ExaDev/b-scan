@@ -4,7 +4,7 @@
  */
 
 import { ValidationResult, ValidationIssue, ValidationResultType } from './ValidationResult';
-import { EntityType, FilamentInfo, TagFormat } from '../../types/FilamentInfo';
+import { EntityType, TagFormat } from '../../types/FilamentInfo';
 
 export class ValidationUtils {
   /**
@@ -269,7 +269,7 @@ export class ValidationUtils {
   /**
    * Combine multiple validation results
    */
-  static combineResults<T>(...results: ValidationResult<any>[]): ValidationResult<T[]> {
+  static combineResults<T>(...results: ValidationResult<unknown>[]): ValidationResult<T[]> {
     const allIssues = results.flatMap(result => result.issues);
     const hasErrors = allIssues.some(issue => issue.severity === ValidationResultType.ERROR);
     
@@ -277,7 +277,7 @@ export class ValidationUtils {
       return ValidationResult.error(allIssues);
     }
 
-    const data = results.map(result => result.data).filter(data => data !== undefined);
+    const data = results.map(result => result.data).filter(item => item !== undefined);
     return allIssues.length > 0
       ? ValidationResult.warning(data as T[], allIssues)
       : ValidationResult.success(data as T[]);

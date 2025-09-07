@@ -8,7 +8,7 @@ export interface Edge {
   createdAt: number;
   updatedAt: number;
   weight?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export enum RelationshipType {

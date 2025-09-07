@@ -83,7 +83,7 @@ export abstract class BaseService {
   /**
    * Log operations for debugging
    */
-  protected log(level: 'debug' | 'info' | 'warn' | 'error', message: string, data?: any): void {
+  protected log(level: 'debug' | 'info' | 'warn' | 'error', message: string, data?: unknown): void {
     const logMessage = `[${this.constructor.name}] ${message}`;
     
     switch (level) {

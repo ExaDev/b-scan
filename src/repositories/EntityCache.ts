@@ -118,7 +118,7 @@ export class EntityCache {
   }
 
   // Query key generation
-  generateQueryKey(params: any): string {
+  generateQueryKey(params: Record<string, unknown>): string {
     return JSON.stringify(params, Object.keys(params).sort());
   }
 
@@ -135,8 +135,6 @@ export class EntityCache {
   }
 
   cleanup(): void {
-    const now = Date.now();
-    
     // Clean expired entities
     for (const [key, entry] of this.entities.entries()) {
       if (this.isExpired(entry)) {
@@ -159,11 +157,11 @@ export class EntityCache {
   }
 
   // Internal methods
-  private isExpired(entry: CacheEntry<any>): boolean {
+  private isExpired(entry: CacheEntry<unknown>): boolean {
     return Date.now() - entry.timestamp > this.options.ttl;
   }
 
-  private updateAccess(entry: CacheEntry<any>): void {
+  private updateAccess(entry: CacheEntry<unknown>): void {
     entry.accessCount++;
     entry.lastAccessed = Date.now();
   }
@@ -267,7 +265,7 @@ export class EntityCache {
     return invalidatedCount;
   }
 
-  invalidateRelated(entityId: string): number {
+  invalidateRelated(): number {
     let invalidatedCount = 0;
 
     // For simplicity, invalidate all query cache when entity relationships might be affected
@@ -304,7 +302,9 @@ export class EntityCache {
       const nextQuery = queryEntries[queryIndex];
       
       if (!nextEntity || (nextQuery && nextQuery[1].lastAccessed < nextEntity[1].lastAccessed)) {
-        this.queries.delete(nextQuery[0]);
+        if (nextQuery) {
+          this.queries.delete(nextQuery[0]);
+        }
         queryIndex++;
       } else {
         this.entities.delete(nextEntity[0]);

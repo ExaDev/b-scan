@@ -4,11 +4,11 @@
  * This module exports all model types and interfaces for the B-Scan application.
  */
 
-// Export all activity-related models
-export * from './activities';
+// Export activity models under namespace to avoid conflicts
+export * as Activities from './activities';
 
-// Export entity models (if they exist)
-export * from './entities';
+// Export entity models under namespace to avoid conflicts  
+export * as Entities from './entities';
 
 // Re-export commonly used activity types for convenience
 export type {

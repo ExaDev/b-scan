@@ -12,7 +12,6 @@ import {
   InventoryItem,
   Identifier,
   Activity,
-  FilamentInfo,
 } from '../../types/FilamentInfo';
 
 export interface EntityQuery {
@@ -41,7 +40,7 @@ export interface EntityRelationship {
   sourceEntityId: string;
   targetEntityId: string;
   relationshipType: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: number;
 }
 
@@ -68,7 +67,16 @@ export class EntityService extends BaseService {
       }
 
       // Generate ID if needed
-      const id = generateId ? this.generateEntityId(entityData.type) : (entityData as any).id;
+      const entityType = entityData.type;
+      if (!entityType || !Object.values(EntityType).includes(entityType as EntityType)) {
+        return ValidationResult.singleError(
+          'type',
+          'INVALID_ENTITY_TYPE',
+          'Valid entity type is required'
+        );
+      }
+      
+      const id = generateId ? this.generateEntityId(entityType as EntityType) : (entityData as T & {id: string}).id;
       if (!id) {
         return ValidationResult.singleError(
           'id',
@@ -88,7 +96,8 @@ export class EntityService extends BaseService {
 
       // Create entity
       const now = Date.now();
-      const entity: T = {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const entity = {
         ...entityData,
         id,
         createdAt: now,
@@ -204,13 +213,14 @@ export class EntityService extends BaseService {
       }
 
       // Validate updates
-      const validationResult = await this.validateEntityForUpdate(existingEntity, updates);
+      const validationResult = await this.validateEntityForUpdate(updates);
       if (!validationResult.isValid) {
         return ValidationResult.error(validationResult.issues);
       }
 
       // Apply updates
-      const updatedEntity: T = {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      const updatedEntity = {
         ...existingEntity,
         ...updates,
         id: existingEntity.id, // Preserve ID
@@ -363,7 +373,6 @@ export class EntityService extends BaseService {
   }
 
   private async validateEntityForUpdate(
-    existingEntity: GraphEntity,
     updates: Partial<GraphEntity>
   ): Promise<ValidationResult<void>> {
     // Ensure critical fields cannot be updated
@@ -473,7 +482,7 @@ export class EntityService extends BaseService {
     }
   }
 
-  protected async doCleanup(): Promise<void> {
+  protected override async doCleanup(): Promise<void> {
     this.entities.clear();
     this.entityTypeIndex.clear();
     this.relationships.clear();

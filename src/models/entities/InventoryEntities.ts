@@ -3,11 +3,10 @@
  */
 
 import { Entity, ValidationResult, generateId } from './Entity';
-import { PropertyValue, Quantity, QuantityFactory, ContinuousQuantity, DiscreteQuantity } from './PropertyValue';
+import { PropertyValue, Quantity } from './PropertyValue';
 import { 
   EntityTypes, 
   TrackingMode, 
-  StockMovementType, 
   CalibrationResult, 
   InferenceResult, 
   WeightUpdateResult 
@@ -74,7 +73,7 @@ export class PhysicalComponent extends Entity {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
     
     if (!this.label.trim()) {
@@ -317,9 +316,9 @@ export class StockDefinition extends Entity {
     if (this.isMaterial()) return false;
     
     const category = this.category?.toLowerCase();
-    return category?.includes('spool') || 
+    return !!(category?.includes('spool') || 
            category?.includes('core') || 
-           category?.includes('packaging');
+           category?.includes('packaging'));
   }
 
   copy(newId: string = generateId()): StockDefinition {
@@ -330,7 +329,7 @@ export class StockDefinition extends Entity {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
     
     if (!this.label.trim()) {
@@ -562,7 +561,6 @@ export class InventoryItem extends Entity {
    * Used when initially didn't know box weight
    */
   learnContainerWeight(emptyContainerWeight: number): CalibrationResult {
-    const oldTare = this.tareWeight ?? 0;
     const oldUnitWeight = this.unitWeight;
     const lastWeight = this.currentWeight;
     const lastQuantity = this.currentQuantity;
@@ -719,7 +717,7 @@ export class InventoryItem extends Entity {
     );
   }
 
-  validate(): ValidationResult {
+  override validate(): ValidationResult {
     const errors: string[] = [];
 
     if (!this.label.trim()) {

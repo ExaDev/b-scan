@@ -13,7 +13,6 @@ import {
   GraphQuery,
   GraphMetrics,
   EntityWithRelationships,
-  GraphDiff,
   CacheOptions,
 } from '../types/Graph';
 
@@ -36,7 +35,7 @@ export class GraphRepository {
   private graph: Graph;
   private cache: EntityCache;
   private readonly options: Required<RepositoryOptions>;
-  private autoSaveTimer?: NodeJS.Timeout;
+  private autoSaveTimer: ReturnType<typeof setTimeout> | undefined;
   private isDirty = false;
   private isLoading = false;
   private isSaving = false;
@@ -90,7 +89,15 @@ export class GraphRepository {
         return false;
       }
 
-      const data: PersistedGraphData = JSON.parse(serializedData);
+      const parsedData: unknown = JSON.parse(serializedData);
+      
+      // Type validation
+      if (!this.isValidPersistedGraphData(parsedData)) {
+        console.error('Invalid persisted graph data structure');
+        return false;
+      }
+
+      const data: PersistedGraphData = parsedData;
       
       // Version compatibility check
       if (data.version !== GraphRepository.CURRENT_VERSION) {
@@ -183,7 +190,7 @@ export class GraphRepository {
     
     if (success) {
       this.cache.setEntity(updatedEntity);
-      this.cache.invalidateRelated(entity.id);
+      this.cache.invalidateRelated();
       this.markDirty();
 
       if (this.options.enableBackgroundSync) {
@@ -199,7 +206,7 @@ export class GraphRepository {
     
     if (success) {
       this.cache.removeEntity(entityId);
-      this.cache.invalidateRelated(entityId);
+      this.cache.invalidateRelated();
       this.markDirty();
 
       if (this.options.enableBackgroundSync) {
@@ -234,8 +241,7 @@ export class GraphRepository {
     
     if (success) {
       // Invalidate related cache entries
-      this.cache.invalidateRelated(edge.sourceEntityId);
-      this.cache.invalidateRelated(edge.targetEntityId);
+      this.cache.invalidateRelated();
       this.markDirty();
 
       if (this.options.enableBackgroundSync) {
@@ -357,9 +363,9 @@ export class GraphRepository {
     }
 
     // Invalidate cache for affected entities
-    invalidateEntityIds.forEach(entityId => {
-      this.cache.invalidateRelated(entityId);
-    });
+    if (invalidateEntityIds.size > 0) {
+      this.cache.invalidateRelated();
+    }
 
     this.markDirty();
 
@@ -410,7 +416,7 @@ export class GraphRepository {
       }
       
       // Small delay to prevent blocking
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise<void>(resolve => setTimeout(resolve, 10));
     }
 
     // Continue processing after a short delay
@@ -444,10 +450,10 @@ export class GraphRepository {
   }
 
   private stopAutoSave(): void {
-    if (this.autoSaveTimer) {
+    if (this.autoSaveTimer !== undefined) {
       clearInterval(this.autoSaveTimer);
-      this.autoSaveTimer = undefined;
     }
+    this.autoSaveTimer = undefined;
   }
 
   private markDirty(): void {
@@ -456,6 +462,60 @@ export class GraphRepository {
 
   private getStorageKey(): string {
     return `${GraphRepository.STORAGE_KEY_PREFIX}${this.options.persistenceKey}`;
+  }
+
+  private isValidPersistedGraphData(data: unknown): data is PersistedGraphData {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+
+    const obj = data as Record<string, unknown>;
+
+    // Check required properties exist and have correct types
+    return (
+      typeof obj.version === 'number' &&
+      typeof obj.lastSaved === 'number' &&
+      Array.isArray(obj.entities) &&
+      Array.isArray(obj.edges) &&
+      obj.entities.every((entity: unknown) => this.isValidGraphEntity(entity)) &&
+      obj.edges.every((edge: unknown) => this.isValidEdge(edge))
+    );
+  }
+
+  private isValidGraphEntity(entity: unknown): entity is GraphEntity {
+    if (!entity || typeof entity !== 'object') {
+      return false;
+    }
+
+    const obj = entity as Record<string, unknown>;
+
+    // Check required GraphEntity properties
+    return (
+      typeof obj.id === 'string' &&
+      typeof obj.type === 'string' &&
+      typeof obj.createdAt === 'number' &&
+      typeof obj.updatedAt === 'number' &&
+      (obj.data === undefined || typeof obj.data === 'object')
+    );
+  }
+
+  private isValidEdge(edge: unknown): edge is Edge {
+    if (!edge || typeof edge !== 'object') {
+      return false;
+    }
+
+    const obj = edge as Record<string, unknown>;
+
+    // Check required Edge properties
+    return (
+      typeof obj.id === 'string' &&
+      typeof obj.sourceEntityId === 'string' &&
+      typeof obj.targetEntityId === 'string' &&
+      typeof obj.relationshipType === 'string' &&
+      typeof obj.createdAt === 'number' &&
+      typeof obj.updatedAt === 'number' &&
+      (obj.metadata === undefined || typeof obj.metadata === 'object')
+    );
   }
 
   // Cleanup and disposal

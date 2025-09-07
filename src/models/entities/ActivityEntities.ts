@@ -13,6 +13,35 @@ import {
 } from './types';
 
 /**
+ * Type guard to validate that parsed JSON contains string-to-number mapping
+ */
+function isStringToNumberMap(obj: unknown): obj is Record<string, unknown> {
+  return typeof obj === 'object' && 
+         obj !== null && 
+         !Array.isArray(obj) &&
+         Object.entries(obj).every(([key, value]) => 
+           typeof key === 'string' && typeof value === 'number'
+         );
+}
+
+/**
+ * Safely parse JSON string into a Map<string, number> with type validation
+ */
+function parseStringToNumberMap(jsonString: string): Map<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(jsonString);
+    if (isStringToNumberMap(parsed)) {
+      return new Map(Object.entries(parsed).map(([k, v]) => [k, v as number]));
+    }
+    // If validation fails, return empty map
+    return new Map();
+  } catch (e) {
+    // JSON parsing failed, return empty map
+    return new Map();
+  }
+}
+
+/**
  * Calibration activity - establishes weight/quantity relationships
  */
 export class CalibrationActivity extends Activity {
@@ -346,12 +375,7 @@ export class ConsumptionDistributionActivity extends Activity {
   // Individual entity distributions
   get distributions(): Map<string, number> {
     const jsonString = this.getProperty<string>('distributions') ?? '{}';
-    try {
-      const obj = JSON.parse(jsonString);
-      return new Map(Object.entries(obj).map(([k, v]) => [k, v as number]));
-    } catch (e) {
-      return new Map();
-    }
+    return parseStringToNumberMap(jsonString);
   }
   
   set distributions(value: Map<string, number>) {
@@ -362,12 +386,7 @@ export class ConsumptionDistributionActivity extends Activity {
   // Component information at time of measurement
   get fixedComponents(): Map<string, number> {
     const jsonString = this.getProperty<string>('fixedComponents') ?? '{}';
-    try {
-      const obj = JSON.parse(jsonString);
-      return new Map(Object.entries(obj).map(([k, v]) => [k, v as number]));
-    } catch (e) {
-      return new Map();
-    }
+    return parseStringToNumberMap(jsonString);
   }
   
   set fixedComponents(value: Map<string, number>) {
@@ -377,12 +396,7 @@ export class ConsumptionDistributionActivity extends Activity {
 
   get consumableComponents(): Map<string, number> {
     const jsonString = this.getProperty<string>('consumableComponents') ?? '{}';
-    try {
-      const obj = JSON.parse(jsonString);
-      return new Map(Object.entries(obj).map(([k, v]) => [k, v as number]));
-    } catch (e) {
-      return new Map();
-    }
+    return parseStringToNumberMap(jsonString);
   }
   
   set consumableComponents(value: Map<string, number>) {

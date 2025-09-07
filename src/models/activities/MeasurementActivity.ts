@@ -9,6 +9,9 @@ export interface MeasurementConfiguration {
   /** Type of measurement being performed */
   measurementType: MeasurementType;
   
+  /** Index signature for additional properties */
+  [key: string]: unknown;
+  
   /** Target item or entity being measured */
   targetEntity: {
     entityId: string;

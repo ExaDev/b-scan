@@ -7,14 +7,10 @@ import {
   configureServices,
   getServiceRegistry,
   cleanupServices,
-  ScanService,
-  EntityService,
-  ActivityService,
   ComponentService,
-  ValidationResult,
 } from '../index';
 
-import { FilamentInfo, TagFormat } from '../../types/FilamentInfo';
+import { FilamentInfo, TagFormat, EntityType } from '../../types/FilamentInfo';
 
 /**
  * Example: Initialize and configure all services
@@ -212,7 +208,7 @@ export async function manageEntities(): Promise<void> {
 
     // Query recent activities
     const recentActivities = await entityService.queryEntities({
-      entityType: 'ACTIVITY' as any,
+      entityType: EntityType.ACTIVITY,
       createdAfter: Date.now() - (7 * 24 * 60 * 60 * 1000), // Last 7 days
       limit: 10,
     });
@@ -223,9 +219,9 @@ export async function manageEntities(): Promise<void> {
 
     // Count entities by type
     const counts = await Promise.all([
-      entityService.countEntitiesByType('PHYSICAL_COMPONENT' as any),
-      entityService.countEntitiesByType('ACTIVITY' as any),
-      entityService.countEntitiesByType('INVENTORY_ITEM' as any),
+      entityService.countEntitiesByType(EntityType.PHYSICAL_COMPONENT),
+      entityService.countEntitiesByType(EntityType.ACTIVITY),
+      entityService.countEntitiesByType(EntityType.INVENTORY_ITEM),
     ]);
 
     console.log('Entity counts:', {

@@ -17,6 +17,9 @@ export interface CalibrationConfiguration {
     serialNumber?: string;
   };
   
+  /** Index signature for additional properties */
+  [key: string]: unknown;
+  
   /** Reference standards or known values for calibration */
   referenceStandards: CalibrationStandard[];
   
@@ -106,7 +109,7 @@ export interface CalibrationStandard {
   };
   
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CalibrationPoint {

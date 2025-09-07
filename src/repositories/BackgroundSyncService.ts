@@ -28,9 +28,9 @@ export class BackgroundSyncService {
   private tasks: Map<string, BackgroundTask> = new Map();
   private isRunning = false;
   private isPaused = false;
-  private appStateSubscription?: any;
-  private syncInterval?: NodeJS.Timeout;
-  private maintenanceInterval?: NodeJS.Timeout;
+  private appStateSubscription: ReturnType<typeof AppState.addEventListener> | undefined = undefined;
+  private syncInterval: ReturnType<typeof setInterval> | undefined = undefined;
+  private maintenanceInterval: ReturnType<typeof setInterval> | undefined = undefined;
   private metrics: SyncMetrics;
 
   private readonly SYNC_INTERVAL = 30000; // 30 seconds
@@ -77,12 +77,12 @@ export class BackgroundSyncService {
   stop(): void {
     this.isRunning = false;
 
-    if (this.syncInterval) {
+    if (this.syncInterval !== undefined) {
       clearInterval(this.syncInterval);
       this.syncInterval = undefined;
     }
 
-    if (this.maintenanceInterval) {
+    if (this.maintenanceInterval !== undefined) {
       clearInterval(this.maintenanceInterval);
       this.maintenanceInterval = undefined;
     }
@@ -116,13 +116,21 @@ export class BackgroundSyncService {
       type: taskConfig.type,
       priority: taskConfig.priority,
       createdAt: Date.now(),
-      scheduledAt: taskConfig.scheduledAt,
       maxRetries: taskConfig.maxRetries || 3,
       retryCount: 0,
       execute: taskConfig.execute,
-      onComplete: taskConfig.onComplete,
-      onError: taskConfig.onError,
     };
+    
+    // Conditionally assign optional properties to avoid exactOptionalPropertyTypes issues
+    if (taskConfig.scheduledAt !== undefined) {
+      task.scheduledAt = taskConfig.scheduledAt;
+    }
+    if (taskConfig.onComplete !== undefined) {
+      task.onComplete = taskConfig.onComplete;
+    }
+    if (taskConfig.onError !== undefined) {
+      task.onError = taskConfig.onError;
+    }
 
     this.tasks.set(taskId, task);
     this.metrics.totalTasks++;
@@ -402,10 +410,10 @@ export class BackgroundSyncService {
   dispose(): void {
     this.stop();
     
-    if (this.appStateSubscription) {
+    if (this.appStateSubscription !== undefined) {
       this.appStateSubscription.remove();
-      this.appStateSubscription = undefined;
     }
+    this.appStateSubscription = undefined;
 
     this.tasks.clear();
   }
