@@ -3,7 +3,7 @@
  * Port of the original Kotlin implementation with HKDF expansion
  */
 
-import CryptoJS from 'crypto-js';
+import * as CryptoJS from 'crypto-js';
 
 export class BambuKeyDerivation {
   private static readonly BAMBU_SALT = 'BambuLab';
