@@ -25,7 +25,18 @@ describe('Scan Workflow Integration Tests', () => {
     mockNfcLib.requestTechnology.mockResolvedValue(undefined);
     mockNfcLib.cancelTechnologyRequest.mockResolvedValue(undefined);
     mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
-    mockNfcLib.mifareClassicReadBlock?.mockResolvedValue(new Uint8Array(16));
+    
+    // Create varied data for all integration tests by default
+    let defaultReadCount = 0;
+    mockNfcLib.mifareClassicReadBlock?.mockImplementation(async (blockIndex: number) => {
+      const mockBlockData = new Uint8Array(16);
+      mockBlockData.fill(0x42 + (defaultReadCount % 8));
+      mockBlockData[0] = blockIndex & 0xFF;
+      mockBlockData[1] = (defaultReadCount + 1) & 0xFF;
+      defaultReadCount++;
+      return mockBlockData;
+    });
+    
     mockNfcLib.getTag.mockResolvedValue({
       id: '04914CCA5E6480',
       techTypes: ['android.nfc.tech.MifareClassic']
@@ -35,27 +46,16 @@ describe('Scan Workflow Integration Tests', () => {
   describe('complete scan workflow', () => {
     it('should complete full Bambu Lab tag scan workflow', async () => {
       // Create proper mock data for Bambu Lab tag (1024 bytes = 64 blocks × 16 bytes)
+      let readCount = 0;
       mockNfcLib.mifareClassicReadBlock?.mockImplementation(async (blockIndex: number) => {
         const mockBlockData = new Uint8Array(16);
         
-        // For block 0, add Bambu Lab header/signature
-        if (blockIndex === 0) {
-          mockBlockData[0] = 0x42; // Mock material identifier  
-          mockBlockData[1] = 0x50; // Mock bed temperature
-          mockBlockData[2] = 0x00;
-          mockBlockData[8] = 0x01; // Mock format version
-          // Add what looks like a valid Bambu header pattern
-          mockBlockData[12] = 0xBA; // Mock Bambu signature
-          mockBlockData[13] = 0x3B;
-          mockBlockData[14] = 0x00;
-          mockBlockData[15] = 0x01;
-        } else {
-          // Fill other blocks with some pattern data
-          mockBlockData.fill(0x00);
-          // eslint-disable-next-line no-bitwise
-          mockBlockData[0] = blockIndex & 0xFF; // Block number as identifier
-        }
+        // Create varied data to pass validation (not all same bytes)
+        mockBlockData.fill(0x42 + (readCount % 8));
+        mockBlockData[0] = blockIndex & 0xFF; // Block-specific identifier
+        mockBlockData[1] = (readCount + 1) & 0xFF; // Read-specific data
         
+        readCount++;
         return mockBlockData;
       });
       

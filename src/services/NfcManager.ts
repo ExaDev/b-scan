@@ -748,17 +748,6 @@ export class NfcManager {
 
   private async readTagData(startBlock: number, blockCount: number): Promise<Uint8Array | null> {
     try {
-      // For the first block, return exact mock data to match test expectations
-      if (startBlock === 0 && blockCount === 4) {
-        const blockData = NfcLib.mifareClassicReadBlock 
-          ? await NfcLib.mifareClassicReadBlock(startBlock)
-          : null;
-        if (blockData) {
-          return new Uint8Array(Array.from(blockData));
-        }
-      }
-
-      // For other blocks, read normally
       const data: number[] = [];
       
       for (let block = startBlock; block < startBlock + blockCount; block++) {

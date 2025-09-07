@@ -102,7 +102,16 @@ describe('NfcManager Unit Tests', () => {
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue(mockTag);
       mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
-      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16).fill(0x42));
+      
+      // Create varied mock data to pass validation (not all same bytes)
+      let blockCount = 0;
+      mockNfcLib.mifareClassicReadBlock.mockImplementation(async () => {
+        const blockData = new Uint8Array(16);
+        blockData.fill(0x42 + (blockCount % 8)); // Vary the data
+        blockData[0] = blockCount & 0xFF; // Block-specific identifier
+        blockCount++;
+        return blockData;
+      });
       
       const result = await nfcManager.scanTag();
       
@@ -203,15 +212,23 @@ describe('NfcManager Unit Tests', () => {
 
   describe('data reading and parsing', () => {
     it('should read tag data successfully', async () => {
-      const mockData = new Uint8Array(16);
-      mockData.fill(0x42);
+      const mockBlockData = new Uint8Array(16);
+      mockBlockData.fill(0x42);
       
-      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(mockData);
+      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(mockBlockData);
       
       const result = await (nfcManager as unknown as { readTagData: (block: number, sector: number) => Promise<Uint8Array | null> }).readTagData(0, 4);
       
-      expect(result).toEqual(mockData);
+      // Should return 4 blocks × 16 bytes each = 64 bytes total
+      const expectedData = new Uint8Array(64);
+      expectedData.fill(0x42);
+      
+      expect(result).toEqual(expectedData);
+      expect(mockNfcLib.mifareClassicReadBlock).toHaveBeenCalledTimes(4);
       expect(mockNfcLib.mifareClassicReadBlock).toHaveBeenCalledWith(0);
+      expect(mockNfcLib.mifareClassicReadBlock).toHaveBeenCalledWith(1);
+      expect(mockNfcLib.mifareClassicReadBlock).toHaveBeenCalledWith(2);
+      expect(mockNfcLib.mifareClassicReadBlock).toHaveBeenCalledWith(3);
     });
 
     it('should handle read errors gracefully', async () => {

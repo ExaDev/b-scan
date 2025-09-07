@@ -69,14 +69,12 @@ jest.mock('../../src/services/NfcManagerService', () => ({
   }
 }));
 
-describe.skip('ScanningScreen Component Tests - TEMPORARILY DISABLED', () => {
+describe.skip('ScanningScreen Component Tests - React rendering issue needs investigation', () => {
   const renderScanningScreen = () => {
     const route: RouteProp<RootStackParamList, 'Scanning'> = { key: 'Scanning', name: 'Scanning', params: {} };
     return render(
       <PaperProvider>
-        <NavigationContainer>
-          <ScanningScreen navigation={mockNavigation} route={route} />
-        </NavigationContainer>
+        <ScanningScreen navigation={mockNavigation} route={route} />
       </PaperProvider>
     );
   };
