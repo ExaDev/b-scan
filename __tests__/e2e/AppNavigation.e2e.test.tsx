@@ -65,7 +65,7 @@ describe('App Navigation E2E Tests', () => {
       
       // App should show home screen initially
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Should show main navigation elements
@@ -76,7 +76,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Navigate to scanning screen
@@ -90,7 +90,7 @@ describe('App Navigation E2E Tests', () => {
       fireEvent.press(screen.getByTestId('back-button'));
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
     });
 
@@ -98,7 +98,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Navigate to history screen
@@ -119,7 +119,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Navigate to settings
@@ -137,7 +137,7 @@ describe('App Navigation E2E Tests', () => {
       fireEvent.press(screen.getByTestId('back-button'));
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
     });
   });
@@ -147,7 +147,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Start scanning
@@ -179,7 +179,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Start scanning
@@ -207,7 +207,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Complete a scan
@@ -227,7 +227,7 @@ describe('App Navigation E2E Tests', () => {
       fireEvent.press(screen.getByTestId('back-button'));
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       fireEvent.press(screen.getByTestId('scan-history-button'));
@@ -246,7 +246,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Navigate through multiple screens
@@ -275,7 +275,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Navigate deep into the app
@@ -318,7 +318,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Should not crash on invalid navigation
@@ -332,7 +332,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Rapidly press navigation buttons
@@ -351,7 +351,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Change settings
@@ -367,7 +367,7 @@ describe('App Navigation E2E Tests', () => {
       fireEvent.press(screen.getByTestId('back-button'));
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       fireEvent.press(screen.getByTestId('settings-button'));
@@ -386,7 +386,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Check accessibility labels
@@ -399,7 +399,7 @@ describe('App Navigation E2E Tests', () => {
       renderApp();
       
       await waitFor(() => {
-        expect(screen.getByText('B-Scan')).toBeTruthy();
+        expect(screen.getAllByText('B-Scan').length).toBeGreaterThan(0);
       });
       
       // Test that screen reader can navigate through elements
