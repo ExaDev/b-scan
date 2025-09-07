@@ -35,7 +35,6 @@ describe('Scan Workflow Integration Tests', () => {
   describe('complete scan workflow', () => {
     it('should complete full Bambu Lab tag scan workflow', async () => {
       // Create proper mock data for Bambu Lab tag (1024 bytes = 64 blocks × 16 bytes)
-      let blockReadCount = 0;
       mockNfcLib.mifareClassicReadBlock?.mockImplementation(async (blockIndex: number) => {
         const mockBlockData = new Uint8Array(16);
         
@@ -53,10 +52,10 @@ describe('Scan Workflow Integration Tests', () => {
         } else {
           // Fill other blocks with some pattern data
           mockBlockData.fill(0x00);
+          // eslint-disable-next-line no-bitwise
           mockBlockData[0] = blockIndex & 0xFF; // Block number as identifier
         }
         
-        blockReadCount++;
         return mockBlockData;
       });
       
