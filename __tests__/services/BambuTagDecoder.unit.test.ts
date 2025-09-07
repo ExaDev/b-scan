@@ -4,7 +4,7 @@
  */
 
 import { NfcManager, TagData } from '../../src/services/NfcManager';
-import { FilamentInfo, TagFormat } from '../../src/types/FilamentInfo';
+import { TagFormat } from '../../src/types/FilamentInfo';
 
 // Mock the NfcManager for isolated unit testing
 jest.mock('react-native-nfc-manager', () => ({
@@ -82,11 +82,11 @@ describe('BambuTagDecoder Unit Tests', () => {
 
     it('should handle null or undefined input', () => {
       expect(() => {
-        nfcManager.parseTagData(null as any);
+        nfcManager.parseTagData(null);
       }).not.toThrow();
 
       expect(() => {
-        nfcManager.parseTagData(undefined as any);
+        nfcManager.parseTagData(null);
       }).not.toThrow();
     });
   });
@@ -248,9 +248,11 @@ describe('BambuTagDecoder Unit Tests', () => {
         { temp: 65535, description: 'max uint16 value' }
       ];
 
-      edgeCases.forEach(({ temp, description }) => {
+      edgeCases.forEach(({ temp }) => {
         const tempData = new Uint8Array(1024);
+        // eslint-disable-next-line no-bitwise
         tempData[100] = temp & 0xFF;
+        // eslint-disable-next-line no-bitwise
         tempData[101] = (temp >> 8) & 0xFF;
 
         const tagData: TagData = {

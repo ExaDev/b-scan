@@ -3,14 +3,20 @@
  */
 
 declare module 'react-native-nfc-manager' {
-  export interface TagEvent {
-    id: string;
-    techTypes: string[];
-    type: string;
-    ndefMessage?: any[];
+  export interface NdefRecord {
+    tnf: number;
+    type: Uint8Array;
+    payload: Uint8Array;
   }
 
-  export interface NfcTech {
+  export interface TagEvent {
+    techTypes: string[];
+    type: string;
+    ndefMessage?: NdefRecord[];
+    [key: string]: unknown;
+  }
+
+  export const NfcTech: {
     MifareClassic: 'MifareClassic';
     Ndef: 'Ndef';
     NfcA: 'NfcA';
@@ -20,9 +26,9 @@ declare module 'react-native-nfc-manager' {
     IsoDep: 'IsoDep';
     Iso15693: 'Iso15693';
     MifareUltralight: 'MifareUltralight';
-  }
+  };
 
-  export interface NfcManager {
+  export interface NfcManagerInterface {
     isSupported(): Promise<boolean>;
     start(): Promise<void>;
     stop(): Promise<void>;
@@ -32,12 +38,13 @@ declare module 'react-native-nfc-manager' {
     getTag(): Promise<TagEvent | null>;
     mifareClassicAuthenticateA?(sector: number, key: Uint8Array): Promise<boolean>;
     mifareClassicReadBlock?(blockIndex: number): Promise<Uint8Array>;
+    ndefHandler?: {
+      getNdefMessage(): Promise<NdefRecord[]>;
+    };
   }
 
-  const manager: NfcManager;
+  const manager: NfcManagerInterface;
   export default manager;
-
-  export const NfcTech: NfcTech;
 
   export function isSupported(): Promise<boolean>;
   export function start(): Promise<void>;

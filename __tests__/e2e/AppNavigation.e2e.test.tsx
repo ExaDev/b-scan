@@ -7,14 +7,13 @@ import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
-import App from '../../App';
 import AppNavigator from '../../src/navigation/AppNavigator';
 
 // Mock NFC manager for E2E tests
 jest.mock('../../src/services/NfcManager', () => ({
   NfcManager: class {
     initialize = jest.fn().mockResolvedValue(true);
-    cleanup = jest.fn().mockResolvedValue(void 0);
+    cleanup = jest.fn().mockResolvedValue(undefined);
     scanTag = jest.fn().mockResolvedValue({
       success: true,
       data: {
@@ -24,7 +23,7 @@ jest.mock('../../src/services/NfcManager', () => ({
         format: 'BAMBU_LAB'
       }
     });
-    cancelScan = jest.fn().mockResolvedValue(void 0);
+    cancelScan = jest.fn().mockResolvedValue(undefined);
     parseTagData = jest.fn().mockReturnValue({
       material: 'PLA',
       color: 'Red',

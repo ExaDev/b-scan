@@ -7,12 +7,15 @@ import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
+import { RouteProp } from '@react-navigation/native';
 import ScanningScreen from '../../src/screens/ScanningScreen';
+import { RootStackParamList } from '../../src/types/Navigation';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-// Mock navigation
+// Mock navigation with proper typing
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
-const mockNavigation = {
+const mockNavigation: NativeStackNavigationProp<RootStackParamList, 'Scanning'> = {
   navigate: mockNavigate,
   goBack: mockGoBack,
   setOptions: jest.fn(),
@@ -22,9 +25,26 @@ const mockNavigation = {
   canGoBack: jest.fn(() => true),
   getParent: jest.fn(),
   getId: jest.fn(),
-  getState: jest.fn(),
+  getState: jest.fn(() => ({
+    key: 'test-key',
+    index: 0,
+    routeNames: ['Scanning'],
+    routes: [{ key: 'Scanning', name: 'Scanning', params: {} }],
+    type: 'stack',
+    stale: false,
+    preloadedRoutes: []
+  })),
   addListener: jest.fn(() => jest.fn()),
   removeListener: jest.fn(),
+  push: jest.fn(),
+  pop: jest.fn(),
+  popTo: jest.fn(),
+  popToTop: jest.fn(),
+  replace: jest.fn(),
+  setParams: jest.fn(),
+  preload: jest.fn(),
+  navigateDeprecated: jest.fn(),
+  replaceParams: jest.fn(),
 };
 
 // Mock NFC Manager
@@ -42,10 +62,11 @@ jest.mock('../../src/services/NfcManager', () => ({
 
 describe('ScanningScreen Component Tests', () => {
   const renderScanningScreen = () => {
+    const route: RouteProp<RootStackParamList, 'Scanning'> = { key: 'Scanning', name: 'Scanning', params: {} };
     return render(
       <PaperProvider>
         <NavigationContainer>
-          <ScanningScreen navigation={mockNavigation as any} route={{} as any} />
+          <ScanningScreen navigation={mockNavigation} route={route} />
         </NavigationContainer>
       </PaperProvider>
     );

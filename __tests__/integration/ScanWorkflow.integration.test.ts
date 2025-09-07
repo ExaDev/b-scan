@@ -4,7 +4,7 @@
  */
 
 import { NfcManager, TagReadResult } from '../../src/services/NfcManager';
-import { FilamentInfo, TagFormat } from '../../src/types/FilamentInfo';
+import { TagFormat } from '../../src/types/FilamentInfo';
 
 // Mock react-native-nfc-manager for integration testing
 jest.mock('react-native-nfc-manager', () => ({
@@ -35,7 +35,7 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Mock successful NFC operations
       mockNfcLib.start.mockResolvedValue(true);
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -80,8 +80,8 @@ describe('Scan Workflow Integration Tests', () => {
       const scanResult = await nfcManager.scanTag();
       
       // Verify graceful failure handling
-      expect(scanResult?.success).toBe(false);
-      if (!scanResult?.success) {
+      expect(scanResult.type).not.toBe('SUCCESS');
+      if (scanResult.type === 'READ_ERROR' || scanResult.type === 'PARSING_ERROR') {
         expect(scanResult.error).toBeDefined();
       }
     });
@@ -90,7 +90,7 @@ describe('Scan Workflow Integration Tests', () => {
       const mockNfcLib = require('react-native-nfc-manager');
       
       mockNfcLib.start.mockResolvedValue(true);
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -108,7 +108,7 @@ describe('Scan Workflow Integration Tests', () => {
       const scanResult = await nfcManager.scanTag();
       
       // Should succeed after trying multiple keys
-      expect(scanResult?.success).toBe(true);
+      expect(scanResult.type).toBe('SUCCESS');
       expect(mockNfcLib.mifareClassicAuthenticateA).toHaveBeenCalledTimes(2);
     });
 
@@ -116,7 +116,7 @@ describe('Scan Workflow Integration Tests', () => {
       const mockNfcLib = require('react-native-nfc-manager');
       
       mockNfcLib.start.mockResolvedValue(true);
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -135,8 +135,8 @@ describe('Scan Workflow Integration Tests', () => {
       const scanResult = await nfcManager.scanTag();
       
       // Should handle partial reads gracefully
-      expect(scanResult?.success).toBe(true);
-      expect(scanResult?.data).toBeDefined();
+      expect(scanResult.type).toBe('SUCCESS');
+      expect(scanResult.type === 'SUCCESS' ? scanResult.filamentInfo : undefined).toBeDefined();
     });
   });
 
@@ -154,8 +154,6 @@ describe('Scan Workflow Integration Tests', () => {
       mockTagData.data[16] = 0x50; // Bed temperature (80°C)
       mockTagData.data[17] = 0x00;
       mockTagData.data[32] = 0x42; // Material type identifier
-      
-      const parsedResult = nfcManager.parseTagData(mockTagData);
       
       // Should parse without throwing
       expect(() => nfcManager.parseTagData(mockTagData)).not.toThrow();
@@ -175,37 +173,56 @@ describe('Scan Workflow Integration Tests', () => {
       mockTagData.data[2] = 0x10; // Payload length
       mockTagData.data[3] = 0x54; // 'T' for Text Record
       
-      const parsedResult = nfcManager.parseTagData(mockTagData);
-      
       // Should handle OpenSpool format
       expect(() => nfcManager.parseTagData(mockTagData)).not.toThrow();
     });
 
     it('should validate scan results consistently', () => {
       const validScanResult: TagReadResult = {
-        success: true,
-        data: {
-          uid: '04914CCA5E6480',
-          data: new Uint8Array(1024),
-          technology: 'MifareClassic',
-          format: TagFormat.BAMBU_LAB
+        type: 'SUCCESS',
+        filamentInfo: {
+          tagUid: '04914CCA5E6480',
+          trayUid: '04914CCA5E6480',
+          tagFormat: TagFormat.BAMBU_LAB,
+          manufacturerName: 'Bambu Lab',
+          filamentType: 'PLA',
+          detailedFilamentType: 'PLA Basic',
+          colorHex: '#FFFFFF',
+          colorName: 'White',
+          spoolWeight: 250,
+          filamentLength: 330000,
+          filamentDiameter: 1.75,
+          minTemperature: 190,
+          maxTemperature: 230,
+          bedTemperature: 35,
+          spoolWidth: 70,
+          productionDate: Date.now().toString(),
+          dryingTemperature: 40,
+          dryingTime: 8,
+          materialId: 'BL-PLA-WH',
+          materialVariantId: 'BL-PLA-WH-VAR',
+          nozzleDiameter: 0.4,
+          bedTemperatureType: 1,
+          shortProductionDate: '2024-01',
+          colorCount: 1,
+          shortProductionDateHex: '2024',
+          unknownBlock17Hex: 'ABCD',
         }
       };
       
       const invalidScanResult: TagReadResult = {
-        success: false,
-        error: 'Authentication failed'
+        type: 'AUTHENTICATION_FAILED'
       };
       
       // Valid results should have data
-      expect(validScanResult.success).toBe(true);
-      expect(validScanResult.data).toBeDefined();
-      expect(validScanResult.data?.uid).toBeTruthy();
+      expect(validScanResult.type).toBe('SUCCESS');
+      if (validScanResult.type === 'SUCCESS') {
+        expect(validScanResult.filamentInfo).toBeDefined();
+        expect(validScanResult.filamentInfo.tagUid).toBeTruthy();
+      }
       
       // Invalid results should have error
-      expect(invalidScanResult.success).toBe(false);
-      expect(invalidScanResult.error).toBeDefined();
-      expect(invalidScanResult.data).toBeUndefined();
+      expect(invalidScanResult.type).toBe('AUTHENTICATION_FAILED');
     });
   });
 
@@ -216,7 +233,7 @@ describe('Scan Workflow Integration Tests', () => {
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology
         .mockRejectedValueOnce(new Error('Connection lost'))
-        .mockResolvedValueOnce(void 0);
+        .mockResolvedValueOnce(undefined);
       
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
@@ -228,21 +245,21 @@ describe('Scan Workflow Integration Tests', () => {
       
       // First scan should fail
       const firstScan = await nfcManager.scanTag();
-      expect(firstScan?.success).toBe(false);
+      expect(firstScan.type).not.toBe('SUCCESS');
       
       // Second scan should succeed (after recovery)
       mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
       mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16));
       
       const secondScan = await nfcManager.scanTag();
-      expect(secondScan?.success).toBe(true);
+      expect(secondScan.type).toBe('SUCCESS');
     });
 
     it('should handle tag removal during scan', async () => {
       const mockNfcLib = require('react-native-nfc-manager');
       
       mockNfcLib.start.mockResolvedValue(true);
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -255,8 +272,10 @@ describe('Scan Workflow Integration Tests', () => {
       const scanResult = await nfcManager.scanTag();
       
       // Should handle tag removal gracefully
-      expect(scanResult?.success).toBe(false);
-      expect(scanResult?.error).toContain('Tag');
+      expect(scanResult.type).not.toBe('SUCCESS');
+      if (scanResult.type === 'READ_ERROR' || scanResult.type === 'PARSING_ERROR') {
+        expect(scanResult.error).toContain('Tag');
+      }
     });
 
     it('should timeout long-running operations', async () => {
@@ -266,7 +285,7 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Mock a long-running operation
       mockNfcLib.requestTechnology.mockImplementation(() =>
-        new Promise(resolve => setTimeout(() => resolve(void 0), 10000)) // 10 second delay
+        new Promise(resolve => setTimeout(() => resolve(undefined), 10000)) // 10 second delay
       );
       
       await nfcManager.initialize();
@@ -277,7 +296,7 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Should timeout in reasonable time
       expect(endTime - startTime).toBeLessThan(6000); // Less than 6 seconds
-      expect(scanResult?.success).toBe(false);
+      expect(scanResult.type).not.toBe('SUCCESS');
     }, 10000);
 
     it('should clean up resources on failure', async () => {
@@ -285,7 +304,7 @@ describe('Scan Workflow Integration Tests', () => {
       
       mockNfcLib.start.mockResolvedValue(true);
       mockNfcLib.requestTechnology.mockRejectedValue(new Error('Scan failed'));
-      mockNfcLib.cancelTechnologyRequest.mockResolvedValue(void 0);
+      mockNfcLib.cancelTechnologyRequest.mockResolvedValue(undefined);
       
       await nfcManager.initialize();
       await nfcManager.scanTag();
@@ -302,7 +321,7 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Setup successful scan mocks
       mockNfcLib.start.mockResolvedValue(true);
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -339,7 +358,7 @@ describe('Scan Workflow Integration Tests', () => {
       const mockNfcLib = require('react-native-nfc-manager');
       
       mockNfcLib.start.mockResolvedValue(true);
-      mockNfcLib.requestTechnology.mockResolvedValue(void 0);
+      mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
@@ -361,11 +380,11 @@ describe('Scan Workflow Integration Tests', () => {
       
       // At least one should succeed or all should fail gracefully
       const succeeded = results.filter(r => 
-        r.status === 'fulfilled' && r.value?.success
+        r.status === 'fulfilled' && r.value?.type === 'SUCCESS'
       ).length;
       
       const failed = results.filter(r =>
-        r.status === 'fulfilled' && !r.value?.success
+        r.status === 'fulfilled' && r.value?.type !== 'SUCCESS'
       ).length;
       
       expect(succeeded + failed).toBe(results.length);

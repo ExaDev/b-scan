@@ -3,8 +3,7 @@
  * Port of KeyCacheIntegrationTest.kt from the original Android app
  */
 
-import { NfcManager, BambuKeyDerivation } from '../../src/services/NfcManager';
-import { TagFormat } from '../../src/types/FilamentInfo';
+import { BambuKeyDerivation } from '../../src/services/NfcManager';
 
 describe('Key Cache Integration Tests', () => {
   // Test UIDs for various scenarios
@@ -26,7 +25,9 @@ describe('Key Cache Integration Tests', () => {
       expect(directKeys).toHaveLength(simulatedCacheKeys.length);
       
       directKeys.forEach((key, index) => {
-        expect(Array.from(key)).toEqual(Array.from(simulatedCacheKeys[index]));
+        const simulatedKey = simulatedCacheKeys[index];
+        expect(simulatedKey).toBeDefined();
+        expect(Array.from(key)).toEqual(Array.from(simulatedKey!));
       });
       
       // Verify key properties
@@ -47,7 +48,8 @@ describe('Key Cache Integration Tests', () => {
       let differentCount = 0;
       keys1.forEach((key1, index) => {
         const key2 = keys2[index];
-        if (!Array.from(key1).every((byte, byteIndex) => byte === key2[byteIndex])) {
+        expect(key2).toBeDefined();
+        if (!Array.from(key1).every((byte, byteIndex) => byte === key2![byteIndex])) {
           differentCount++;
         }
       });
@@ -76,8 +78,12 @@ describe('Key Cache Integration Tests', () => {
       const keys3 = BambuKeyDerivation.deriveKeys(testUID1);
       
       keys1.forEach((key, index) => {
-        expect(Array.from(key)).toEqual(Array.from(keys2[index]));
-        expect(Array.from(key)).toEqual(Array.from(keys3[index]));
+        const key2 = keys2[index];
+        const key3 = keys3[index];
+        expect(key2).toBeDefined();
+        expect(key3).toBeDefined();
+        expect(Array.from(key)).toEqual(Array.from(key2!));
+        expect(Array.from(key)).toEqual(Array.from(key3!));
       });
     });
   });
@@ -102,7 +108,6 @@ describe('Key Cache Integration Tests', () => {
     it('should handle concurrent access', async () => {
       const numThreads = 5;
       const numOperations = 10;
-      const results: Array<Uint8Array>[] = [];
       
       // Create multiple promises doing key derivation
       const promises = Array.from({ length: numThreads }, () =>
@@ -125,7 +130,9 @@ describe('Key Cache Integration Tests', () => {
       flatResults.forEach(keys => {
         expect(keys).toHaveLength(expectedKeys.length);
         keys.forEach((key, index) => {
-          expect(Array.from(key)).toEqual(Array.from(expectedKeys[index]));
+          const expectedKey = expectedKeys[index];
+          expect(expectedKey).toBeDefined();
+          expect(Array.from(key)).toEqual(Array.from(expectedKey!));
         });
       });
       
@@ -146,7 +153,11 @@ describe('Key Cache Integration Tests', () => {
       // Check that keys are different from each other
       for (let i = 0; i < keys.length; i++) {
         for (let j = i + 1; j < keys.length; j++) {
-          expect(Array.from(keys[i])).not.toEqual(Array.from(keys[j]));
+          const keyI = keys[i];
+          const keyJ = keys[j];
+          expect(keyI).toBeDefined();
+          expect(keyJ).toBeDefined();
+          expect(Array.from(keyI!)).not.toEqual(Array.from(keyJ!));
         }
       }
     });
@@ -167,16 +178,15 @@ describe('Key Cache Integration Tests', () => {
       // Verify that the same UID always produces the same first key
       // (This acts as a regression test for the algorithm)
       const secondDerivation = BambuKeyDerivation.deriveKeys(uid);
-      expect(Array.from(keys[0])).toEqual(Array.from(secondDerivation[0]));
+      const firstKey = keys[0];
+      const secondFirstKey = secondDerivation[0];
+      expect(firstKey).toBeDefined();
+      expect(secondFirstKey).toBeDefined();
+      expect(Array.from(firstKey!)).toEqual(Array.from(secondFirstKey!));
     });
   });
 
   describe('integration with NFC operations', () => {
-    let nfcManager: NfcManager;
-
-    beforeEach(() => {
-      nfcManager = new NfcManager();
-    });
 
     it('should integrate key derivation with tag authentication flow', () => {
       const testUID = new Uint8Array([0x04, 0x91, 0x4C, 0xCA]);
@@ -186,7 +196,7 @@ describe('Key Cache Integration Tests', () => {
       expect(keys).toHaveLength(16);
       
       // Keys should be ready for authentication
-      keys.forEach((key, index) => {
+      keys.forEach(key => {
         expect(key).toHaveLength(6);
         expect(key).toBeInstanceOf(Uint8Array);
         
@@ -215,7 +225,9 @@ describe('Key Cache Integration Tests', () => {
       
       expect(keysFromHex).toHaveLength(16);
       keysFromBytes.forEach((key, index) => {
-        expect(Array.from(key)).toEqual(Array.from(keysFromHex[index]));
+        const hexKey = keysFromHex[index];
+        expect(hexKey).toBeDefined();
+        expect(Array.from(key)).toEqual(Array.from(hexKey!));
       });
     });
 
@@ -234,7 +246,9 @@ describe('Key Cache Integration Tests', () => {
       
       // Results should be identical
       keys1.forEach((key, index) => {
-        expect(Array.from(key)).toEqual(Array.from(keys2[index]));
+        const key2 = keys2[index];
+        expect(key2).toBeDefined();
+        expect(Array.from(key)).toEqual(Array.from(key2!));
       });
       
       // Second call should not be significantly slower
@@ -243,15 +257,16 @@ describe('Key Cache Integration Tests', () => {
 
     it('should handle memory pressure during key operations', () => {
       // Test with many different UIDs to stress memory usage
-      const testUIDs = Array.from({ length: 100 }, (_, i) => 
-        new Uint8Array([i, (i + 1) % 256, (i + 2) % 256, (i + 3) % 256])
-      );
+      const testUIDs = [];
+      for (let i = 0; i < 100; i++) {
+        testUIDs.push(new Uint8Array([i, (i + 1) % 256, (i + 2) % 256, (i + 3) % 256]));
+      }
       
       // Derive keys for all UIDs
       const allKeys = testUIDs.map(uid => BambuKeyDerivation.deriveKeys(uid));
       
       // All should have correct structure
-      allKeys.forEach((keys, uidIndex) => {
+      allKeys.forEach(keys => {
         expect(keys).toHaveLength(16);
         keys.forEach(key => {
           expect(key).toHaveLength(6);
@@ -262,7 +277,11 @@ describe('Key Cache Integration Tests', () => {
       for (let i = 0; i < Math.min(10, allKeys.length - 1); i++) {
         for (let j = i + 1; j < Math.min(10, allKeys.length); j++) {
           // At least first keys should be different
-          expect(Array.from(allKeys[i][0])).not.toEqual(Array.from(allKeys[j][0]));
+          const keyI = allKeys[i]?.[0];
+          const keyJ = allKeys[j]?.[0];
+          expect(keyI).toBeDefined();
+          expect(keyJ).toBeDefined();
+          expect(Array.from(keyI!)).not.toEqual(Array.from(keyJ!));
         }
       }
     });

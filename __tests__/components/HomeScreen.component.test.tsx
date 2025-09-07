@@ -9,9 +9,99 @@ import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
 import HomeScreen from '../../src/screens/HomeScreen';
 
-// Mock navigation
+// Mock the components that HomeScreen imports
+jest.mock('../../src/components/InventoryBrowser', () => {
+  const MockReact = require('react');
+  const { View, Text } = require('react-native');
+  return function MockInventoryBrowser({}: { onNavigateToDetails: (entityId: string, entityType: string) => void }) {
+    return MockReact.createElement(View, null, MockReact.createElement(Text, null, 'Inventory Browser'));
+  };
+});
+
+jest.mock('../../src/components/CatalogBrowser', () => {
+  const MockReact = require('react');
+  const { View, Text } = require('react-native');
+  return function MockCatalogBrowser({}: { onNavigateToDetails: (entityId: string, entityType: string) => void }) {
+    return MockReact.createElement(View, null, MockReact.createElement(Text, null, 'Catalog Browser'));
+  };
+});
+
+jest.mock('../../src/components/TagsBrowser', () => {
+  const MockReact = require('react');
+  const { View, Text } = require('react-native');
+  return function MockTagsBrowser({}: { onNavigateToDetails: (entityId: string, entityType: string) => void }) {
+    return MockReact.createElement(View, null, MockReact.createElement(Text, null, 'Tags Browser'));
+  };
+});
+
+jest.mock('../../src/components/ScansBrowser', () => {
+  const MockReact = require('react');
+  const { View, Text } = require('react-native');
+  return function MockScansBrowser({}: { onNavigateToDetails: (entityId: string, entityType: string) => void }) {
+    return MockReact.createElement(View, null, MockReact.createElement(Text, null, 'Scans Browser'));
+  };
+});
+
+jest.mock('../../src/components/ScanPrompt', () => {
+  const MockReact = require('react');
+  const { View, Text, TouchableOpacity } = require('react-native');
+  return function MockScanPrompt({
+    onStartScan,
+    isNfcEnabled,
+  }: {
+    isScanning: boolean;
+    scanProgress: number;
+    onStartScan: () => void;
+    isNfcEnabled: boolean;
+    compact: boolean;
+  }) {
+    return MockReact.createElement(View, { testID: 'scan-prompt' }, 
+      MockReact.createElement(TouchableOpacity, { onPress: onStartScan, disabled: !isNfcEnabled, testID: 'start-scan-button' },
+        MockReact.createElement(Text, null, 'Start Scanning')
+      )
+    );
+  };
+});
+
+// Mock react-native-tab-view
+jest.mock('react-native-tab-view', () => ({
+  TabView: ({ children }: { children: React.ReactNode }) => {
+    const MockReact = require('react');
+    const { View } = require('react-native');
+    return MockReact.createElement(View, { testID: 'tab-view' }, children);
+  },
+  SceneMap: () => () => {
+    const MockReact = require('react');
+    const { View, Text } = require('react-native');
+    return MockReact.createElement(View, null, MockReact.createElement(Text, null, 'Scene Map'));
+  },
+  TabBar: () => {
+    const MockReact = require('react');
+    const { View, Text } = require('react-native');
+    return MockReact.createElement(View, { testID: 'tab-bar' }, MockReact.createElement(Text, null, 'Tab Bar'));
+  },
+}));
+
+// Mock react-native-vector-icons
+jest.mock('react-native-vector-icons/MaterialIcons', () => {
+  const MockReact = require('react');
+  const { Text } = require('react-native');
+  return function MaterialIcon(props: { name: string; size?: number; color?: string }) {
+    return MockReact.createElement(Text, { testID: `material-icon-${props.name}` }, props.name);
+  };
+});
+
+jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => {
+  const MockReact = require('react');
+  const { Text } = require('react-native');
+  return function MaterialCommunityIcon(props: { name: string; size?: number; color?: string }) {
+    return MockReact.createElement(Text, { testID: `material-community-icon-${props.name}` }, props.name);
+  };
+});
+
+// Mock navigation - using any for simplicity in tests
 const mockNavigate = jest.fn();
-const mockNavigation = {
+const mockTabNavigation = {
   navigate: mockNavigate,
   goBack: jest.fn(),
   setOptions: jest.fn(),
@@ -21,19 +111,46 @@ const mockNavigation = {
   canGoBack: jest.fn(() => false),
   getParent: jest.fn(),
   getId: jest.fn(),
-  getState: jest.fn(),
+  getState: jest.fn(() => ({
+    key: 'test-key',
+    index: 0,
+    routeNames: ['Home', 'History', 'Settings'],
+    routes: [
+      { key: 'Home', name: 'Home' },
+      { key: 'History', name: 'History' },
+      { key: 'Settings', name: 'Settings' }
+    ],
+    type: 'tab',
+    stale: false,
+  })),
   addListener: jest.fn(() => jest.fn()),
   removeListener: jest.fn(),
-};
+  jumpTo: jest.fn(),
+  emit: jest.fn(),
+  setParams: jest.fn(),
+  // Stack navigation methods required by CompositeNavigationProp
+  pop: jest.fn(),
+  push: jest.fn(),
+  replace: jest.fn(),
+  popToTop: jest.fn(),
+  popTo: jest.fn(),
+  // Additional required navigation methods
+  navigateDeprecated: jest.fn(),
+  preload: jest.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as any;
 
-// Mock NFC Manager
-jest.mock('../../src/services/NfcManager', () => ({
-  NfcManager: class {
-    initialize = jest.fn().mockResolvedValue(true);
-    cleanup = jest.fn();
-    isAvailable = jest.fn().mockReturnValue(true);
-    getRecentScans = jest.fn().mockReturnValue([]);
-  }
+// Mock NFC Manager Service
+jest.mock('../../src/services/NfcManagerService', () => ({
+  NfcManagerService: {
+    getInstance: jest.fn().mockReturnValue({
+      initialize: jest.fn().mockResolvedValue(true),
+      cleanup: jest.fn(),
+      isNfcAvailable: jest.fn().mockResolvedValue(true),
+      isNfcEnabled: jest.fn().mockResolvedValue(true),
+      getRecentScans: jest.fn().mockReturnValue([]),
+    }),
+  },
 }));
 
 describe('HomeScreen Component Tests', () => {
@@ -41,7 +158,10 @@ describe('HomeScreen Component Tests', () => {
     return render(
       <PaperProvider>
         <NavigationContainer>
-          <HomeScreen navigation={mockNavigation as any} route={{} as any} />
+          <HomeScreen 
+            navigation={mockTabNavigation} 
+            route={{ key: 'Home', name: 'Home' }} 
+          />
         </NavigationContainer>
       </PaperProvider>
     );
@@ -67,8 +187,9 @@ describe('HomeScreen Component Tests', () => {
     });
 
     it('should render recent scans section', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      mockNfcManager.NfcManager.prototype.getRecentScans.mockReturnValue([
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      mockInstance.getRecentScans.mockReturnValue([
         {
           id: '1',
           uid: '04914CCA',
@@ -133,8 +254,9 @@ describe('HomeScreen Component Tests', () => {
     });
 
     it('should navigate to scan details when recent scan item pressed', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      mockNfcManager.NfcManager.prototype.getRecentScans.mockReturnValue([
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      mockInstance.getRecentScans.mockReturnValue([
         {
           id: '1',
           uid: '04914CCA',
@@ -155,9 +277,11 @@ describe('HomeScreen Component Tests', () => {
 
   describe('NFC status handling', () => {
     it('should show NFC unavailable message when NFC is disabled', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      mockNfcManager.NfcManager.prototype.isAvailable.mockReturnValue(false);
-      mockNfcManager.NfcManager.prototype.initialize.mockResolvedValue(false);
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      mockInstance.isNfcAvailable.mockResolvedValue(false);
+      mockInstance.isNfcEnabled.mockResolvedValue(false);
+      mockInstance.initialize.mockResolvedValue(false);
 
       renderHomeScreen();
       
@@ -182,8 +306,9 @@ describe('HomeScreen Component Tests', () => {
     });
 
     it('should handle NFC initialization errors', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      mockNfcManager.NfcManager.prototype.initialize.mockRejectedValue(
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      mockInstance.initialize.mockRejectedValue(
         new Error('NFC initialization failed')
       );
 
@@ -200,7 +325,8 @@ describe('HomeScreen Component Tests', () => {
 
   describe('recent scans display', () => {
     it('should display recent scans in chronological order', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
       const now = new Date();
       const recentScans = [
         {
@@ -218,7 +344,7 @@ describe('HomeScreen Component Tests', () => {
           timestamp: now.toISOString()
         }
       ];
-      mockNfcManager.NfcManager.prototype.getRecentScans.mockReturnValue(recentScans);
+      mockInstance.getRecentScans.mockReturnValue(recentScans);
 
       renderHomeScreen();
       
@@ -231,15 +357,19 @@ describe('HomeScreen Component Tests', () => {
     });
 
     it('should limit number of displayed recent scans', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      const manyScans = Array.from({ length: 20 }, (_, i) => ({
-        id: `${i}`,
-        uid: `0491${i.toString().padStart(4, '0')}`,
-        material: 'PLA',
-        color: `Color${i}`,
-        timestamp: new Date().toISOString()
-      }));
-      mockNfcManager.NfcManager.prototype.getRecentScans.mockReturnValue(manyScans);
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      const manyScans = [];
+      for (let i = 0; i < 20; i++) {
+        manyScans.push({
+          id: `${i}`,
+          uid: `0491${i.toString().padStart(4, '0')}`,
+          material: 'PLA',
+          color: `Color${i}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      mockInstance.getRecentScans.mockReturnValue(manyScans);
 
       renderHomeScreen();
       
@@ -249,15 +379,19 @@ describe('HomeScreen Component Tests', () => {
     });
 
     it('should show view all button when many recent scans exist', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      const manyScans = Array.from({ length: 10 }, (_, i) => ({
-        id: `${i}`,
-        uid: `0491${i.toString().padStart(4, '0')}`,
-        material: 'PLA',
-        color: `Color${i}`,
-        timestamp: new Date().toISOString()
-      }));
-      mockNfcManager.NfcManager.prototype.getRecentScans.mockReturnValue(manyScans);
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      const manyScans = [];
+      for (let i = 0; i < 10; i++) {
+        manyScans.push({
+          id: `${i}`,
+          uid: `0491${i.toString().padStart(4, '0')}`,
+          material: 'PLA',
+          color: `Color${i}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      mockInstance.getRecentScans.mockReturnValue(manyScans);
 
       renderHomeScreen();
       
@@ -317,7 +451,10 @@ describe('HomeScreen Component Tests', () => {
       rerender(
         <PaperProvider>
           <NavigationContainer>
-            <HomeScreen navigation={mockNavigation as any} route={{} as any} />
+            <HomeScreen 
+              navigation={mockTabNavigation} 
+              route={{ key: 'Home', name: 'Home' }} 
+            />
           </NavigationContainer>
         </PaperProvider>
       );
@@ -336,8 +473,9 @@ describe('HomeScreen Component Tests', () => {
 
   describe('error boundary behavior', () => {
     it('should handle NFC service errors gracefully', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
-      mockNfcManager.NfcManager.prototype.getRecentScans.mockImplementation(() => {
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
+      mockInstance.getRecentScans.mockImplementation(() => {
         throw new Error('Service error');
       });
 
@@ -349,10 +487,11 @@ describe('HomeScreen Component Tests', () => {
     });
 
     it('should recover from transient errors', async () => {
-      const mockNfcManager = require('../../src/services/NfcManager');
+      const mockNfcService = require('../../src/services/NfcManagerService');
+      const mockInstance = mockNfcService.NfcManagerService.getInstance();
       
       // First call fails, second succeeds
-      mockNfcManager.NfcManager.prototype.initialize
+      mockInstance.initialize
         .mockRejectedValueOnce(new Error('Transient error'))
         .mockResolvedValueOnce(true);
 

@@ -13,7 +13,7 @@ declare global {
       toBeEmpty(): R;
       toBeOneOf(members: readonly unknown[]): R;
       toBeNil(): R;
-      toSatisfy<E = any>(predicate: (value: E) => boolean): R;
+      toSatisfy<E = unknown>(predicate: (value: E) => boolean): R;
     }
   }
 }

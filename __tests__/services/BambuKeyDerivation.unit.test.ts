@@ -17,7 +17,7 @@ describe('BambuKeyDerivation Unit Tests', () => {
       expect(keys).toHaveLength(16);
       
       // Verify each key is 6 bytes
-      keys.forEach((key, index) => {
+      keys.forEach(key => {
         expect(key).toHaveLength(6);
         expect(key).toBeInstanceOf(Uint8Array);
       });
@@ -35,9 +35,15 @@ describe('BambuKeyDerivation Unit Tests', () => {
       expect(keys7).toHaveLength(16);
       
       // UIDs should generate different keys
-      const keys4Bytes = Array.from(keys4[0]);
-      const keys7Bytes = Array.from(keys7[0]);
-      expect(keys4Bytes).not.toEqual(keys7Bytes);
+      const key4 = keys4[0];
+      const key7 = keys7[0];
+      expect(key4).toBeDefined();
+      expect(key7).toBeDefined();
+      if (key4 && key7) {
+        const keys4Bytes = Array.from(key4);
+        const keys7Bytes = Array.from(key7);
+        expect(keys4Bytes).not.toEqual(keys7Bytes);
+      }
     });
 
     it('should reject invalid UID lengths', () => {
@@ -59,7 +65,7 @@ describe('BambuKeyDerivation Unit Tests', () => {
       
       // Verify basic structure
       expect(keys).toHaveLength(16);
-      keys.forEach((key, index) => {
+      keys.forEach(key => {
         expect(key).toHaveLength(6);
       });
       
@@ -71,7 +77,11 @@ describe('BambuKeyDerivation Unit Tests', () => {
       // Verify deterministic output - same UID should produce same keys
       const keys2 = BambuKeyDerivation.deriveKeys(testUid);
       keys.forEach((key, index) => {
-        expect(Array.from(key)).toEqual(Array.from(keys2[index]));
+        const key2 = keys2[index];
+        expect(key2).toBeDefined();
+        if (key2) {
+          expect(Array.from(key)).toEqual(Array.from(key2));
+        }
       });
     });
 
@@ -88,7 +98,7 @@ describe('BambuKeyDerivation Unit Tests', () => {
       expect(uniqueBytes.size).toBeGreaterThanOrEqual(64);
       
       // Verify no key is all zeros or all 0xFF (degenerate cases)
-      keys.forEach((key, index) => {
+      keys.forEach(key => {
         const keyArray = Array.from(key);
         expect(keyArray.every(b => b === 0)).toBe(false);
         expect(keyArray.every(b => b === 0xFF)).toBe(false);
@@ -104,14 +114,13 @@ describe('BambuKeyDerivation Unit Tests', () => {
         { uid: new Uint8Array([0xAA, 0x55, 0xAA, 0x55]), name: 'alternating pattern' }
       ];
       
-      edgeCases.forEach(({ uid, name }) => {
+      edgeCases.forEach(({ uid }) => {
         const keys = BambuKeyDerivation.deriveKeys(uid);
-        const uidHex = Array.from(uid).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('');
         
         expect(keys).toHaveLength(16);
         
         // Verify each key has proper structure
-        keys.forEach((key, index) => {
+        keys.forEach(key => {
           expect(key).toHaveLength(6);
           
           // Key should not be degenerate (all same byte)
@@ -137,8 +146,14 @@ describe('BambuKeyDerivation Unit Tests', () => {
       const keys3 = BambuKeyDerivation.deriveKeys(testUid);
       
       keys1.forEach((key, index) => {
-        expect(Array.from(key)).toEqual(Array.from(keys2[index]));
-        expect(Array.from(key)).toEqual(Array.from(keys3[index]));
+        const key2 = keys2[index];
+        const key3 = keys3[index];
+        expect(key2).toBeDefined();
+        expect(key3).toBeDefined();
+        if (key2 && key3) {
+          expect(Array.from(key)).toEqual(Array.from(key2));
+          expect(Array.from(key)).toEqual(Array.from(key3));
+        }
       });
     });
 
@@ -169,12 +184,20 @@ describe('BambuKeyDerivation Unit Tests', () => {
       expect(keys1).toHaveLength(keys2.length);
       
       // At least the first key should be different
-      expect(Array.from(keys1[0])).not.toEqual(Array.from(keys2[0]));
+      const key1 = keys1[0];
+      const key2 = keys2[0];
+      expect(key1).toBeDefined();
+      expect(key2).toBeDefined();
+      if (key1 && key2) {
+        expect(Array.from(key1)).not.toEqual(Array.from(key2));
+      }
       
       // Check that most keys are different
       let differentKeys = 0;
       for (let i = 0; i < keys1.length; i++) {
-        if (!Array.from(keys1[i]).every((byte, idx) => byte === keys2[i][idx])) {
+        const keyA = keys1[i];
+        const keyB = keys2[i];
+        if (keyA && keyB && !Array.from(keyA).every((byte, idx) => byte === keyB[idx])) {
           differentKeys++;
         }
       }
@@ -189,14 +212,18 @@ describe('BambuKeyDerivation Unit Tests', () => {
       
       // Check that keys are not all zeros or all the same
       const allZeroKey = new Uint8Array(6);
-      keys.forEach((key, index) => {
+      keys.forEach(key => {
         expect(Array.from(key)).not.toEqual(Array.from(allZeroKey));
       });
       
       // Check that keys are different from each other
       for (let i = 0; i < keys.length; i++) {
         for (let j = i + 1; j < keys.length; j++) {
-          expect(Array.from(keys[i])).not.toEqual(Array.from(keys[j]));
+          const keyI = keys[i];
+          const keyJ = keys[j];
+          if (keyI && keyJ) {
+            expect(Array.from(keyI)).not.toEqual(Array.from(keyJ));
+          }
         }
       }
     });
@@ -215,7 +242,11 @@ describe('BambuKeyDerivation Unit Tests', () => {
       // Verify that the same UID always produces the same first key
       // (This acts as a regression test for the algorithm)
       const secondDerivation = BambuKeyDerivation.deriveKeys(uid);
-      expect(Array.from(keys[0])).toEqual(Array.from(secondDerivation[0]));
+      const firstKey = keys[0];
+      const secondFirstKey = secondDerivation[0];
+      if (firstKey && secondFirstKey) {
+        expect(Array.from(firstKey)).toEqual(Array.from(secondFirstKey));
+      }
     });
   });
 });
