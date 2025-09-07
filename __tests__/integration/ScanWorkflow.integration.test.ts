@@ -24,8 +24,8 @@ describe('Scan Workflow Integration Tests', () => {
     mockNfcLib.isEnabled.mockResolvedValue(true);
     mockNfcLib.requestTechnology.mockResolvedValue(undefined);
     mockNfcLib.cancelTechnologyRequest.mockResolvedValue(undefined);
-    mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
-    mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16));
+    mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
+    mockNfcLib.mifareClassicReadBlock?.mockResolvedValue(new Uint8Array(16));
     mockNfcLib.getTag.mockResolvedValue({
       id: '04914CCA5E6480',
       techTypes: ['android.nfc.tech.MifareClassic']
@@ -36,7 +36,7 @@ describe('Scan Workflow Integration Tests', () => {
     it('should complete full Bambu Lab tag scan workflow', async () => {
       // Create proper mock data for Bambu Lab tag (1024 bytes = 64 blocks × 16 bytes)
       let blockReadCount = 0;
-      mockNfcLib.mifareClassicReadBlock.mockImplementation(async (blockIndex: number) => {
+      mockNfcLib.mifareClassicReadBlock?.mockImplementation(async (blockIndex: number) => {
         const mockBlockData = new Uint8Array(16);
         
         // For block 0, add Bambu Lab header/signature
@@ -79,7 +79,7 @@ describe('Scan Workflow Integration Tests', () => {
     it('should handle scan failure gracefully in workflow', async () => {
       
       // Mock NFC initialization success but scan failure
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockRejectedValue(new Error('No tag found'));
       
       const initResult = await nfcManager.initialize();
@@ -96,7 +96,7 @@ describe('Scan Workflow Integration Tests', () => {
 
     it('should handle authentication workflow correctly', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
@@ -106,10 +106,10 @@ describe('Scan Workflow Integration Tests', () => {
       
       // Mock authentication failure on first attempt, success on second
       mockNfcLib.mifareClassicAuthenticateA
-        .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(true);
+        ?.mockResolvedValueOnce(false)
+        ?.mockResolvedValueOnce(true);
       
-      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16));
+      mockNfcLib.mifareClassicReadBlock?.mockResolvedValue(new Uint8Array(16));
       
       await nfcManager.initialize();
       const scanResult = await nfcManager.scanTag();
@@ -121,21 +121,21 @@ describe('Scan Workflow Integration Tests', () => {
 
     it('should handle partial data read scenarios', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
         type: 'MifareClassic'
       });
-      mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
+      mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
       
       // Mock reading success for some blocks, failure for others
       mockNfcLib.mifareClassicReadBlock
-        .mockResolvedValueOnce(new Uint8Array(16).fill(0x42))
-        .mockResolvedValueOnce(new Uint8Array(16).fill(0x43))
-        .mockRejectedValueOnce(new Error('Block read failed'))
-        .mockResolvedValueOnce(new Uint8Array(16).fill(0x44));
+        ?.mockResolvedValueOnce(new Uint8Array(16).fill(0x42))
+        ?.mockResolvedValueOnce(new Uint8Array(16).fill(0x43))
+        ?.mockRejectedValueOnce(new Error('Block read failed'))
+        ?.mockResolvedValueOnce(new Uint8Array(16).fill(0x44));
       
       await nfcManager.initialize();
       const scanResult = await nfcManager.scanTag();
@@ -235,7 +235,7 @@ describe('Scan Workflow Integration Tests', () => {
   describe('workflow error recovery', () => {
     it('should recover from NFC connection drops', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology
         .mockRejectedValueOnce(new Error('Connection lost'))
         .mockResolvedValueOnce(undefined);
@@ -253,8 +253,8 @@ describe('Scan Workflow Integration Tests', () => {
       expect(firstScan.type).not.toBe('SUCCESS');
       
       // Second scan should succeed (after recovery)
-      mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
-      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16));
+      mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
+      mockNfcLib.mifareClassicReadBlock?.mockResolvedValue(new Uint8Array(16));
       
       const secondScan = await nfcManager.scanTag();
       expect(secondScan.type).toBe('SUCCESS');
@@ -262,15 +262,15 @@ describe('Scan Workflow Integration Tests', () => {
 
     it('should handle tag removal during scan', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
         type: 'MifareClassic'
       });
-      mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
-      mockNfcLib.mifareClassicReadBlock.mockRejectedValue(new Error('Tag lost'));
+      mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
+      mockNfcLib.mifareClassicReadBlock?.mockRejectedValue(new Error('Tag lost'));
       
       await nfcManager.initialize();
       const scanResult = await nfcManager.scanTag();
@@ -284,7 +284,7 @@ describe('Scan Workflow Integration Tests', () => {
 
     it('should timeout long-running operations', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       
       // Mock a long-running operation
       mockNfcLib.requestTechnology.mockImplementation(() =>
@@ -304,7 +304,7 @@ describe('Scan Workflow Integration Tests', () => {
 
     it('should clean up resources on failure', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockRejectedValue(new Error('Scan failed'));
       mockNfcLib.cancelTechnologyRequest.mockResolvedValue(undefined);
       
@@ -321,15 +321,15 @@ describe('Scan Workflow Integration Tests', () => {
     it('should maintain consistent performance across multiple scans', async () => {
       
       // Setup successful scan mocks
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
         type: 'MifareClassic'
       });
-      mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
-      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16));
+      mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
+      mockNfcLib.mifareClassicReadBlock?.mockResolvedValue(new Uint8Array(16));
       
       await nfcManager.initialize();
       
@@ -357,15 +357,15 @@ describe('Scan Workflow Integration Tests', () => {
 
     it('should handle concurrent scan attempts', async () => {
       
-      mockNfcLib.start.mockResolvedValue(true);
+      mockNfcLib.start.mockResolvedValue(undefined);
       mockNfcLib.requestTechnology.mockResolvedValue(undefined);
       mockNfcLib.getTag.mockResolvedValue({
         id: '04914CCA5E6480',
         techTypes: ['android.nfc.tech.MifareClassic'],
         type: 'MifareClassic'
       });
-      mockNfcLib.mifareClassicAuthenticateA.mockResolvedValue(true);
-      mockNfcLib.mifareClassicReadBlock.mockResolvedValue(new Uint8Array(16));
+      mockNfcLib.mifareClassicAuthenticateA?.mockResolvedValue(true);
+      mockNfcLib.mifareClassicReadBlock?.mockResolvedValue(new Uint8Array(16));
       
       await nfcManager.initialize();
       
