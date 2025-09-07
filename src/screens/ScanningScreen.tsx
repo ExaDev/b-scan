@@ -111,12 +111,15 @@ const ScanningScreen: React.FC<ScanningScreenProps> = ({
             break;
           case 'READ_ERROR':
             title = 'Read Error';
-            message =
-              result.error || 'Unknown error occurred while reading the tag.';
+            message = result.type === 'READ_ERROR' 
+              ? result.error 
+              : 'Unknown error occurred while reading the tag.';
             break;
           case 'PARSING_ERROR':
             title = 'Parsing Error';
-            message = result.error || 'Could not parse the data from the tag.';
+            message = result.type === 'PARSING_ERROR' 
+              ? result.error 
+              : 'Could not parse the data from the tag.';
             break;
         }
 

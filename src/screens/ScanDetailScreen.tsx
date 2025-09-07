@@ -81,6 +81,7 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
           tagFormat: TagFormat.BAMBU_LAB,
           manufacturerName: 'Bambu Lab',
           filamentType: 'PLA Basic',
+          detailedFilamentType: 'PLA Basic',
           colorHex: '#FF6600',
           colorName: 'Orange',
           spoolWeight: 250,
@@ -92,6 +93,15 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({
           bedTemperature: 60,
           dryingTemperature: 45,
           dryingTime: 4,
+          materialVariantId: 'BL-PLA-001',
+          materialId: 'PLA-BASIC',
+          nozzleDiameter: 0.4,
+          spoolWidth: 70,
+          bedTemperatureType: 1,
+          shortProductionDate: '24-01',
+          colorCount: 1,
+          shortProductionDateHex: '1801',
+          unknownBlock17Hex: '0000000000000000',
         },
       };
     } else if (isError) {

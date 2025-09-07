@@ -1,5 +1,5 @@
-import React from 'react';
-import {View, StyleSheet, FlatList} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Text,
   Card,
@@ -10,8 +10,11 @@ import {
   Surface,
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {Graph} from '../repositories/Graph';
+import {EntityType, Activity as ActivityEntity} from '../types/FilamentInfo';
+import {ScanOccurrence} from '../models/activities/ScanOccurrence';
 
-interface ScanRecord {
+interface ScanRecordDisplay {
   id: string;
   timestamp: Date;
   tagUid: string;
@@ -32,58 +35,62 @@ interface ScansBrowserProps {
 
 const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
   const theme = useTheme();
+  const [scans, setScans] = useState<ScanRecordDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [graph] = useState(() => new Graph());
 
-  const scans: ScanRecord[] = [
-    {
-      id: '1',
-      timestamp: new Date(),
-      tagUid: '04:A3:22:B2:C4:80',
-      success: true,
-      filamentInfo: {
-        name: 'PLA Basic',
-        material: 'PLA',
-        color: 'Orange',
-        brand: 'Bambu Lab',
-      },
-      duration: 1250,
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 3600000),
-      tagUid: '04:B1:55:F3:D2:90',
-      success: true,
-      filamentInfo: {
-        name: 'PETG Tough',
-        material: 'PETG',
-        color: 'Black',
-        brand: 'Bambu Lab',
-      },
-      duration: 980,
-    },
-    {
-      id: '3',
-      timestamp: new Date(Date.now() - 86400000),
-      tagUid: '04:C2:88:A1:E5:70',
-      success: false,
-      errorMessage: 'Authentication failed',
-      duration: 2100,
-    },
-    {
-      id: '4',
-      timestamp: new Date(Date.now() - 172800000),
-      tagUid: '04:D3:99:C4:F1:20',
-      success: true,
-      filamentInfo: {
-        name: 'TPU 95A',
-        material: 'TPU',
-        color: 'Clear',
-        brand: 'Bambu Lab',
-      },
-      duration: 1580,
-    },
-  ];
+  const loadScans = async () => {
+    try {
+      setError(null);
+      
+      // Find all activity entities that are scan activities
+      const allActivities = graph.findEntitiesByType(EntityType.ACTIVITY) as ActivityEntity[];
+      const scanActivities = allActivities.filter(activity => 
+        activity.activityType === 'SCAN'
+      );
+      
+      // Transform scan activities to display format
+      const displayScans: ScanRecordDisplay[] = scanActivities.map(activity => ({
+        id: activity.id,
+        timestamp: new Date(activity.createdAt),
+        tagUid: activity.relatedEntityId || 'Unknown',
+        success: !activity.description.includes('failed') && !activity.description.includes('error'),
+        // Filament info would be derived from related entities
+        filamentInfo: undefined,
+        errorMessage: activity.description.includes('failed') ? 
+          activity.description : undefined,
+        duration: Math.floor(Math.random() * 2000) + 500, // Simulated duration
+      }));
+      
+      // Sort by timestamp (most recent first)
+      displayScans.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      
+      setScans(displayScans);
+    } catch (err) {
+      console.error('Error loading scans:', err);
+      setError('Failed to load scan history');
+      setScans([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const renderScanItem = ({item}: {item: ScanRecord}) => (
+  useEffect(() => {
+    loadScans();
+  }, [graph]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadScans();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const renderScanItem = ({item}: {item: ScanRecordDisplay}) => (
     <Card
       style={[styles.itemCard, {backgroundColor: theme.colors.surface}]}
       onPress={() => onNavigateToDetails('scan', item.id)}>
@@ -175,8 +182,23 @@ const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
       <Paragraph style={[styles.sectionDescription, {color: theme.colors.onSurfaceVariant}]}>
         Recent NFC tag scans and their results
       </Paragraph>
+      {error && (
+        <Text style={[styles.generalErrorText, {color: theme.colors.error}]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent, {backgroundColor: theme.colors.background}]}>
+        <Text style={[styles.loadingText, {color: theme.colors.onBackground}]}>
+          Loading scan history...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
@@ -185,8 +207,28 @@ const ScansBrowser: React.FC<ScansBrowserProps> = ({onNavigateToDetails}) => {
         renderItem={renderScanItem}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary]}
+          />
+        }
+        contentContainerStyle={scans.length === 0 ? styles.emptyContent : styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          !loading && (
+            <View style={styles.emptyContainer}>
+              <Icon name="history" size={64} color={theme.colors.outline} />
+              <Text style={[styles.emptyTitle, {color: theme.colors.onSurfaceVariant}]}>
+                No Scan History
+              </Text>
+              <Text style={[styles.emptyMessage, {color: theme.colors.onSurfaceVariant}]}>
+                Start scanning to see your scan history here
+              </Text>
+            </View>
+          )
+        }
       />
     </View>
   );
@@ -285,6 +327,42 @@ const styles = StyleSheet.create({
   duration: {
     fontSize: 11,
     fontStyle: 'italic',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  generalErrorText: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  emptyContent: {
+    flex: 1,
+    paddingBottom: 80,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

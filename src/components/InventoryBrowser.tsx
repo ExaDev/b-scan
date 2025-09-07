@@ -11,8 +11,11 @@ import {
   IconButton,
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {Graph} from '../repositories/Graph';
+import {EntityType, InventoryItem as InventoryItemEntity} from '../types/FilamentInfo';
+import {InventoryItem} from '../services/inventory/InventoryItem';
 
-interface InventoryItem {
+interface InventoryItemDisplay {
   id: string;
   name: string;
   material: string;
@@ -33,59 +36,56 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
 }) => {
   const theme = useTheme();
   const [refreshing, setRefreshing] = useState(false);
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItemDisplay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [graph] = useState(() => new Graph());
 
-  // Mock data - in real app would come from database/API
-  const mockInventoryData: InventoryItem[] = [
-    {
-      id: '1',
-      name: 'PLA Basic',
-      material: 'PLA',
-      color: 'Orange',
-      brand: 'Bambu Lab',
-      weight: 1000,
-      remainingWeight: 750,
-      lastScanDate: new Date(),
-      isActive: true,
-    },
-    {
-      id: '2',
-      name: 'PETG Tough',
-      material: 'PETG',
-      color: 'Black',
-      brand: 'Bambu Lab',
-      weight: 1000,
-      remainingWeight: 400,
-      lastScanDate: new Date(Date.now() - 86400000),
-      isActive: true,
-    },
-    {
-      id: '3',
-      name: 'TPU 95A',
-      material: 'TPU',
-      color: 'Clear',
-      brand: 'Bambu Lab',
-      weight: 500,
-      remainingWeight: 500,
-      lastScanDate: new Date(Date.now() - 259200000),
-      isActive: false,
-    },
-  ];
+  const loadInventoryItems = async () => {
+    try {
+      setError(null);
+      
+      // Find all inventory item entities from the graph
+      const inventoryEntities = graph.findEntitiesByType(EntityType.INVENTORY_ITEM) as InventoryItemEntity[];
+      
+      // Transform graph entities to display format
+      const displayItems: InventoryItemDisplay[] = inventoryEntities.map(entity => ({
+        id: entity.id,
+        name: `Filament Item ${entity.id.substring(0, 8)}`, // Fallback name
+        material: 'Unknown', // Will be enhanced when filament data is linked
+        color: 'Unknown',
+        brand: 'Unknown',
+        weight: 1000, // Default weight
+        remainingWeight: Math.max(0, entity.quantity * 25), // Estimate 25g per unit
+        lastScanDate: entity.lastUpdated ? new Date(entity.lastUpdated) : undefined,
+        isActive: entity.quantity > 0,
+      }));
+      
+      setInventoryItems(displayItems);
+    } catch (err) {
+      console.error('Error loading inventory items:', err);
+      setError('Failed to load inventory items');
+      // Fallback to empty array
+      setInventoryItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setInventoryItems(mockInventoryData);
-  }, []);
+    loadInventoryItems();
+  }, [graph]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setInventoryItems(mockInventoryData);
+    try {
+      await loadInventoryItems();
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
   };
 
-  const renderInventoryItem = ({item}: {item: InventoryItem}) => {
+  const renderInventoryItem = ({item}: {item: InventoryItemDisplay}) => {
     const weightPercentage = (item.remainingWeight / item.weight) * 100;
     const getWeightColor = () => {
       if (weightPercentage > 50) return theme.colors.tertiary;
@@ -169,8 +169,23 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
       <Title style={[styles.sectionTitle, {color: theme.colors.onBackground}]}>
         Inventory ({inventoryItems.filter(item => item.isActive).length} active)
       </Title>
+      {error && (
+        <Text style={[styles.errorText, {color: theme.colors.error}]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent, {backgroundColor: theme.colors.background}]}>
+        <Text style={[styles.loadingText, {color: theme.colors.onBackground}]}>
+          Loading inventory...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
@@ -186,8 +201,21 @@ const InventoryBrowser: React.FC<InventoryBrowserProps> = ({
             colors={[theme.colors.primary]}
           />
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={inventoryItems.length === 0 ? styles.emptyContent : styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          !loading && (
+            <View style={styles.emptyContainer}>
+              <Icon name="inventory-2" size={64} color={theme.colors.outline} />
+              <Text style={[styles.emptyTitle, {color: theme.colors.onSurfaceVariant}]}>
+                No Inventory Items
+              </Text>
+              <Text style={[styles.emptyMessage, {color: theme.colors.onSurfaceVariant}]}>
+                Scan some items to populate your inventory
+              </Text>
+            </View>
+          )
+        }
       />
     </View>
   );
@@ -271,6 +299,42 @@ const styles = StyleSheet.create({
   lastScan: {
     fontSize: 11,
     fontStyle: 'italic',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  emptyContent: {
+    flex: 1,
+    paddingBottom: 80,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 
