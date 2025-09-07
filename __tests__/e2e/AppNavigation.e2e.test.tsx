@@ -5,31 +5,35 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
-import { NavigationContainer } from '@react-navigation/native';
 import { PaperProvider } from 'react-native-paper';
 import AppNavigator from '../../src/navigation/AppNavigator';
 
-// Mock NFC manager for E2E tests
-jest.mock('../../src/services/NfcManager', () => ({
-  NfcManager: class {
-    initialize = jest.fn().mockResolvedValue(true);
-    cleanup = jest.fn().mockResolvedValue(undefined);
-    scanTag = jest.fn().mockResolvedValue({
-      success: true,
-      data: {
-        uid: '04914CCA5E6480',
-        data: new Uint8Array(1024),
-        technology: 'MifareClassic',
+// Mock NFC manager service for E2E tests
+jest.mock('../../src/services/NfcManagerService', () => ({
+  NfcManagerService: {
+    getInstance: jest.fn().mockReturnValue({
+      initialize: jest.fn().mockResolvedValue(true),
+      cleanup: jest.fn().mockResolvedValue(undefined),
+      isNfcAvailable: jest.fn().mockResolvedValue(true),
+      isNfcEnabled: jest.fn().mockResolvedValue(true),
+      scanTag: jest.fn().mockResolvedValue({
+        success: true,
+        data: {
+          uid: '04914CCA5E6480',
+          data: new Uint8Array(1024),
+          technology: 'MifareClassic',
+          format: 'BAMBU_LAB'
+        }
+      }),
+      cancelScan: jest.fn().mockResolvedValue(undefined),
+      parseTagData: jest.fn().mockReturnValue({
+        material: 'PLA',
+        color: 'Red',
+        bedTemperature: 60,
         format: 'BAMBU_LAB'
-      }
-    });
-    cancelScan = jest.fn().mockResolvedValue(undefined);
-    parseTagData = jest.fn().mockReturnValue({
-      material: 'PLA',
-      color: 'Red',
-      bedTemperature: 60,
-      format: 'BAMBU_LAB'
-    });
+      }),
+      getRecentScans: jest.fn().mockReturnValue([])
+    })
   }
 }));
 
@@ -46,9 +50,7 @@ describe('App Navigation E2E Tests', () => {
   const renderApp = () => {
     return render(
       <PaperProvider>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
+        <AppNavigator />
       </PaperProvider>
     );
   };
