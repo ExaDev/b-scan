@@ -225,11 +225,11 @@ class OpenTagInterpreter : TagInterpreter {
         try {
             val rgb = hexToRGB(colorHex)
             val hsv = rgbToHSV(rgb)
-            
+
             return when {
-                hsv[2] < 0.2 -> "Black"
+                hsv[2] < 0.15 -> "Black"
                 hsv[2] > 0.9 && hsv[1] < 0.1 -> "White"
-                hsv[1] < 0.2 -> "Grey"
+                hsv[1] < 0.1 -> "Grey"
                 hsv[0] < 30 || hsv[0] > 330 -> "Red"
                 hsv[0] < 90 -> "Yellow"
                 hsv[0] < 150 -> "Green"

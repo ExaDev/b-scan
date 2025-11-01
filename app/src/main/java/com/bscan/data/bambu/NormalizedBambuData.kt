@@ -379,136 +379,250 @@ object NormalizedBambuData {
 
     /**
      * Material-specific color definitions
-     * Based on actual product data from Bambu Lab catalog with descriptive names
+     * Generated from actual RFID sample data in test-data/rfid-library/
+     * Color codes are extracted from variant_id fields to ensure correct RFID mapping lookups
      */
     val materialColors = listOf(
-        // PLA Basic colors
-        MaterialColor("K0", "PLA", "Basic", "Black", "#000000"),
-        MaterialColor("W0", "PLA", "Basic", "Jade White", "#FFFFFF"),
-        MaterialColor("R0", "PLA", "Basic", "Maroon Red", "#9D2235"),
-        MaterialColor("G0", "PLA", "Basic", "Bambu Green", "#00AE42"),
-        MaterialColor("B0", "PLA", "Basic", "Blue Grey", "#5B6579"),
-        MaterialColor("Y0", "PLA", "Basic", "Yellow", "#F4EE2A"),
-        MaterialColor("O0", "PLA", "Basic", "Orange", "#FF6A13"),
-        MaterialColor("P0", "PLA", "Basic", "Purple", "#5E43B7"),
-        MaterialColor("T0", "PLA", "Basic", "Cyan", "#0086D6"),
-        MaterialColor("C0", "PLA", "Basic", "Clear", "#F0F8FF80"),
-        MaterialColor("L0", "PLA", "Basic", "Mint Lime", "#B6FF43"),
-        MaterialColor("M0", "PLA", "Basic", "Pink", "#F55A74"),
-        MaterialColor("N0", "PLA", "Basic", "Brown", "#9D432C"),
-        MaterialColor("S0", "PLA", "Basic", "Gray", "#8E9089"),
-        MaterialColor("D0", "PLA", "Basic", "Gold", "#E4BD68"),
         
-        // PLA Matte colors
-        MaterialColor("K0", "PLA", "Matte", "Black", "#1C1C1C"),
-        MaterialColor("W0", "PLA", "Matte", "Ivory White", "#FFFFFF"),
-        MaterialColor("R0", "PLA", "Matte", "Scarlet Red", "#DE4343"),
-        MaterialColor("G0", "PLA", "Matte", "Grass Green", "#61C680"),
-        MaterialColor("B0", "PLA", "Matte", "Ice Blue", "#A3D8E1"),
-        MaterialColor("Y0", "PLA", "Matte", "Lemon Yellow", "#F7D959"),
-        MaterialColor("O0", "PLA", "Matte", "Mandarin Orange", "#F99963"),
-        MaterialColor("P0", "PLA", "Matte", "Lilac Purple", "#AE96D4"),
-        
-        // PLA Metal colors
-        MaterialColor("K0", "PLA", "Metal", "Black", "#2F2F2F"),
-        MaterialColor("S0", "PLA", "Metal", "Iron Gray Metallic", "#43403D"),
-        MaterialColor("D0", "PLA", "Metal", "Iridium Gold Metallic", "#DAA520"),
-        MaterialColor("Z0", "PLA", "Metal", "Bronze", "#CD7F32"),
-        MaterialColor("A0", "PLA", "Metal", "Copper Brown Metallic", "#AA6443"),
-        MaterialColor("G0", "PLA", "Metal", "Oxide Green Metallic", "#1D7C6A"),
-        MaterialColor("B0", "PLA", "Metal", "Cobalt Blue Metallic", "#39699E"),
-        
-        // PLA Silk colors
-        MaterialColor("K0", "PLA", "Silk", "Black", "#1A1A1A"),
-        MaterialColor("W0", "PLA", "Silk", "White", "#FFFFFF"),
-        MaterialColor("R0", "PLA", "Silk", "Candy Red", "#D02727"),
-        MaterialColor("G0", "PLA", "Silk", "Candy Green", "#018814"),
-        MaterialColor("B0", "PLA", "Silk", "Blue", "#008BDA"),
-        MaterialColor("Y0", "PLA", "Silk", "Yellow", "#DAA520"),
-        MaterialColor("O0", "PLA", "Silk", "Orange", "#FF4500"),
-        MaterialColor("P0", "PLA", "Silk", "Aurora Purple", "#8671CB"),
-        MaterialColor("S0", "PLA", "Silk", "Silver", "#C8C8C8"),
-        MaterialColor("D0", "PLA", "Silk", "Gold", "#BA9594"),
-        MaterialColor("T0", "PLA", "Silk", "Teal", "#008B8B"),
-        MaterialColor("M0", "PLA", "Silk", "Magenta", "#FF1493"),
-        
-        // PLA Marble colors
-        MaterialColor("K0", "PLA", "Marble", "Black", "#36454F"),
-        MaterialColor("W0", "PLA", "Marble", "White", "#F5F5DC"),
-        MaterialColor("G0", "PLA", "Marble", "Green", "#228B22"),
-        MaterialColor("R0", "PLA", "Marble", "Red Granite", "#AD4E38"),
-        MaterialColor("B0", "PLA", "Marble", "Blue", "#4169E1"),
-        
-        // PLA Glow colors
-        MaterialColor("G0", "PLA", "Glow", "Green", "#ADFF2F"),
-        MaterialColor("B0", "PLA", "Glow", "Blue", "#7AC0E9"),
-        MaterialColor("Y0", "PLA", "Glow", "Yellow", "#F8FF80"),
-        MaterialColor("O0", "PLA", "Glow", "Orange", "#FF9D5B"),
-        
-        // PETG Basic colors
-        MaterialColor("K0", "PETG", "Basic", "Black", "#000000"),
-        MaterialColor("W0", "PETG", "Basic", "White", "#F8F8FF"),
-        MaterialColor("C0", "PETG", "Basic", "Clear", "#F0F8FF80"),
-        MaterialColor("B0", "PETG", "Basic", "Indigo Blue", "#324585"),
-        MaterialColor("R0", "PETG", "Basic", "Brick Red", "#9F332A"),
-        MaterialColor("G0", "PETG", "Basic", "Malachite Green", "#16B08E"),
-        MaterialColor("Y0", "PETG", "Basic", "Yellow", "#FFD700"),
-        MaterialColor("O0", "PETG", "Basic", "Translucent Orange", "#FF911A80"),
-        MaterialColor("P0", "PETG", "Basic", "Violet Purple", "#583061"),
-        MaterialColor("T0", "PETG", "Basic", "Translucent Teal", "#77EDD780"),
-        MaterialColor("M0", "PETG", "Basic", "Translucent Pink", "#F9C1BD80"),
-        MaterialColor("N0", "PETG", "Basic", "Translucent Brown", "#C9A38180"),
-        MaterialColor("L0", "PETG", "Basic", "Translucent Light Blue", "#61B0FF80"),
-        MaterialColor("U0", "PETG", "Basic", "Translucent Purple", "#D6ABFF80"),
-        MaterialColor("V0", "PETG", "Basic", "Translucent Olive", "#748C4580"),
-        MaterialColor("S0", "PETG", "Basic", "Translucent Gray", "#80808080"),
-        
-        // ABS Basic colors
+        // ABS Basic
+        MaterialColor("A0", "ABS", "Basic", "Orange", "#FF6A13"),
+        MaterialColor("B0", "ABS", "Basic", "Blue", "#0A2CA5"),
+        MaterialColor("B4", "ABS", "Basic", "Azure", "#489FDF"),
+        MaterialColor("B6", "ABS", "Basic", "Navy Blue", "#0C2340"),
+        MaterialColor("D1", "ABS", "Basic", "Silver", "#87909A"),
+        MaterialColor("G6", "ABS", "Basic", "Bambu Green", "#00AE42"),
+        MaterialColor("G7", "ABS", "Basic", "Olive", "#789D4A"),
         MaterialColor("K0", "ABS", "Basic", "Black", "#000000"),
-        MaterialColor("W0", "ABS", "Basic", "White", "#FFFFFF"),
         MaterialColor("R0", "ABS", "Basic", "Red", "#D32941"),
-        MaterialColor("G0", "ABS", "Basic", "Green", "#00AE42"),
-        MaterialColor("B0", "ABS", "Basic", "Navy Blue", "#0C2340"),
-        MaterialColor("Y0", "ABS", "Basic", "Yellow", "#FFC72C"),
-        MaterialColor("O0", "ABS", "Basic", "Orange", "#FF6A13"),
-        MaterialColor("S0", "ABS", "Basic", "Silver", "#87909A"),
+        MaterialColor("W0", "ABS", "Basic", "White", "#FFFFFF"),
+        MaterialColor("Y1", "ABS", "Basic", "Tangerine Yellow", "#FFC72C"),
         
-        // ASA Basic colors
+        // ASA Basic
+        MaterialColor("D0", "ASA", "Basic", "Gray", "#8A949E"),
         MaterialColor("K0", "ASA", "Basic", "Black", "#000000"),
-        MaterialColor("W0", "ASA", "Basic", "White", "#F5F5F5"),
-        MaterialColor("R0", "ASA", "Basic", "Red", "#E02928"),
-        MaterialColor("G0", "ASA", "Basic", "Green", "#00A6A0"),
-        MaterialColor("B0", "ASA", "Basic", "Blue", "#2140B4"),
-        MaterialColor("Y0", "ASA", "Basic", "Yellow", "#FFD700"),
-        MaterialColor("S0", "ASA", "Basic", "Silver", "#C0C0C0"),
+        MaterialColor("W0", "ASA", "Basic", "White", "#FFFFFF"),
         
-        // TPU 90A colors
-        MaterialColor("K0", "TPU", "90A", "Black", "#101820"),
-        MaterialColor("W0", "TPU", "90A", "White", "#FFFAF0"),
-        MaterialColor("C0", "TPU", "90A", "Clear", "#F8F8FF80"),
-        MaterialColor("R0", "TPU", "90A", "Red", "#C8102E"),
-        MaterialColor("G0", "TPU", "90A", "Neon Green", "#90FF1A"),
-        MaterialColor("B0", "TPU", "90A", "Blue", "#0072CE"),
-        MaterialColor("Y0", "TPU", "90A", "Yellow", "#F3E600"),
-        MaterialColor("O0", "TPU", "90A", "Neon Orange", "#F68B1B"),
+        // ASA Aero
+        MaterialColor("W0", "ASA", "Aero", "White", "#E9E4D9"),
         
-        // PC Basic colors
+        // PA PA6-GF
+        MaterialColor("K0", "PA", "PA6-GF", "Black", "#000000"),
+        
+        // PA PAHT-CF
+        MaterialColor("K0", "PA", "PAHT-CF", "Black", "#000000"),
+        
+        // PC Basic
         MaterialColor("K0", "PC", "Basic", "Black", "#000000"),
-        MaterialColor("W0", "PC", "Basic", "White", "#F5F5F5"),
-        MaterialColor("C0", "PC", "Basic", "Clear", "#F0F8FF80"),
-        MaterialColor("R0", "PC", "Basic", "Red", "#DC143C"),
-        MaterialColor("B0", "PC", "Basic", "Blue", "#4169E1"),
-        MaterialColor("X0", "PC", "Basic", "Transparent", "#F0F8FF60"),
+        MaterialColor("W0", "PC", "Basic", "White", "#FFFFFF"),
         
-        // PA Basic colors
-        MaterialColor("W0", "PA", "Basic", "White", "#F5F5F5"),
-        MaterialColor("K0", "PA", "Basic", "Black Sparkle", "#2D2B28"),
-        MaterialColor("G0", "PA", "Basic", "Green Sparkle", "#3F5443"),
-        MaterialColor("R0", "PA", "Basic", "Red Sparkle", "#792B36"),
+        // PETG Basic
+        MaterialColor("A0", "PETG", "HF", "Orange", "#FF671F"),
+        MaterialColor("K0", "PETG", "HF", "Black", "#000000"),
+        MaterialColor("R0", "PETG", "HF", "Red", "#D6001C"),
+        MaterialColor("W0", "PETG", "HF", "White", "#FFFFFF"),
         
-        // Support colors
-        MaterialColor("W0", "PVA", "Basic", "White", "#F5F5F5"),
-        MaterialColor("W0", "SUPPORT", "Basic", "White", "#F5F5F5")
+        // PETG CF
+        MaterialColor("K0", "PETG", "CF", "Black", "#000000"),
+        MaterialColor("P7", "PETG", "CF", "Violet Purple", "#583061"),
+        
+        // PETG HF
+        MaterialColor("A0", "PETG", "HF", "Orange", "#F75403"),
+        MaterialColor("B0", "PETG", "HF", "Blue", "#002E96"),
+        MaterialColor("B1", "PETG", "HF", "Lake Blue", "#1F79E5"),
+        MaterialColor("D0", "PETG", "HF", "Gray", "#ADB1B2"),
+        MaterialColor("D1", "PETG", "HF", "Dark Gray", "#515151"),
+        MaterialColor("G0", "PETG", "HF", "Green", "#00AE42"),
+        MaterialColor("G1", "PETG", "HF", "Lime Green", "#6EE53C"),
+        MaterialColor("G2", "PETG", "HF", "Forest Green", "#39541A"),
+        MaterialColor("K0", "PETG", "HF", "Black", "#000000"),
+        MaterialColor("N1", "PETG", "HF", "Peanut Brown", "#875718"),
+        MaterialColor("R0", "PETG", "HF", "Red", "#BC0900"),
+        MaterialColor("W0", "PETG", "HF", "White", "#FFFFFF"),
+        MaterialColor("Y0", "PETG", "HF", "Yellow", "#FFD00B"),
+        MaterialColor("Y1", "PETG", "HF", "Cream", "#F9DFB9"),
+        
+        // PETG Translucent
+        MaterialColor("A0", "PETG", "Translucent", "Translucent Orange", "#FF911A80"),
+        MaterialColor("B0", "PETG", "Translucent", "Translucent Light Blue", "#61B0FF80"),
+        MaterialColor("C0", "PETG", "Translucent", "Clear", "#00000000"),
+        MaterialColor("D0", "PETG", "Translucent", "Translucent Gray", "#8E8E8E80"),
+        MaterialColor("G0", "PETG", "Translucent", "Translucent Olive", "#748C4580"),
+        MaterialColor("G1", "PETG", "Translucent", "Translucent Teal", "#77EDD780"),
+        MaterialColor("N0", "PETG", "Translucent", "Translucent Brown", "#C9A38180"),
+        MaterialColor("P1", "PETG", "Translucent", "Translucent Pink", "#F9C1BD80"),
+        
+        // PLA Aero
+        MaterialColor("K0", "PLA", "Aero", "Black", "#000000"),
+        MaterialColor("W0", "PLA", "Aero", "White", "#FFFFFF"),
+        
+        // PLA Basic
+        MaterialColor("A0", "PLA", "Basic", "Orange", "#FF6A13"),
+        MaterialColor("A1", "PLA", "Basic", "Pumpkin Orange", "#FF9016"),
+        MaterialColor("B1", "PLA", "Basic", "Blue Grey", "#5B6579"),
+        MaterialColor("B3", "PLA", "Basic", "Cobalt Blue", "#0056B8"),
+        MaterialColor("B5", "PLA", "Basic", "Turquoise", "#00B1B7"),
+        MaterialColor("B8", "PLA", "Basic", "Cyan", "#0086D6"),
+        MaterialColor("B9", "PLA", "Basic", "Blue", "#0A2989"),
+        MaterialColor("D0", "PLA", "Basic", "Gray", "#8E9089"),
+        MaterialColor("D1", "PLA", "Basic", "Silver", "#A6A9AA"),
+        MaterialColor("D2", "PLA", "Basic", "Light Gray", "#D1D3D5"),
+        MaterialColor("D3", "PLA", "Basic", "Dark Gray", "#545454"),
+        MaterialColor("G1", "PLA", "Basic", "Bambu Green", "#00AE42"),
+        MaterialColor("G2", "PLA", "Basic", "Mistletoe Green", "#3F8E43"),
+        MaterialColor("G3", "PLA", "Basic", "Bright Green", "#BECF00"),
+        MaterialColor("G6", "PLA", "Basic", "Bambu Green", "#00AE42"),
+        MaterialColor("K0", "PLA", "Basic", "Black", "#000000"),
+        MaterialColor("K1", "PLA", "Basic", "Black", "#000000"),
+        MaterialColor("N0", "PLA", "Basic", "Brown", "#9D432C"),
+        MaterialColor("N1", "PLA", "Basic", "Cocoa Brown", "#6F5034"),
+        MaterialColor("P0", "PLA", "Basic", "Beige", "#F7E6DE"),
+        MaterialColor("P1", "PLA", "Basic", "Pink", "#F55A74"),
+        MaterialColor("P2", "PLA", "Basic", "Indigo Purple", "#482960"),
+        MaterialColor("P5", "PLA", "Basic", "Purple", "#5E43B7"),
+        MaterialColor("P6", "PLA", "Basic", "Magenta", "#EC008C"),
+        MaterialColor("R0", "PLA", "Basic", "Red", "#C12E1F"),
+        MaterialColor("R2", "PLA", "Basic", "Maroon Red", "#9D2235"),
+        MaterialColor("R3", "PLA", "Basic", "Hot Pink", "#F5547C"),
+        MaterialColor("W1", "PLA", "Basic", "Jade White", "#FFFFFF"),
+        MaterialColor("Y0", "PLA", "Basic", "Yellow", "#F4EE2A"),
+        MaterialColor("Y2", "PLA", "Basic", "Sunflower Yellow", "#FEC600"),
+        MaterialColor("Y4", "PLA", "Basic", "Gold", "#E4BD68"),
+        
+        // PLA Basic Gradient
+        MaterialColor("M0", "PLA", "Basic Gradient", "Arctic Whisper", "#9CDBD9FF / #FFFFFF"),
+        MaterialColor("M1", "PLA", "Basic Gradient", "Solar Breeze", "#E94B3CFF / #FFFFFF"),
+        MaterialColor("M2", "PLA", "Basic Gradient", "Ocean to Meadow", "#307FE2FF / #54FF9B"),
+        MaterialColor("M3", "PLA", "Basic Gradient", "Pink Citrus", "#F78F77FF / #E4505A"),
+        MaterialColor("M4", "PLA", "Basic Gradient", "Mint Lime", "#B6FF43FF / #4EC939"),
+        MaterialColor("M5", "PLA", "Basic Gradient", "Blueberry Bubblegum", "#6FCAEFFF / #8573DD"),
+        MaterialColor("M6", "PLA", "Basic Gradient", "Dusk Glare", "#CE4406FF / #ED9558"),
+        MaterialColor("M7", "PLA", "Basic Gradient", "Cotton Candy Cloud", "#E7C1D5FF / #8EC9E9"),
+        
+        // PLA Galaxy
+        MaterialColor("B0", "PLA", "Galaxy", "Purple", "#594177"),
+        MaterialColor("G0", "PLA", "Galaxy", "Green", "#3B665E"),
+        MaterialColor("G1", "PLA", "Galaxy", "Nebulae", "#424379"),
+        MaterialColor("R0", "PLA", "Galaxy", "Brown", "#684A43"),
+        
+        // PLA Glow
+        MaterialColor("A0", "PLA", "Glow", "Orange", "#FF9D5B"),
+        MaterialColor("B0", "PLA", "Glow", "Blue", "#7AC0E9"),
+        MaterialColor("G0", "PLA", "Glow", "Green", "#A1FFAC"),
+        MaterialColor("R0", "PLA", "Glow", "Pink", "#F17B8F"),
+        MaterialColor("Y0", "PLA", "Glow", "Yellow", "#F8FF80"),
+        
+        // PLA Lite
+        MaterialColor("B0", "PLA", "Lite", "Cyan", "#4DAFDA"),
+        MaterialColor("B1", "PLA", "Lite", "Blue", "#004EA8"),
+        MaterialColor("D0", "PLA", "Lite", "Gray", "#999D9D"),
+        MaterialColor("K0", "PLA", "Lite", "Black", "#000000"),
+        MaterialColor("P0", "PLA", "Lite", "Matte Beige", "#ECC3B2"),
+        MaterialColor("R0", "PLA", "Lite", "Red", "#C6001A"),
+        MaterialColor("W0", "PLA", "Lite", "White", "#FFFFFF"),
+        MaterialColor("Y0", "PLA", "Lite", "Yellow", "#EFE255"),
+        
+        // PLA Marble
+        MaterialColor("D4", "PLA", "Marble", "White Marble", "#F7F3F0"),
+        MaterialColor("R5", "PLA", "Marble", "Red Granite", "#AD4E38"),
+        
+        // PLA Matte
+        MaterialColor("A2", "PLA", "Matte", "Lemon Yellow", "#F99963"),
+        MaterialColor("B0", "PLA", "Matte", "Sky Blue", "#56B7E6"),
+        MaterialColor("B3", "PLA", "Matte", "Marine Blue", "#0078BF"),
+        MaterialColor("B4", "PLA", "Matte", "Ice Blue", "#A3D8E1"),
+        MaterialColor("B6", "PLA", "Matte", "Dark Blue", "#042F56"),
+        MaterialColor("D0", "PLA", "Matte", "Nardo Gray", "#757575"),
+        MaterialColor("D3", "PLA", "Matte", "Ash Grey", "#9B9EA0"),
+        MaterialColor("G0", "PLA", "Matte", "Apple Green", "#C2E189"),
+        MaterialColor("G1", "PLA", "Matte", "Grass Green", "#61C680"),
+        MaterialColor("G7", "PLA", "Matte", "Dark Green", "#68724D"),
+        MaterialColor("K1", "PLA", "Matte", "Charcoal", "#000000"),
+        MaterialColor("N0", "PLA", "Matte", "Dark Chocolate", "#4D3324"),
+        MaterialColor("N1", "PLA", "Matte", "Latte Brown", "#D3B7A7"),
+        MaterialColor("N2", "PLA", "Matte", "Dark Brown", "#7D6556"),
+        MaterialColor("N3", "PLA", "Matte", "Caramel", "#AE835B"),
+        MaterialColor("P3", "PLA", "Matte", "Sakura Pink", "#E8AFCF"),
+        MaterialColor("P4", "PLA", "Matte", "Lilac Purple", "#AE96D4"),
+        MaterialColor("R1", "PLA", "Matte", "Scarlet Red", "#DE4343"),
+        MaterialColor("R2", "PLA", "Matte", "Terracotta", "#B15533"),
+        MaterialColor("R3", "PLA", "Matte", "Plum", "#950051"),
+        MaterialColor("R4", "PLA", "Matte", "Dark Red", "#BB3D43"),
+        MaterialColor("W2", "PLA", "Matte", "Ivory White", "#FFFFFF"),
+        MaterialColor("W3", "PLA", "Matte", "Bone White", "#CBC6B8"),
+        MaterialColor("Y2", "PLA", "Matte", "Lemon Yellow", "#F7D959"),
+        MaterialColor("Y3", "PLA", "Matte", "Desert Tan", "#E8DBB7"),
+        
+        // PLA Metal
+        MaterialColor("B2", "PLA", "Metal", "Cobalt Blue Metallic", "#39699E"),
+        
+        // PLA PLA-CF
+        MaterialColor("K0", "PLA", "PLA-CF", "Black", "#000000"),
+        
+        // PLA Silk
+        MaterialColor("B0", "PLA", "Silk", "Blue", "#147BD1"),
+        MaterialColor("P5", "PLA", "Silk", "Purple", "#854CE4"),
+        
+        // PLA Silk Multi-Color
+        MaterialColor("M1", "PLA", "Silk Multi-Color", "South Beach", "#F772A4FF / #00918B"),
+        MaterialColor("M8", "PLA", "Silk Multi-Color", "Dawn Radiance", "#EC984CFF / #6CD4BC"),
+        MaterialColor("T1", "PLA", "Silk Multi-Color", "Gilded Rose (Pink-Gold)", "#FF9425FF / #C16784"),
+        MaterialColor("T2", "PLA", "Silk Multi-Color", "Midnight Blaze (Blue-Red)", "#0047BBFF / #7D1B49"),
+        MaterialColor("T3", "PLA", "Silk Multi-Color", "Neon City (Blue-Magenta)", "#0047BBFF / #BB22A3"),
+        MaterialColor("T4", "PLA", "Silk Multi-Color", "Blue Hawaii (Blue-Green)", "#418FDEFF / #70C884"),
+        MaterialColor("T5", "PLA", "Silk Multi-Color", "Velvet Eclipse (Black-Red)", "#000000FF / #A34342"),
+        
+        // PLA Silk+
+        MaterialColor("B0", "PLA", "Silk+", "Baby Blue", "#A8C6EE"),
+        MaterialColor("B1", "PLA", "Silk+", "Blue", "#008BDA"),
+        MaterialColor("D0", "PLA", "Silk+", "Titan Gray", "#5F6367"),
+        MaterialColor("D1", "PLA", "Silk+", "Silver", "#C8C8C8"),
+        MaterialColor("G0", "PLA", "Silk+", "Candy Green", "#018814"),
+        MaterialColor("G1", "PLA", "Silk+", "Mint", "#96DCB9"),
+        MaterialColor("R0", "PLA", "Silk+", "Candy Red", "#D02727"),
+        MaterialColor("R1", "PLA", "Silk+", "Rose Gold", "#BA9594"),
+        MaterialColor("R2", "PLA", "Silk+", "Pink", "#F7ADA6"),
+        MaterialColor("W0", "PLA", "Silk+", "White", "#FFFFFF"),
+        MaterialColor("Y0", "PLA", "Silk+", "Champagne", "#F3CFB2"),
+        MaterialColor("Y1", "PLA", "Silk+", "Gold", "#F4A925"),
+        
+        // PLA Sparkle
+        MaterialColor("B7", "PLA", "Sparkle", "Royal Purple", "#483D8B"),
+        MaterialColor("D5", "PLA", "Sparkle", "Slate Gray Sparkle", "#8E9089"),
+        MaterialColor("G3", "PLA", "Sparkle", "Alpine Green Sparkle", "#3F5443"),
+        MaterialColor("K2", "PLA", "Sparkle", "Onyx Black Sparkle", "#2D2B28"),
+        MaterialColor("R2", "PLA", "Sparkle", "Crimson Red Sparkle", "#792B36"),
+        MaterialColor("Y1", "PLA", "Sparkle", "Classic Gold Sparkle", "#CEA629"),
+        
+        // PLA Tough
+        MaterialColor("A0", "PLA", "Tough", "Orange", "#FF7F41"),
+        MaterialColor("B4", "PLA", "Tough", "Light Blue", "#0085AD"),
+        MaterialColor("B5", "PLA", "Tough", "Lavender Blue", "#6667AB"),
+        MaterialColor("D1", "PLA", "Tough", "Silver", "#898D8D"),
+        MaterialColor("R3", "PLA", "Tough", "Vermilion Red", "#C00D1E"),
+        MaterialColor("Y0", "PLA", "Tough", "Yellow", "#FEDB00"),
+        
+        // PLA Wood
+        MaterialColor("G0", "PLA", "Wood", "Classic Birch", "#918669"),
+        MaterialColor("K0", "PLA", "Wood", "Black Walnut", "#4F3F24"),
+        MaterialColor("N0", "PLA", "Wood", "Clay Brown", "#995F11"),
+        MaterialColor("R0", "PLA", "Wood", "Rosewood", "#3F231C"),
+        MaterialColor("W0", "PLA", "Wood", "White Oak", "#D6CCA3"),
+        MaterialColor("Y0", "PLA", "Wood", "Ochre Yellow", "#C98935"),
+        
+        // Support PVA
+        MaterialColor("Y0", "PVA", "Basic", "Clear", "#F0F1A880"),
+        
+        // Support Support for ABS
+        MaterialColor("W0", "SUPPORT", " ABS", "White", "#FFFFFF"),
+        
+        // Support Support for PLA-PETG
+        MaterialColor("C0", "SUPPORT", " PLA-PETG", "Black", "#00000000"),
+        MaterialColor("W0", "SUPPORT", " PLA-PETG", "White", "#FFFFFF"),
+        
+        // TPU 90A
+        MaterialColor("B0", "TPU", "90A", "Blue", "#5898DD"),
+        MaterialColor("D0", "TPU", "90A", "Gray", "#939393"),
+        MaterialColor("K0", "TPU", "90A", "Black", "#000000"),
     )
 
     /**
