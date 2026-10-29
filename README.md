@@ -1,5 +1,7 @@
 # B-Scan - Universal Inventory Management
 
+[![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white)](https://github.com/ExaDev/b-scan) [![Release](https://img.shields.io/github/v/release/ExaDev/b-scan)](https://github.com/ExaDev/b-scan/releases/latest) [![CI](https://img.shields.io/github/actions/workflow/status/ExaDev/b-scan/ci.yml?branch=main)](https://github.com/ExaDev/b-scan/actions)
+
 **Track anything, anywhere, with any identifier.**
 
 B-Scan is a modern Android app that helps you organise your inventory using whatever identification method works best for you. Whether you're scanning RFID tags on 3D printer filament, reading QR codes on equipment, or simply typing in serial numbers, B-Scan adapts to your workflow.
